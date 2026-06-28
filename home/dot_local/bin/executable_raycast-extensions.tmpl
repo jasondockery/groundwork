@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+catalog="${GROUNDWORK_RAYCAST_EXTENSIONS_CATALOG:-$HOME/.local/share/groundwork/raycast-extensions.tsv}"
+work_machine="{{ .work }}"
+tier="recommended"
+open_links="false"
+
+usage() {
+  cat <<'EOF'
+Usage: raycast-extensions [options]
+
+List or open the Groundwork-recommended Raycast extensions and setup pages.
+
+Options:
+  --tier recommended|core|tabs|ai|all
+  --open                         Open matching Raycast Store/manual links
+  -h, --help                     Show this help
+
+Examples:
+  raycast-extensions
+  raycast-extensions --tier tabs --open
+  raycast-extensions --tier ai --open
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tier)
+      tier="${2:-}"
+      shift 2
+      ;;
+    --open)
+      open_links="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "$tier" in
+  recommended|core|tabs|ai|all) ;;
+  *)
+    echo "unsupported tier: $tier" >&2
+    exit 2
+    ;;
+esac
+
+if [[ ! -f "$catalog" ]]; then
+  echo "missing catalog: $catalog" >&2
+  exit 1
+fi
+
+should_show() {
+  local row_tier="$1"
+  local row_scope="$2"
+
+  if [[ "$row_scope" == "personal" && "$work_machine" == "true" && "$tier" != "all" ]]; then
+    return 1
+  fi
+
+  case "$tier" in
+    recommended)
+      [[ "$row_tier" == "core" || "$row_tier" == "tabs" ]]
+      ;;
+    all)
+      return 0
+      ;;
+    *)
+      [[ "$row_tier" == "$tier" ]]
+      ;;
+  esac
+}
+
+printed="false"
+while IFS=$'\t' read -r row_tier row_scope name url notes; do
+  [[ -z "${row_tier:-}" || "$row_tier" == \#* ]] && continue
+  should_show "$row_tier" "$row_scope" || continue
+  [[ -n "$url" && "$url" != "-" ]] || continue
+  printed="true"
+
+  if [[ "$open_links" == "true" ]]; then
+    open "$url"
+  else
+    printf '%-8s %-10s %s\n' "$row_tier" "$row_scope" "$name"
+    printf '  %s\n' "$url"
+    printf '  %s\n\n' "$notes"
+  fi
+done < "$catalog"
+
+if [[ "$printed" == "false" ]]; then
+  echo "no matching Raycast extension links found"
+fi

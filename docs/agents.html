@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI agents &amp; project instructions — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html" class="active">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">AI-native development</p>
+      <h1>Use one agent contract, then teach tools to point at it.</h1>
+      <p class="lead">The goal is boring in the best way: every coding assistant sees the same project expectations, and tool-specific files stay tiny. That keeps instructions easy to audit, easy to teach, and hard to accidentally contradict.</p>
+
+      <div class="callout note">
+        <span class="label">Current pattern</span>
+        <p><code>AI_THESIS.md</code> is the canonical north star. <code>AGENTS.md</code> is the operational repo contract. Tool-specific files should be thin adapters or rendered wrappers, not parallel policy documents.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The file layout</h2>
+      <table class="keytable">
+        <tr><td><code>AI_THESIS.md</code></td><td>The canonical AI-native north star. It points to <code>home/.chezmoitemplates/ai-thesis.md</code>, so the same source can render into global agent adapters.</td></tr>
+        <tr><td><code>AGENTS.md</code></td><td>The operational project contract: how to work, how to verify, what not to break, and what a good finish looks like.</td></tr>
+        <tr><td><code>home/dot_claude/CLAUDE.md.tmpl</code></td><td>Renders the shared thesis plus a short Claude-only adapter into <code>~/.claude/CLAUDE.md</code>.</td></tr>
+        <tr><td><code>home/dot_codex/AGENTS.md.tmpl</code></td><td>Renders the shared thesis plus a short Codex-only adapter into <code>~/.codex/AGENTS.md</code>.</td></tr>
+        <tr><td><code>skills/</code></td><td>The canonical repo-local procedures. Each skill is a folder with a <code>SKILL.md</code> entrypoint, used for work that is repeated and easy to get subtly wrong.</td></tr>
+        <tr><td><code>.claude/skills</code></td><td>A symlink to <code>skills/</code> so Claude Code can discover project skills through its normal project-skill path.</td></tr>
+        <tr><td><code>.codex/skills</code></td><td>A symlink to <code>skills/</code> for tools that support a Codex-style skill directory. Keep the source in <code>skills/</code>, not copied per tool.</td></tr>
+        <tr><td><code>AI_RULES.md</code></td><td>Not needed here. Add it only in larger repos where durable policy grows too large for <code>AGENTS.md</code>.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>What belongs where</h2>
+      <p>Use the narrowest durable home for each kind of guidance:</p>
+      <table class="keytable">
+        <tr><td><code>AI_THESIS.md</code></td><td>Product direction: what Groundwork is, why it is AI-native, and the operating principles that prevent drift.</td></tr>
+        <tr><td><code>AGENTS.md</code></td><td>Repo operations: working style, safety, Git, verification, docs style, and source-of-truth rules.</td></tr>
+        <tr><td><code>skills/</code></td><td>Repeatable procedures such as docs alignment, validation, chezmoi changes, and macOS defaults.</td></tr>
+        <tr><td>Tool adapters</td><td>Only tool-specific discovery notes. Shared policy belongs elsewhere.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>What belongs in AGENTS.md</h2>
+      <p>Write the things you would tell a capable new teammate before they make their first change:</p>
+      <ul>
+        <li>How the project is organized.</li>
+        <li>How to install, build, test, lint, and preview changes.</li>
+        <li>Code style, doc style, naming conventions, and commit conventions.</li>
+        <li>Safety rules: secrets, destructive commands, migrations, production data, and generated files.</li>
+        <li>What verification means before the agent says it is done.</li>
+      </ul>
+      <p>Keep it short enough that an agent can read it every time. If a section turns into a long procedure, move that procedure into a skill or a normal doc and link to it. If it is about Groundwork's long-term AI-native direction, put it in <code>AI_THESIS.md</code> instead.</p>
+
+      <h2><span class="hash">#</span>When a skill is worth creating</h2>
+      <p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong. It is not a second rulebook.</p>
+      <p>In Groundwork, repo-local skills include <code>docs-alignment</code>, <code>chezmoi-change</code>, <code>macos-default-change</code>, and <code>validate-groundwork</code>. They cover the exact places where hidden coupling matters: keeping docs aimed at <code>AI_THESIS.md</code>, managed files, macOS defaults plus backup/restore, and release validation.</p>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Good skill</h3>
+          <p>"Create a verified PowerPoint deck from this template." It has steps, assets, validation, and a clear finish line.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Bad skill</h3>
+          <p>"Always write clean code and run tests." That belongs in <code>AGENTS.md</code>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Good adapter</h3>
+          <p>"Claude Code: read <code>AGENTS.md</code>; use <code>@file</code> references when asking about a specific file." Tool behavior lives here, shared policy does not.</p>
+        </div>
+      </div>
+      <div class="callout warn">
+        <span class="label">Do not hide critical rules in skills</span>
+        <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Daily agent practice</h2>
+      <p>Practice with agents the same way you practice Vim or tmux: small loops, repeated often, with a human checking the result.</p>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Read first</h3>
+          <p>Ask the agent to inspect a config or doc and summarize how it works. Then open the file yourself and see what it missed.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">10</div>
+        <div class="body">
+          <h3>Make one small change</h3>
+          <p>Ask for a narrow edit, review the diff, run the check, and ask the agent to explain the risk in one paragraph.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">15</div>
+        <div class="body">
+          <h3>Extract a durable rule</h3>
+          <p>If the same correction happens twice, decide whether it belongs in <code>AGENTS.md</code>, a doc, a test, or nowhere. Most preferences do not deserve a permanent rule.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>External references</h2>
+      <ul>
+        <li><a href="https://agents.md/" target="_blank" rel="noopener">AGENTS.md</a> — the open cross-tool format for coding-agent instructions.</li>
+        <li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Claude Code skills</a> — project skills, <code>SKILL.md</code>, and skill discovery paths.</li>
+        <li><a href="https://code.claude.com/docs/en/common-workflows" target="_blank" rel="noopener">Claude Code common workflows</a> — how Claude Code references files and uses project memory.</li>
+        <li><a href="https://developers.openai.com/codex" target="_blank" rel="noopener">OpenAI Codex docs</a> — OpenAI's coding-agent docs and workflows.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="knowledge.html"><span class="dir">Previous</span>Knowledge base</a>
+        <a href="installed.html"><span class="dir">Next →</span>What's installed</a>
+      </div>
+      <footer class="site">Built to be rebuilt. Open source, no tracking, works offline.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>macOS shortcuts &amp; windows — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html" class="active">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">macOS</p>
+      <h1>Window, tab, display, and app shortcuts for daily Mac work.</h1>
+      <p class="lead">tmux manages panes inside the terminal. macOS manages everything around it: app windows, browser tabs, full-screen spaces, displays, and the links you open all day. The best setup here is native macOS plus Raycast, Anybox, and BetterDisplay.</p>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — common Mac window keys</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>Tab</kbd></span> <span class="act">switch apps</span></div>
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>`</kbd></span> <span class="act">cycle windows in the front app</span></div>
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>N</kbd></span> <span class="act">new window</span></div>
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>T</kbd></span> <span class="act">new tab</span></div>
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>W</kbd></span> <span class="act">close tab/window</span></div>
+          <div class="qr"><span class="keys"><kbd>⌘</kbd><kbd>Q</kbd></span> <span class="act">quit app</span></div>
+          <div class="qr"><span class="keys"><kbd>⌃</kbd><kbd>⌘</kbd><kbd>F</kbd></span> <span class="act">toggle full screen</span></div>
+          <div class="qr"><span class="keys"><kbd>⌃</kbd><kbd>↑</kbd></span> <span class="act">Mission Control</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>The mental model</h2>
+      <table class="keytable">
+        <tr><td><strong>macOS</strong></td><td>Owns apps, windows, tabs, spaces, full screen, Mission Control, and system shortcuts.</td></tr>
+        <tr><td><strong>Raycast</strong></td><td>Owns <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>, launcher, clipboard history, snippets, quick commands, and normal window snapping.</td></tr>
+        <tr><td><strong>Anybox</strong></td><td>Owns saved links, reading material, project bookmarks, and quick link recall. Open it from Raycast or its own hotkey.</td></tr>
+        <tr><td><strong>BetterDisplay</strong></td><td>Owns display resolutions, refresh rates, brightness/DDC, display presets, and external-monitor fixes.</td></tr>
+        <tr><td><strong>tmux</strong></td><td>Owns terminal panes and project sessions after Ghostty is open.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Developer settings and profiles</h2>
+      <p>macOS uses the word "profile" for several different things. Keep them separate:</p>
+      <table class="keytable">
+        <tr><td><strong>Command Line Tools</strong></td><td>Install once with <code>xcode-select --install</code>. This gives Git, compilers, headers, and the normal build tools.</td></tr>
+        <tr><td><strong>Apple Developer account</strong></td><td>For Xcode app signing, sign in manually in Xcode Settings → Accounts. Certificates and provisioning profiles belong in Keychain/Xcode, not dotfiles.</td></tr>
+        <tr><td><strong>Provisioning profiles</strong></td><td>Use Xcode's automatic signing when possible. If someone gives you a profile file, open it with Xcode/Finder; do not commit it to this repo.</td></tr>
+        <tr><td><strong>Configuration profiles</strong></td><td><code>.mobileconfig</code> files are device-management settings. Install them manually or through MDM. Treat them like admin/security policy, not normal dotfiles.</td></tr>
+        <tr><td><strong>Developer Mode / debugger privileges</strong></td><td>Leave this manual. If Xcode or Instruments asks, approve it then. <code>DevToolsSecurity -enable</code> removes repeated admin prompts for Apple-signed debugging tools, so it should be an intentional local choice.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">What Groundwork safely sets</span>
+        <p>This repo applies safe developer conveniences: file extensions and hidden files visible, Finder path/status bars, <code>~/Library</code> visible, fast key repeat, press-and-hold disabled for Vim, Safari's Develop menu enabled, Chrome password manager disabled when a third-party manager is configured, and the terminal/editor/toolchain setup.</p>
+      </div>
+      <div class="callout warn">
+        <span class="label">What stays manual</span>
+        <p>Do not automate Apple Developer certificates, provisioning profiles, MDM/configuration profiles, Gatekeeper changes, reduced-security boot settings, or debugger authorization prompts in shared setup repos. Those are identity and security boundaries, and each Mac/user should approve them deliberately.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Windows, tabs, and apps</h2>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>Tab</kbd></span></td><td>Switch apps. Hold <kbd>⌘</kbd> and tap <kbd>Tab</kbd> repeatedly to choose.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>`</kbd></span></td><td>Cycle through windows of the current app. This is the one people miss when they come from Windows.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>N</kbd></span></td><td>Open a new window in the current app.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>T</kbd></span></td><td>Open a new tab in apps that support tabs.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>W</kbd></span></td><td>Close the front tab or window. In browsers this closes the active tab first.</td></tr>
+        <tr><td><span class="keys"><kbd>⇧</kbd><kbd>⌘</kbd><kbd>T</kbd></span></td><td>Reopen the last closed tab in browsers and several tabbed apps.</td></tr>
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>Tab</kbd></span> / <span class="keys"><kbd>⇧</kbd><kbd>⌘</kbd><kbd>]</kbd></span></td><td>Next tab in many browsers and tabbed apps.</td></tr>
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>⇧</kbd><kbd>Tab</kbd></span> / <span class="keys"><kbd>⇧</kbd><kbd>⌘</kbd><kbd>[</kbd></span></td><td>Previous tab in many browsers and tabbed apps.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>H</kbd></span></td><td>Hide the current app without quitting it.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>M</kbd></span></td><td>Minimize the front window to the Dock. Hiding is usually cleaner than minimizing.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>Q</kbd></span></td><td>Quit the current app.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>,</kbd></span></td><td>Open settings/preferences for the current app.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Full screen, spaces, and Mission Control</h2>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>⌘</kbd><kbd>F</kbd></span></td><td>Enter or exit full screen in apps that support it.</td></tr>
+        <tr><td><span class="keys"><kbd>Esc</kbd></span></td><td>Exit some full-screen modes, especially browser/video full screen.</td></tr>
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>↑</kbd></span></td><td>Open Mission Control to see windows and spaces.</td></tr>
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>↓</kbd></span></td><td>Show windows for the current app.</td></tr>
+        <tr><td><span class="keys"><kbd>⌃</kbd><kbd>←</kbd> / <kbd>→</kbd></span></td><td>Move between spaces/desktops.</td></tr>
+        <tr><td><span class="keys"><kbd>⌘</kbd><kbd>Mission Control</kbd></span></td><td>Show the desktop.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Use full screen sparingly</span>
+        <p>Full screen creates a separate space, which is great for focus but can make window switching feel jumpy. For daily development, Raycast left/right/maximize commands are often faster than full-screen mode.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Window management: Raycast first</h2>
+      <p>Raycast is the default window manager for this setup. It is already installed, it is keyboard-first, and its Window Management commands cover the normal moves: maximize, left/right half, quarters, thirds, center, restore, move to display, move to space, and custom layouts.</p>
+      <p>Anybox does not manage windows. It manages saved links. If you saw translucent layout zones while dragging a window, that was macOS's native drag-to-edge tiling overlay, not Raycast. Raycast window management is command- and hotkey-driven: invoke a layout or bind a hotkey and the frontmost window moves immediately.</p>
+      <p>Raycast AI is optional. Leave it off while learning the basics unless you specifically want Raycast's AI chat, AI commands, or model integrations on that Mac. For the extension checklist, run <code>raycast-extensions</code>; it opens the recommended Store entries for Browser Bookmarks, Browser Tabs, Anybox, GitHub, Homebrew, VS Code/Cursor project openers, and optional AI integrations.</p>
+      <table class="keytable">
+        <tr><td><strong>Left half / Right half</strong></td><td>Assign direct hotkeys for the focused window. Use these constantly.</td></tr>
+        <tr><td><strong>Maximize</strong></td><td>Prefer this to macOS full screen when you still want fast app/window switching.</td></tr>
+        <tr><td><strong>Move to next display</strong></td><td>Essential with an external monitor.</td></tr>
+        <tr><td><strong>Restore</strong></td><td>Undo the last Raycast window move.</td></tr>
+        <tr><td><strong>Create Layout</strong></td><td>Use for recurring setups: browser left, terminal right, Slack small on the laptop display.</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">Recommended hotkeys</span>
+        <p>Pick one modifier family and keep it consistent. A simple set is <kbd>⌃</kbd><kbd>⌥</kbd><kbd>←</kbd> for left half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>→</kbd> for right half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↑</kbd> for maximize, and <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↓</kbd> for restore.</p>
+      </div>
+      <p>Rectangle and Magnet are good apps, but they duplicate Raycast for this setup. Add one only if you want a dedicated window manager with its own preferences, importable presets, or advanced snapping behavior beyond Raycast.</p>
+
+      <h2><span class="hash">#</span>Displays and resolutions: BetterDisplay</h2>
+      <p>BetterDisplay is the right app for changing resolution from the menu bar, creating favorites, controlling external monitor brightness/input when supported, and protecting display layouts. It complements Raycast; it does not replace it.</p>
+      <table class="keytable">
+        <tr><td><strong>Resolution presets</strong></td><td>Save the display modes you actually use and switch from the menu bar or keyboard.</td></tr>
+        <tr><td><strong>Refresh rate</strong></td><td>Expose and switch refresh rates that macOS sometimes buries.</td></tr>
+        <tr><td><strong>Brightness / DDC</strong></td><td>Control many external monitors with keyboard shortcuts or sliders.</td></tr>
+        <tr><td><strong>Layout protection</strong></td><td>Keep external monitor arrangements from drifting when displays reconnect.</td></tr>
+        <tr><td><strong>CLI and Shortcuts</strong></td><td>Automate display changes from scripts, Raycast, or macOS Shortcuts.</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Licensing</span>
+        <p>BetterDisplay has a free tier and a paid Pro license. Business use beyond the trial/free terms needs a license, so teams should budget it rather than quietly relying on a personal license.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Links and web recall: Anybox</h2>
+      <p>Use Anybox instead of turning every browser profile into a private bookmark island. It is the shared link library: project dashboards, docs, research, client portals, reading lists, and reusable references. Raycast launches actions; Anybox remembers links.</p>
+      <table class="keytable">
+        <tr><td><strong>Quick Save</strong></td><td>Capture the current page without leaving the browser.</td></tr>
+        <tr><td><strong>Quick Find</strong></td><td>Search saved links from the keyboard.</td></tr>
+        <tr><td><strong>Tags / folders</strong></td><td>Organize links by project, team, client, topic, or practice track.</td></tr>
+        <tr><td><strong>Raycast extension</strong></td><td>Install the Anybox extension from the Raycast Store, or run <code>open 'raycast://extensions/anybox/anybox?source=webstore'</code>. If Raycast only shows Anybox under Applications, you have the app entry, not the extension. Copy the API key from Anybox Preferences → General, then select the Search Links command row in Raycast Settings and paste it into that command's API Key preference. Turn on Search Tags, Search Folders, Show Tags, and Show Folders; leave icon view off for faster scanning.</td></tr>
+        <tr><td><strong>Browser recall</strong></td><td>Use Raycast Browser Bookmarks for bookmarks across installed browsers. Use Browser Tabs for live tabs in Safari/Chromium-family browsers. For Zen, save important tabs into Anybox and search them from Raycast; that is the reliable cross-browser layer.</td></tr>
+        <tr><td><strong>iCloud sync</strong></td><td>Keep links available on Mac, iPhone, and iPad.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Daily practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Switch without the mouse</h3>
+          <p>Open Ghostty, Zen, and Finder. Use <kbd>⌘</kbd><kbd>Tab</kbd> to switch apps, then <kbd>⌘</kbd><kbd>`</kbd> to cycle windows inside one app.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Use tabs deliberately</h3>
+          <p>Open three browser tabs with <kbd>⌘</kbd><kbd>T</kbd>, move through them with <kbd>⌃</kbd><kbd>Tab</kbd>, close one with <kbd>⌘</kbd><kbd>W</kbd>, then reopen it with <kbd>⇧</kbd><kbd>⌘</kbd><kbd>T</kbd>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Snap with Raycast</h3>
+          <p>Assign hotkeys for left half, right half, maximize, and restore. Put Ghostty on one side and Zen on the other without touching the mouse.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Save and recall a work link</h3>
+          <p>Save a project page into Anybox, tag it, then open it from Raycast or Anybox Quick Find. Do this with real links you use daily.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://support.apple.com/en-us/102650" target="_blank" rel="noopener">Apple Mac keyboard shortcuts</a></li>
+        <li><a href="https://manual.raycast.com/window-management" target="_blank" rel="noopener">Raycast Window Management</a></li>
+        <li><a href="https://betterdisplay.pro/" target="_blank" rel="noopener">BetterDisplay</a></li>
+        <li><a href="https://anybox.app/" target="_blank" rel="noopener">Anybox</a></li>
+        <li><a href="https://rectangleapp.com/" target="_blank" rel="noopener">Rectangle</a> — good dedicated fallback if Raycast window commands are not enough</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="apps.html"><span class="dir">Previous</span>Apps &amp; browsers</a>
+        <a href="keyboard.html"><span class="dir">Next →</span>Keyboard</a>
+      </div>
+      <footer class="site">Use macOS for the desktop, Raycast for motion, Anybox for links, BetterDisplay for screens.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

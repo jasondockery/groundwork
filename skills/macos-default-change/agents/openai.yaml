@@ -1,0 +1,4 @@
+interface:
+  display_name: "macos-default-change"
+  short_description: "Keep macOS defaults, backup, restore, and docs in sync."
+  default_prompt: "Use this skill to add or change a Groundwork macOS default."

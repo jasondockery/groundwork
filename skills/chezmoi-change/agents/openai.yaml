@@ -1,0 +1,4 @@
+interface:
+  display_name: "chezmoi-change"
+  short_description: "Edit and verify Groundwork-managed chezmoi files safely."
+  default_prompt: "Use this skill to change a Groundwork-managed dotfile safely."

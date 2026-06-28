@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
+{{- $extList := joinPath .chezmoi.sourceDir "vscode-extensions.txt.tmpl" }}
+{{- if stat $extList }}
+# extensions hash: {{ include "vscode-extensions.txt.tmpl" | sha256sum }}
+{{- end }}
+
+list="$HOME/vscode-extensions.txt"
+[[ -f "$list" ]] || exit 0
+
+export NODE_NO_WARNINGS=1
+
+install_into() {
+  local cmd="$1"
+  command -v "$cmd" >/dev/null || return 0
+  while IFS= read -r ext; do
+    [[ -z "$ext" || "$ext" == \#* ]] && continue
+    "$cmd" --install-extension "$ext" --force \
+      || echo "  skip: $ext unavailable in $cmd's registry" >&2
+  done < "$list"
+}
+
+install_into code
+install_into cursor
+{{- end }}

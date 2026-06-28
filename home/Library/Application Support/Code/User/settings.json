@@ -1,0 +1,102 @@
+{
+  "breadcrumbs.enabled": true,
+  "editor.acceptSuggestionOnCommitCharacter": false,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.sortImports": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "editor.minimap.enabled": false,
+  "editor.renderControlCharacters": true,
+  "editor.renderWhitespace": "all",
+  "editor.suggestSelection": "first",
+  "editor.tabCompletion": "on",
+  "editor.tabSize": 2,
+  "editor.wordBasedSuggestions": "matchingDocuments",
+  "editor.wordWrap": "on",
+  "editor.accessibilitySupport": "off",
+  "editor.fontSize": 15,
+  "editor.fontFamily": "'Geist Mono', 'JetBrainsMono Nerd Font', Menlo, Monaco, monospace",
+  "workbench.fontAliasing": "antialiased",
+  "html.autoClosingTags": true,
+  "javascript.autoClosingTags": true,
+  "typescript.autoClosingTags": true,
+  "emmet.excludeLanguages": [],
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact",
+    "markdown": "html",
+    "vue-html": "html"
+  },
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+  "files.associations": {
+    "*.module": "php"
+  },
+  "files.trimTrailingWhitespace": true,
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "projectManager.groupList": true,
+  "projectManager.sortList": "Saved",
+  "projectManager.git.baseFolders": [
+    "~/code"
+  ],
+  "reactSnippets.settings.importReactOnTop": false,
+  "security.workspace.trust.untrustedFiles": "open",
+  "workbench.tree.indent": 20,
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.colorTheme": "Catppuccin Mocha",
+  "workbench.startupEditor": "none",
+  "workbench.editor.enablePreview": false,
+  "debug.onTaskErrors": "showErrors",
+  "eslint.format.enable": true,
+  "eslint.codeActionsOnSave.rules": null,
+  "npm.packageManager": "pnpm",
+  "search.smartCase": true,
+  "search.useIgnoreFiles": false,
+  "search.useGlobalIgnoreFiles": false,
+  "search.useParentIgnoreFiles": false,
+  "search.followSymlinks": false,
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.tsserver.maxTsServerMemory": 8192,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "diffEditor.ignoreTrimWhitespace": false,
+  "git.detectWorktrees": true,
+  "claudeCode.useTerminal": true,
+  "docker.containers.description": [
+    "ContainerId",
+    "ContainerName",
+    "CreatedTime",
+    "ImageId",
+    "Status"
+  ],
+  "containers.containers.description": [
+    "ContainerId",
+    "ContainerName",
+    "CreatedTime",
+    "ImageId",
+    "Status"
+  ],
+  "docker.extension.enableComposeLanguageServer": false,
+  "[dockercompose]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced",
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "aws.telemetry": false,
+  "omnisharp.useModernNet": true,
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  },
+  "vssolution.trackActiveItem": true
+}

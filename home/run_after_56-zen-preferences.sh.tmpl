@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
+zen_dir="$HOME/Library/Application Support/zen"
+profiles_dir="$zen_dir/Profiles"
+
+if [[ ! -d "$profiles_dir" ]]; then
+  exit 0
+fi
+
+begin="// BEGIN chezmoi: Zen preferences"
+end="// END chezmoi: Zen preferences"
+block="$begin
+user_pref(\"zen.workspaces.wrap-around-navigation\", false);
+$end"
+
+find "$profiles_dir" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r profile; do
+  user_js="$profile/user.js"
+  tmp="$(mktemp)"
+
+  if [[ -f "$user_js" ]]; then
+    awk -v begin="$begin" -v end="$end" '
+      $0 == begin { skip = 1; next }
+      $0 == end { skip = 0; next }
+      !skip { print }
+    ' "$user_js" > "$tmp"
+  else
+    : > "$tmp"
+  fi
+
+  {
+    cat "$tmp"
+    if [[ -s "$tmp" ]]; then
+      printf '\n'
+    fi
+    printf '%s\n' "$block"
+  } > "$user_js"
+
+  rm -f "$tmp"
+  echo "zen preferences: wrote $user_js"
+done
+{{- end }}

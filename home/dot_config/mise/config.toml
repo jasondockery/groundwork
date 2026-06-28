@@ -1,0 +1,18 @@
+[tools]
+node = "lts"
+pnpm = "latest"
+python = "3.14"
+
+# Global Node CLIs — reproducible replacement for `npm i -g` / `pnpm add -g`.
+# Capture what you already have, then list each here as an npm: entry:
+#   npm ls -g --depth=0
+#   pnpm ls -g
+# Example:
+# "npm:typescript" = "latest"
+# "npm:prettier" = "latest"
+
+[settings]
+# Source an existing uv-managed .venv when entering a project, but do not create
+# one implicitly. Project setup should stay explicit with `uv init`, `uv sync`,
+# or `uv venv`.
+python.uv_venv_auto = "source"

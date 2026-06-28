@@ -1,0 +1,78 @@
+# VS Code / Cursor extensions, curated from the work Mac.
+# Lines starting with # are skipped by the installer (run_onchange_after_25).
+# Copilot, Windows-only (WSL), and redundant theme/icon packs were left out on purpose.
+
+# AI
+anthropic.claude-code
+
+# Theme + icons
+catppuccin.catppuccin-vsc
+pkief.material-icon-theme
+
+# Editing + navigation
+vscodevim.vim
+usernamehw.errorlens
+alefragnani.bookmarks
+alefragnani.project-manager
+ionutvmi.path-autocomplete
+nucllear.vscode-extension-auto-import
+
+# Git
+eamodio.gitlens
+mhutchie.git-graph
+
+# Format + lint
+esbenp.prettier-vscode
+dbaeumer.vscode-eslint
+rvest.vs-code-prettier-eslint
+editorconfig.editorconfig
+davidanson.vscode-markdownlint
+
+# Web / React / CSS
+bradlc.vscode-tailwindcss
+dsznajder.es7-react-js-snippets
+burkeholland.simple-react-snippets
+infeng.vscode-react-typescript
+xabikos.javascriptsnippets
+yoavbls.pretty-ts-errors
+wix.vscode-import-cost
+formulahendry.auto-rename-tag
+ecmel.vscode-html-css
+solnurkarim.html-to-css-autocompletion
+vunguyentuan.vscode-css-variables
+ritwickdey.liveserver
+
+# Data / API / formats
+humao.rest-client
+graphql.vscode-graphql
+graphql.vscode-graphql-execution
+graphql.vscode-graphql-syntax
+redhat.vscode-yaml
+mechatroner.rainbow-csv
+richie5um2.vscode-sort-json
+bierner.markdown-mermaid
+
+# Containers / remote
+ms-azuretools.vscode-docker
+ms-azuretools.vscode-containers
+ms-vscode-remote.remote-containers
+
+{{ if .work -}}
+# Work stack (.NET / SQL Server / Kubernetes / Terraform) — work Mac only
+ms-dotnettools.csharp
+ms-dotnettools.csdevkit
+ms-dotnettools.vscode-dotnet-runtime
+ms-dotnettools.vscodeintellicode-csharp
+csharpier.csharpier-vscode
+fernandoescolar.vscode-solution-explorer
+aliasadidev.nugetpackagemanagergui
+patcx.vscode-nuget-gallery
+ms-mssql.mssql
+ms-mssql.data-workspace-vscode
+ms-mssql.sql-bindings-vscode
+ms-mssql.sql-database-projects-vscode
+adpyke.vscode-sql-formatter
+chris-rimmer.liquibase-snippets
+ms-kubernetes-tools.vscode-kubernetes-tools
+4ops.terraform
+{{- end }}

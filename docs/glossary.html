@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html" class="active">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Plain-English definitions</p>
+      <h1>Glossary: the words, without the jargon.</h1>
+      <p class="lead">Every field has its own vocabulary, and the terminal has a lot of it. Here's what the words mean — short, concrete, and pointing you to the page that goes deeper. Skim it once; come back when a term trips you up.</p>
+
+      <h2><span class="hash">#</span>The terminal &amp; the shell</h2>
+      <table class="keytable">
+        <tr><td><strong>Terminal</strong></td><td>The app window where you type commands. On this setup it's <a href="apps.html">Ghostty</a>. Also called a "terminal emulator."</td></tr>
+        <tr><td><strong>Shell</strong></td><td>The program <em>inside</em> the terminal that reads your commands and runs them. Here it's <code>zsh</code>.</td></tr>
+        <tr><td><strong>Prompt</strong></td><td>The text the shell shows when it's ready for input — folder, Git branch, and a <code>❯</code> where you type. Drawn by <a href="shell.html">starship</a>.</td></tr>
+        <tr><td><strong>Command</strong></td><td>An instruction you type, like <code>ls</code> or <code>git</code>. Press <kbd>Enter</kbd> to run it.</td></tr>
+        <tr><td><strong>Argument</strong></td><td>What a command acts on — the <code>README.md</code> in <code>bat README.md</code>.</td></tr>
+        <tr><td><strong>Flag / option</strong></td><td>A switch that changes how a command behaves, usually starting with a dash: <code>-l</code>, <code>--all</code>.</td></tr>
+        <tr><td><strong>CLI</strong></td><td>Command-Line Interface — driving a program by typing, as opposed to a GUI (graphical, with windows and buttons).</td></tr>
+        <tr><td><strong>Pipe <code>|</code></strong></td><td>Sends one command's output straight into the next: <code>cat file | grep todo</code>.</td></tr>
+        <tr><td><strong>Redirect <code>&gt;</code></strong></td><td>Sends output to a file instead of the screen: <code>ls &gt; list.txt</code>.</td></tr>
+        <tr><td><strong>Alias</strong></td><td>A short nickname for a longer command. Here <code>ll</code>, <code>lg</code>, and <code>cat</code>→bat are aliases.</td></tr>
+        <tr><td><strong>Script</strong></td><td>A file of commands run top to bottom — automating something you'd otherwise type by hand. See <a href="command-line.html">scripting</a>.</td></tr>
+        <tr><td><strong>Standard in/out/error</strong></td><td>A program's input stream, its normal output, and its separate error output — the three channels pipes and redirects move around.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Files &amp; the system</h2>
+      <table class="keytable">
+        <tr><td><strong>Directory</strong></td><td>A folder. "Directory" and "folder" mean the same thing.</td></tr>
+        <tr><td><strong>Path</strong></td><td>The address of a file or folder: <code>/Users/you/code</code>. <em>Absolute</em> starts at <code>/</code>; <em>relative</em> starts from where you are.</td></tr>
+        <tr><td><strong>Home <code>~</code></strong></td><td>Your personal top folder, <code>/Users/yourname</code>. The <code>~</code> is shorthand for it.</td></tr>
+        <tr><td><strong>Root <code>/</code></strong></td><td>The very top of the file tree. (Also "root" = the all-powerful admin user.)</td></tr>
+        <tr><td><strong>Dotfile</strong></td><td>A config file whose name starts with a dot (<code>.zshrc</code>), hidden by default. Groundwork manages many of your dotfiles.</td></tr>
+        <tr><td><strong>PATH</strong></td><td>The list of folders the shell searches to find a command. If something's "not found," it isn't on your PATH.</td></tr>
+        <tr><td><strong>Environment variable</strong></td><td>A named value the shell and programs read, like <code>EDITOR=nvim</code> or <code>PATH</code>.</td></tr>
+        <tr><td><strong>Symlink</strong></td><td>A "symbolic link" — a file that points at another file or folder, like a shortcut.</td></tr>
+        <tr><td><strong>Permissions</strong></td><td>Who can read, write, or run a file. <code>sudo</code> runs one command as the admin (root) user.</td></tr>
+        <tr><td><strong>Process</strong></td><td>A running program. <kbd>Ctrl</kbd><kbd>C</kbd> stops the one in front of you.</td></tr>
+        <tr><td><strong>Daemon</strong></td><td>A program that runs quietly in the background (a server, a sync agent) rather than in your terminal.</td></tr>
+        <tr><td><strong>Package manager</strong></td><td>Installs and updates software for you. <a href="setup.html">Homebrew</a> (<code>brew</code>) is the Mac one this setup uses.</td></tr>
+        <tr><td><strong>Kernel</strong></td><td>The core of the operating system that talks to the hardware. macOS's is named XNU; Linux's is "Linux." See <a href="command-line.html">flavors of Unix</a>.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Editor &amp; terminal multiplexer</h2>
+      <table class="keytable">
+        <tr><td><strong>Modal editor</strong></td><td>An editor with <em>modes</em> — <a href="neovim.html">Neovim</a> separates "typing text" from "running commands on text."</td></tr>
+        <tr><td><strong>Buffer</strong></td><td>An open file in the editor (it may or may not be visible in a window).</td></tr>
+        <tr><td><strong>Split</strong></td><td>Two files (or views) side by side inside the editor.</td></tr>
+        <tr><td><strong>Plugin</strong></td><td>An add-on that extends a tool. tmux, Neovim, and zsh all load plugins here.</td></tr>
+        <tr><td><strong>Lua</strong></td><td>A small scripting language used by Neovim for configuration and plugins. You do not need to learn Lua before using this setup, but Neovim config files often end in <code>.lua</code>.</td></tr>
+        <tr><td><strong>Multiplexer</strong></td><td>A tool that puts many shells in one window and keeps them alive — that's <a href="tmux.html">tmux</a>.</td></tr>
+        <tr><td><strong>Session / window / pane</strong></td><td>tmux's nesting: a session is a project workspace, a window is a tab, a pane is a split within it.</td></tr>
+        <tr><td><strong>Detach / attach</strong></td><td>Leave a tmux session running in the background, then reconnect to it later, untouched.</td></tr>
+        <tr><td><strong>Prefix</strong></td><td>The key combo that starts a tmux command — here <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Git &amp; GitHub</h2>
+      <table class="keytable">
+        <tr><td><strong>Repository (repo)</strong></td><td>A project folder that Git is tracking, including its full history.</td></tr>
+        <tr><td><strong>Commit</strong></td><td>A saved snapshot of your project at a point in time, with a message describing it.</td></tr>
+        <tr><td><strong>Stage</strong></td><td>Marking which changes go into the next commit (the "staging area").</td></tr>
+        <tr><td><strong>Branch</strong></td><td>A parallel line of work you can build on without touching the main version.</td></tr>
+        <tr><td><strong>Merge</strong></td><td>Folding one branch's changes back into another.</td></tr>
+        <tr><td><strong>Conflict</strong></td><td>When two changes touch the same lines and Git needs you to pick what wins.</td></tr>
+        <tr><td><strong>Remote / origin</strong></td><td>A copy of the repo hosted elsewhere (usually GitHub). "origin" is its default name.</td></tr>
+        <tr><td><strong>Clone</strong></td><td>Download a full copy of a remote repo to your machine.</td></tr>
+        <tr><td><strong>Push / pull</strong></td><td>Send your commits up to the remote / bring others' commits down.</td></tr>
+        <tr><td><strong>Fork</strong></td><td>Your own copy of someone else's repo on GitHub, to change freely.</td></tr>
+        <tr><td><strong>Pull request (PR)</strong></td><td>A proposal to merge your branch, so others can review and discuss before it lands.</td></tr>
+        <tr><td><strong>Diff</strong></td><td>The exact lines that changed between two versions. <a href="git.html">delta</a> makes them readable.</td></tr>
+        <tr><td><strong><code>.gitignore</code></strong></td><td>A list of files Git should ignore (build output, secrets, junk).</td></tr>
+        <tr><td><strong>SSH key</strong></td><td>A cryptographic key pair that proves who you are to GitHub without a password.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>AI agents &amp; this setup</h2>
+      <table class="keytable">
+        <tr><td><strong>LLM</strong></td><td>Large Language Model — the AI behind tools like Claude that reads and writes text and code.</td></tr>
+        <tr><td><strong>Agent</strong></td><td>An AI you give a task to that <em>acts</em> — reads your project, edits files, runs commands — versus a chatbot that just replies. See <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>
+        <tr><td><strong>Prompt</strong></td><td>What you tell the AI to do, in plain English.</td></tr>
+        <tr><td><strong>Context</strong></td><td>The files and information the agent can "see" while it works.</td></tr>
+        <tr><td><strong><code>AGENTS.md</code></strong></td><td>The plain-text source of truth for project agent instructions. Tool-specific files such as <code>CLAUDE.md</code> should point to it unless they need a tool-only note. See <a href="new-project.html">Starting a project</a>.</td></tr>
+        <tr><td><strong>chezmoi</strong></td><td>The tool that lays this whole setup onto a Mac from one Git repo. See <a href="setup.html">Setup</a>.</td></tr>
+        <tr><td><strong>Template</strong></td><td>A config file with blanks chezmoi fills in per machine (your name, email, work-or-not).</td></tr>
+        <tr><td><strong>Bootstrap</strong></td><td>The one-command first run that installs everything on a fresh machine.</td></tr>
+        <tr><td><strong>Brewfile</strong></td><td>The list of every app and tool Homebrew installs — the setup's shopping list.</td></tr>
+      </table>
+
+      <div class="callout tip">
+        <span class="label">Still stuck on a word?</span>
+        <p>Most commands explain themselves with <code>--help</code>, and <a href="https://explainshell.com" target="_blank" rel="noopener">explainshell.com</a> breaks down any command line piece by piece. Or just ask <code>claude</code> — "what does <code>chmod +x</code> mean?" is a perfectly good question.</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="cheatsheet.html"><span class="dir">← Prev</span>Cheat sheet</a>
+        <a href="troubleshooting.html"><span class="dir">Next →</span>Troubleshooting</a>
+      </div>
+      <footer class="site">When a word trips you up, it's defined here — or one <code>--help</code> away.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

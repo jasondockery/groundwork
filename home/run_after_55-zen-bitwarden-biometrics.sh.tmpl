@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+{{ if and (eq .chezmoi.os "darwin") (not .headless) (eq .password_manager "bitwarden") -}}
+src="$HOME/Library/Application Support/zen/NativeMessagingHosts/com.8bit.bitwarden.json"
+dst="$HOME/Library/Application Support/Mozilla/NativeMessagingHosts"
+if [[ -f "$src" ]]; then
+  mkdir -p "$dst"
+  ln -sf "$src" "$dst/com.8bit.bitwarden.json"
+fi
+{{- end }}

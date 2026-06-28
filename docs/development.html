@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Development learning paths — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html" class="active">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Development</p>
+      <h1>Progressive learning paths for AI-native software development.</h1>
+      <p class="lead">Use this as the curriculum layer on top of Groundwork. Learn enough fundamentals to think clearly, build small real projects, and use agents as tutors, reviewers, and pair programmers without letting them replace the learning.</p>
+
+      <div class="callout note">
+        <span class="label">The rule</span>
+        <p>AI-native does not mean skipping basics. It means shortening the feedback loop: ask better questions, inspect diffs, run tests, keep notes, and rebuild the same idea until you can explain it without the agent.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The Groundwork workflow</h2>
+      <table class="keytable">
+        <tr><td><strong>Project contract</strong></td><td>Start every serious repo with <code>AGENTS.md</code>: what the project is, how to run it, what "done" means, and what the agent must never touch.</td></tr>
+        <tr><td><strong>Agent loop</strong></td><td>Ask for inspection and a plan, let the agent make a narrow edit, review the diff, run verification, then commit.</td></tr>
+        <tr><td><strong>Reusable procedure</strong></td><td>When a workflow becomes repeatable and easy to mess up, move it into <code>skills/</code> instead of copying instructions into every AI tool.</td></tr>
+        <tr><td><strong>Learning memory</strong></td><td>Save hard-won lessons in the <a href="knowledge.html">knowledge base</a> so future learners, teammates, and agents can find them again.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>The learning loop</h2>
+      <table class="keytable">
+        <tr><td><strong>Learn</strong></td><td>Read the official docs or watch one focused lesson. Keep the scope small: one concept, one feature, one bug.</td></tr>
+        <tr><td><strong>Build</strong></td><td>Make a tiny working version by hand. For deep learning assignments, turn off AI autocomplete while writing the core code.</td></tr>
+        <tr><td><strong>Ask</strong></td><td>Use an agent to explain confusing lines, generate tests, or compare two approaches. Ask it to teach, not just finish.</td></tr>
+        <tr><td><strong>Verify</strong></td><td>Run the app, tests, typecheck, linter, or notebook. Review the diff before keeping changes.</td></tr>
+        <tr><td><strong>Remember</strong></td><td>Save durable notes in the <a href="knowledge.html">knowledge base</a>: what worked, what failed, commands used, and links worth revisiting.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Pick a route</h2>
+      <div class="grid">
+        <a class="card" href="#apple">
+          <span class="ct">native apps</span>
+          <h3>macOS and iOS</h3>
+          <p>Swift, SwiftUI, Xcode, app signing, Human Interface Guidelines, and App Store delivery.</p>
+        </a>
+        <a class="card" href="#web">
+          <span class="ct">web apps</span>
+          <h3>React / Next / Node</h3>
+          <p>TypeScript, components, routing, APIs, databases, tests, deployment, and product UI.</p>
+        </a>
+        <a class="card" href="#rust">
+          <span class="ct">systems</span>
+          <h3>Rust</h3>
+          <p>CLI tools, performance-sensitive services, ownership, error handling, and async systems.</p>
+        </a>
+        <a class="card" href="#python">
+          <span class="ct">automation + data</span>
+          <h3>Python</h3>
+          <p>Scripting, testing, notebooks, APIs, data work, and the bridge into ML.</p>
+        </a>
+        <a class="card" href="#ml">
+          <span class="ct">models</span>
+          <h3>Machine learning</h3>
+          <p>PyTorch, fast.ai, CS229 backfill, evaluation, datasets, and production habits.</p>
+        </a>
+        <a class="card" href="#llms">
+          <span class="ct">frontier ai</span>
+          <h3>LLMs</h3>
+          <p>Stanford CS336 as the backbone, with Harvard orientation and systems courses around it.</p>
+        </a>
+      </div>
+
+      <h2 id="apple"><span class="hash">#</span>macOS and iOS development</h2>
+      <p>Native Apple development starts with Swift and SwiftUI, but good apps also require understanding Apple&apos;s design language, signing, provisioning, privacy prompts, accessibility, and App Store rules.</p>
+      <table class="keytable">
+        <tr><td><a href="https://developer.apple.com/tutorials/swiftui" target="_blank" rel="noopener">SwiftUI Tutorials</a></td><td>Best first Apple path. Build real screens while learning state, navigation, lists, controls, and app structure.</td></tr>
+        <tr><td><a href="https://developer.apple.com/documentation/" target="_blank" rel="noopener">Apple Developer Documentation</a></td><td>The canonical reference for Swift, SwiftUI, UIKit/AppKit, frameworks, entitlements, and platform APIs.</td></tr>
+        <tr><td><a href="https://developer.apple.com/design/human-interface-guidelines/" target="_blank" rel="noopener">Human Interface Guidelines</a></td><td>Design rules for apps that feel native on Mac, iPhone, iPad, and Apple Watch.</td></tr>
+        <tr><td><a href="https://developer.apple.com/help/account/" target="_blank" rel="noopener">Certificates and profiles</a></td><td>Apple&apos;s account help for signing certificates, identifiers, provisioning profiles, devices, and capabilities.</td></tr>
+        <tr><td><a href="https://www.hackingwithswift.com/100/swiftui" target="_blank" rel="noopener">100 Days of SwiftUI</a></td><td>Free beginner-to-intermediate daily course. Hacking with Swift+ is a useful paid path if you want more structure.</td></tr>
+      </table>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>First milestone</h3>
+          <p>Build a small iOS app with a list, detail screen, form, local persistence, and one network request. Use an agent to explain SwiftUI state changes, then write the next screen yourself.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Senior path</h3>
+          <p>Practice app architecture, background work, accessibility, privacy prompts, testability, crash reporting, performance in Instruments, and release automation.</p>
+        </div>
+      </div>
+
+      <h2 id="web"><span class="hash">#</span>React, Next.js, Node, and TypeScript</h2>
+      <p>This is the main product-development stack for the repo: TypeScript for clarity, React for interfaces, Next.js for full-stack web apps, Node for scripts and services, and agents for tests, refactors, and project scaffolding.</p>
+      <table class="keytable">
+        <tr><td><a href="https://react.dev/learn" target="_blank" rel="noopener">React Learn</a></td><td>Official React path. Start here for components, props, state, effects, and thinking in React.</td></tr>
+        <tr><td><a href="https://nextjs.org/learn" target="_blank" rel="noopener">Next.js Learn</a></td><td>Official guided course for routing, server rendering, data fetching, forms, auth, and deployment patterns.</td></tr>
+        <tr><td><a href="https://nodejs.org/en/learn" target="_blank" rel="noopener">Node.js Learn</a></td><td>Official Node learning material for runtime basics, package management, debugging, security, and APIs.</td></tr>
+        <tr><td><a href="https://www.typescriptlang.org/docs/handbook/intro.html" target="_blank" rel="noopener">TypeScript Handbook</a></td><td>The source of truth for types, narrowing, generics, modules, and how JavaScript maps into TypeScript.</td></tr>
+        <tr><td><a href="https://frontendmasters.com/" target="_blank" rel="noopener">Frontend Masters</a></td><td>Paid, high-quality video courses for React, TypeScript, Next.js, Node, testing, design systems, and senior web topics.</td></tr>
+      </table>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>First milestone</h3>
+          <p>Build a tiny Next.js app with a typed form, server action or API route, database persistence, error states, loading states, and tests. Ask an agent for a test plan before writing code.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Senior path</h3>
+          <p>Study caching, accessibility, performance budgets, design systems, observability, database migrations, auth, deployment previews, security headers, and cost-aware AI features.</p>
+        </div>
+      </div>
+
+      <h2 id="rust"><span class="hash">#</span>Rust</h2>
+      <p>Use Rust when correctness, packaging, memory safety, and performance matter: CLIs, dev tools, high-throughput services, parsers, and parts of the stack where Python or Node feel too loose.</p>
+      <table class="keytable">
+        <tr><td><a href="https://doc.rust-lang.org/book/" target="_blank" rel="noopener">The Rust Book</a></td><td>Official first path. Ownership, borrowing, enums, traits, error handling, testing, and cargo.</td></tr>
+        <tr><td><a href="https://github.com/rust-lang/rustlings" target="_blank" rel="noopener">Rustlings</a></td><td>Small exercises that make syntax and ownership rules stick.</td></tr>
+        <tr><td><a href="https://doc.rust-lang.org/rust-by-example/" target="_blank" rel="noopener">Rust by Example</a></td><td>Quick examples when you understand a concept but need to see the syntax.</td></tr>
+      </table>
+      <p>First milestone: rewrite a small shell helper as a Rust CLI with <code>clap</code>, tests, helpful errors, and a release build. Ask an agent to review the error handling and command help text.</p>
+
+      <h2 id="python"><span class="hash">#</span>Python</h2>
+      <p>Python is the glue language for automation, data, notebooks, ML experiments, and many AI toolchains. Learn plain Python well before leaning on frameworks. In this setup, <code>mise</code> installs the baseline Python interpreter and <code>uv</code> manages project dependencies, virtual environments, scripts, and Python CLI tools.</p>
+      <table class="keytable">
+        <tr><td><a href="https://docs.python.org/3/tutorial/" target="_blank" rel="noopener">Python Tutorial</a></td><td>Official tutorial. Good enough for beginners, still useful as a refresher for experienced developers.</td></tr>
+        <tr><td><a href="https://mise.jdx.dev/lang/python.html" target="_blank" rel="noopener">mise Python docs</a></td><td>Install and switch Python versions per project, without using the macOS system Python.</td></tr>
+        <tr><td><a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener">uv docs</a></td><td>Modern Python package, project, script, tool, and virtualenv management. This is the fastest path for repeatable Python work.</td></tr>
+        <tr><td><a href="https://docs.pytest.org/" target="_blank" rel="noopener">pytest docs</a></td><td>Testing foundation for scripts, packages, APIs, and ML-adjacent code.</td></tr>
+        <tr><td><a href="https://jupyter.org/try" target="_blank" rel="noopener">Jupyter</a></td><td>Interactive notebooks for learning, exploration, data work, and ML experiments.</td></tr>
+      </table>
+      <p>First milestone: create a small package with <code>uv init</code>, pin Python with <code>mise use python@3.14</code> if the project needs it, add a CLI command, typed functions, pytest coverage, and one notebook that calls the package instead of hiding the logic inside notebook cells.</p>
+
+      <h2 id="ml"><span class="hash">#</span>Machine learning</h2>
+      <p>For software developers, the goal is not to become a researcher first. The goal is to understand data, loss, optimization, evaluation, deployment, and failure modes well enough to build and review AI systems responsibly.</p>
+      <table class="keytable">
+        <tr><td><a href="https://course.fast.ai/" target="_blank" rel="noopener">fast.ai Practical Deep Learning</a></td><td>Best hands-on first ML course for builders. It starts with working models and explains theory as needed.</td></tr>
+        <tr><td><a href="https://docs.pytorch.org/tutorials/" target="_blank" rel="noopener">PyTorch Tutorials</a></td><td>Official PyTorch learning path for tensors, autograd, models, training loops, and deployment basics.</td></tr>
+        <tr><td><a href="https://cs229.stanford.edu/" target="_blank" rel="noopener">Stanford CS229</a></td><td>Use as selective backfill for probability, linear algebra, optimization, supervised learning, and generalization.</td></tr>
+        <tr><td><a href="https://www.fullstackdeeplearning.com/" target="_blank" rel="noopener">Full Stack Deep Learning</a></td><td>Practical production ML: data, training, deployment, monitoring, teams, and operational tradeoffs.</td></tr>
+        <tr><td><a href="https://madewithml.com/" target="_blank" rel="noopener">Made With ML</a></td><td>Production ML engineering patterns with notebooks, testing, packaging, and deployment concerns.</td></tr>
+        <tr><td><a href="https://www.deeplearning.ai/courses/" target="_blank" rel="noopener">DeepLearning.AI</a></td><td>Free and paid short courses and specializations. Good when you want a guided sprint on one topic.</td></tr>
+      </table>
+
+      <h2 id="llms"><span class="hash">#</span>LLMs and frontier AI</h2>
+      <p>Use Stanford as the technical backbone and Harvard as orientation. The point is to move from vocabulary to implementation: tokens, tensors, embeddings, attention, loss, training, inference, evaluation, data, post-training, and serving economics.</p>
+      <table class="keytable">
+        <tr><td><a href="https://generative-ai-course.hks.harvard.edu/spring-2024" target="_blank" rel="noopener">Harvard HKS GenAI</a></td><td>Light warm-up: intro, prompting, RAG/fine-tuning vocabulary, risks, copyright, and future-of-work context.</td></tr>
+        <tr><td><a href="https://cs336.stanford.edu/" target="_blank" rel="noopener">Stanford CS336</a></td><td>Main path. Language modeling from scratch: data, tokenization, transformers, training, evaluation, and deployment.</td></tr>
+        <tr><td><a href="https://cme295.stanford.edu/" target="_blank" rel="noopener">Stanford CME295</a></td><td>Gentler bridge into transformers and LLMs if CS336 feels too steep on the first pass.</td></tr>
+        <tr><td><a href="https://cs153.stanford.edu/" target="_blank" rel="noopener">Stanford CS153</a></td><td>Frontier AI systems: energy, silicon, cloud, models, apps, security, deployment, and the one-person frontier lab idea.</td></tr>
+        <tr><td><a href="https://web.stanford.edu/class/cs25/" target="_blank" rel="noopener">Stanford CS25</a></td><td>Seminar and current research talks. Watch selectively after the transformer basics land.</td></tr>
+        <tr><td><a href="https://cme296.stanford.edu/" target="_blank" rel="noopener">Stanford CME296</a></td><td>Later branch for diffusion, vision, image generation, video, and multimodal work.</td></tr>
+        <tr><td><a href="https://huggingface.co/learn" target="_blank" rel="noopener">Hugging Face Learn</a></td><td>Practical ecosystem courses for transformers, datasets, agents, diffusion, and open-source model workflows.</td></tr>
+      </table>
+
+      <h3>Recommended Stanford-centered order</h3>
+      <table class="keytable">
+        <tr><td>1</td><td>Harvard HKS GenAI sessions 1, 4, and 5 for quick orientation: what GenAI is, prompting, RAG, fine-tuning, and future-of-work framing.</td></tr>
+        <tr><td>2</td><td>Stanford CS336 Lectures 1-4: tokenization, PyTorch shapes, FLOPs, memory, architecture, attention, and mixture-of-experts vocabulary.</td></tr>
+        <tr><td>3</td><td>CS336 Assignment 1, simplified if needed: tokenizer, model, optimizer, tiny language model, and a minimal training loop.</td></tr>
+        <tr><td>4</td><td>CS229 selective backfill only when CS336 exposes a gap: loss, gradients, probability, optimization, softmax, overfitting, and representations.</td></tr>
+        <tr><td>5</td><td>CS336 Lectures 5-12: GPUs, kernels, parallelism, scaling laws, inference, and evaluation.</td></tr>
+        <tr><td>6</td><td>CS153 selected talks after inference basics: AI infrastructure, deployment, security, cloud, economics, and platform strategy.</td></tr>
+        <tr><td>7</td><td>CS336 Lectures 13-17: data, filtering, deduplication, post-training, RLHF/RLVR, safety, and alignment.</td></tr>
+        <tr><td>8</td><td>CS25 selected talks after the foundations: current transformer research, applications, and research taste.</td></tr>
+        <tr><td>9</td><td>CME296 only when diffusion, image, video, or multimodal models become important.</td></tr>
+      </table>
+
+      <div class="callout tip">
+        <span class="label">First LLM milestone</span>
+        <p>You should be able to explain or implement tokenization, token IDs, embeddings, logits, softmax, cross-entropy loss, attention, MLP/FFN, a transformer block, a tiny training loop, and a basic inference loop.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Practice plans by experience level</h2>
+      <table class="keytable">
+        <tr><td><strong>Brand new</strong></td><td>Do <a href="command-line.html">Command line &amp; Unix</a>, <a href="practice.html">Practice plan</a>, React Learn basics, Python Tutorial basics, and one tiny web app. Use AI to explain terms and generate quizzes.</td></tr>
+        <tr><td><strong>Working developer</strong></td><td>Build one Next.js app, one Python package, one Rust CLI, and one agent-assisted feature from issue to tests to PR. Keep notes in the wiki.</td></tr>
+        <tr><td><strong>Senior developer</strong></td><td>Focus on architecture, deployment, observability, security, evals, data quality, cost controls, team workflow, and teaching others through small repeatable exercises.</td></tr>
+        <tr><td><strong>AI platform path</strong></td><td>Use CS336 as the core, CS229 as backfill, CS153 for systems, Full Stack Deep Learning for production ML, and Hugging Face for practical ecosystem fluency.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>AI-native development habits</h2>
+      <table class="keytable">
+        <tr><td><strong>Prompt from context</strong></td><td>Start agents inside the repo, reference files by path, and ask for a plan before broad edits. See <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>
+        <tr><td><strong>Keep one source of truth</strong></td><td>Project behavior belongs in <a href="agents.html">AGENTS.md</a>; human learning belongs in <code>docs/</code>; reusable agent workflows belong in <code>skills/</code>.</td></tr>
+        <tr><td><strong>Demand verification</strong></td><td>Ask agents to run tests, typechecks, linters, screenshots, or focused manual checks. Review the commands and the diff.</td></tr>
+        <tr><td><strong>Separate learning from shipping</strong></td><td>When learning fundamentals, write the core code yourself and use the agent as a tutor. When shipping, let the agent draft more, but inspect everything.</td></tr>
+        <tr><td><strong>Capture the lesson</strong></td><td>After each project or course unit, save a short note: concept, commands, gotchas, links, and one practice drill for next time.</td></tr>
+      </table>
+
+      <div class="pagenav">
+        <a href="editors-ai.html"><span class="dir">Previous</span>Editors &amp; AI</a>
+        <a href="apps.html"><span class="dir">Next →</span>Apps &amp; browsers</a>
+      </div>
+      <footer class="site">Built to be rebuilt. Open source, no tracking, works offline.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

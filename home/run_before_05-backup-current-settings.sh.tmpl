@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ if eq .chezmoi.os "darwin" -}}
+if [[ "${GROUNDWORK_SKIP_BACKUP:-}" == "1" ]]; then
+  echo "Groundwork backup: skipped because GROUNDWORK_SKIP_BACKUP=1"
+  exit 0
+fi
+
+state_dir="$HOME/.local/state/groundwork/backups"
+latest="$state_dir/latest"
+
+if [[ -e "$latest" ]]; then
+  echo "Groundwork backup: existing first-run backup found at $latest"
+  exit 0
+fi
+
+stamp="$(date +%Y%m%d-%H%M%S)"
+backup_dir="$state_dir/$stamp"
+files_dir="$backup_dir/files"
+defaults_file="$backup_dir/macos-defaults.tsv"
+
+mkdir -p "$files_dir" "$backup_dir"
+
+backup_file() {
+  local path="$1"
+
+  if [[ -e "$path" || -L "$path" ]]; then
+    mkdir -p "$files_dir$(dirname "$path")"
+    cp -pR "$path" "$files_dir$path"
+    printf '%s\n' "$path" >>"$backup_dir/files-present.txt"
+  else
+    printf '%s\n' "$path" >>"$backup_dir/files-absent.txt"
+  fi
+}
+
+backup_default() {
+  local domain="$1"
+  local key="$2"
+  local type_line type value
+
+  if type_line="$(defaults read-type "$domain" "$key" 2>/dev/null)" &&
+     value="$(defaults read "$domain" "$key" 2>/dev/null)"; then
+    type="${type_line#Type is }"
+    value="${value//$'\t'/ }"
+    value="${value//$'\n'/ }"
+    printf '%s\t%s\t%s\t%s\n' "$domain" "$key" "$type" "$value" >>"$defaults_file"
+  else
+    printf '%s\t%s\tabsent\t\n' "$domain" "$key" >>"$defaults_file"
+  fi
+}
+
+touch "$backup_dir/files-present.txt" "$backup_dir/files-absent.txt" "$defaults_file"
+
+cat >"$backup_dir/README.txt" <<EOF
+Groundwork first-run backup
+Created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+This is a focused backup of settings this Groundwork repo may overwrite:
+- selected managed config files
+- selected macOS defaults keys
+- Homebrew state, when brew was already installed
+
+It is not a full Mac backup. It does not uninstall apps, undo Homebrew upgrades,
+or restore app databases and permissions.
+
+Restore with:
+  groundwork-restore
+
+or:
+  "$backup_dir/restore.sh"
+EOF
+
+while IFS= read -r path; do
+  backup_file "$path"
+done <<EOF
+$HOME/.zshrc
+$HOME/.zsh_plugins.txt
+$HOME/.gitconfig
+$HOME/.config/ghostty/config
+$HOME/.config/tmux/tmux.conf
+$HOME/.config/starship.toml
+$HOME/.config/mise/config.toml
+$HOME/.config/karabiner/karabiner.json
+$HOME/.config/homebrew/Brewfile
+$HOME/.config/nvim/lua/plugins/tmux-navigation.lua
+$HOME/Library/Application Support/Code/User/settings.json
+$HOME/Library/Application Support/Code/User/snippets/jason-snippets.code-snippets
+EOF
+
+while IFS=$'\t' read -r domain key; do
+  backup_default "$domain" "$key"
+done <<EOF
+NSGlobalDomain	AppleShowAllExtensions
+com.apple.finder	AppleShowAllFiles
+com.apple.finder	ShowPathbar
+com.apple.finder	ShowStatusBar
+com.apple.finder	FXDefaultSearchScope
+com.apple.finder	_FXShowPosixPathInTitle
+com.apple.finder	FXPreferredViewStyle
+com.apple.desktopservices	DSDontWriteNetworkStores
+com.apple.Safari	IncludeDevelopMenu
+com.apple.Safari	WebKitDeveloperExtrasEnabledPreferenceKey
+NSGlobalDomain	WebKitDeveloperExtras
+NSGlobalDomain	ApplePressAndHoldEnabled
+NSGlobalDomain	KeyRepeat
+NSGlobalDomain	InitialKeyRepeat
+com.apple.dock	show-recents
+com.google.Chrome	PasswordManagerEnabled
+EOF
+
+if command -v brew >/dev/null 2>&1; then
+  brew list --formula >"$backup_dir/brew-formulae.before.txt" 2>/dev/null || true
+  brew list --cask >"$backup_dir/brew-casks.before.txt" 2>/dev/null || true
+fi
+
+cat >"$backup_dir/restore.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+backup_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "Restoring Groundwork-managed files and macOS defaults from:"
+echo "  $backup_dir"
+echo
+echo "This does not uninstall apps or undo Homebrew upgrades."
+echo
+
+if [[ "${GROUNDWORK_RESTORE_CONFIRM:-}" != "restore" ]]; then
+  read -r -p "Type 'restore' to continue: " confirm
+  if [[ "$confirm" != "restore" ]]; then
+    echo "Restore cancelled."
+    exit 1
+  fi
+fi
+
+if [[ -f "$backup_dir/files-present.txt" ]]; then
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    mkdir -p "$(dirname "$path")"
+    rm -rf "$path"
+    cp -pR "$backup_dir/files$path" "$path"
+    echo "restored file: $path"
+  done <"$backup_dir/files-present.txt"
+fi
+
+if [[ -f "$backup_dir/files-absent.txt" ]]; then
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    rm -rf "$path"
+    echo "removed file that was absent before setup: $path"
+  done <"$backup_dir/files-absent.txt"
+fi
+
+if [[ -f "$backup_dir/macos-defaults.tsv" ]]; then
+  while IFS=$'\t' read -r domain key type value; do
+    [[ -n "$domain" && -n "$key" ]] || continue
+    case "$type" in
+      absent)
+        defaults delete "$domain" "$key" >/dev/null 2>&1 || true
+        ;;
+      boolean)
+        if [[ "$value" == "1" || "$value" == "true" || "$value" == "TRUE" ]]; then
+          defaults write "$domain" "$key" -bool true
+        else
+          defaults write "$domain" "$key" -bool false
+        fi
+        ;;
+      integer)
+        defaults write "$domain" "$key" -int "$value"
+        ;;
+      string)
+        defaults write "$domain" "$key" -string "$value"
+        ;;
+      *)
+        echo "skipping unsupported defaults type: $domain $key ($type)"
+        ;;
+    esac
+  done <"$backup_dir/macos-defaults.tsv"
+fi
+
+killall Finder >/dev/null 2>&1 || true
+killall Dock >/dev/null 2>&1 || true
+
+echo
+echo "Restore complete. Log out and back in if keyboard or app defaults still look unchanged."
+EOF
+
+chmod +x "$backup_dir/restore.sh"
+ln -sfn "$backup_dir" "$latest"
+
+echo "Groundwork backup: created $backup_dir"
+{{- end }}

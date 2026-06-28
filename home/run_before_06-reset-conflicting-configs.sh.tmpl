@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ if and (eq .chezmoi.os "darwin") (index . "reset_existing_configs") -}}
+state_dir="$HOME/.local/state/groundwork/reset"
+marker="$state_dir/.reset-existing-configs-done"
+
+if [[ -e "$marker" ]]; then
+  echo "Groundwork reset: already completed; remove $marker to run again"
+  exit 0
+fi
+
+stamp="$(date +%Y%m%d-%H%M%S)"
+reset_dir="$state_dir/$stamp"
+manifest="$reset_dir/manifest.txt"
+
+mkdir -p "$reset_dir"
+touch "$manifest"
+
+move_path() {
+  local path="$1"
+
+  if [[ -e "$path" || -L "$path" ]]; then
+    local dest="$reset_dir$path"
+    mkdir -p "$(dirname "$dest")"
+    mv "$path" "$dest"
+    printf '%s\t%s\n' "$path" "$dest" >>"$manifest"
+    echo "Groundwork reset: moved $path"
+  fi
+}
+
+move_glob() {
+  local pattern="$1"
+  local found=0
+
+  for path in $pattern; do
+    [[ -e "$path" || -L "$path" ]] || continue
+    found=1
+    move_path "$path"
+  done
+
+  [[ "$found" == "1" ]] || true
+}
+
+cat >"$reset_dir/README.txt" <<EOF
+Groundwork clean-start reset
+Created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+These paths were moved aside because reset_existing_configs=true was selected
+during chezmoi init. They were not deleted.
+
+This reset is intentionally scoped to common terminal/editor/tmux conflict zones:
+- Neovim config, state, cache, and plugins
+- tmux legacy config, plugin dirs, and resurrect snapshots
+- zsh completion dumps
+
+Restore individual paths manually from this folder if needed.
+EOF
+
+move_path "$HOME/.config/nvim"
+move_path "$HOME/.local/share/nvim"
+move_path "$HOME/.local/state/nvim"
+move_path "$HOME/.cache/nvim"
+
+move_path "$HOME/.tmux.conf"
+move_path "$HOME/.tmux"
+move_path "$HOME/.config/tmux/plugins"
+move_path "$HOME/.local/share/tmux/resurrect"
+
+move_glob "$HOME/.zcompdump*"
+
+ln -sfn "$reset_dir" "$state_dir/latest"
+touch "$marker"
+
+echo "Groundwork reset: moved conflicting configs to $reset_dir"
+{{ else -}}
+echo "Groundwork reset: skipped"
+{{- end }}

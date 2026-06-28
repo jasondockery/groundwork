@@ -1,0 +1,56 @@
+# category	command	kind	description
+daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
+daily	update-all	alias	Pull and apply Groundwork, then update Homebrew packages and mise-managed tools.
+daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
+daily	chezmoi apply	command	Apply the source repo to your home directory.
+daily	chezmoi update	command	Git pull the Groundwork repo and apply it.
+daily	chezmoi edit <file>	command	Edit a managed dotfile at its source instead of editing the generated home file.
+daily	chezmoi cd	command	Open a shell in the Groundwork source repo.
+daily	groundwork-restore	command	Restore the first-run backup of managed files and macOS defaults.
+project	new-project <path>	command	Scaffold AGENTS.md, agent folders, editor settings, and .gitignore for a new repo.
+project	new-wiki <path>	function	Scaffold a private agent-maintained knowledge wiki with raw/wiki layers and Obsidian setup.
+project	obsidian-plugins <vault>	command	Install the Groundwork-managed Obsidian plugin set into a vault.
+project	gh auth login	command	Sign in to GitHub for gh and HTTPS Git operations.
+project	gh auth setup-git	command	Install gh as Git's HTTPS credential helper.
+shell	ll	alias	List files with details, hidden files, Git status, and directories first.
+shell	lg	alias	Open lazygit.
+shell	vim / vi	alias	Open Neovim.
+shell	cat	alias	Use bat for syntax-highlighted file viewing.
+shell	z <folder>	command	Jump to a frecent folder with zoxide.
+shell	Alt+C	key	Fuzzy-pick a folder and cd into it.
+shell	mkdir -p <folder>	command	Create a folder, including parent folders if needed.
+shell	pwd	command	Print the current folder path.
+shell	open .	command	Open the current folder in Finder.
+shell	rg <text>	command	Search file contents quickly. Lowercase searches are case-insensitive by default.
+shell	rga <text>	alias	Search hidden and gitignored files too, while still skipping .git internals.
+shell	rgf [text]	function	Search with ripgrep, fuzzy-pick a result, preview it with bat, and open it in the editor.
+shell	fd <name>	command	Find files by name quickly.
+shell	Ctrl+R	key	Search shell history with atuin/fzf.
+mac	defaultbrowser	command	List or set the default browser. Run defaultbrowser zen after setup.
+mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia/Zen extension links.
+mac	raycast-extensions [--open]	command	List or open the recommended Raycast Store extension links.
+mac	betterdisplaycli	command	BetterDisplay command-line interface for display automation.
+mac	open -a <App>	command	Open a macOS app from the shell.
+dev	mise use <tool@version>	command	Pin a runtime/tool version in the current project.
+dev	mise upgrade	command	Upgrade globally managed mise tools.
+dev	pnpm	command	Package manager installed through mise for JavaScript projects.
+dev	python	command	Python installed and versioned by mise; avoid relying on macOS system Python.
+dev	uv	command	Fast Python package, project, script, tool, and virtualenv manager.
+git	git status	command	Show changed files.
+git	git diff	command	Show unstaged changes.
+git	git add -p	command	Interactively stage parts of a change.
+git	git commit -m <message>	command	Commit staged changes.
+git	git show --stat	command	Show the latest commit summary.
+tmux	tmux new -s <name>	command	Start a named tmux session.
+tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
+tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.
+tmux	tmuxp freeze > .tmuxp.yaml	command	Capture the current tmux session as a starter layout config.
+tmux	tmux-fresh	command	Start tmux without restoring the previous resurrect snapshot.
+tmux	Ctrl+a then Shift+I	key	Install tmux plugins with TPM.
+tmux	Ctrl+a then r	key	Reload tmux config.
+tmux	Ctrl+a then P	key	Rename the active pane.
+tmux	Ctrl+a then ,	key	Rename the active window.
+tmux	Ctrl+a then &	key	Close the current window and all panes inside it.
+tmux	tmux kill-session -t <name>	command	End a named tmux session.
+tmux	tmux kill-server	command	End every tmux session.
+tmux	Alt+h/j/k/l	key	Move between tmux panes and Neovim splits.

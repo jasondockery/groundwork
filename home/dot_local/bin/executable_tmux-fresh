@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${TMUX:-}" ]]; then
+  cat >&2 <<'EOF'
+tmux-fresh must be run outside tmux.
+
+Press Ctrl+a then d to detach, or open a new Ghostty tab, then run:
+  tmux-fresh
+EOF
+  exit 2
+fi
+
+resurrect_dir="${TMUX_RESURRECT_DIR:-$HOME/.local/share/tmux/resurrect}"
+
+if [[ -e "$resurrect_dir/last" || -L "$resurrect_dir/last" ]]; then
+  disabled="$resurrect_dir/last.disabled.$(date +%Y%m%dT%H%M%S)"
+  mv "$resurrect_dir/last" "$disabled"
+  echo "disabled tmux restore pointer: $disabled"
+else
+  echo "no tmux restore pointer found at: $resurrect_dir/last"
+fi
+
+if tmux has-session >/dev/null 2>&1; then
+  tmux kill-server
+fi
+
+exec tmux

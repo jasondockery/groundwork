@@ -1,0 +1,4 @@
+.DS_Store
+{{ if or (ne .chezmoi.os "darwin") .headless }}
+Library/**
+{{ end }}

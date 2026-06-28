@@ -1,0 +1,1 @@
+home/.chezmoitemplates/ai-thesis.md

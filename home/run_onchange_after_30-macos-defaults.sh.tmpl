@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
+# Finder: show extensions + hidden files, path/status bars, search current folder,
+# full POSIX path in the title bar, and list view as the default.
+defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+defaults write com.apple.finder AppleShowAllFiles -bool true
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder ShowStatusBar -bool true
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+chflags nohidden "$HOME/Library" 2>/dev/null || true
+
+# Safari/WebKit: expose developer tools for quick web debugging.
+defaults write com.apple.Safari IncludeDevelopMenu -bool true 2>/dev/null || true
+defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true 2>/dev/null || true
+defaults write NSGlobalDomain WebKitDeveloperExtras -bool true 2>/dev/null || true
+
+# Keyboard: fast key repeat + disable press-and-hold accent menu (for vim/nvim).
+# Read at app launch, so these fully apply after a logout/login.
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+defaults write NSGlobalDomain KeyRepeat -int 2
+defaults write NSGlobalDomain InitialKeyRepeat -int 15
+
+# Dock: hide recently-used apps.
+defaults write com.apple.dock show-recents -bool false
+
+killall Finder 2>/dev/null || true
+killall Dock 2>/dev/null || true
+
+# Stop Chrome's built-in password manager from competing with your third-party
+# manager. Verify at chrome://policy. Zen, Safari, and iOS are toggled manually.
+{{ if ne .password_manager "none" -}}
+defaults write com.google.Chrome PasswordManagerEnabled -bool false
+{{- end }}
+
+# Personal preference — uncomment if you want it:
+# defaults write com.apple.dock autohide -bool true
+
+# Default browser: macOS pops a confirmation dialog for http/https you must click.
+# Run manually post-bootstrap, not unattended:
+# defaultbrowser zen   # run 'defaultbrowser' with no args to see exact names
+{{- end }}

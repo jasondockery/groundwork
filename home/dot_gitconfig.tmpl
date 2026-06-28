@@ -1,0 +1,69 @@
+[user]
+    name = {{ .name }}
+    email = {{ if .work }}{{ .email_work }}{{ else }}{{ .email_personal }}{{ end }}
+{{- if and (eq .chezmoi.os "darwin") (ne .password_manager "none") (ne .signingkey "") }}
+    signingkey = {{ .signingkey }}
+{{- end }}
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = true
+
+[push]
+    autoSetupRemote = true
+
+[fetch]
+    prune = true
+{{- if lookPath "gh" }}
+
+# gh as git's HTTPS credential helper. Baked in because ~/.gitconfig is chezmoi-managed:
+# `gh auth setup-git` writes this same block, but the next `chezmoi apply` wipes it —
+# silently breaking authenticated GitHub pulls. Path resolved at apply time; emitted
+# only when gh is installed.
+[credential "https://github.com"]
+    helper =
+    helper = !{{ lookPath "gh" }} auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !{{ lookPath "gh" }} auth git-credential
+{{- end }}
+
+[core]
+    editor = nvim
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    line-numbers = true
+
+[merge]
+    conflictstyle = zdiff3
+
+[diff]
+    colorMoved = default
+
+[include]
+    path = ~/.gitconfig.local
+{{- if and (eq .chezmoi.os "darwin") (ne .password_manager "none") (ne .signingkey "") }}
+
+[commit]
+    gpgsign = true
+
+[gpg]
+    format = ssh
+{{- if eq .password_manager "1password" }}
+
+[gpg "ssh"]
+    program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+{{- end }}
+{{- end }}
+
+# Per-directory identity override (optional): drop this block into ~/.gitconfig.local
+# after creating a ~/.gitconfig-work with a [user] email.
+# [includeIf "gitdir:{{ .code_dir }}/work/"]
+#     path = ~/.gitconfig-work

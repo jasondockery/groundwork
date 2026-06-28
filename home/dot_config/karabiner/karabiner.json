@@ -1,0 +1,32 @@
+{
+  "global": {
+    "show_in_menu_bar": false
+  },
+  "profiles": [
+    {
+      "name": "Default",
+      "selected": true,
+      "virtual_hid_keyboard": {
+        "keyboard_type_v2": "ansi"
+      },
+      "complex_modifications": {
+        "rules": [
+          {
+            "description": "Caps Lock \u2192 Esc (tap) / Control (hold)",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "caps_lock",
+                  "modifiers": { "optional": ["any"] }
+                },
+                "to": [{ "key_code": "left_control", "lazy": true }],
+                "to_if_alone": [{ "key_code": "escape" }]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

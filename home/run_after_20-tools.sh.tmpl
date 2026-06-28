@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+for _brew in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -x "$_brew" ]] && eval "$("$_brew" shellenv)" && break
+done
+unset _brew
+
+# This script always runs (not run_once), so a tool that failed to install — network
+# blip, registry hiccup — is retried on the next apply. The guards below make each
+# install a no-op once the tool is present, so re-running is cheap. Put the install
+# dirs on PATH first so those `command -v` checks find what's already there.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+
+tmux_plugin_dir="$HOME/.config/tmux/plugins"
+if [[ ! -d "$tmux_plugin_dir/tpm" ]]; then
+  mkdir -p "$tmux_plugin_dir"
+  git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmux_plugin_dir/tpm"
+fi
+
+if [[ ! -e "$HOME/.config/nvim/init.lua" ]]; then
+  tmp_nvim="$(mktemp -d)"
+  git clone --depth 1 https://github.com/LazyVim/starter "$tmp_nvim"
+  rm -rf "$tmp_nvim/.git"
+  mkdir -p "$HOME/.config/nvim"
+  cp -R "$tmp_nvim"/. "$HOME/.config/nvim"/
+  rm -rf "$tmp_nvim"
+fi
+
+if command -v uv >/dev/null 2>&1 && ! command -v aider >/dev/null 2>&1; then
+  uv tool install aider-chat || true
+fi
+
+# Install the tools declared in mise's global config (Node LTS, pnpm, Python).
+# `mise activate` only puts tools on PATH — it never installs them — so without this they're
+# declared but missing. Idempotent: already-installed versions are skipped.
+if command -v mise >/dev/null 2>&1; then
+  mise install || true
+fi
+
+{{ if and (not .work) (not .headless) -}}
+if ! command -v opencode >/dev/null 2>&1; then
+  curl -fsSL https://opencode.ai/install | bash || true
+fi
+
+# Grok Build (xAI CLI) — personal machines only. Requires a SuperGrok / X Premium+ subscription.
+if ! command -v grok >/dev/null 2>&1; then
+  curl -fsSL https://x.ai/cli/install.sh | bash || true
+fi
+{{- end }}

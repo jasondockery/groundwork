@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:-.}"
+mkdir -p "$target"
+cd "$target"
+
+write() {
+  local path="$1"
+  if [[ -e "$path" ]]; then
+    echo "skip   $path (exists)"
+    return
+  fi
+  mkdir -p "$(dirname "$path")"
+  cat > "$path"
+  echo "create $path"
+}
+
+link() {
+  local link_path="$1" dest="$2"
+  mkdir -p "$(dirname "$link_path")"
+  if [[ -e "$link_path" && ! -L "$link_path" ]]; then
+    echo "skip   $link_path (real path exists, not linking)"
+    return
+  fi
+  ln -sfn "$dest" "$link_path"
+  echo "link   $link_path -> $dest"
+}
+
+# Canonical source of truth for all AI agents
+mkdir -p .agents/rules .agents/agents .agents/skills .agents/commands
+
+write AGENTS.md <<'EOF'
+# <project> — agent guide
+
+One line: what this is and who uses it.
+
+## Stack
+- language / runtime + version
+- key frameworks and libraries
+Do not introduce: <libraries or approaches this project rejects>.
+
+## Commands
+- build:
+- test:
+- lint:
+
+## Conventions
+- naming and file layout, one sentence each
+- error-handling / state / data-access rules the code can't show on its own
+
+## Workflow
+- branch and commit conventions specific to this repo
+
+Keep this lean. Delete any section you don't have a real answer for —
+empty scaffolding costs context and hurts more than it helps.
+EOF
+
+write CLAUDE.md <<'EOF'
+@AGENTS.md
+
+# Claude-only notes
+Anything specific to Claude Code that doesn't belong in the shared AGENTS.md.
+EOF
+
+# Every vendor points at the canonical .agents/ tree
+link .claude/agents   ../.agents/agents
+link .claude/skills   ../.agents/skills
+link .claude/commands ../.agents/commands
+link .codex/prompts   ../.agents/commands
+link .codex/skills    ../.agents/skills
+
+write .vscode/settings.json <<'EOF'
+{
+  "editor.formatOnSave": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n"
+}
+EOF
+
+write .vscode/extensions.json <<'EOF'
+{
+  "recommendations": [],
+  "unwantedRecommendations": []
+}
+EOF
+
+write .gitignore <<'EOF'
+CLAUDE.local.md
+AGENTS.override.md
+.env
+.env.*
+EOF
+
+echo
+echo "Scaffolded in $(pwd)"
+echo "Source of truth: AGENTS.md + .agents/{rules,agents,skills,commands}"
+echo "Next: edit AGENTS.md, then  git init && git add -A && git commit -m 'chore: scaffold'"

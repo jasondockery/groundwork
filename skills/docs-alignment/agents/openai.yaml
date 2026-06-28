@@ -1,0 +1,4 @@
+interface:
+  display_name: "docs-alignment"
+  short_description: "Keep Groundwork docs aligned with the AI-native north star."
+  default_prompt: "Use this skill to audit or update Groundwork docs against AI_THESIS.md."

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command catalog — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html" class="active">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Reference</p>
+      <h1>Command catalog: the repo's aliases, helper commands, and daily moves.</h1>
+      <p class="lead">This is the "what command was that again?" page. The same catalog is available in the terminal with <code>groundwork-help</code>, so the help follows you even when the docs are not open.</p>
+
+      <div class="quickref">
+        <div class="qr-label">Terminal help</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>groundwork-help</code></span> <span class="act">show everything</span></div>
+          <div class="qr"><span class="keys"><code>groundwork-help update</code></span> <span class="act">filter commands</span></div>
+          <div class="qr"><span class="keys"><code>groundwork-help git</code></span> <span class="act">show Git helpers</span></div>
+          <div class="qr"><span class="keys"><code>groundwork-help project</code></span> <span class="act">show scaffolders</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Why not package.json?</h2>
+      <p>A <code>package.json</code> would be valid, and this setup does install Node and pnpm for JavaScript projects. But Groundwork itself is not a JavaScript package; it is a macOS/chezmoi project whose first-run path has to work before Node exists. The most useful commands should also work from any folder after setup, so the primary interface is a normal shell command installed to <code>~/.local/bin</code>: <code>groundwork-help</code>.</p>
+      <p>Repo-maintenance commands live as shell scripts under <code>scripts/</code>; for example, CI and humans both run <code>scripts/validate-groundwork</code>. If a future workflow genuinely needs Node libraries, adding a tiny <code>package.json</code> with pnpm scripts as wrappers would be fine. It just should not be the only way a beginner discovers or runs Groundwork commands.</p>
+
+      <h2><span class="hash">#</span>Daily Groundwork commands</h2>
+      <table class="keytable">
+        <tr><td><code>groundwork-help</code></td><td>Show the command catalog. Add a query to filter it.</td></tr>
+        <tr><td><code>update-all</code></td><td>Run <code>chezmoi update</code>, then Homebrew update/upgrade/cleanup, then <code>mise upgrade</code>.</td></tr>
+        <tr><td><code>chezmoi diff</code></td><td>Preview managed-file changes before applying them.</td></tr>
+        <tr><td><code>chezmoi apply</code></td><td>Apply this repo to your home directory.</td></tr>
+        <tr><td><code>chezmoi edit ~/.zshrc</code></td><td>Edit the source template for a managed file.</td></tr>
+        <tr><td><code>chezmoi cd</code></td><td>Jump into the Groundwork source repo.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Project scaffolders</h2>
+      <table class="keytable">
+        <tr><td><code>new-project my-app</code></td><td>Create a starter repo with <code>AGENTS.md</code>, shared agent folders, editor settings, and ignored local/secrets files.</td></tr>
+        <tr><td><code>new-wiki ~/code/llm-wiki</code></td><td>Create a private knowledge wiki where sources live in <code>raw/</code>, an agent maintains <code>wiki/</code>, and Obsidian can browse the vault.</td></tr>
+        <tr><td><code>obsidian-plugins ~/code/llm-wiki</code></td><td>Install the Groundwork-managed Obsidian plugin set into a vault.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Groundwork safety</h2>
+      <table class="keytable">
+        <tr><td><code>chezmoi diff</code></td><td>Preview what Groundwork would change before applying.</td></tr>
+        <tr><td><code>chezmoi apply</code></td><td>Apply the source repo to the home directory.</td></tr>
+        <tr><td><code>groundwork-restore</code></td><td>Restore the first-run backup of managed files and macOS defaults. Does not uninstall apps or undo Homebrew upgrades.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Shell aliases and search</h2>
+      <table class="keytable">
+        <tr><td><code>ll</code></td><td>Detailed file listing with hidden files, Git status, and directories first.</td></tr>
+        <tr><td><code>lg</code></td><td>Open lazygit.</td></tr>
+        <tr><td><code>vim</code> / <code>vi</code></td><td>Open Neovim.</td></tr>
+        <tr><td><code>cat</code></td><td>Use <code>bat</code> for syntax-highlighted file viewing.</td></tr>
+        <tr><td><code>z name</code></td><td>Jump to a recent/frequent folder with zoxide.</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it.</td></tr>
+        <tr><td><code>mkdir -p folder</code></td><td>Create a folder, including parent folders if needed.</td></tr>
+        <tr><td><code>pwd</code> / <code>open .</code></td><td>Print the current folder / open it in Finder.</td></tr>
+        <tr><td><code>rg text</code> / <code>fd name</code></td><td>Search file contents / find files by name.</td></tr>
+        <tr><td><code>rga text</code></td><td>Search hidden and gitignored files too, while still skipping <code>.git</code> internals.</td></tr>
+        <tr><td><code>rgf [text]</code></td><td>Fuzzy-pick ripgrep results, preview with <code>bat</code>, and open the selected line in the editor.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>tmux commands</h2>
+      <table class="keytable">
+        <tr><td><code>tmux new -s name</code></td><td>Start a named tmux session.</td></tr>
+        <tr><td><code>tmux attach -t name</code></td><td>Attach to an existing session.</td></tr>
+        <tr><td><code>tmuxp load .tmuxp.yaml</code></td><td>Start a reusable project layout from a checked-in config file.</td></tr>
+        <tr><td><code>tmuxp freeze &gt; .tmuxp.yaml</code></td><td>Capture the current session as a starter layout config.</td></tr>
+        <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>P</kbd></span></td><td>Rename the active pane.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span></td><td>Rename the active window.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span></td><td>Close the current window and all panes inside it.</td></tr>
+        <tr><td><code>tmux kill-session -t name</code></td><td>End a named tmux session.</td></tr>
+        <tr><td><code>tmux kill-server</code></td><td>End every tmux session.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Mac and display commands</h2>
+      <table class="keytable">
+        <tr><td><code>defaultbrowser</code></td><td>List or set the default browser. After setup, run <code>defaultbrowser zen</code>.</td></tr>
+        <tr><td><code>browser-extensions</code></td><td>List or open the recommended extension links for Zen, Chrome, and Dia.</td></tr>
+        <tr><td><code>raycast-extensions</code></td><td>List or open the recommended Raycast Store entries for browser bookmarks, tabs, Anybox, GitHub, Homebrew, project openers, and optional AI.</td></tr>
+        <tr><td><code>betterdisplaycli</code></td><td>BetterDisplay's CLI for display automation.</td></tr>
+        <tr><td><code>open -a Zen</code></td><td>Open a macOS app from the shell. The <code>zen</code> alias does this for Zen.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Ask for help first</h3>
+          <p>Run <code>groundwork-help</code>, then <code>groundwork-help update</code>, then <code>groundwork-help project</code>. Notice which commands are aliases, functions, keys, or real executables.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Trace one command</h3>
+          <p>Run <code>which groundwork-help</code>, <code>which new-project</code>, and <code>alias update-all</code>. That teaches where commands come from: installed scripts, shell functions, and aliases.</p>
+        </div>
+      </div>
+
+      <div class="pagenav">
+        <a href="installed.html"><span class="dir">Previous</span>What's installed</a>
+        <a href="cheatsheet.html"><span class="dir">Next →</span>Cheat sheet</a>
+      </div>
+      <footer class="site">A command you can find is a command you can practice.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

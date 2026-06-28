@@ -1,0 +1,4 @@
+interface:
+  display_name: "validate-groundwork"
+  short_description: "Run Groundwork release and public-repo validation checks."
+  default_prompt: "Use this skill to validate Groundwork before commit or release."

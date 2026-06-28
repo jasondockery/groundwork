@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup &amp; chezmoi — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html" class="active">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">The system</p>
+      <h1>What chezmoi is, and why you run it.</h1>
+      <p class="lead">chezmoi keeps the configuration for your whole environment in one Git repository, and lays those files down in the right places on any Mac. Understanding it means you're never stuck waiting on someone else to set up your machine.</p>
+
+      <h2><span class="hash">#</span>The mental model</h2>
+      <p>There are two sides. On one side is a <strong>source repository</strong> — a folder full of your config files, tracked in Git. On the other is your <strong>home directory</strong>, where programs actually look for their settings. chezmoi's whole job is to copy from the first to the second, correctly.</p>
+
+      <figure class="diagram">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Diagram: the source repository is applied by chezmoi into your home directory">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--mauve)"/>
+            </marker>
+          </defs>
+          <!-- source box -->
+          <rect x="14" y="40" width="250" height="170" rx="12" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="34" y="68" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">SOURCE REPO (Git)</text>
+          <text x="34" y="98" font-family="var(--mono)" font-size="13" fill="var(--green)">dot_zshrc.tmpl</text>
+          <text x="34" y="122" font-family="var(--mono)" font-size="13" fill="var(--green)">dot_gitconfig.tmpl</text>
+          <text x="34" y="146" font-family="var(--mono)" font-size="13" fill="var(--green)">dot_config/tmux/...</text>
+          <text x="34" y="170" font-family="var(--mono)" font-size="13" fill="var(--green)">run_once_*.sh</text>
+          <text x="34" y="194" font-family="var(--mono)" font-size="12" fill="var(--overlay0)">versioned &middot; reviewed</text>
+          <!-- arrow -->
+          <line x1="276" y1="125" x2="446" y2="125" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <rect x="300" y="103" width="120" height="26" rx="13" fill="var(--mantle)" stroke="var(--mauve)"/>
+          <text x="360" y="120" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--mauve)">chezmoi apply</text>
+          <!-- home box -->
+          <rect x="456" y="40" width="250" height="170" rx="12" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="476" y="68" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">~ YOUR HOME</text>
+          <text x="476" y="98" font-family="var(--mono)" font-size="13" fill="var(--blue)">~/.zshrc</text>
+          <text x="476" y="122" font-family="var(--mono)" font-size="13" fill="var(--blue)">~/.gitconfig</text>
+          <text x="476" y="146" font-family="var(--mono)" font-size="13" fill="var(--blue)">~/.config/tmux/...</text>
+          <text x="476" y="170" font-family="var(--mono)" font-size="13" fill="var(--blue)">(scripts have run)</text>
+          <text x="476" y="194" font-family="var(--mono)" font-size="12" fill="var(--overlay0)">what programs read</text>
+        </svg>
+        <figcaption>chezmoi reads the repo on the left and writes the files on the right. You edit the left; you never hand-edit the right.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="label">Why the odd names</span>
+        <p>Files in the repo start with <code>dot_</code> instead of a dot so they're visible and easy to work with. A <code>.tmpl</code> ending means the file has blanks chezmoi fills in per machine — your name, your email, whether it's a work computer. That's how one repo serves many people without hard-coding anyone.</p>
+      </div>
+
+      <h2><span class="hash">#</span>What <code>apply</code> actually does</h2>
+      <p>When you run <code>chezmoi apply</code>, it walks the source repo and, for each file, decides what your home directory <em>should</em> look like, then makes it match. Concretely it:</p>
+      <ul>
+        <li>fills in any templates with this machine's answers,</li>
+        <li>writes or updates the real config files in your home directory,</li>
+        <li>runs setup scripts that should run — installing software, setting macOS preferences — and skips the ones that already ran.</li>
+      </ul>
+      <p>It only changes what's different. Run it twice in a row and the second run does almost nothing — that's the point. It's safe to run any time you want to be sure your machine matches the repo.</p>
+
+      <h2><span class="hash">#</span>Why it's in version control</h2>
+      <p>Because your setup is <strong>code</strong>. It lives in Git, so every change is recorded, you can see what changed and when, and you can roll back. Share the repo and someone else gets an identical environment. Lose the laptop and a new one is minutes away, not days.</p>
+
+      <div class="callout tip">
+        <span class="label">The repo wins</span>
+        <p>For files managed by chezmoi, the repo is the source of truth: <code>chezmoi diff</code> shows what would change, and <code>chezmoi apply</code> puts managed files back to the repo version. That is powerful, but it also means this setup intentionally changes the Mac.</p>
+      </div>
+
+      <h2><span class="hash">#</span>First-time setup</h2>
+      <div class="callout warn">
+        <span class="label">Opinionated setup</span>
+        <p>This is not a passive app installer. It changes shell, Git, terminal, tmux, editor, Homebrew, Finder, keyboard repeat, browser/developer, and app settings. First apply creates a focused backup at <code>~/.local/state/groundwork/backups/latest</code>. Restore the backed-up files and macOS defaults with <code>groundwork-restore</code>. Already-used Macs can also choose an optional clean start that moves old Neovim, tmux, and zsh completion state to <code>~/.local/state/groundwork/reset/latest</code>.</p>
+      </div>
+      <p>On a fresh Mac, run the bootstrap script. It installs the Apple/Homebrew/GitHub/chezmoi prerequisites, clones or updates <code>github.com/jasondockery/groundwork</code> at <code>${GROUNDWORK_DIR:-~/code/groundwork}</code>, then applies it with chezmoi. The script is the source of truth, so the docs do not duplicate every internal command.</p>
+      <p>The repo is a visible project checkout; <code>.chezmoiroot</code> keeps only <code>home/</code> mapped into your actual home folder.</p>
+      <p>Use the one-liner:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">bootstrap.sh</span></div>
+        <pre><code><span class="prompt">$ </span>bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"</code></pre>
+      </div>
+      <p>To read it first, download it to <code>/tmp/bootstrap-mac.sh</code>, open it with <code>less</code>, then run <code>bash /tmp/bootstrap-mac.sh</code>.</p>
+      <p>The first run asks a few questions — your name and email, whether this is a work machine, which password manager you use. Your answers are saved, so it won't ask again. From there it installs everything and configures the machine.</p>
+      <p>The backup is scoped to what this repo can reasonably restore: selected managed config files, selected macOS defaults keys, and Homebrew state notes. It does not uninstall apps, undo Homebrew upgrades, reverse manual permissions, or replace Time Machine.</p>
+      <p>If the Mac already has an old dev setup, answer <strong>yes</strong> to the reset prompt only when you want a cleaner start. It moves common conflict zones aside — Neovim config/state/cache, tmux legacy config/plugin/restore state, and zsh completion dumps — before applying this repo. It does not delete them.</p>
+      <div class="callout warn">
+        <span class="label">One habit to keep</span>
+        <p>Don't hand-edit a file that chezmoi manages (like <code>~/.zshrc</code>) — the next <code>apply</code> overwrites it. Change it in the <strong>repo</strong> instead, commit, then apply. The repo always wins, by design.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Customize without forking</h2>
+      <p>Groundwork is a shared base with a personal layer. For normal personal preferences, use the local override files that Groundwork intentionally loads last: <code>~/.zshrc.local</code>, <code>~/.gitconfig.local</code>, and <code>~/.config/tmux/tmux.local.conf</code>. For setup choices, edit <code>~/.config/chezmoi/chezmoi.toml</code> or re-run <code>chezmoi init</code>. See <a href="customizing.html">Customizing</a> for the full tiered model.</p>
+
+
+<div class="callout note">
+  <span class="label">Linux / WSL2 / containers</span>
+  <p>Groundwork now renders a terminal-only layer for Linux, WSL2, and headless containers. macOS GUI apps, App Store apps, browser helpers, and macOS defaults are skipped when <code>.chezmoi.os</code> is not <code>darwin</code> or when the <code>headless</code> profile is true. For a disposable shell, build the Docker image with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>.</p>
+</div>
+
+      <h2><span class="hash">#</span>Day to day</h2>
+      <p>When the shared repo gets new changes, pull them and apply:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">update.sh</span></div>
+        <pre><code><span class="prompt">$ </span>chezmoi update
+<span class="comment"># pulls the latest repo and applies it in one step</span></code></pre>
+      </div>
+      <p>That refreshes your <em>config</em> from the repo — but not the software already installed. To freshen everything at once, the setup ships an <code>update-all</code> alias:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">update-all</span></div>
+        <pre><code><span class="prompt">$ </span>update-all
+<span class="comment"># chezmoi update + brew update/upgrade/cleanup + mise upgrade</span></code></pre>
+      </div>
+      <p>To see the other helper commands this setup installs, run <code>groundwork-help</code> or open the <a href="commands.html">Command catalog</a>.</p>
+      <p>To see what a change <em>would</em> do before committing to it, ask first:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">preview.sh</span></div>
+        <pre><code><span class="prompt">$ </span>chezmoi diff
+<span class="comment"># shows exactly what apply will change, and nothing else</span></code></pre>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://www.chezmoi.io/quick-start/" target="_blank" rel="noopener">chezmoi — Quick start</a> — the official fastest path from zero to a working Groundwork repo.</li>
+        <li><a href="https://www.chezmoi.io/user-guide/command-overview/" target="_blank" rel="noopener">chezmoi — User guide</a> — the daily-workflow reference (add, edit, diff, apply, templates).</li>
+        <li><a href="https://dotfiles.github.io/" target="_blank" rel="noopener">GitHub does dotfiles</a> — why dotfiles matter, with tools and examples.</li>
+        <li><a href="https://github.com/webpro/awesome-dotfiles" target="_blank" rel="noopener">awesome-dotfiles</a> — a big curated list of other people's setups to learn from.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="getting-started.html"><span class="dir">← Prev</span>Getting started</a>
+        <a href="customizing.html"><span class="dir">Next →</span>Customizing</a>
+      </div>
+      <footer class="site">chezmoi docs: chezmoi.io &middot; this guide stays offline.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

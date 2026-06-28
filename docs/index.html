@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html" class="active">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <section class="hero">
+        <p class="prompt-line">$ whoami<span class="cursor">_</span></p>
+        <p class="eyebrow">AI-native Mac development</p>
+        <h1>An AI-native Mac dev environment you can rebuild from scratch.</h1>
+        <p class="lead">Every app, config, keybinding, project instruction, and agent workflow on this machine comes from one small repository. Groundwork teaches the machine setup and the human workflow: how to use the terminal, Git, editors, and coding agents together without losing control of the work.</p>
+      </section>
+
+      <div class="callout tip">
+        <span class="label">Quick start</span>
+        <p>Want a configured Mac now? Run the bootstrap. Want to understand what it did? Keep reading from <a href="getting-started.html">Getting started</a>, <a href="setup.html">Setup &amp; chezmoi</a>, and <a href="customizing.html">Customizing</a>.</p>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">bootstrap</span></div>
+        <pre><code><span class="prompt">$ </span>bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"</code></pre>
+      </div>
+
+      <h2><span class="hash">#</span>How it's built</h2>
+      <p>Two tools do the heavy lifting. <strong>Homebrew</strong> installs the software. <strong>chezmoi</strong> takes a folder of config files kept in version control and lays them down in the right places in your home directory — so a brand-new Mac becomes a fully configured one with a single command, and every machine stays identical.</p>
+      <p>You don't have to trust that blindly. The <a href="setup.html">Setup &amp; chezmoi</a> page walks through exactly what <code>chezmoi apply</code> does and why you run it, so you understand the system rather than memorizing commands.</p>
+
+      <div class="callout note">
+        <span class="label">The idea</span>
+        <p>Your configuration is <em>code</em>, and your agent instructions are code-adjacent operating rules. Both live in Git, both are reviewed and versioned, and both can be reproduced on any Mac. Break something? Re-run one command and you're back.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Why terminal-first still matters</h2>
+      <p>AI-native does not mean the terminal goes away. It means the terminal becomes the control room: agents read files, run shell commands, inspect Git diffs, apply project instructions, and verify changes. tmux keeps that work visible, Neovim and VS Code let you intervene by hand, and Git gives every experiment a safe checkpoint.</p>
+      <p>The direction is intentionally written down in one place: <a href="../AI_THESIS.md">AI_THESIS.md</a>. Agent adapters, skills, and docs reference that north star instead of each keeping their own copy.</p>
+
+      <h2><span class="hash">#</span>The tools</h2>
+      <p>Start with the two that change how you work the most — the terminal multiplexer and the editor — then add the agent layer that makes the setup feel current rather than nostalgic.</p>
+      <div class="grid">
+        <a class="card" href="tmux.html">
+          <span class="ct">multiplexer</span>
+          <h3>tmux</h3>
+          <p>Split one terminal into windows and panes, and keep sessions alive. Start here.</p>
+        </a>
+        <a class="card" href="setup.html">
+          <span class="ct">the system</span>
+          <h3>chezmoi</h3>
+          <p>What it is, the mental model, and what happens when you apply it.</p>
+        </a>
+        <a class="card" href="neovim.html">
+          <span class="ct">editor</span>
+          <h3>Neovim</h3>
+          <p>A modal, keyboard-driven editor in the terminal, pre-loaded with LazyVim.</p>
+        </a>
+        <a class="card" href="shell.html">
+          <span class="ct">commands</span>
+          <h3>Shell &amp; CLI</h3>
+          <p>The modern command-line tools that replace the classics — plus the zsh setup behind them.</p>
+        </a>
+        <a class="card" href="git.html">
+          <span class="ct">version control</span>
+          <h3>Git</h3>
+          <p>Track changes, branch, and collaborate — with lazygit and a pre-tuned config.</p>
+        </a>
+        <a class="card" href="editors-ai.html">
+          <span class="ct">editors + agents</span>
+          <h3>Editors &amp; AI</h3>
+          <p>Where you write code, and the AI agents that write it alongside you.</p>
+        </a>
+        <a class="card" href="development.html">
+          <span class="ct">learning paths</span>
+          <h3>Development</h3>
+          <p>Progressive routes for Apple apps, web, Rust, Python, ML, and LLMs.</p>
+        </a>
+        <a class="card" href="apps.html">
+          <span class="ct">graphical apps</span>
+          <h3>Apps &amp; browsers</h3>
+          <p>The browser, launcher, notes, and chat apps around the terminal.</p>
+        </a>
+        <a class="card" href="macos.html">
+          <span class="ct">desktop layer</span>
+          <h3>macOS windows</h3>
+          <p>Common Mac shortcuts, tabs, spaces, Raycast window management, Anybox, and BetterDisplay.</p>
+        </a>
+        <a class="card" href="practice.html">
+          <span class="ct">learning path</span>
+          <h3>Practice plan</h3>
+          <p>Daily drills for the terminal, tmux, Neovim, Git, and AI agents.</p>
+        </a>
+        <a class="card" href="agents.html">
+          <span class="ct">ai-native</span>
+          <h3>AI agents &amp; rules</h3>
+          <p>How the north star, project instructions, adapters, and skills fit together without duplicate policy.</p>
+        </a>
+      </div>
+
+      <h2><span class="hash">#</span>A path to follow</h2>
+      <p>Don't try to learn everything at once. Pick one thing, practice it, move on. This order works well:</p>
+
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Open the terminal</h3>
+          <p>If the command line is new to you, start with <a href="getting-started.html">Getting started</a> — what a terminal, a prompt, and a file path are, and how to open Ghostty. Fifteen minutes, and everything below makes sense.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Learn the command line</h3>
+          <p>Work through <a href="command-line.html">Command line &amp; Unix</a> — core commands, piping, a first script, and what Unix actually is. The ground the other tools stand on.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Learn to type in Vim</h3>
+          <p>Run <code>vimtutor</code> in your terminal. It's a free, hands-on, 30-minute lesson built into the Mac. Do it twice over two days.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Understand the shell</h3>
+          <p>Work through <a href="https://missing.csail.mit.edu" target="_blank" rel="noopener">The Missing Semester</a> — MIT's free course on the command line, Vim, tmux, and Git. The single best foundation.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Get comfortable in tmux</h3>
+          <p>Read the <a href="tmux.html">tmux page</a> and run its practice drills. Splitting panes and switching sessions should feel automatic before you move on.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">6</div>
+        <div class="body">
+          <h3>Actually understand Git</h3>
+          <p>Play <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — it makes branches and merges visual instead of abstract.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">7</div>
+        <div class="body">
+          <h3>Learn the agent loop</h3>
+          <p>Open <a href="editors-ai.html">Editors &amp; AI</a> and practice the shared loop: describe, plan, edit, review the diff, verify, and commit. That loop is the center of AI-native development here.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">8</div>
+        <div class="body">
+          <h3>Choose a development path</h3>
+          <p>Open <a href="development.html">Development</a> and pick one progressive route: Apple apps, React/Next/Node, Rust, Python, ML, or LLMs. Build one small thing before collecting more links.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">9</div>
+        <div class="body">
+          <h3>Learn the Mac layer</h3>
+          <p>Use <a href="macos.html">macOS windows</a> to practice app switching, tabs, full screen, Raycast window movement, Anybox link recall, and BetterDisplay resolution presets.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">10</div>
+        <div class="body">
+          <h3>Practice deliberately</h3>
+          <p>Use the <a href="practice.html">Practice plan</a> for daily reps and the <a href="resources.html">Resource library</a> for outside reading, videos, paid practice, and official docs.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">11</div>
+        <div class="body">
+          <h3>Put it together</h3>
+          <p>See how it all combines in <a href="workflow.html">Everyday workflow</a>, then pick a small project and spend an hour in the terminal, editor, and tmux together. Real use is where it sticks — experiment freely; you can always reset with one command.</p>
+        </div>
+      </div>
+
+      <div class="pagenav">
+        <span></span>
+        <a href="getting-started.html"><span class="dir">Next →</span>Getting started</a>
+      </div>
+      <footer class="site">Built to be rebuilt. Open source, no tracking, works offline.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

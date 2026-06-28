@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customizing Groundwork — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html" class="active">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Personal layer</p>
+      <h1>Customize Groundwork without forking it.</h1>
+      <p class="lead">Groundwork is a shared base, not an all-or-nothing box. Keep your personal preferences in local files and machine-local chezmoi data so you can keep pulling updates without losing your own habits.</p>
+
+      <div class="callout tip">
+        <span class="label">Rule of thumb</span>
+        <p>Small personal additions go in <code>.local</code> files. Setup choices go in <code>~/.config/chezmoi/chezmoi.toml</code>. Full ownership of a managed file means ignore it or maintain your own fork.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Tier 1: local override files</h2>
+      <p>Use this for the normal case: a few aliases, a different Git preference, or one tmux binding. These files are not managed by Groundwork, and they load after the shared defaults, so your local choices win.</p>
+      <table class="keytable">
+        <tr><td><code>~/.zshrc.local</code></td><td>Shell aliases, functions, exports, PATH additions, and prompt-adjacent tweaks.</td></tr>
+        <tr><td><code>~/.gitconfig.local</code></td><td>Personal Git preferences, conditional includes, aliases, and per-directory identities.</td></tr>
+        <tr><td><code>~/.config/tmux/tmux.local.conf</code></td><td>Personal tmux options, bindings, status tweaks, and plugin settings.</td></tr>
+      </table>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">example local shell override</span></div><pre><code><span class="prompt">$ </span>cat &gt;&gt; ~/.zshrc.local &lt;&lt;'EOF'
+alias c='clear'
+export VISUAL=code
+EOF
+<span class="prompt">$ </span>source ~/.zshrc</code></pre></div>
+
+      <h2><span class="hash">#</span>Tier 2: re-answer setup choices</h2>
+      <p>Choices that Groundwork already asks about live in <code>~/.config/chezmoi/chezmoi.toml</code>. That file is machine-local. Edit it directly or re-run <code>chezmoi init</code>, then apply.</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">machine-local choices</span></div><pre><code><span class="prompt">$ </span>chezmoi init
+<span class="prompt">$ </span>chezmoi diff
+<span class="prompt">$ </span>chezmoi apply</code></pre></div>
+      <p>Use this tier for values like work-vs-personal machine, Git identity, password manager, code directory, reset behavior, signing key, and Obsidian vault name.</p>
+
+      <h2><span class="hash">#</span>Tier 3: full ownership</h2>
+      <p>If you want to fully own an entire file, do not keep fighting <code>chezmoi apply</code>. Either ignore that file for this machine or maintain a fork.</p>
+      <table class="keytable">
+        <tr><td><strong>Ignore a file locally</strong></td><td>Use when one machine should stop receiving a managed file from Groundwork. Add the path to your local chezmoi ignore setup only after deciding you really want full ownership.</td></tr>
+        <tr><td><strong>Fork Groundwork</strong></td><td>Use when your whole team or long-term personal setup should diverge from the upstream defaults.</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Do not hand-edit managed targets</span>
+        <p>If you edit <code>~/.zshrc</code>, <code>~/.gitconfig</code>, or <code>~/.config/tmux/tmux.conf</code> directly, the next <code>chezmoi apply</code> can replace your edits. Put personal changes in the local override files instead.</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="setup.html"><span class="dir">← Prev</span>Setup &amp; chezmoi</a>
+        <a href="tmux.html"><span class="dir">Next →</span>tmux</a>
+      </div>
+      <footer class="site">Shared base, personal layer. Pull updates without giving up your preferences.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

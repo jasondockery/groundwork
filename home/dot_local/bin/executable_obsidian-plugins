@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: obsidian-plugins <vault-path>" >&2
+}
+
+vault="${1:-}"
+if [[ -z "$vault" ]]; then
+  usage
+  exit 1
+fi
+
+vault="${vault/#\~/$HOME}"
+if [[ ! -d "$vault" ]]; then
+  echo "obsidian-plugins: vault not found: $vault" >&2
+  exit 1
+fi
+
+list="${GROUNDWORK_OBSIDIAN_PLUGINS_LIST:-$HOME/.local/share/groundwork/obsidian-plugins.txt}"
+if [[ ! -f "$list" ]]; then
+  source_path="$(chezmoi source-path 2>/dev/null || true)"
+  if [[ -n "$source_path" && -f "$source_path/dot_local/share/groundwork/obsidian-plugins.txt" ]]; then
+    list="$source_path/dot_local/share/groundwork/obsidian-plugins.txt"
+  elif [[ -n "$source_path" && -f "$source_path/home/dot_local/share/groundwork/obsidian-plugins.txt" ]]; then
+    list="$source_path/home/dot_local/share/groundwork/obsidian-plugins.txt"
+  else
+    echo "obsidian-plugins: plugin list not found" >&2
+    exit 1
+  fi
+fi
+
+command -v jq >/dev/null 2>&1 || {
+  echo "obsidian-plugins: jq is required; install with: brew install jq" >&2
+  exit 1
+}
+
+plugins_dir="$vault/.obsidian/plugins"
+enabled_file="$vault/.obsidian/community-plugins.json"
+
+mkdir -p "$plugins_dir"
+mkdir -p "$(dirname "$enabled_file")"
+[[ -f "$enabled_file" ]] || echo "[]" > "$enabled_file"
+
+enable_plugin() {
+  local id="$1" tmp
+  tmp="$(mktemp)"
+  jq --arg id "$id" '. + [$id] | unique' "$enabled_file" > "$tmp"
+  mv "$tmp" "$enabled_file"
+}
+
+plugin_ids=()
+while IFS= read -r id; do
+  [[ -n "$id" ]] && plugin_ids+=("$id")
+done < <(sed -e 's/#.*$//' -e '/^[[:space:]]*$/d' "$list")
+
+missing=()
+for id in "${plugin_ids[@]}"; do
+  if [[ -d "$plugins_dir/$id" ]]; then
+    enable_plugin "$id"
+  else
+    missing+=("$id")
+  fi
+done
+
+if [[ "${#missing[@]}" -eq 0 ]]; then
+  echo "obsidian-plugins: all plugins already installed in $vault"
+  exit 0
+fi
+
+registry="$(mktemp)"
+trap 'rm -f "$registry"' EXIT
+
+curl -fsSL https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugins.json -o "$registry"
+
+github_api_headers=()
+github_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+if [[ -n "$github_token" ]]; then
+  github_api_headers=(-H "Authorization: Bearer $github_token" -H "X-GitHub-Api-Version: 2022-11-28")
+fi
+
+for id in "${missing[@]}"; do
+  repo="$(jq -r --arg id "$id" '.[] | select(.id==$id) | .repo' "$registry" | head -n1)"
+  if [[ -z "$repo" || "$repo" == "null" ]]; then
+    echo "skip $id (not in registry)"
+    continue
+  fi
+
+  assets="$(curl -fsSL "${github_api_headers[@]}" "https://api.github.com/repos/$repo/releases/latest" | jq -r '.assets[]?.browser_download_url' 2>/dev/null || true)"
+  main_url="$(printf '%s\n' "$assets" | grep -E '/main\.js$' | head -n1 || true)"
+  manifest_url="$(printf '%s\n' "$assets" | grep -E '/manifest\.json$' | head -n1 || true)"
+  styles_url="$(printf '%s\n' "$assets" | grep -E '/styles\.css$' | head -n1 || true)"
+
+  if [[ -z "$main_url" || -z "$manifest_url" ]]; then
+    echo "skip $id (no standard release assets; if GitHub rate-limited this run, wait or set GH_TOKEN/GITHUB_TOKEN and re-run)"
+    continue
+  fi
+
+  dest="$plugins_dir/$id"
+  mkdir -p "$dest"
+  curl -fsSL "$main_url" -o "$dest/main.js"
+  curl -fsSL "$manifest_url" -o "$dest/manifest.json"
+  [[ -n "$styles_url" ]] && curl -fsSL "$styles_url" -o "$dest/styles.css"
+
+  if [[ -s "$dest/main.js" ]]; then
+    enable_plugin "$id"
+    echo "installed $id ($repo)"
+  else
+    rm -rf "$dest"
+    echo "failed $id"
+  fi
+done

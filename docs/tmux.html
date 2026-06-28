@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmux — Groundwork</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Ground<br><b>work</b></span>
+    </a>
+    <nav class="nav-group">
+      <h4>Start</h4>
+      <a href="index.html">Overview</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="resources.html">Resource library</a>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="customizing.html">Customizing</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tools</h4>
+      <a href="tmux.html" class="active">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+      <a href="development.html">Development</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+      <a href="macos.html">macOS windows</a>
+      <a href="keyboard.html">Keyboard</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Workflows</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Help</h4>
+      <a href="installed.html">What&apos;s installed</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Multiplexer</p>
+      <h1>tmux: one terminal, many panes — and nothing ever gets lost.</h1>
+      <p class="lead">tmux splits a single terminal window into as many panes and tabs as you want, and keeps everything running even after you close the window. Learn three ideas and a dozen keystrokes and you'll never go back.</p>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — prefix is Ctrl+a</div>
+        <div class="quickref-sections">
+          <div class="quickref-section">
+            <h3>Panes</h3>
+            <div class="quickref-grid">
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>|</kbd></span> <span class="act">split right</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>-</kbd></span> <span class="act">split down</span></div>
+              <div class="qr"><span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> <span class="act">move left/down/up/right</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>P</kbd></span> <span class="act">rename pane</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>z</kbd></span> <span class="act">zoom active pane</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>x</kbd></span> <span class="act">close active pane</span></div>
+            </div>
+          </div>
+          <div class="quickref-section">
+            <h3>Windows</h3>
+            <div class="quickref-grid">
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>c</kbd></span> <span class="act">new window</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>1</kbd>…<kbd>9</kbd></span> <span class="act">jump by number</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>,</kbd></span> <span class="act">rename window</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>&lt;</kbd>/<kbd>&gt;</kbd></span> <span class="act">move window left/right</span></div>
+            </div>
+          </div>
+          <div class="quickref-section">
+            <h3>Sessions</h3>
+            <div class="quickref-grid">
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>T</kbd></span> <span class="act">session switcher</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>d</kbd></span> <span class="act">detach, keep running</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>$</kbd></span> <span class="act">rename session</span></div>
+              <div class="qr"><span class="keys"><code>tmuxp load</code></span> <span class="act">start project layout</span></div>
+              <div class="qr"><span class="keys"><code>tmux attach</code></span> <span class="act">return later</span></div>
+            </div>
+          </div>
+          <div class="quickref-section">
+            <h3>Tools &amp; scrollback</h3>
+            <div class="quickref-grid">
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>g</kbd></span> <span class="act">lazygit popup</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>[</kbd></span> <span class="act">scroll/copy mode</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Ctrl</kbd><kbd>s</kbd></span> <span class="act">save layout now</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>r</kbd></span> <span class="act">reload config</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>I</kbd></span> <span class="act">install plugins</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Why bother</h2>
+      <p>Without tmux, one terminal window is one shell. With it, you get an editor, a running server, logs, and Git side by side — and if you close the laptop or the connection drops, that whole layout is still there when you come back. That last part, <strong>persistent sessions</strong>, is the feature people fall in love with.</p>
+
+      <h2><span class="hash">#</span>The three ideas</h2>
+      <p>Everything in tmux is one of three things, nested inside each other.</p>
+      <ul>
+        <li><strong>Session</strong> — a whole workspace for a project. You can have several and jump between them.</li>
+        <li><strong>Window</strong> — like a browser tab inside a session. Each fills the screen; you switch between them.</li>
+        <li><strong>Pane</strong> — a split <em>within</em> a window. This is where the actual shells and terminal apps live.</li>
+      </ul>
+
+      <figure class="diagram">
+        <svg viewBox="0 0 720 290" role="img" aria-label="A session contains windows shown as tabs; the active window is split into three panes">
+          <text x="20" y="28" font-family="var(--mono)" font-size="13" fill="var(--mauve)">SESSION: groundwork</text>
+          <!-- window tabs -->
+          <rect x="20" y="42" width="130" height="30" rx="8" fill="var(--mantle)" stroke="var(--mauve)"/>
+          <text x="85" y="62" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--mauve)">0: edit *</text>
+          <rect x="158" y="42" width="130" height="30" rx="8" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="223" y="62" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">1: serve</text>
+          <rect x="296" y="42" width="130" height="30" rx="8" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="361" y="62" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">2: git</text>
+          <text x="445" y="62" font-family="var(--mono)" font-size="11" fill="var(--overlay0)">&larr; windows (tabs)</text>
+          <!-- active window split into panes -->
+          <rect x="20" y="86" width="680" height="180" rx="10" fill="none" stroke="var(--surface1)" stroke-dasharray="4 4"/>
+          <rect x="32" y="98" width="330" height="156" rx="8" fill="var(--crust)" stroke="var(--green)"/>
+          <text x="197" y="180" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--green)">pane: nvim</text>
+          <rect x="374" y="98" width="314" height="72" rx="8" fill="var(--crust)" stroke="var(--surface2)"/>
+          <text x="531" y="138" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--subtext0)">pane: shell</text>
+          <rect x="374" y="182" width="314" height="72" rx="8" fill="var(--crust)" stroke="var(--surface2)"/>
+          <text x="531" y="222" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--subtext0)">pane: logs</text>
+          <text x="360" y="284" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--overlay0)">the active window, split into three panes</text>
+        </svg>
+        <figcaption>One session holds windows (like tabs). The open window is split into panes. Sessions keep running even after you detach.</figcaption>
+      </figure>
+
+      <h2><span class="hash">#</span>The prefix — the one habit</h2>
+      <p>Almost every tmux command starts with the <strong>prefix</strong>: press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>, let go, then tap the next key. It's how tmux knows you're talking to <em>it</em> and not to the program in the pane.</p>
+      <p>So "split the pane" is really: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>. Throughout this page, that pattern means <em>prefix, then the key</em>.</p>
+      <div class="callout note">
+        <span class="label">Mouse works too</span>
+        <p>The mouse is enabled: click a pane to focus it, drag a border to resize, scroll to look back. Keys are faster once they stick, but the mouse is a fine way to start.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Best-practice shape in this setup</h2>
+      <p>The modern, low-friction pattern is <strong>one tmux session per project</strong>, a few clearly named windows inside it, and panes only where seeing two things at once helps. This repo now uses that pattern directly:</p>
+      <table class="keytable">
+        <tr><td><strong>sesh</strong></td><td>Jump to an existing session or create one from a project folder with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span></td></tr>
+        <tr><td><strong>pane border labels</strong></td><td>Every pane border shows its pane number, title, and current folder so full-screen apps like Claude, Codex, or Neovim do not hide your location</td></tr>
+        <tr><td><strong>tmux-resurrect + continuum</strong></td><td>Save and restore the live workspace you actually had open, including sessions, windows, panes, directories, and layout</td></tr>
+        <tr><td><strong>tmuxp</strong></td><td>Check a reusable project layout into a repo as <code>.tmuxp.yaml</code> when a team or class should start from the same windows and commands</td></tr>
+      </table>
+      <p>That keeps the daily workflow simple: use <strong>sesh</strong> to move around, let <strong>continuum</strong> save your live state, and reach for <strong>tmuxp</strong> only when a project has a layout worth sharing or recreating from scratch.</p>
+
+      <h2><span class="hash">#</span>The essential moves</h2>
+      <p>This is the custom keymap on this setup. You don't need all of it on day one — the panes and sessions rows are what matter first.</p>
+
+      <h3>Panes</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span></td><td>Split left/right (a vertical divider)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>-</kbd></span></td><td>Split top/bottom</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>h</kbd> / <kbd>j</kbd> / <kbd>k</kbd> / <kbd>l</kbd></span></td><td>Move between panes — and Neovim splits — no prefix needed</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>H</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd></span></td><td>Resize the pane (hold to repeat)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>P</kbd></span></td><td>Rename the active pane — useful labels are <code>claude</code>, <code>server</code>, <code>logs</code>, <code>tests</code></td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span></td><td>Zoom — make one pane fill the screen, then back</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>x</kbd></span></td><td>Close the pane</td></tr>
+      </table>
+
+      <h3>Windows</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>c</kbd></span></td><td>New window</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>1</kbd>…<kbd>9</kbd></span></td><td>Jump to window by number</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&lt;</kbd> / <kbd>&gt;</kbd></span></td><td>Move the current window left/right in the list</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span></td><td>Rename the window</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span></td><td>Close the current window and all panes inside it (tmux asks first)</td></tr>
+      </table>
+      <p>Best names are short nouns: <code>edit</code>, <code>agent</code>, <code>server</code>, <code>logs</code>, <code>db</code>, <code>git</code>. Window names show in the status bar; pane names show in the pane border.</p>
+
+      <h3>Sessions — the persistent part</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span></td><td>Open the session switcher (jump to or create a project workspace)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span></td><td>Detach — leave everything running and return to the plain shell</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>$</kbd></span></td><td>Rename the session</td></tr>
+        <tr><td><code>tmux attach</code></td><td>From the shell, reattach to where you left off</td></tr>
+        <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot</td></tr>
+        <tr><td><code>tmux kill-session -t name</code></td><td>End a specific session and everything running inside it</td></tr>
+        <tr><td><code>tmux kill-server</code></td><td>End every tmux session (rare; use carefully)</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Detach vs close</span>
+        <p><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span> is safe: it keeps the session running. <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>x</kbd></span>, <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span>, and <code>tmux kill-session</code> end running shells and programs.</p>
+      </div>
+
+      <div class="callout note">
+        <span class="label">The session switcher is broader than tmux</span>
+        <p><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> opens <strong>sesh</strong>, not raw <code>tmux ls</code>. It shows live tmux sessions <em>and</em> useful project folders from zoxide, so seeing <code>~/code/roost</code> or <code>~/code/groundwork</code> in that picker does not always mean a tmux session is alive. To see only live tmux sessions, run <code>tmux ls</code> or <code>sesh list --tmux</code>. To see only directory suggestions, run <code>sesh list --zoxide</code>.</p>
+      </div>
+
+      <h3>Extras</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span></td><td>Open lazygit in a popup, in the current folder</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>S</kbd></span></td><td>Toggle "type into every pane at once" (great for many servers)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span></td><td>Scroll/copy mode — <kbd>v</kbd> selects, <kbd>y</kbd> copies, <kbd>q</kbd> exits</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span></td><td>Clear the shell screen</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>K</kbd></span></td><td>Clear the shell screen and tmux scrollback</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span></td><td>Reload the tmux config after editing it</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <p>Do these in order, out loud if it helps. Fifteen minutes here beats reading the table ten times.</p>
+
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Split and move</h3>
+          <p>Type <code>tmux</code> and press Enter. Split side by side with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>, then top/bottom with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>-</kbd></span>. Hop between the panes with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>. Run <code>ls</code> in one and <code>top</code> in another so they feel distinct.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Zoom and resize</h3>
+          <p>Land on the busiest pane and press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span> to blow it up full-screen, then again to bring the others back. Now nudge a border: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>H</kbd></span> a few times to widen it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Windows as tabs</h3>
+          <p>Make two more windows with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>c</kbd></span>. Jump straight to the first with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>1</kbd></span>. Rename one with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span> so the status bar reads something useful.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>The magic trick: detach &amp; return</h3>
+          <p>Start something long-running, like <code>ping example.com</code>. Detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span> — you're back at the plain shell. <strong>Close the terminal entirely.</strong> Open a new one and type <code>tmux attach</code>. Everything is exactly where you left it, still running. That's the whole reason tmux exists.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Sessions and lazygit</h3>
+          <p>Open the session switcher with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> and create a workspace for a project folder. Inside it, in any folder that's a Git repo, press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span> to pop open lazygit, then <kbd>q</kbd> to close it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">6</div>
+        <div class="body">
+          <h3>Scroll back</h3>
+          <p>Output flew past? Press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> to enter scroll mode and move with the arrow keys or <kbd>k</kbd>/<kbd>j</kbd>. Press <kbd>v</kbd> to start selecting, <kbd>y</kbd> to copy, and <kbd>q</kbd> to drop back to normal.</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">When you're stuck</span>
+        <p>Forgot a key? <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>?</kbd></span> lists every binding (press <kbd>q</kbd> to leave). Edited the config? <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span> reloads it. A printable cheat sheet lives at <a href="https://tmuxcheatsheet.com" target="_blank" rel="noopener">tmuxcheatsheet.com</a>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Project layouts as code</h2>
+      <p>If a project always wants the same arrangement — editor, agent, server, tests, logs — store that as <code>.tmuxp.yaml</code> in the project. That is the shareable version for teams and students. Resurrect restores whatever you personally had open; tmuxp starts a known layout from a file.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">.tmuxp.yaml</span></div>
+        <pre><code>session_name: my-app
+start_directory: ~/code/my-app
+windows:
+  - window_name: edit
+    layout: main-vertical
+    panes:
+      - nvim .
+      - claude
+  - window_name: run
+    layout: even-horizontal
+    panes:
+      - pnpm dev
+      - pnpm test -- --watch
+  - window_name: git
+    panes:
+      - lazygit</code></pre>
+      </div>
+      <table class="keytable">
+        <tr><td><code>tmuxp load .tmuxp.yaml</code></td><td>Start or attach to the layout described by the file</td></tr>
+        <tr><td><code>tmuxp freeze &gt; .tmuxp.yaml</code></td><td>Capture the current session as a starter config, then edit the commands and names</td></tr>
+        <tr><td><code>sesh connect ~/code/my-app</code></td><td>Create or jump to a normal project session when you do not need a declared layout</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">What to commit</span>
+        <p>Commit <code>.tmuxp.yaml</code> only when it helps someone else start the project. Do not put secrets, personal paths outside the repo, or one-off local commands in it. For private variations, use a local ignored file such as <code>.tmuxp.local.yaml</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The plugins</h2>
+      <p>Most of what makes this tmux pleasant isn't tmux itself — it's a handful of plugins, managed by <strong>TPM</strong> (the Tmux Plugin Manager). You rarely touch them after install, but knowing what each one does explains where the magic comes from.</p>
+
+      <h3>Managing them — TPM</h3>
+      <p>Plugins are declared in the config (the <code>set -g @plugin '…'</code> lines) and installed with one keystroke. Three commands cover their whole life:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span></td><td><strong>Install</strong> any newly-declared plugins and load them (this is the one you run after a fresh setup)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td><strong>Update</strong> installed plugins to their latest version</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Alt</kbd><kbd>u</kbd></span></td><td><strong>Clean</strong> — remove plugins you've deleted from the config</td></tr>
+      </table>
+
+      <h3>The quiet helpers</h3>
+      <p>Three plugins you'll never think about — they just make the defaults sane and the clipboard work:</p>
+      <table class="keytable">
+        <tr><td><strong>tmux-sensible</strong></td><td>A base layer of non-controversial defaults (faster key response, bigger scrollback, focus events). Loaded first; it never overrides a setting you've made yourself.</td></tr>
+        <tr><td><strong>tmux-yank</strong></td><td>Makes copy-mode and mouse selections land in the <em>real</em> macOS clipboard, so <kbd>y</kbd> copies straight to <kbd>⌘</kbd><kbd>V</kbd>-able text. It's why selecting in tmux "just works."</td></tr>
+        <tr><td><strong>vim-tmux-navigator</strong></td><td>The reason <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> crosses seamlessly between tmux panes and Neovim splits — covered below.</td></tr>
+      </table>
+
+      <h3>Never lose a session — resurrect &amp; continuum</h3>
+      <p>This is the pair worth understanding, because together they make your whole workspace survive a reboot. They split the job in two:</p>
+      <ul>
+        <li><strong>tmux-resurrect</strong> is the <em>save/restore engine</em>. It writes a snapshot of every session, window, and pane — their exact layout, each pane's working directory, and the programs running in them — to a file on disk, and can rebuild it later. This setup also turns on <strong>pane-contents capture</strong>, so your scrollback comes back too.</li>
+        <li><strong>tmux-continuum</strong> <em>automates</em> resurrect: it saves a fresh snapshot every <strong>15 minutes</strong>, and — because this config sets <code>@continuum-restore 'on'</code> — automatically restores your last layout when a new tmux server starts. You usually never press a key; it just happens.</li>
+      </ul>
+      <p>You can also drive resurrect by hand whenever you want a checkpoint or an immediate restore:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span></td><td><strong>Save</strong> the current environment now</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span></td><td><strong>Restore</strong> the last saved environment</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">What does and doesn't come back</span>
+        <p>Layouts, working directories, and a conservative allow-list of programs (editors, <code>less</code>, <code>top</code>…) are restored — but not every arbitrary process, by design. Auto-restore fires when a <em>new tmux server</em> starts (after a reboot), not when you just reload the config. This setup stores snapshots under <code>~/.local/share/tmux/resurrect/</code>. If sessions don't reappear automatically, the manual <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span> always works.</p>
+      </div>
+      <div class="callout warn">
+        <span class="label">Why kill-server can look like it didn't work</span>
+        <p><code>tmux kill-server</code> really does end every live tmux session. In this setup, though, <strong>tmux-continuum</strong> has <code>@continuum-restore</code> turned on, so the next time tmux starts it restores the last saved resurrect snapshot. That is why panes and windows can reappear after a kill. For a temporary clean slate, detach or open a fresh Ghostty tab and run <code>tmux-fresh</code>. To make clean starts the default, set <code>@continuum-restore</code> to <code>off</code> in the tmux config.</p>
+      </div>
+
+      <h3>Seamless Vim ⇄ tmux movement — vim-tmux-navigator</h3>
+      <p>Normally moving between tmux panes needs the prefix, and moving between Neovim splits is a separate set of keys. This plugin erases the seam: the same <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> moves you in a direction regardless of whether the neighbor is a tmux pane or a Neovim window — no prefix, no thinking about which is which.</p>
+      <p>It's a <strong>two-sided</strong> plugin: there's the tmux half (here) and a matching Neovim half managed in this Groundwork repo. The trick under the hood: when the key would leave a Neovim split at its edge, Neovim hands control to tmux, which moves to the adjacent pane — and vice versa. Plain <span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span> still reaches the shell, so clear-screen stays where terminal users expect it.</p>
+      <div class="callout tip">
+        <span class="label">If a key gets "swallowed"</span>
+        <p>Full-screen terminal programs that also use <kbd>Alt</kbd>-<kbd>h/j/k/l</kbd> can intercept the movement. Just use the prefix to move that once; normal navigation resumes when you're back in a shell or editor.</p>
+      </div>
+
+      <h3>The look — Catppuccin</h3>
+      <p>The rounded, pastel status bar is the <strong>Catppuccin</strong> theme (the <code>mocha</code> flavor — the same palette as this guide, Ghostty, and your editor). The status line is built from composable modules: session name on the left, app/host/clock on the right. It's purely cosmetic; nothing breaks if you change or remove it. To try another flavor, set <code>@catppuccin_flavor</code> in the config to <code>latte</code> (light), <code>frappe</code>, or <code>macchiato</code>, then reload.</p>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <p>When the basics feel automatic, these run from a gentle intro to the full reference:</p>
+      <ul>
+        <li><a href="https://github.com/tmux/tmux/wiki/Getting-Started" target="_blank" rel="noopener">Official tmux wiki: Getting Started</a> — the canonical intro to sessions, windows, and panes.</li>
+        <li><a href="https://hamvocke.com/blog/a-quick-and-easy-guide-to-tmux/" target="_blank" rel="noopener">Ham Vocke: A quick and easy guide to tmux</a> — a clean ~10-minute hands-on starter.</li>
+        <li><a href="https://www.youtube.com/watch?v=DzNmUNvnB04" target="_blank" rel="noopener">DreamsOfCode: tmux walkthrough (video)</a> — the popular modern tour of a stack much like this one.</li>
+        <li><a href="https://dreamsofcode.io/blog/zen-tmux-configuration" target="_blank" rel="noopener">DreamsOfCode: the Zen tmux configuration</a> — nine concrete config improvements, explained.</li>
+        <li><a href="https://www.joshmedeski.com/posts/smart-tmux-sessions-with-sesh/" target="_blank" rel="noopener">Smart tmux sessions with sesh</a> — get the most out of the <kbd>prefix</kbd> <kbd>T</kbd> session switcher.</li>
+        <li><a href="https://leanpub.com/the-tao-of-tmux/read" target="_blank" rel="noopener">The Tao of tmux</a> — a full, free online book for going deep.</li>
+        <li><a href="https://github.com/rothgar/awesome-tmux" target="_blank" rel="noopener">awesome-tmux</a> — the hub for plugins, themes, and tools.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="setup.html"><span class="dir">← Prev</span>Setup &amp; chezmoi</a>
+        <a href="neovim.html"><span class="dir">Next →</span>Neovim</a>
+      </div>
+      <footer class="site">Prefix is <kbd>Ctrl</kbd><kbd>a</kbd>. Everything else follows from that.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

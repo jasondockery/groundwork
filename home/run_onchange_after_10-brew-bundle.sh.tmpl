@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+{{- $brewfile := joinPath .chezmoi.sourceDir "dot_config/homebrew/Brewfile.tmpl" }}
+{{- if stat $brewfile }}
+# Brewfile hash: {{ include "dot_config/homebrew/Brewfile.tmpl" | sha256sum }}
+{{- end }}
+
+for brew_bin in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+done
+unset brew_bin
+
+command -v brew >/dev/null 2>&1 || exit 0
+brew bundle --file="$HOME/.config/homebrew/Brewfile"

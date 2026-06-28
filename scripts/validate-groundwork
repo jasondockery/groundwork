@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo"
+shopt -s nullglob
+
+out_dir="${TMPDIR:-/tmp}/groundwork-rendered-$$"
+trap 'rm -rf "$out_dir"' EXIT
+mkdir -p "$out_dir"
+
+base_data='"work":false,"github_username":"ci","name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci"'
+
+render() {
+  local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
+  local os_release='{}'
+  [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
+  local data="{${base_data},\"headless\":${headless},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  chezmoi --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+}
+
+assert_not_contains() {
+  local pattern="$1" file="$2" message="$3"
+  if grep -Eq "$pattern" "$file"; then
+    echo "$message" >&2
+    sed -n '1,160p' "$file" >&2
+    exit 1
+  fi
+}
+
+echo "check: bootstrap syntax"
+bash -n bootstrap-mac.sh
+
+echo "check: chezmoi root"
+test "$(cat .chezmoiroot)" = "home"
+test -f home/.chezmoi.toml.tmpl
+test ! -f .chezmoi.toml.tmpl
+
+echo "check: AI thesis wiring"
+test -f home/.chezmoitemplates/ai-thesis.md
+test -L AI_THESIS.md
+test "$(readlink AI_THESIS.md)" = "home/.chezmoitemplates/ai-thesis.md"
+test -f home/dot_claude/CLAUDE.md.tmpl
+test -f home/dot_codex/AGENTS.md.tmpl
+test ! -f home/dot_claude/CLAUDE.md
+test ! -f home/dot_codex/AGENTS.md
+
+echo "check: template brace balance"
+while IFS= read -r template; do
+  left=$(grep -o '{{' "$template" | wc -l | tr -d ' ')
+  right=$(grep -o '}}' "$template" | wc -l | tr -d ' ')
+  [[ "$left" == "$right" ]] || { echo "unbalanced template braces: $template" >&2; exit 1; }
+done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
+
+shell_templates=(home/run_*.sh.tmpl home/dot_local/bin/*.tmpl)
+for os in darwin linux; do
+  for headless in false true; do
+    case_name="${os}-${headless}"
+    mkdir -p "$out_dir/$case_name"
+    echo "check: rendered shell templates ($case_name)"
+    for script in "${shell_templates[@]}"; do
+      rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
+      render "$os" "$headless" "amd64" "$script" "$rendered"
+      bash -n "$rendered"
+    done
+
+    echo "check: rendered zsh ($case_name)"
+    render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
+    zsh -n "$out_dir/$case_name/zshrc"
+
+    echo "check: rendered Brewfile ($case_name)"
+    render "$os" "$headless" "amd64" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile"
+    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+      assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
+    fi
+
+    echo "check: rendered ignore ($case_name)"
+    render "$os" "$headless" "amd64" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore"
+    if [[ "$os" != "darwin" || "$headless" == "true" ]]; then
+      grep -q '^Library/\*\*' "$out_dir/$case_name/chezmoiignore"
+    fi
+
+    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+      render "$os" "$headless" "amd64" home/run_onchange_after_30-macos-defaults.sh.tmpl "$out_dir/$case_name/macos-defaults.sh"
+      assert_not_contains 'defaults write' "$out_dir/$case_name/macos-defaults.sh" "macOS defaults leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_40-obsidian-vault.sh.tmpl "$out_dir/$case_name/obsidian-vault.sh"
+      assert_not_contains 'Obsidian|Library/Mobile Documents|obsidian.json' "$out_dir/$case_name/obsidian-vault.sh" "Obsidian vault body leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_45-obsidian-plugins.sh.tmpl "$out_dir/$case_name/obsidian-plugins.sh"
+      assert_not_contains 'obsidian-plugins|Library/Mobile Documents' "$out_dir/$case_name/obsidian-plugins.sh" "Obsidian plugins body leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_55-zen-bitwarden-biometrics.sh.tmpl "$out_dir/$case_name/zen-bitwarden.sh"
+      assert_not_contains 'NativeMessagingHosts|zen' "$out_dir/$case_name/zen-bitwarden.sh" "Zen biometrics body leaked into $case_name"
+      assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
+    fi
+  done
+done
+
+echo "check: rendered agent adapters"
+render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"
+render darwin false arm64 home/dot_codex/AGENTS.md.tmpl "$out_dir/AGENTS.md"
+grep -q "AI-Native Groundwork" "$out_dir/CLAUDE.md"
+grep -q "AI-Native Groundwork" "$out_dir/AGENTS.md"
+grep -q "Claude Code Notes" "$out_dir/CLAUDE.md"
+grep -q "Codex Notes" "$out_dir/AGENTS.md"
+
+echo "check: docs links"
+ruby -e '
+  Dir["docs/*.html"].each do |file|
+    text = File.read(file)
+    text.scan(/href="([^"]+)"/).flatten.each do |href|
+      next if href =~ /\A(?:https?:|#|mailto:)/
+      path = href.split("#", 2).first
+      next if path.empty?
+      target = File.expand_path(path, File.dirname(file))
+      abort("missing #{file}: #{href}") unless File.exist?(target)
+    end
+  end
+'
+
+echo "check: common secret patterns"
+! git grep -n -E '(-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})'
+
+if [[ -n "${GROUNDWORK_PUBLIC_DENYLIST_PATTERN:-}" ]]; then
+  echo "check: local public denylist env pattern"
+  ! rg -n "$GROUNDWORK_PUBLIC_DENYLIST_PATTERN" . --hidden -g '!.git' -g '!node_modules'
+fi
+
+if [[ -f .groundwork-public-denylist ]]; then
+  echo "check: local public denylist file"
+  while IFS= read -r pattern; do
+    [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+    ! rg -n "$pattern" . --hidden -g '!.git' -g '!node_modules' -g '!.groundwork-public-denylist'
+  done < .groundwork-public-denylist
+fi
+
+echo "check: old name residue"
+! rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'
+
+echo "check: whitespace"
+git diff --check
+
+echo "ok: Groundwork validation passed"

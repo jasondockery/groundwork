@@ -1,0 +1,33 @@
+{{- $work := promptBoolOnce . "work" "Is this a work machine?" false -}}
+{{- $headless := promptBoolOnce . "headless" "Headless / server profile (no GUI apps)?" false -}}
+{{- $githubUser := promptStringOnce . "github_username" "GitHub username" -}}
+{{- $name := promptStringOnce . "name" "Full name for git commits" -}}
+{{- $emailPersonal := promptStringOnce . "email_personal" "Personal git email" -}}
+{{- $emailWork := promptStringOnce . "email_work" "Work git email (blank if none)" "" -}}
+{{- $codeDir := promptStringOnce . "code_dir" "Where your projects live" "~/code" -}}
+{{- $resetExisting := promptBoolOnce . "reset_existing_configs" "Reset existing terminal/editor/tmux state that may compete with this setup?" false -}}
+{{- $pwManagers := list "bitwarden" "1password" "none" -}}
+{{- $pwManager := promptChoiceOnce . "password_manager" "Password manager for SSH + git signing" $pwManagers "bitwarden" -}}
+{{- $signingKey := promptStringOnce . "signingkey" "SSH public key for git signing (blank to skip)" "" -}}
+{{- $obsidianVault := promptStringOnce . "obsidian_vault_name" "Obsidian vault name (lives in iCloud Drive/Obsidian; blank to skip)" "my_obsidian_vault" -}}
+
+sourceDir = {{ .chezmoi.workingTree | quote }}
+
+[data]
+    work = {{ $work }}
+    headless = {{ $headless }}
+    github_username = {{ $githubUser | quote }}
+    name = {{ $name | quote }}
+    email_personal = {{ $emailPersonal | quote }}
+    email_work = {{ $emailWork | quote }}
+    code_dir = {{ $codeDir | quote }}
+    reset_existing_configs = {{ $resetExisting }}
+    password_manager = {{ $pwManager | quote }}
+    signingkey = {{ $signingKey | quote }}
+    obsidian_vault_name = {{ $obsidianVault | quote }}
+
+[edit]
+    command = "nvim"
+
+[diff]
+    pager = "delta"
