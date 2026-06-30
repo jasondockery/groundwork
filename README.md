@@ -165,22 +165,22 @@ Stored in `~/.config/chezmoi/chezmoi.toml`; re-run with `chezmoi init`.
 
 ## Finish-up checklist (the manual residue macOS requires)
 
-These are the one-time steps macOS will not let a script own. The README keeps the operational checklist; the linked docs carry the longer context.
+These are the one-time steps macOS or the app vendor should own: account sign-in, App Store purchases, permission prompts, secrets, per-device hotkeys, display IDs, and cloud sync. Groundwork manages stable file/plist-backed defaults; the README keeps the operational checklist, and the linked docs carry the longer context.
 
 - [ ] **Karabiner** — System Settings → Privacy & Security: approve **Input Monitoring** and the driver/system extension. Enables Caps Lock = Esc/Ctrl. See `docs/keyboard.html`.
 - [ ] **tmux** — open tmux and press `Ctrl+a` then `Shift+I` to install plugins (TPM). See `docs/tmux.html`.
-- [ ] **Apple Developer / Xcode** — most people can skip this. If you enabled the Xcode setup option, Groundwork attempts the App Store install; if it does not go through, get Xcode from the Mac App Store manually. Then open Xcode once, accept its first-launch setup/license prompts, sign in at Xcode → Settings → Accounts, and let Xcode manage certificates/profiles. Never put certificates, provisioning profiles, or `.mobileconfig` profiles in dotfiles. See `docs/macos.html`.
-- [ ] **Password manager** — sign in, enable its SSH agent, and confirm signed commits work. Bitwarden, 1Password, browser autofill, and SSH-agent details are in `docs/apps.html` and `docs/git.html`.
-- [ ] **Bitwarden as default autofill** — make Bitwarden the macOS/Safari AutoFill provider, install the browser add-ons you use, and configure iOS/iPadOS separately. See `docs/apps.html`.
-- [ ] **Obsidian** — keep the iCloud vault downloaded, restart Obsidian once after first launch so plugins load, and configure Smart Connections/Whisper/Ollama if you use AI over notes. See `docs/apps.html` and `docs/knowledge.html`.
-- [ ] **Ollama** (local AI) — launch it once so it serves `localhost:11434`, then `ollama pull nomic-embed-text` for local embeddings. See `docs/apps.html`.
-- [ ] **Raycast** — make it your **⌘Space** launcher, enable window-management and clipboard habits, then run `raycast-extensions --open`. See `docs/apps.html` and `docs/macos.html`.
+- [ ] **Apple Developer / Xcode** — optional and large. If you enabled the Xcode setup option, Groundwork attempts the App Store install; if it does not go through, get Xcode from the Mac App Store manually. Then open Xcode once, accept first-launch setup/license prompts, sign in at Xcode → Settings → Accounts, and let Xcode manage certificates/profiles. Never put certificates, provisioning profiles, or `.mobileconfig` profiles in dotfiles. See `docs/macos.html`.
+- [ ] **Password manager** — sign in, enable the SSH agent, and confirm signed commits work. See `docs/apps.html` and `docs/git.html`.
+- [ ] **Bitwarden as default autofill** — make Bitwarden the source of truth for macOS, browsers, and mobile autofill. See `docs/apps.html`.
+- [ ] **Obsidian** — open the vault, keep it downloaded, restart once for plugins, and configure Smart Connections, Whisper, and Ollama only if you use AI over notes. See `docs/apps.html` and `docs/knowledge.html`.
+- [ ] **Ollama** (local AI) — optional local service for embeddings and note helpers; launch it once so it serves `localhost:11434`, then run `ollama pull nomic-embed-text`. See `docs/apps.html`.
+- [ ] **Raycast** — make it your **⌘Space** launcher, run `raycast-extensions --open`, set the core window/clipboard/bookmark/Anybox shortcuts, then use Raycast Cloud Sync or export/import for reproduction. See `docs/apps.html` and `docs/macos.html`.
 - [ ] **Raycast AI** (optional) — leave it off unless you want Claude/GPT/Grok from Raycast. The launcher, clipboard, windows, Quicklinks, and Anybox search work without it. See `docs/apps.html`.
-- [ ] **BetterDisplay** — open it once, keep the menu-bar icon on, favorite the resolutions you use, and test brightness/DDC controls. See `docs/macos.html`.
-- [ ] **Anybox** (Mac App Store) — buy/Get it once per Apple Account, run it as a menu-bar app, set Quick Link keywords, and copy its API key for Raycast. See `docs/apps.html`.
-- [ ] **Default browser** — run `defaultbrowser` (no args) to list installed browsers, then `defaultbrowser zen`, and confirm the macOS dialog.
+- [ ] **BetterDisplay** — optional display preset and external-monitor control layer; open it once, keep the menu-bar icon on, favorite the resolutions you use, and test brightness/DDC controls. See `docs/macos.html`.
+- [ ] **Anybox** (Mac App Store) — paid link library; buy/Get it once per Apple Account, run it as a menu-bar app, add a few typed Quick Link keywords, and paste its API key into the Raycast extension. See `docs/apps.html`.
+- [ ] **Default browser** — run `defaultbrowser` to list installed browsers, then `defaultbrowser zen`, and approve the macOS confirmation; keep Chrome for testing. See `docs/apps.html`.
 - [ ] **Zen sync** — sign in with Firefox Sync for bookmarks/history/logins/open tabs; recreate Spaces per machine. See `docs/apps.html`.
-- [ ] **Browser extensions** — run `browser-extensions` to see the managed list for Zen, Chrome, and Dia; for example `browser-extensions --browser zen --tier core --open`. See `docs/apps.html`.
+- [ ] **Browser extensions** — run `browser-extensions` to list the managed add-ons, or `browser-extensions --browser zen --tier core --open` to open the core Zen set. See `docs/apps.html`.
 - [ ] **Codex desktop app** (optional) — download from OpenAI or run `codex app`. (The Brewfile installs the Codex CLI, not the app.)
 - [ ] **Learning tracks** — the browser/Three.js FPS track starts at `docs/game-dev.html` and needs no Unity install. If you enabled `game_dev`, open Unity Hub, install the latest Unity 6 LTS editor, add the WebGL module, then follow `docs/game-dev-unity.html`. The web, app, and image/video tracks live at `docs/web-dev.html`, `docs/app-dev.html`, and `docs/gen-media.html`.
 - [ ] **Work Mac only** — start the Docker daemon: `colima start`.

@@ -123,6 +123,14 @@
         <tr><td><strong>BetterDisplay</strong></td><td>Owns display resolutions, refresh rates, brightness/DDC, display presets, and external-monitor fixes.</td></tr>
         <tr><td><strong>tmux</strong></td><td>Owns terminal panes and project sessions after Ghostty is open.</td></tr>
       </table>
+      <div class="callout tip">
+        <span class="label">Shortcut convention</span>
+        <p>Use the <a href="apps.html#shortcut-conventions">apps shortcut convention</a>: typed aliases and Quicklinks first, global hotkeys only for daily actions. This page only names the macOS window/display hotkeys that fit that pattern.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Configuration boundary</span>
+        <p>The full rule lives in <a href="apps.html#configuration-boundary">What Groundwork can configure</a>: stable files/defaults belong in the repo; Raycast, Anybox, BetterDisplay, password managers, and per-device app state stay with their own sync/export or local settings.</p>
+      </div>
 
       <h2><span class="hash">#</span>Developer settings and profiles</h2>
       <p>macOS uses the word "profile" for several different things. Keep them separate:</p>
@@ -137,7 +145,7 @@
       </table>
       <div class="callout note">
         <span class="label">What Groundwork safely sets</span>
-        <p>This repo applies safe developer conveniences: file extensions and hidden files visible, Finder path/status bars, <code>~/Library</code> visible, fast key repeat, press-and-hold disabled for Vim, Safari's Develop menu enabled, Chrome password manager disabled when a third-party manager is configured, and the terminal/editor/toolchain setup.</p>
+        <p>This repo applies safe developer conveniences: file extensions and hidden files visible, Finder path/status bars, <code>~/Library</code> visible, fast key repeat, press-and-hold disabled for Vim, Safari's Develop menu enabled, Chrome password manager disabled when a third-party manager is configured, and the terminal/editor/toolchain setup. The app-specific boundary is summarized above and explained on <a href="apps.html#configuration-boundary">Apps &amp; browsers</a>.</p>
       </div>
       <div class="callout tip">
         <span class="label">Let macOS handle security responses</span>
@@ -191,16 +199,16 @@
       </table>
       <div class="callout tip">
         <span class="label">Recommended hotkeys</span>
-        <p>Pick one modifier family and keep it consistent. A simple set is <kbd>⌃</kbd><kbd>⌥</kbd><kbd>←</kbd> for left half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>→</kbd> for right half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↑</kbd> for maximize, and <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↓</kbd> for restore.</p>
+        <p>Use <kbd>⌃</kbd><kbd>⌥</kbd> because macOS leaves that family mostly free and it is easy to audit later. A simple set is <kbd>⌃</kbd><kbd>⌥</kbd><kbd>←</kbd> for left half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>→</kbd> for right half, <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↑</kbd> for maximize, and <kbd>⌃</kbd><kbd>⌥</kbd><kbd>↓</kbd> for restore. Avoid overriding system muscle memory such as <kbd>⌘</kbd><kbd>Tab</kbd>, <kbd>⌘</kbd><kbd>Q</kbd>, <kbd>⌘</kbd><kbd>W</kbd>, browser tab keys, and Mission Control unless you are making an intentional tradeoff.</p>
       </div>
       <p>Rectangle and Magnet are good apps, but they duplicate Raycast for this setup. Add one only if you want a dedicated window manager with its own preferences, importable presets, or advanced snapping behavior beyond Raycast.</p>
 
       <h2><span class="hash">#</span>Displays and resolutions: BetterDisplay</h2>
       <p>BetterDisplay is the right app for changing resolution from the menu bar, creating favorites, controlling external monitor brightness/input when supported, and protecting display layouts. It complements Raycast; it does not replace it.</p>
       <table class="keytable">
-        <tr><td><strong>Resolution presets</strong></td><td>Save the display modes you actually use and switch from the menu bar or keyboard.</td></tr>
+        <tr><td><strong>Resolution presets</strong></td><td>Save the display modes you actually use and switch from the menu bar first; add hotkeys only for modes you change constantly.</td></tr>
         <tr><td><strong>Refresh rate</strong></td><td>Expose and switch refresh rates that macOS sometimes buries.</td></tr>
-        <tr><td><strong>Brightness / DDC</strong></td><td>Control many external monitors with keyboard shortcuts or sliders.</td></tr>
+        <tr><td><strong>Brightness / DDC</strong></td><td>Control many external monitors with sliders first, then put any daily brightness/display actions into the same <kbd>⌃</kbd><kbd>⌥</kbd> shortcut family if you need hotkeys.</td></tr>
         <tr><td><strong>Layout protection</strong></td><td>Keep external monitor arrangements from drifting when displays reconnect.</td></tr>
         <tr><td><strong>CLI and Shortcuts</strong></td><td>Automate display changes from scripts, Raycast, or macOS Shortcuts.</td></tr>
       </table>
@@ -213,11 +221,11 @@
       <p>Use Anybox instead of turning every browser profile into a private bookmark island. It is the shared link library: project dashboards, docs, research, client portals, reading lists, and reusable references. Raycast launches actions; Anybox remembers links.</p>
       <table class="keytable">
         <tr><td><strong>Quick Save</strong></td><td>Capture the current page without leaving the browser.</td></tr>
-        <tr><td><strong>Quick Find</strong></td><td>Search saved links from the keyboard.</td></tr>
+        <tr><td><strong>Quick Find</strong></td><td>Search saved links from the keyboard. Prefer typed aliases such as <code>ab</code> in Raycast before adding another global hotkey.</td></tr>
         <tr><td><strong>Tags / folders</strong></td><td>Organize links by project, team, client, topic, or practice track.</td></tr>
         <tr><td><strong>Raycast extension</strong></td><td>Install the Anybox extension from the Raycast Store, or run <code>open 'raycast://extensions/anybox/anybox?source=webstore'</code>. If Raycast only shows Anybox under Applications, you have the app entry, not the extension. Copy the API key from Anybox Preferences → General, then select the Search Links command row in Raycast Settings and paste it into that command's API Key preference. Turn on Search Tags, Search Folders, Show Tags, and Show Folders; leave icon view off for faster scanning.</td></tr>
         <tr><td><strong>Browser recall</strong></td><td>Use Raycast Browser Bookmarks for bookmarks across installed browsers. Use Browser Tabs for live tabs in Safari/Chromium-family browsers. For Zen, save important tabs into Anybox and search them from Raycast; that is the reliable cross-browser layer.</td></tr>
-        <tr><td><strong>iCloud sync</strong></td><td>Keep links available on Mac, iPhone, and iPad.</td></tr>
+        <tr><td><strong>iCloud sync</strong></td><td>Keep links, profiles, and Quick Links available on Mac, iPhone, and iPad. This is the supported sync path; do not put the app database or API keys in dotfiles.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Daily practice</h2>

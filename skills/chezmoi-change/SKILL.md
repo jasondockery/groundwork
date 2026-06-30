@@ -27,5 +27,6 @@ Use the visible checkout as the source of truth. Never hand-edit the applied cop
 
 - Keep `.chezmoiroot` as `home`.
 - Do not edit generated files under `$HOME` except as a temporary diagnostic.
+- Only automate settings backed by stable files, templates, documented macOS defaults, or vendor-supported CLIs. For app-owned databases, cloud sync stores, Keychain state, secrets, and per-device shortcut/display state, document the vendor sync/export path instead of writing hidden internal files.
 - Do not remove first-run backup/restore coverage when changing managed files.
 - Report any apply step not run, especially for macOS settings or app databases.

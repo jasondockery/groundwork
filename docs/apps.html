@@ -101,6 +101,18 @@
 
       <div class="trigger"><b>When you'll want this</b> Switching between browsers, notes, launchers, and references is breaking your development flow.</div>
 
+      <h2 id="configuration-boundary"><span class="hash">#</span>What Groundwork can configure</h2>
+      <p>Groundwork should only automate settings that live in stable files, templates, or documented macOS defaults. Many Mac apps keep their real state in app databases, account sync, Keychain, iCloud, or per-device stores; those should stay in the app that owns them.</p>
+      <table class="keytable">
+        <tr><td><strong>Managed by Groundwork</strong></td><td>Shell, Git, tmux, Neovim, Ghostty, Karabiner merge config, selected macOS defaults, Zen <code>user.js</code>, Chrome password-manager policy, browser/Raycast extension checklists, and Obsidian vault/plugin seed files.</td></tr>
+        <tr><td><strong>Use app sync/export</strong></td><td>Raycast aliases, hotkeys, snippets, Quicklinks, and extensions belong in Raycast Cloud Sync if available on your plan, or Raycast export/import. Anybox links, profiles, Quick Links, and snippets sync through iCloud. Browser bookmarks/history use Firefox Sync or each browser's own profile sync.</td></tr>
+        <tr><td><strong>Manual by design</strong></td><td>App Store purchases, sign-in, password-manager unlock, API keys, SSH-agent approval, default-browser confirmation, macOS privacy prompts, display presets, and app-level hotkeys that depend on your hands, monitors, and existing shortcuts.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Why not write app databases?</span>
+        <p>It would look automated for a moment and then drift. Raycast, Anybox, BetterDisplay, and password managers are allowed to change their private storage, encrypt it, sync it, or rewrite it on launch. Groundwork keeps those steps short and repeatable instead of reverse-engineering state that the app owns.</p>
+      </div>
+
       <h2><span class="hash">#</span>Browsers</h2>
       <table class="keytable">
         <tr><td><strong>Zen</strong></td><td>The daily driver. Built on Firefox's engine, with a sidebar, vertical tabs, and workspaces. Private by default and pleasant to live in.</td></tr>
@@ -150,27 +162,36 @@
         <tr><td>Quicklinks</td><td>Save a keyword that jumps straight to a site or search you use daily</td></tr>
         <tr><td>Extensions</td><td>A store of add-ons — GitHub, Homebrew, and more</td></tr>
       </table>
+      <h3 id="shortcut-conventions">Aliases, Quicklinks, and hotkeys</h3>
+      <p>There are two kinds of shortcuts, and mixing them up is where people create conflicts. <strong>Typed aliases</strong> are words you type after Raycast or Anybox is already open. <strong>Global hotkeys</strong> are key chords that work everywhere. Use lots of aliases, but keep global hotkeys rare and consistent.</p>
+      <table class="keytable">
+        <tr><td><strong>Typed aliases</strong></td><td>Use short, memorable lowercase triggers such as <code>gh</code> for GitHub, <code>cal</code> for calendar, <code>docs</code> for your docs site, <code>ab</code> for Anybox Search Links, and <code>as</code> for Anybox Save Current Tab. They only run after you open Raycast or Anybox, so they do not collide with macOS shortcuts like <kbd>⌘</kbd><kbd>Tab</kbd>.</td></tr>
+        <tr><td><strong>Good keywords</strong></td><td>Prefer two to five characters, tied to the thing you want, and easy to type with one hand. Avoid single letters, full app names, and words you already search for often; those create noisy search results instead of speed.</td></tr>
+        <tr><td><strong>Global hotkeys</strong></td><td>Use key chords only for actions you need many times a day: Raycast itself, clipboard history, and window snapping. Keep one mostly-free modifier family, usually <kbd>⌃</kbd><kbd>⌥</kbd>, so your custom shortcuts are easy to remember and easy to audit.</td></tr>
+        <tr><td><strong>Reserved habits</strong></td><td>Do not override core macOS/browser muscle memory unless you mean to: <kbd>⌘</kbd><kbd>Space</kbd> for Raycast, <kbd>⌘</kbd><kbd>Tab</kbd>, <kbd>⌘</kbd><kbd>Q</kbd>, <kbd>⌘</kbd><kbd>W</kbd>, <kbd>⌘</kbd><kbd>H</kbd>, browser tab keys, and Mission Control keys.</td></tr>
+      </table>
       <div class="callout tip">
         <span class="label">Make it your ⌘Space</span>
-        <p>Raycast, not Anybox, should replace Spotlight. In System Settings &rarr; Keyboard &rarr; Keyboard Shortcuts &rarr; Spotlight, change or uncheck "Show Spotlight search," then set Raycast's hotkey to <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> (its onboarding offers to do this for you). chezmoi installs Raycast, but this hotkey lives in Raycast/macOS settings, so export/import a Raycast config to reproduce it.</p>
+        <p>Raycast, not Anybox, should replace Spotlight. In System Settings &rarr; Keyboard &rarr; Keyboard Shortcuts &rarr; Spotlight, change or uncheck "Show Spotlight search," then set Raycast's hotkey to <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> (its onboarding offers to do this for you). chezmoi installs Raycast, but this hotkey lives in Raycast/macOS settings, so use Raycast Cloud Sync if it is available on your plan, or export/import a Raycast config to reproduce it.</p>
       </div>
       <div class="callout note">
         <span class="label">Raycast extensions are not browser add-ons</span>
         <p>Browser add-ons live in Zen, Chrome, and Dia. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
       </div>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">raycast extension helper</span></div><pre><code><span class="prompt">$ </span>raycast-extensions
+<span class="prompt">$ </span>raycast-extensions --open
 <span class="prompt">$ </span>raycast-extensions --tier tabs --open
 <span class="prompt">$ </span>raycast-extensions --tier ai --open</code></pre></div>
       <h3>Using it day to day</h3>
       <p>The loop is always the same: tap the hotkey, start typing, press <kbd>Enter</kbd>. What you type can be an app name, a math expression (<code>128*1.2</code>), a unit or currency conversion, or part of a filename — Raycast surfaces the best match. A few habits make it sing:</p>
       <table class="keytable">
-        <tr><td><strong>Clipboard history</strong></td><td>Give it its own hotkey in Settings → Extensions, then recall anything you copied earlier instead of losing it</td></tr>
+        <tr><td><strong>Clipboard history</strong></td><td>Give it one global hotkey in Settings → Extensions, preferably inside the same <kbd>⌃</kbd><kbd>⌥</kbd> family, then recall anything you copied earlier instead of losing it</td></tr>
         <tr><td><strong>Window management</strong></td><td>Set hotkeys to snap the focused window left / right / full / to another display — no mouse</td></tr>
-        <tr><td><strong>Quicklinks</strong></td><td>Create one for a site or search you open daily (e.g. a <code>gh</code> Quicklink that opens GitHub); type its keyword to jump there</td></tr>
-        <tr><td><strong>Aliases &amp; hotkeys</strong></td><td>For any command you use a lot, assign a short <em>alias</em> (keyword) or a dedicated hotkey in Settings, so it's one motion away</td></tr>
+        <tr><td><strong>Quicklinks</strong></td><td>Create one for a site or search you open daily, such as <code>gh</code> for GitHub or <code>cal</code> for calendar; type its keyword after opening Raycast</td></tr>
+        <tr><td><strong>Aliases &amp; hotkeys</strong></td><td>For any command you use a lot, start with a typed alias. Promote it to a global hotkey only when you use it constantly and know it will not shadow macOS or browser defaults.</td></tr>
         <tr><td><strong>Extensions</strong></td><td>Add from the Store — Browser Bookmarks, Browser Tabs, GitHub, Homebrew, Anybox, the VS Code project opener — and search them right from the bar</td></tr>
       </table>
-      <p>Reproducing your Raycast setup on another Mac isn't something chezmoi can do (Raycast keeps it internally), so use Settings → Advanced → <strong>Export</strong> to a <code>.rayconfig</code> file and <strong>Import</strong> it on the other machine. The important hotkeys to set first are Raycast itself on <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>, window left half, right half, maximize, restore, clipboard history, Browser Bookmarks, Browser Tabs if you use supported browsers, and Anybox link search.</p>
+      <p>Reproducing your Raycast setup on another Mac isn't something chezmoi can do because Raycast keeps aliases, hotkeys, extensions, and Quicklinks internally. Use Raycast Cloud Sync if it is available on your plan; otherwise use Settings → Advanced → <strong>Export</strong> to a <code>.rayconfig</code> file and <strong>Import</strong> it on the other machine. Keep full exports out of Git: they are private, not reviewable like text config, and may include settings you did not mean to publish. The important hotkeys to set first are Raycast itself on <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>, window left half, right half, maximize, restore, clipboard history, Browser Bookmarks, Browser Tabs if you use supported browsers, and Anybox link search.</p>
 
       <h3>Bookmarks, tabs, and links in Raycast</h3>
       <table class="keytable">
@@ -185,7 +206,7 @@
       <p>The no-subscription path is <strong>bring your own keys</strong>: install separate ChatGPT, Claude, and Grok extensions from the Store and configure each with its provider API key. It is more fiddly, but it lets you pay providers directly. Run <code>raycast-extensions --tier ai --open</code> to open the relevant Store searches and Raycast AI docs.</p>
       <div class="callout note">
         <span class="label">Anybox in Raycast</span>
-        <p>If Raycast Settings only shows Anybox under <strong>Applications</strong>, the Raycast extension is not installed yet. Install the <a href="https://www.raycast.com/anybox/anybox" target="_blank" rel="noopener">Anybox Raycast extension</a> from the Raycast Store, or run <code>open 'raycast://extensions/anybox/anybox?source=webstore'</code>. Its Save Current Tab commands work through Anybox, and its Search Links command has its own required API Key preference. Copy the key from the <strong>Anybox app</strong> &rarr; Preferences &rarr; General, then select the <strong>Search Links</strong> command row in Raycast Settings and paste it there. Good aliases are <code>ab</code> for Search Links and <code>as</code> for Save Current Tab.</p>
+        <p>If Raycast Settings only shows Anybox under <strong>Applications</strong>, the Raycast extension is not installed yet. Install the <a href="https://www.raycast.com/anybox/anybox" target="_blank" rel="noopener">Anybox Raycast extension</a> from the Raycast Store, or run <code>open 'raycast://extensions/anybox/anybox?source=webstore'</code>. Its Save Current Tab commands work through Anybox, and its Search Links command has its own required API Key preference. Copy the key from the <strong>Anybox app</strong> &rarr; Preferences &rarr; General, then select the <strong>Search Links</strong> command row in Raycast Settings and paste it there. Use typed aliases first: <code>ab</code> for Search Links and <code>as</code> for Save Current Tab are short, memorable, and do not compete with global macOS shortcuts.</p>
       </div>
       <table class="keytable">
         <tr><td><strong>Search Tags</strong></td><td>On — tags should be searchable from Raycast.</td></tr>
@@ -205,7 +226,12 @@
         <tr><td><strong>Organize</strong></td><td>Tag links or sort them into <strong>profiles</strong> — one set for work, one for home — so each context shows only its own</td></tr>
         <tr><td><strong>Recall</strong></td><td>Open Anybox Quick Find, search from Raycast, or trigger a <strong>Quick Link</strong> keyword to jump straight to a saved link</td></tr>
       </table>
+      <p>For Anybox Quick Links, use the same typed-keyword convention as Raycast: short lowercase triggers for places you open constantly, such as <code>gh</code>, <code>cal</code>, <code>docs</code>, or a project nickname. Quick Link keywords are typed after opening Anybox, so they are safer than global hotkeys; reserve actual key chords for capture and search actions you use all day.</p>
       <p>Run it as a <strong>menu-bar</strong> app so it's always a keystroke away, and it syncs everything through iCloud to your other devices. Pro removes the small free-library cap, which makes Anybox a real shared bookmark layer for work, home, teaching, and client links.</p>
+      <div class="callout note">
+        <span class="label">Sync, not dotfiles</span>
+        <p>Anybox links, profiles, Quick Links, snippets, and menu-bar behavior are app-owned state. Set them once in Anybox and let iCloud carry them to your other Apple devices. The Anybox API key also stays out of the repo: paste it into the Raycast Anybox command preference by hand so it remains a local secret.</p>
+      </div>
       <div class="callout note">
         <span class="label">It's a paid App Store app</span>
         <p>Anybox is bought once from the App Store — the setup can't purchase it for you. Buy and sign in there first; after that it updates and syncs on its own. There is no AI switch you need for this workflow; Anybox is the link library, not the AI layer.</p>
@@ -219,6 +245,7 @@
         <tr><td><strong>Layout protection</strong></td><td>Keep laptop and external monitor arrangements stable after sleep, docks, and reconnects</td></tr>
         <tr><td><strong>Automation</strong></td><td>Use CLI, URL schemes, Shortcuts, or Raycast commands for repeatable display setups</td></tr>
       </table>
+      <p>Groundwork does not seed BetterDisplay presets or hotkeys. Those depend on the exact laptop, dock, monitor IDs, refresh rates, and licensing state in front of you. Pick favorites in the app first, then automate with BetterDisplay's supported CLI, Shortcuts, URL schemes, or Raycast only after you know the display setup is stable.</p>
       <div class="callout warn">
         <span class="label">License note</span>
         <p>BetterDisplay has a free tier and a paid Pro license. For work or contract teams, check the license before relying on Pro features.</p>
@@ -239,7 +266,7 @@
       <table class="keytable">
         <tr><td><strong>Keep files local</strong></td><td>Your vault lives at <code>iCloud Drive/Obsidian/&lt;name&gt;</code>. Right-click the folder and choose Keep Downloaded, or turn off Optimize Mac Storage, so notes are available to editors and agents.</td></tr>
         <tr><td><strong>Plugin first run</strong></td><td>After first launch, restart Obsidian once so Groundwork's auto-installed plugins load before you configure them.</td></tr>
-        <tr><td><strong>Smart Connections</strong></td><td>Add your Claude API key or local Ollama URL, then choose the embedding model you want. For a local path, start Ollama and run <code>ollama pull nomic-embed-text</code>.</td></tr>
+        <tr><td><strong>Smart Connections</strong></td><td>Add your Claude API key or local Ollama URL, then choose the embedding model you want. For a local path, start Ollama so it serves <code>http://localhost:11434</code>, then run <code>ollama pull nomic-embed-text</code>.</td></tr>
         <tr><td><strong>Whisper</strong></td><td>Use it for speech-to-text notes. Point it at a local endpoint if you want speech fully offline.</td></tr>
         <tr><td><strong>Claude Code over notes</strong></td><td>For AI chat over a vault, point Claude Code at the vault or the generated knowledge-wiki folder so changes happen through files you can review.</td></tr>
       </table>
@@ -271,14 +298,14 @@
         <div class="num">2</div>
         <div class="body">
           <h3>Make Zen your default</h3>
-          <p>Open Zen and set it as the default browser when it asks. Leave Chrome installed but unused except for testing.</p>
+          <p>Open Zen and set it as the default browser when it asks, or run <code>defaultbrowser zen</code> and approve the macOS confirmation. Leave Chrome installed but unused except for testing.</p>
         </div>
       </div>
       <div class="drill">
         <div class="num">3</div>
         <div class="body">
           <h3>Turn on Anybox</h3>
-          <p>Buy and sign into Anybox from the App Store, enable its menu-bar mode, and add one or two Quick Links for sites you open every day.</p>
+          <p>Buy and sign into Anybox from the App Store, enable its menu-bar mode, and add one or two Quick Links with typed keywords such as <code>gh</code>, <code>cal</code>, or a project nickname.</p>
         </div>
       </div>
       <div class="drill">
