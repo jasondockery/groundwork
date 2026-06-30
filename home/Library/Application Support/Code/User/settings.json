@@ -18,7 +18,7 @@
   "editor.wordWrap": "on",
   "editor.accessibilitySupport": "off",
   "editor.fontSize": 15,
-  "editor.fontFamily": "'Geist Mono', 'JetBrainsMono Nerd Font', Menlo, Monaco, monospace",
+  "editor.fontFamily": "'JetBrainsMono Nerd Font', 'Geist Mono', Menlo, Monaco, monospace",
   "workbench.fontAliasing": "antialiased",
   "html.autoClosingTags": true,
   "javascript.autoClosingTags": true,

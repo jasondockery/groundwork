@@ -274,6 +274,15 @@
       <h2><span class="hash">#</span>The terminal window: Ghostty</h2>
       <p>Everything in the rest of this guide — the shell, tmux, Neovim — runs inside <strong>Ghostty</strong>, a fast, modern terminal app themed to match the rest of the setup. It's the window; <a href="tmux.html">tmux</a> does the splitting inside it. Worth knowing: <span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span> clears the screen.</p>
       <div class="callout note">
+        <span class="label">Font choice</span>
+        <p>Groundwork installs <code>font-jetbrains-mono-nerd-font</code> and sets Ghostty to <strong>JetBrainsMono Nerd Font</strong> at size <code>14</code>. The goal is practical readability: code should make <code>1</code>, <code>l</code>, <code>I</code>, <code>0</code>, <code>O</code>, and similar shapes easy to tell apart, and the Nerd Font symbols keep prompt and tmux icons from turning into boxes.</p>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">check the live Ghostty font</span></div>
+        <pre><code><span class="prompt">$ </span>ghostty +show-config | grep -i font-family
+font-family = JetBrainsMono Nerd Font</code></pre>
+      </div>
+      <div class="callout note">
         <span class="label">Fresh starts in home</span>
         <p>A fresh Ghostty launch opens in your home folder (<code>~</code>). New tabs, windows, and splits inherit the folder you are already working in, so quick side shells stay near the task. tmux owns project persistence and restoration; Ghostty stays a clean window around it.</p>
       </div>

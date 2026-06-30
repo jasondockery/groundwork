@@ -13,9 +13,29 @@ unset _brew
 export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
 
 tmux_plugin_dir="$HOME/.config/tmux/plugins"
+tmux_conf="$HOME/.config/tmux/tmux.conf"
 if [[ ! -d "$tmux_plugin_dir/tpm" ]]; then
   mkdir -p "$tmux_plugin_dir"
-  git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmux_plugin_dir/tpm"
+  git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmux_plugin_dir/tpm" || true
+fi
+tmux_plugins_missing=false
+if [[ -f "$tmux_conf" ]]; then
+  while IFS= read -r _tmux_plugin; do
+    _tmux_plugin="${_tmux_plugin%%#*}"
+    _tmux_plugin="${_tmux_plugin%.git}"
+    _tmux_plugin="${_tmux_plugin##*/}"
+    [[ -n "$_tmux_plugin" ]] || continue
+    if [[ ! -d "$tmux_plugin_dir/$_tmux_plugin" ]]; then
+      tmux_plugins_missing=true
+      break
+    fi
+  done < <(sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" "$tmux_conf")
+  unset _tmux_plugin
+fi
+if [[ "$tmux_plugins_missing" == true ]] && command -v tmux >/dev/null 2>&1 && [[ -x "$tmux_plugin_dir/tpm/bin/install_plugins" ]]; then
+  # TPM's CLI reads ~/.config/tmux/tmux.conf and can install plugins without a
+  # live tmux client. Do not reload or kill the user's current tmux session here.
+  "$tmux_plugin_dir/tpm/bin/install_plugins" || true
 fi
 
 if [[ ! -e "$HOME/.config/nvim/init.lua" ]]; then

@@ -99,6 +99,24 @@ grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]
 grep -Eq "^python[[:space:]]*=[[:space:]]*\\[[\"']3\\.13[\"'][[:space:]]*,[[:space:]]*[\"']3\\.12[\"']\\][[:space:]]*$" home/dot_config/mise/config.toml
 grep -Eq '^[[:space:]]*aider_python="3\.12"[[:space:]]*$' home/run_after_20-tools.sh.tmpl
 grep -qF "uv tool install --python \"\$aider_python\" --reinstall aider-chat" home/run_after_20-tools.sh.tmpl
+grep -qF "tmux_plugin_dir=\"\$HOME/.config/tmux/plugins\"" home/run_after_20-tools.sh.tmpl
+grep -qF "tmux_conf=\"\$HOME/.config/tmux/tmux.conf\"" home/run_after_20-tools.sh.tmpl
+grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" home/dot_config/tmux/tmux.conf
+grep -qF 'set(-option)?[[:space:]]+-g[[:space:]]+@plugin' home/run_after_20-tools.sh.tmpl
+if grep -qF 'tmux_required_plugins=' home/run_after_20-tools.sh.tmpl; then
+  echo "run_after_20-tools.sh.tmpl must derive tmux plugins from tmux.conf, not a static duplicate list" >&2
+  exit 1
+fi
+tmux_declared_plugins="$(
+  sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf |
+    sed -E 's/#.*$//; s|.*/||; s/\.git$//'
+)"
+for plugin in tpm tmux-sensible tmux-yank tmux-resurrect tmux-continuum tmux-cpu tmux-battery vim-tmux-navigator tmux; do
+  grep -qx "$plugin" <<<"$tmux_declared_plugins" || { echo "tmux plugin parser missed $plugin" >&2; exit 1; }
+done
+grep -qF "\"\$tmux_plugin_dir/tpm/bin/install_plugins\" || true" home/run_after_20-tools.sh.tmpl
+grep -qF 'enable-atuin-ai' home/dot_zshrc.tmpl
+grep -qF -- '--disable-ai' home/dot_zshrc.tmpl
 
 echo "check: AI thesis wiring"
 test -f home/.chezmoitemplates/ai-thesis.md

@@ -142,7 +142,7 @@
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Ctrl</kbd><kbd>s</kbd></span> <span class="act">save layout now</span></div>
               <div class="qr"><span class="keys">status line</span> <span class="act">app, CPU, RAM, host, battery, time</span></div>
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>r</kbd></span> <span class="act">reload config</span></div>
-              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>I</kbd></span> <span class="act">install plugins</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>I</kbd></span> <span class="act">repair plugins</span></div>
             </div>
           </div>
         </div>
@@ -305,6 +305,10 @@
         <span class="label">When you're stuck</span>
         <p>Forgot a key? <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>?</kbd></span> lists every binding (press <kbd>q</kbd> to leave). Edited the config? <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span> reloads it. A printable cheat sheet lives at <a href="https://tmuxcheatsheet.com" target="_blank" rel="noopener">tmuxcheatsheet.com</a>.</p>
       </div>
+      <div class="callout note">
+        <span class="label">If tmux looks frozen</span>
+        <p>Running <code>chezmoi apply</code> inside tmux is okay. First check whether the command is simply busy: tool installs such as <code>uv</code>, <code>mise</code>, or Homebrew can sit quietly during downloads. From another pane, <code>ps aux | rg -i 'uv|mise|brew|aider'</code> can confirm. If nothing is running and output still seems frozen, press <kbd>Ctrl</kbd><kbd>Q</kbd>; <kbd>Ctrl</kbd><kbd>S</kbd> can freeze terminal output through flow control. Stop a truly stuck command with <kbd>Ctrl</kbd><kbd>C</kbd>. If tmux itself feels confused after a tmux/plugin update, detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span>, open a fresh Ghostty tab, and reattach with <code>tmux attach</code>.</p>
+      </div>
 
       <h2><span class="hash">#</span>Project layouts as code</h2>
       <p>If a project always wants the same arrangement — editor, agent, server, tests, logs — store that as <code>.tmuxp.yaml</code> in the project. That is the shareable version for teams and students. Resurrect restores whatever you personally had open; tmuxp starts a known layout from a file.</p>
@@ -341,9 +345,9 @@ windows:
       <p>Most of what makes this tmux pleasant isn't tmux itself — it's a handful of plugins, managed by <strong>TPM</strong> (the Tmux Plugin Manager). You rarely touch them after install, but knowing what each one does explains where the magic comes from.</p>
 
       <h3>Managing them — TPM</h3>
-      <p>Plugins are declared in the config (the <code>set -g @plugin '…'</code> lines) and installed with one keystroke. Three commands cover their whole life:</p>
+      <p>Plugins are declared in the config (the <code>set -g @plugin '…'</code> lines). Groundwork runs TPM's command-line installer during <code>chezmoi apply</code>, so a fresh machine should not need a manual plugin install. These keys are still useful for repair and maintenance:</p>
       <table class="keytable">
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span></td><td><strong>Install</strong> any newly-declared plugins and load them (this is the one you run after a fresh setup)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span></td><td><strong>Install</strong> any newly-declared or missing plugins and load them</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td><strong>Update</strong> installed plugins to their latest version</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Alt</kbd><kbd>u</kbd></span></td><td><strong>Clean</strong> — remove plugins you've deleted from the config</td></tr>
       </table>
@@ -359,8 +363,8 @@ windows:
       <h3>The status line — useful, not noisy</h3>
       <p>Full-screen terminal work hides the macOS menu bar, so the tmux status line carries the few machine signals worth seeing while you supervise an editor, tests, logs, or an agent: current app, CPU, RAM, host, battery when the machine has one, and time. It refreshes every 10 seconds, so it stays glanceable without becoming a tiny dashboard that constantly wakes the machine.</p>
       <div class="callout note">
-        <span class="label">After this config change</span>
-        <p>Run <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span> once to install the newly declared CPU and battery plugins. Then reload with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span>.</p>
+        <span class="label">If you see placeholders</span>
+        <p>Literal text such as <code>#{cpu_percentage}</code>, <code>#{ram_percentage}</code>, or <code>#{battery_percentage}</code> means the plugin/theme layer has not loaded. Re-run <code>chezmoi apply</code> to let Groundwork install missing TPM plugins, then reload with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span>. If you are already inside an old tmux server, restart tmux from a fresh Ghostty tab so the newly-installed plugins load cleanly.</p>
       </div>
 
       <h3>Never lose a session — resurrect &amp; continuum</h3>

@@ -27,6 +27,7 @@ shell	rga <text>	alias	Search hidden and gitignored files too, while still skipp
 shell	rgf [text]	function	Search with ripgrep, fuzzy-pick a result, preview it with bat, and open it in the editor.
 shell	fd <name>	command	Find files by name quickly.
 shell	Ctrl+R	key	Search shell history with atuin/fzf.
+shell	atuin ai inline	command	Run Atuin's opt-in English-to-shell assistant after setup.
 mac	defaultbrowser	command	List or set the default browser. Run defaultbrowser zen after setup.
 mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia/Zen extension links.
 mac	raycast-extensions [--open]	command	List or open the recommended Raycast Store extension links.
@@ -47,7 +48,7 @@ tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
 tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.
 tmux	tmuxp freeze > .tmuxp.yaml	command	Capture the current tmux session as a starter layout config.
 tmux	tmux-fresh	command	Start tmux without restoring the previous resurrect snapshot.
-tmux	Ctrl+a then Shift+I	key	Install tmux plugins with TPM.
+tmux	Ctrl+a then Shift+I	key	Install or repair tmux plugins with TPM.
 tmux	Ctrl+a then r	key	Reload tmux config.
 tmux	Ctrl+a then P	key	Rename the active pane.
 tmux	Ctrl+a then ,	key	Rename the active window.

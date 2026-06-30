@@ -65,7 +65,16 @@ command -v direnv   >/dev/null && eval "$(direnv hook zsh)"
 if command -v fzf >/dev/null && fzf --zsh >/dev/null 2>&1; then
   source <(fzf --zsh)
 fi
-command -v atuin    >/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
+# Atuin owns Ctrl+R history. Leave Up Arrow as plain shell history. Keep bare ?
+# free unless the user explicitly opts into Atuin AI's question-mark binding.
+if command -v atuin >/dev/null; then
+  _atuin_flags=(--disable-up-arrow)
+  if [[ ! -f "$HOME/.config/groundwork/enable-atuin-ai" ]]; then
+    _atuin_flags+=(--disable-ai)
+  fi
+  eval "$(atuin init zsh "${_atuin_flags[@]}")"
+  unset _atuin_flags
+fi
 
 alias vim="nvim"
 alias vi="nvim"

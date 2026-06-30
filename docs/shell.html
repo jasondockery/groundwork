@@ -340,7 +340,7 @@
       <table class="keytable">
         <tr><td><code>starship</code></td><td>Draws the prompt — folder, Git branch and status, language versions, how long the last command took</td></tr>
         <tr><td><code>zoxide</code></td><td>The <code>z</code> command. Type <code>zi</code> instead for an interactive fuzzy picker of your visited folders</td></tr>
-        <tr><td><code>atuin</code></td><td>The smarter <kbd>Ctrl</kbd><kbd>R</kbd> history (searchable by folder, exit code, time). It's set up to leave your <kbd>↑</kbd> arrow alone for plain recall</td></tr>
+        <tr><td><code>atuin</code></td><td>The smarter <kbd>Ctrl</kbd><kbd>R</kbd> history (searchable by folder, exit code, time). It leaves your <kbd>↑</kbd> arrow alone for plain recall, and Groundwork keeps Atuin AI's bare <kbd>?</kbd> binding off until you opt in</td></tr>
         <tr><td><code>fzf</code></td><td>The fuzzy finder behind <kbd>Ctrl</kbd><kbd>R</kbd> / <kbd>Ctrl</kbd><kbd>T</kbd> / <kbd>Alt</kbd><kbd>C</kbd></td></tr>
         <tr><td><code>mise</code></td><td>Switches tool versions (Node, Python, Go…) automatically per project — see below</td></tr>
         <tr><td><code>direnv</code></td><td>Loads a folder's <code>.envrc</code> when you <code>cd</code> in (after you approve it once)</td></tr>
@@ -348,6 +348,10 @@
 
       <h3>History that's actually useful</h3>
       <p>zsh is tuned to keep a long, shared, de-duplicated history: 100,000 lines, written across all your open tabs at once, with exact duplicates collapsed. Two habits this unlocks: start a command with a <em>space</em> and it's kept out of history entirely (for anything with a secret in it), and <kbd>Ctrl</kbd><kbd>R</kbd> (atuin) searches the whole thing instantly.</p>
+      <div class="callout note">
+        <span class="label">Atuin AI is opt-in</span>
+        <p>Recent Atuin versions include an English-to-shell assistant. Groundwork disables the bare <kbd>?</kbd> binding by default so an empty prompt does not open a setup screen by surprise. To try it deliberately, run <code>atuin setup</code>, create the local marker with <code>mkdir -p ~/.config/groundwork &amp;&amp; touch ~/.config/groundwork/enable-atuin-ai</code>, then restart the shell with <code>exec zsh</code>. You can still run the assistant directly with <code>atuin ai inline</code>.</p>
+      </div>
 
       <h3>Per-project tool versions — mise</h3>
       <p>The experienced-developer payoff. Instead of juggling <code>nvm</code>, <code>pyenv</code>, and friends, <strong>mise</strong> reads a <code>mise.toml</code> (or <code>.tool-versions</code>) in a project and gives you exactly the runtimes it asks for — the moment you <code>cd</code> in.</p>
