@@ -115,6 +115,7 @@ grep -q 'actions/configure-pages@' .github/workflows/pages.yml
 grep -q 'actions/upload-pages-artifact@' .github/workflows/pages.yml
 grep -q 'actions/deploy-pages@' .github/workflows/pages.yml
 grep -q 'path: docs' .github/workflows/pages.yml
+assert_no_matches "Pages workflow must deploy on every main push; do not add paths filters" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/pages.yml
 test -f docs/.nojekyll
 test -f docs/assets/favicon.svg
 test -f docs/assets/social-card.png
