@@ -96,7 +96,7 @@
   <main class="main">
     <div class="content">
       <p class="eyebrow">Multiplexer</p>
-      <h1>tmux: one terminal, many panes — and nothing ever gets lost.</h1>
+      <h1>tmux: one terminal, many panes, work that can survive the window.</h1>
       <p class="lead">tmux splits a single terminal window into panes and tabs, keeps work running after you close the window, and gives agents a visible workspace beside your editor, tests, logs, and Git. Learn three ideas and a dozen keystrokes and you can supervise more work with less window juggling.</p>
 
       <div class="trigger"><b>When you'll want this</b> You're juggling six terminal tabs and keep losing track of which is running the server, tests, or agent.</div>
@@ -196,10 +196,10 @@
       <table class="keytable">
         <tr><td><strong>sesh</strong></td><td>Jump to an existing session or create one from a project folder with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span></td></tr>
         <tr><td><strong>pane border labels</strong></td><td>Every pane border shows its pane number, title, and current folder so full-screen apps like Claude, Codex, or Neovim do not hide your location</td></tr>
-        <tr><td><strong>tmux-resurrect + continuum</strong></td><td>Save and restore the live workspace you actually had open, including sessions, windows, panes, directories, and layout</td></tr>
+        <tr><td><strong>tmux-resurrect + continuum</strong></td><td>Save periodic snapshots of sessions, windows, panes, directories, and layout so a new tmux server can restore the last checkpoint</td></tr>
         <tr><td><strong>tmuxp</strong></td><td>Check a reusable project layout into a repo as <code>.tmuxp.yaml</code> when a team or class should start from the same windows and commands</td></tr>
       </table>
-      <p>That keeps the daily workflow simple: use <strong>sesh</strong> to move around, let <strong>continuum</strong> save your live state, and reach for <strong>tmuxp</strong> only when a project has a layout worth sharing or recreating from scratch.</p>
+      <p>That keeps the daily workflow simple: use <strong>sesh</strong> to move around, let <strong>continuum</strong> snapshot your state, and reach for <strong>tmuxp</strong> only when a project has a layout worth sharing or recreating from scratch.</p>
 
       <h2><span class="hash">#</span>The essential moves</h2>
       <p>This is the custom keymap on this setup. You don't need all of it on day one — the panes and sessions rows are what matter first.</p>
@@ -233,7 +233,7 @@
         <tr><td><code>tmux attach</code></td><td>From the shell, reattach to where you left off</td></tr>
         <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot</td></tr>
         <tr><td><code>tmux kill-session -t name</code></td><td>End a specific session and everything running inside it</td></tr>
-        <tr><td><code>tmux kill-server</code></td><td>End every tmux session (rare; use carefully)</td></tr>
+        <tr><td><code>tmux kill-server</code></td><td>End every live tmux session. Restore is separate and comes only from the last saved snapshot</td></tr>
       </table>
       <div class="callout warn">
         <span class="label">Detach vs close</span>
@@ -242,7 +242,7 @@
 
       <div class="callout note">
         <span class="label">The session switcher is broader than tmux</span>
-        <p><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> opens <strong>sesh</strong>, not raw <code>tmux ls</code>. It shows live tmux sessions <em>and</em> useful project folders from zoxide, so seeing <code>~/code/roost</code> or <code>~/code/groundwork</code> in that picker does not always mean a tmux session is alive. To see only live tmux sessions, run <code>tmux ls</code> or <code>sesh list --tmux</code>. To see only directory suggestions, run <code>sesh list --zoxide</code>.</p>
+        <p><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> opens <strong>sesh</strong>, not raw <code>tmux ls</code>. It shows live tmux sessions <em>and</em> useful project folders from zoxide, so seeing <code>~/code/roost</code> or <code>~/code/groundwork</code> in that picker does not always mean a tmux session is alive. After <code>tmux kill-server</code>, those folder rows can still appear because they are places you could start a session, not sessions still running. To see only live tmux sessions, run <code>tmux ls</code> or <code>sesh list --tmux</code>. To see only directory suggestions, run <code>sesh list --zoxide</code>.</p>
       </div>
 
       <h3>Extras</h3>
@@ -367,11 +367,11 @@ windows:
         <p>Literal text such as <code>#{cpu_percentage}</code>, <code>#{ram_percentage}</code>, or <code>#{battery_percentage}</code> means the plugin/theme layer has not loaded. Re-run <code>chezmoi apply</code> to let Groundwork install missing TPM plugins, then reload with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span>. If you are already inside an old tmux server, restart tmux from a fresh Ghostty tab so the newly-installed plugins load cleanly.</p>
       </div>
 
-      <h3>Never lose a session — resurrect &amp; continuum</h3>
-      <p>This is the pair worth understanding, because together they make your whole workspace survive a reboot. They split the job in two:</p>
+      <h3>Restore from snapshots — resurrect &amp; continuum</h3>
+      <p>This is the pair worth understanding, because together they let a tmux workspace come back after a reboot or fresh server start. They split the job in two:</p>
       <ul>
         <li><strong>tmux-resurrect</strong> is the <em>save/restore engine</em>. It writes a snapshot of every session, window, and pane — their exact layout, each pane's working directory, and the programs running in them — to a file on disk, and can rebuild it later. This setup also turns on <strong>pane-contents capture</strong>, so your scrollback comes back too.</li>
-        <li><strong>tmux-continuum</strong> <em>automates</em> resurrect: it saves a fresh snapshot every <strong>15 minutes</strong>, and — because this config sets <code>@continuum-restore 'on'</code> — automatically restores your last layout when a new tmux server starts. You usually never press a key; it just happens.</li>
+        <li><strong>tmux-continuum</strong> <em>automates</em> resurrect: it saves a fresh snapshot every <strong>15 minutes</strong>. On a normal desktop profile this config sets <code>@continuum-restore 'on'</code>, so a new tmux server restores the last saved layout. The CI and agent container profile renders it <code>off</code>, because surprise restore is wrong for disposable automation. Either way, it restores the latest snapshot, not whatever happened to be on screen at the instant you killed tmux.</li>
       </ul>
       <p>You can also drive resurrect by hand whenever you want a checkpoint or an immediate restore:</p>
       <table class="keytable">
@@ -380,11 +380,11 @@ windows:
       </table>
       <div class="callout note">
         <span class="label">What does and doesn't come back</span>
-        <p>Layouts, working directories, and a conservative allow-list of programs (editors, <code>less</code>, <code>top</code>…) are restored — but not every arbitrary process, by design. Auto-restore fires when a <em>new tmux server</em> starts (after a reboot), not when you just reload the config. This setup stores snapshots under <code>~/.local/share/tmux/resurrect/</code>. If sessions don't reappear automatically, the manual <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span> always works.</p>
+        <p>Layouts, working directories, and a conservative allow-list of programs (editors, <code>less</code>, <code>top</code>…) are restored, but not every arbitrary process, by design. Auto-restore fires when a <em>new tmux server</em> starts, not when you reload the config, and only if there is a saved snapshot. This setup stores snapshots under <code>~/.local/share/tmux/resurrect/</code>. If sessions do not reappear automatically, check the newest file there, then restore manually with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span>.</p>
       </div>
       <div class="callout warn">
-        <span class="label">Why kill-server can look like it didn't work</span>
-        <p><code>tmux kill-server</code> really does end every live tmux session. In this setup, though, <strong>tmux-continuum</strong> has <code>@continuum-restore</code> turned on, so the next time tmux starts it restores the last saved resurrect snapshot. That is why panes and windows can reappear after a kill. For a temporary clean slate, detach or open a fresh Ghostty tab and run <code>tmux-fresh</code>. To make clean starts the default, set <code>@continuum-restore</code> to <code>off</code> in the tmux config.</p>
+        <span class="label">What kill-server does</span>
+        <p><code>tmux kill-server</code> really does end every live tmux session. It does <em>not</em> save first. If you want the current layout to be restorable, save a checkpoint with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span> before killing the server. On a desktop profile, the next tmux start may restore the last saved snapshot because <code>@continuum-restore</code> is on; inside the CI and agent container profile it stays off and you restore manually. If there is no recent snapshot, you get a clean session. For a deliberate clean slate, detach or open a fresh Ghostty tab and run <code>tmux-fresh</code>.</p>
       </div>
 
       <h3>Seamless Vim ⇄ tmux movement — vim-tmux-navigator</h3>

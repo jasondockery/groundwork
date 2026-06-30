@@ -101,14 +101,27 @@ grep -Eq '^[[:space:]]*aider_python="3\.12"[[:space:]]*$' home/run_after_20-tool
 grep -qF "uv tool install --python \"\$aider_python\" --reinstall aider-chat" home/run_after_20-tools.sh.tmpl
 grep -qF "tmux_plugin_dir=\"\$HOME/.config/tmux/plugins\"" home/run_after_20-tools.sh.tmpl
 grep -qF "tmux_conf=\"\$HOME/.config/tmux/tmux.conf\"" home/run_after_20-tools.sh.tmpl
-grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" home/dot_config/tmux/tmux.conf
+test -f home/dot_config/tmux/tmux.conf.tmpl
+test ! -f home/dot_config/tmux/tmux.conf
+grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" home/dot_config/tmux/tmux.conf.tmpl
+unexpected_tmux_templates="$(
+  grep -nE '\{\{|\}\}' home/dot_config/tmux/tmux.conf.tmpl |
+    grep -vF '{{- if not .headless }}' |
+    grep -vF '{{- else }}' |
+    grep -vF '{{- end }}' || true
+)"
+if [[ -n "$unexpected_tmux_templates" ]]; then
+  echo "unexpected Go template marker in tmux.conf.tmpl" >&2
+  echo "$unexpected_tmux_templates" >&2
+  exit 1
+fi
 grep -qF 'set(-option)?[[:space:]]+-g[[:space:]]+@plugin' home/run_after_20-tools.sh.tmpl
 if grep -qF 'tmux_required_plugins=' home/run_after_20-tools.sh.tmpl; then
   echo "run_after_20-tools.sh.tmpl must derive tmux plugins from tmux.conf, not a static duplicate list" >&2
   exit 1
 fi
 tmux_declared_plugins="$(
-  sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf |
+  sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf.tmpl |
     sed -E 's/#.*$//; s|.*/||; s/\.git$//'
 )"
 for plugin in tpm tmux-sensible tmux-yank tmux-resurrect tmux-continuum tmux-cpu tmux-battery vim-tmux-navigator tmux; do
@@ -202,6 +215,17 @@ for os in darwin linux; do
     echo "check: rendered zsh ($case_name)"
     render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
     zsh -n "$out_dir/$case_name/zshrc"
+
+    echo "check: rendered tmux ($case_name)"
+    render "$os" "$headless" "amd64" home/dot_config/tmux/tmux.conf.tmpl "$out_dir/$case_name/tmux.conf"
+    grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" "$out_dir/$case_name/tmux.conf"
+    if [[ "$headless" == "true" ]]; then
+      grep -qF "set -g @continuum-restore 'off'" "$out_dir/$case_name/tmux.conf"
+      assert_not_contains "@continuum-restore 'on'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore leaked into $case_name tmux config"
+    else
+      grep -qF "set -g @continuum-restore 'on'" "$out_dir/$case_name/tmux.conf"
+      assert_not_contains "@continuum-restore 'off'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore disabled in $case_name tmux config"
+    fi
 
     echo "check: rendered Brewfile ($case_name)"
     render "$os" "$headless" "amd64" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile"

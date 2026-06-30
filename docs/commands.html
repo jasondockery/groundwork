@@ -170,11 +170,13 @@
         <tr><td><code>tmuxp load .tmuxp.yaml</code></td><td>Start a reusable project layout from a checked-in config file.</td></tr>
         <tr><td><code>tmuxp freeze &gt; .tmuxp.yaml</code></td><td>Capture the current session as a starter layout config.</td></tr>
         <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span></td><td>Save a tmux-resurrect snapshot now.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span></td><td>Restore the last tmux-resurrect snapshot.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>P</kbd></span></td><td>Rename the active pane.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span></td><td>Rename the active window.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span></td><td>Close the current window and all panes inside it.</td></tr>
         <tr><td><code>tmux kill-session -t name</code></td><td>End a named tmux session.</td></tr>
-        <tr><td><code>tmux kill-server</code></td><td>End every tmux session.</td></tr>
+        <tr><td><code>tmux kill-server</code></td><td>End every live tmux session; snapshots are separate.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Mac and display commands</h2>

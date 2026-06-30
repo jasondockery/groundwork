@@ -116,6 +116,15 @@
       <p>The durable development spine is the same everywhere: shell literacy, file paths, Git, diffs, tmux sessions, editor basics, project instructions, validation, and the habit of checking an agent's work before accepting it.</p>
       <p>That is why most docs pages are not split by OS. The operating system changes the install surface; it does not change the core practice.</p>
 
+      <h2><span class="hash">#</span>Headless containers</h2>
+      <p>Docker is an environment option here, not a separate curriculum track. Use it when you want the Groundwork terminal layer in a reproducible agent workspace, CI job, or disposable shell: no GUI apps, no macOS defaults, no browser helpers, just the command-line foundation agents and humans can share.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">container.sh</span></div>
+        <pre><code><span class="prompt">$ </span>docker build -t groundwork .
+<span class="prompt">$ </span>docker run -it --rm groundwork</code></pre>
+      </div>
+      <p>On a personal Mac, Docker Desktop can provide the daemon. On a work Mac, Groundwork installs Colima plus the Docker CLI instead; run <code>colima start</code> before using Docker commands. Groundwork does not try to teach Dockerfiles, Compose, or container hosting here; that would be a separate learning goal.</p>
+
       <h2><span class="hash">#</span>Mac choices</h2>
       <p>Most Macs should use the default desktop profile. The server/CI prompt exists for the unusual case: a Mac used as a remote runner, build box, or agent host with no logged-in desktop workflow.</p>
       <table class="keytable">

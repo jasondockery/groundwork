@@ -48,11 +48,13 @@ tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
 tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.
 tmux	tmuxp freeze > .tmuxp.yaml	command	Capture the current tmux session as a starter layout config.
 tmux	tmux-fresh	command	Start tmux without restoring the previous resurrect snapshot.
+tmux	Ctrl+a then Ctrl+s	key	Save a tmux-resurrect snapshot now.
+tmux	Ctrl+a then Ctrl+r	key	Restore the last tmux-resurrect snapshot.
 tmux	Ctrl+a then Shift+I	key	Install or repair tmux plugins with TPM.
 tmux	Ctrl+a then r	key	Reload tmux config.
 tmux	Ctrl+a then P	key	Rename the active pane.
 tmux	Ctrl+a then ,	key	Rename the active window.
 tmux	Ctrl+a then &	key	Close the current window and all panes inside it.
 tmux	tmux kill-session -t <name>	command	End a named tmux session.
-tmux	tmux kill-server	command	End every tmux session.
+tmux	tmux kill-server	command	End every live tmux session; snapshots are separate.
 tmux	Alt+h/j/k/l	key	Move between tmux panes and Neovim splits.

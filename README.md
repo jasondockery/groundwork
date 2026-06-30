@@ -244,7 +244,7 @@ home/
   dot_codex/AGENTS.md.tmpl             # Codex adapter: shared thesis + Codex-only notes
   dot_config/
     ghostty/config                     # terminal
-    tmux/tmux.conf                     # tmux
+    tmux/tmux.conf.tmpl                # tmux
     starship.toml                      # prompt
     mise/config.toml                   # runtime / tool versions
     karabiner/modify_karabiner.json    # keyboard rule merged into Karabiner's app-owned JSON

@@ -182,7 +182,8 @@
 
 <div class="callout note">
   <span class="label">Linux / WSL2 / containers</span>
-  <p>Groundwork renders a terminal-only layer for Linux, WSL2, and headless containers. macOS GUI apps, App Store apps, browser helpers, and macOS defaults are skipped when <code>.chezmoi.os</code> is not <code>darwin</code>; on macOS, the server/CI prompt lets a headless Mac skip the same layer. On Windows, install WSL2 and keep projects under the WSL filesystem, such as <code>~/code/groundwork</code>, not under <code>/mnt/c</code>. For a disposable shell, build the Docker image with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>. See <a href="platforms.html">Platforms</a> for the profile-by-profile split.</p>
+  <p>Groundwork treats Docker as a way to run the environment, not as a standalone lesson. Linux and WSL2 get the shared terminal layer: shell, Git, tmux, Neovim, mise/uv, helper scripts, and agent instructions. macOS GUI apps, App Store apps, browser helpers, and macOS defaults are skipped when <code>.chezmoi.os</code> is not <code>darwin</code>; on macOS, the server/CI prompt lets a headless Mac skip the same desktop layer.</p>
+  <p>The Docker image is the non-interactive headless profile for agents, CI, and disposable shells. From the repo root, build it with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>. Personal Macs can use Docker Desktop; work Macs use Colima plus the Docker CLI, so start the daemon with <code>colima start</code> first. This does not try to teach Dockerfiles, Compose, or app hosting; it just gives the Groundwork terminal environment somewhere reproducible to run. See <a href="platforms.html">Platforms</a> for the profile-by-profile split.</p>
 </div>
 
       <h2><span class="hash">#</span>Day to day</h2>
