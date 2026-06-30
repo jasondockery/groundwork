@@ -143,6 +143,7 @@
               <div class="qr"><span class="keys">status line</span> <span class="act">app, CPU, RAM, host, battery, time</span></div>
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>r</kbd></span> <span class="act">reload config</span></div>
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>I</kbd></span> <span class="act">repair plugins</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>U</kbd></span> <span class="act">update plugins</span></div>
             </div>
           </div>
         </div>
@@ -348,9 +349,10 @@ windows:
       <p>Plugins are declared in the config (the <code>set -g @plugin '…'</code> lines). Groundwork runs TPM's command-line installer during <code>chezmoi apply</code>, so a fresh machine should not need a manual plugin install. These keys are still useful for repair and maintenance:</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span></td><td><strong>Install</strong> any newly-declared or missing plugins and load them</td></tr>
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td><strong>Update</strong> installed plugins to their latest version</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td><strong>Update</strong> installed plugins to their latest version. If the TPM pane looks blank or frozen, wait a few seconds, then press <kbd>Esc</kbd> or <kbd>Enter</kbd> to force a redraw and dismiss the summary.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Alt</kbd><kbd>u</kbd></span></td><td><strong>Clean</strong> — remove plugins you've deleted from the config</td></tr>
       </table>
+      <p>For fully visible output, run the same update from a shell instead of TPM's tmux pane: <code>~/.config/tmux/plugins/tpm/bin/update_plugins all</code>.</p>
 
       <h3>The quiet helpers</h3>
       <p>Three plugins you'll never think about — they just make the defaults sane and the clipboard work:</p>

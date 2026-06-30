@@ -48,8 +48,10 @@ tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
 tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.
 tmux	tmuxp freeze > .tmuxp.yaml	command	Capture the current tmux session as a starter layout config.
 tmux	tmux-fresh	command	Start tmux without restoring the previous resurrect snapshot.
+tmux	~/.config/tmux/plugins/tpm/bin/update_plugins all	command	Update tmux plugins from a normal shell when TPM's tmux pane is hard to read.
 tmux	Ctrl+a then Ctrl+s	key	Save a tmux-resurrect snapshot now.
 tmux	Ctrl+a then Ctrl+r	key	Restore the last tmux-resurrect snapshot.
+tmux	Ctrl+a then Shift+U	key	Update tmux plugins with TPM; press Esc or Enter if the update pane does not repaint.
 tmux	Ctrl+a then Shift+I	key	Install or repair tmux plugins with TPM.
 tmux	Ctrl+a then r	key	Reload tmux config.
 tmux	Ctrl+a then P	key	Rename the active pane.

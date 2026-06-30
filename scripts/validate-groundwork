@@ -115,6 +115,18 @@ if [[ -n "$unexpected_tmux_templates" ]]; then
   echo "$unexpected_tmux_templates" >&2
   exit 1
 fi
+grep -qF "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_options_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "set -agF status-right '#{E:@catppuccin_status_ram}'" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "set -agF status-right '#{E:@catppuccin_status_battery}'" home/dot_config/tmux/tmux.conf.tmpl
+catppuccin_source_line="$(grep -nF "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
+cpu_status_line="$(grep -nF "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
+tpm_run_line="$(grep -nF "run '~/.config/tmux/plugins/tpm/tpm'" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
+if (( catppuccin_source_line >= cpu_status_line || cpu_status_line >= tpm_run_line )); then
+  echo "tmux status modules must source Catppuccin before set -agF modules, before TPM runs" >&2
+  exit 1
+fi
 grep -qF 'set(-option)?[[:space:]]+-g[[:space:]]+@plugin' home/run_after_20-tools.sh.tmpl
 if grep -qF 'tmux_required_plugins=' home/run_after_20-tools.sh.tmpl; then
   echo "run_after_20-tools.sh.tmpl must derive tmux plugins from tmux.conf, not a static duplicate list" >&2

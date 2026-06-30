@@ -106,12 +106,18 @@ set -g @catppuccin_window_default_text ' #W'
 set -g @catppuccin_window_current_text ' #W'
 set -g @catppuccin_date_time_text '%a %H:%M'
 
+# Catppuccin's CPU/RAM/battery modules contain plugin placeholders such as
+# #{cpu_percentage}. Source the theme before building the status line so the
+# -F expansions below expose those placeholders for tmux-cpu/tmux-battery.
+source-file -q ~/.config/tmux/plugins/tmux/catppuccin_options_tmux.conf
+source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf
+
 set -g status-left '#{E:@catppuccin_status_session}'
 set -g status-right '#{E:@catppuccin_status_application}'
-set -ag status-right '#{E:@catppuccin_status_cpu}'
-set -ag status-right '#{E:@catppuccin_status_ram}'
+set -agF status-right '#{E:@catppuccin_status_cpu}'
+set -agF status-right '#{E:@catppuccin_status_ram}'
 set -ag status-right '#{E:@catppuccin_status_host}'
-if-shell 'pmset -g batt 2>/dev/null | grep -q InternalBattery || ls /sys/class/power_supply/BAT* >/dev/null 2>&1' "set -ag status-right '#{E:@catppuccin_status_battery}'"
+if-shell 'pmset -g batt 2>/dev/null | grep -q InternalBattery || ls /sys/class/power_supply/BAT* >/dev/null 2>&1' "set -agF status-right '#{E:@catppuccin_status_battery}'"
 set -ag status-right '#{E:@catppuccin_status_date_time}'
 
 # Personal tmux overrides. This file is intentionally unmanaged by Groundwork and
