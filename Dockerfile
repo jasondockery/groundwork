@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -13,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY docker/install-headless-tools.sh /tmp/install-headless-tools.sh
-RUN bash /tmp/install-headless-tools.sh && rm /tmp/install-headless-tools.sh
+RUN --mount=type=secret,id=github_token bash /tmp/install-headless-tools.sh && rm /tmp/install-headless-tools.sh
 
 ARG USER=dev
 RUN useradd -m -s /usr/bin/zsh "$USER" \

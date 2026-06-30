@@ -39,6 +39,8 @@ jobs:
           push: false
           load: true
           tags: groundwork:test
+          secrets: |
+            github_token=${{ github.token }}
 
       - name: Smoke test image
         run: docker run --rm groundwork:test zsh -ic 'rg --version && nvim --version && tmux -V && echo OK'

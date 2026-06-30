@@ -8,13 +8,28 @@ case "$arch" in
   *) echo "unsupported arch: $arch" >&2; exit 1 ;;
 esac
 
+github_api_headers=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  github_api_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
+elif [[ -r /run/secrets/github_token ]]; then
+  github_token="$(< /run/secrets/github_token)"
+  if [[ -n "$github_token" ]]; then
+    github_api_headers=(-H "Authorization: Bearer $github_token")
+  fi
+  unset github_token
+fi
+
 latest_asset() {
-  local repo="$1" pattern="$2" url
-  url="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" \
-    | jq -r --arg pattern "$pattern" '.assets[] | select(.name | test($pattern)) | .browser_download_url' \
+  local repo="$1" pattern="$2" response url
+  if ! response="$(curl -fsSL "${github_api_headers[@]}" "https://api.github.com/repos/$repo/releases/latest")"; then
+    echo "failed to fetch latest release metadata for $repo" >&2
+    return 1
+  fi
+  url="$(jq -r --arg pattern "$pattern" '.assets[] | select(.name | test($pattern)) | .browser_download_url' <<<"$response" \
     | head -n1)"
   if [[ -z "$url" ]]; then
     echo "no release asset matched $repo pattern $pattern" >&2
+    jq -r '.assets[]?.name' <<<"$response" >&2
     return 1
   fi
   printf '%s\n' "$url"

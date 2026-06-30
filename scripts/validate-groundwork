@@ -71,7 +71,7 @@ bash -n bootstrap-mac.sh
 
 echo "check: helper script syntax"
 shellcheck_files=(bootstrap-mac.sh)
-for script in home/dot_local/bin/executable_* home/dot_config/karabiner/modify_karabiner.json scripts/*; do
+for script in docker/*.sh home/dot_local/bin/executable_* home/dot_config/karabiner/modify_karabiner.json scripts/*; do
   [[ -f "$script" ]] || continue
   [[ "$script" == *.tmpl ]] && continue
   if head -n 1 "$script" | grep -q 'bash'; then
