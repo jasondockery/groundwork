@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Shell &amp; modern CLI · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shell &amp; modern CLI · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Shell &amp; modern CLI · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html" class="active">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Commands</p>
+      <h1>The modern command line: the names you know, far better tools underneath.</h1>
+      <p class="lead">The classic Unix commands have faster, friendlier rewrites. This setup installs them and points the familiar names straight at them, because these are the same commands agents run, quote, and debug with you. Learn the words once and you can supervise both your own shell and an agent's shell.</p>
+
+      <div class="trigger"><b>When you'll want this</b> You're retyping long commands, hunting through history, or trying to explain a terminal problem to an agent.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — the keys worth memorizing</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span> <span class="act">search history</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span> <span class="act">insert a file path</span></div>
+          <div class="qr"><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span> <span class="act">pick a folder and cd</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>E</kbd></span> <span class="act">accept suggestion</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>A</kbd> / <kbd>Ctrl</kbd><kbd>E</kbd></span> <span class="act">line start / end</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>W</kbd></span> <span class="act">delete word behind</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>U</kbd></span> <span class="act">clear the line</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span> <span class="act">clear the screen</span></div>
+          <div class="qr"><span class="keys"><kbd>Tab</kbd></span> <span class="act">complete (case-insensitive)</span></div>
+          <div class="qr"><span class="keys"><code>z</code> name</span> <span class="act">jump to a folder</span></div>
+          <div class="qr"><span class="keys"><code>mkdir -p</code> folder</span> <span class="act">add a folder</span></div>
+          <div class="qr"><span class="keys"><code>pwd</code> / <code>open .</code></span> <span class="act">show / open here</span></div>
+          <div class="qr"><span class="keys"><code>rg</code> text</span> <span class="act">search file contents</span></div>
+          <div class="qr"><span class="keys"><code>copy-context</code></span> <span class="act">copy code context</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Already wired up</h2>
+      <p>Two of the commands you'll type most are remapped the moment your shell starts. You don't do anything — <code>ls</code> and <code>cat</code> already run the better tools:</p>
+      <table class="keytable">
+        <tr><td><code>ls</code></td><td>runs <strong>eza</strong> — colored, sorted, folders first</td></tr>
+        <tr><td><code>ll</code></td><td>eza in long form with permissions, sizes, and a <strong>git status</strong> column</td></tr>
+        <tr><td><code>cat</code></td><td>runs <strong>bat</strong> — syntax highlighting and line numbers</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">The originals are still there</span>
+        <p>Need the plain version? Put a backslash in front: <code>\ls</code> or <code>\cat</code> runs the untouched original. You never lose the classic behavior.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Moving on the command line</h2>
+      <p>Before you reach for the mouse or the arrow keys, these editing shortcuts move and erase text far faster. They work on every command you type, in any shell.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>A</kbd> / <kbd>Ctrl</kbd><kbd>E</kbd></span></td><td>Jump to the start / end of the line</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>B</kbd> / <kbd>Alt</kbd><kbd>F</kbd></span></td><td>Move back / forward one word</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>W</kbd></span></td><td>Delete the word behind the cursor</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>U</kbd> / <kbd>Ctrl</kbd><kbd>K</kbd></span></td><td>Delete to the start / end of the line</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>Y</kbd></span></td><td>Paste back whatever you just deleted</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span></td><td>Search your history — start typing, pick, <kbd>Enter</kbd></td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>P</kbd> / <kbd>Ctrl</kbd><kbd>N</kbd></span></td><td>Previous / next command — the home-row <kbd>↑</kbd>/<kbd>↓</kbd>, so your hands stay put</td></tr>
+      </table>
+      <p>Two more that save real typing: as you type, the shell suggests the rest of a past command in grey — press <span class="keys"><kbd>Ctrl</kbd><kbd>E</kbd></span> to accept it without leaving the home row. (It's the same "jump to end of line" key; since the line ends with the suggestion, that fills it in. The <kbd>→</kbd> arrow works too, but reaching for it is the habit worth dropping.) And <code>!!</code> repeats your last command (great as <code>sudo !!</code>), while <code>!$</code> reuses its last argument.</p>
+      <div class="callout note">
+        <span class="label">Quality-of-life the shell is set up for</span>
+        <p>Type a folder's name with no <code>cd</code> in front to jump straight into it. Run <code>cd -</code> then <kbd>Tab</kbd> to bounce between recent folders. And start any command with a <em>space</em> to keep it out of your history — handy for anything with a password or token in it.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Inside tmux, shell keys stay shell keys</span>
+        <p>The commands on this page are identical whether or not you're in <a href="tmux.html">tmux</a>. Pane and Neovim-split navigation uses <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>, leaving the classic shell controls alone: <kbd>Ctrl</kbd><kbd>L</kbd> clears, <kbd>Ctrl</kbd><kbd>K</kbd> deletes to the end of the line, and <kbd>Ctrl</kbd><kbd>R</kbd> searches history.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Folders and files</h2>
+      <p>These are the folder moves beginners ask for first, and the commands experienced developers still type all day. <code>.</code> means "this folder"; <code>..</code> means "the parent folder."</p>
+      <table class="keytable">
+        <tr><td><code>pwd</code></td><td>Print the current folder path</td></tr>
+        <tr><td><code>open .</code></td><td>Open the current folder in Finder on macOS. In WSL, use <code>explorer.exe .</code></td></tr>
+        <tr><td><code>cd ..</code></td><td>Move up one folder</td></tr>
+        <tr><td><code>cd -</code></td><td>Jump back to the previous folder</td></tr>
+        <tr><td><code>mkdir -p notes/ideas</code></td><td>Add a folder, including parent folders if needed</td></tr>
+        <tr><td><code>touch todo.md</code></td><td>Add an empty file or update its timestamp</td></tr>
+        <tr><td><code>mv old new</code></td><td>Rename or move a file/folder</td></tr>
+        <tr><td><code>cp -R src dest</code></td><td>Copy a folder recursively</td></tr>
+        <tr><td><code>rm -i file</code></td><td>Remove a file, asking before it does it</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Respect rm</span>
+        <p><code>rm</code> is permanent from the shell. Beginners should use <code>rm -i</code> until they understand exactly what will disappear, and avoid copied commands like <code>rm -rf</code> unless they can explain every character.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The daily drivers</h2>
+
+      <div class="callout note">
+        <span class="label">Why the names stick</span>
+        <p>Command names are easier to remember when they connect to the older Unix word they replace. Some names have official explanations; others are best treated as mnemonics, not gospel.</p>
+      </div>
+      <table class="keytable">
+        <tr><td><code>eza</code></td><td>Think "exa, continued." The official project describes it as a modern <code>ls</code> replacement and lists features beyond <code>exa</code>, but does not publish a clean expansion for the name.</td></tr>
+        <tr><td><code>bat</code></td><td>A <code>cat</code> clone "with wings": same job as <code>cat</code>, upgraded with highlighting, Git markers, and paging.</td></tr>
+        <tr><td><code>rg</code> / ripgrep</td><td>"Rip" as in rip through a project fast; <code>rg</code> is the two-letter command you type instead of long <code>grep</code> forms.</td></tr>
+        <tr><td><code>fd</code></td><td>A short, friendly <code>find</code>. Remember it as "find, but direct."</td></tr>
+        <tr><td><code>zoxide</code></td><td>The <code>z</code> command is the memory hook: jump to frequently used folders by typing a few letters.</td></tr>
+        <tr><td><code>fzf</code></td><td>Fuzzy finder. It finds the thing even when you only remember a fuzzy part of the name.</td></tr>
+        <tr><td><code>atuin</code></td><td>A shell-history vault. Use the practical memory hook: "a tuned-in history."</td></tr>
+        <tr><td><code>delta</code></td><td>Delta means change; this makes Git changes easier to read.</td></tr>
+        <tr><td><code>dust</code></td><td>A friendlier <code>du</code> that shows what is taking space. Think "disk usage, sorted tree."</td></tr>
+        <tr><td><code>duf</code></td><td>Disk usage/free utility: the readable replacement for <code>df</code>.</td></tr>
+        <tr><td><code>tokei</code></td><td>Japanese for clock/time; here it quickly counts code by language.</td></tr>
+        <tr><td><code>hyperfine</code></td><td>A benchmarking tool for fine-grained timing comparisons.</td></tr>
+        <tr><td><code>starship</code></td><td>The prompt: the control panel you see before every command.</td></tr>
+        <tr><td><code>direnv</code></td><td>Directory environment: load project-specific env vars when you enter a folder.</td></tr>
+        <tr><td><code>mise</code></td><td>Short for "mise-en-place": put project tools and versions in their right place.</td></tr>
+      </table>
+
+      <h3>eza — listing files</h3>
+      <p>Everything <code>ls</code> did, plus git status, icons, and a real tree view. The name is best remembered as the maintained, modern successor to <code>exa</code>.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">eza</span></div>
+        <pre><code><span class="prompt">$ </span>ll
+<span class="prompt">$ </span>eza --tree --level=2
+<span class="comment"># a two-deep tree of the current folder</span></code></pre>
+      </div>
+
+      <h3>bat — reading files</h3>
+      <p>A <code>cat</code> that highlights code, numbers lines, and marks git changes in the gutter. Piped into something else it quietly behaves like plain <code>cat</code>, so it never breaks a pipeline.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">bat</span></div>
+        <pre><code><span class="prompt">$ </span>bat README.md
+<span class="prompt">$ </span>bat -p script.sh
+<span class="comment"># -p = plain, no line numbers or borders</span></code></pre>
+      </div>
+
+      <h3>ripgrep — searching inside files</h3>
+      <p>Search every file in a project for text, fast. Groundwork configures <code>rg</code> with smart case: lowercase searches match any casing, while a capital letter makes the search case-sensitive. By default it respects <code>.gitignore</code> and skips hidden files; use <code>rga</code> when you deliberately want hidden and ignored files too.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">ripgrep</span></div>
+        <pre><code><span class="prompt">$ </span>rg test              <span class="comment"># smart-case: finds test, Test, TEST</span>
+<span class="prompt">$ </span>rg Test              <span class="comment"># capital letter makes it case-sensitive</span>
+<span class="prompt">$ </span>rg -t md heading     <span class="comment"># only markdown files</span>
+<span class="prompt">$ </span>rga api_key          <span class="comment"># include hidden + ignored files, still skip .git</span></code></pre>
+      </div>
+      <p>For fuzzy content search, use <code>rgf</code>. It runs ripgrep, opens the matches in <code>fzf</code>, previews with <code>bat</code>, and opens the selected line in your editor.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">rg + fzf</span></div>
+        <pre><code><span class="prompt">$ </span>rgf button
+<span class="prompt">$ </span>rgf                 <span class="comment"># live search as you type</span></code></pre>
+      </div>
+
+      <h3>fd — finding files by name</h3>
+      <p>A simpler, quicker <code>find</code>. Type part of a name; it searches from here down, ignoring junk folders.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">fd</span></div>
+        <pre><code><span class="prompt">$ </span>fd config
+<span class="prompt">$ </span>fd -e png            <span class="comment"># files ending in .png</span></code></pre>
+      </div>
+
+      <h3>zoxide — jumping to folders</h3>
+      <p>It remembers the folders you visit. After you've been somewhere once, <code>z</code> plus a few letters teleports you back from anywhere — no long paths.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">zoxide</span></div>
+        <pre><code><span class="prompt">$ </span>z groundwork
+<span class="prompt">$ </span>z know               <span class="comment"># jumps to ~/code/my-knowledge</span></code></pre>
+      </div>
+
+      <h3>fzf — fuzzy-finding anything</h3>
+      <p>A fuzzy picker wired into the shell. Groundwork points its file picker at <code>rg --files</code>, so fuzzy file selection respects the same ignore rules as ripgrep. Three keystrokes are worth memorizing:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span></td><td>Search your command history — start typing, pick, Enter</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a file path into the line you're typing</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it</td></tr>
+      </table>
+
+      <h3>copy-context — sharing exact files with another AI tool</h3>
+      <p>When a chat app or outside reviewer cannot see your repo, copy a small, explicit bundle instead of pasting random snippets. <code>copy-context</code> takes files or folders, expands folders through <code>rg --files</code> when available, and puts path-labeled contents on the clipboard. It works the same way inside tmux because it is just a shell command.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">copy-context</span></div>
+        <pre><code><span class="prompt">$ </span>copy-context AGENTS.md src tests
+<span class="prompt">$ </span>copy-context --stdout docs/workflow.html
+<span class="prompt">$ </span>copy-context --paths-only src</code></pre>
+      </div>
+      <p>Default folder expansion respects ignore rules, so dependency and build folders stay out of the prompt. Use <code>--stdout</code> before pasting when the files are sensitive or large, and never copy secrets into a chat tool.</p>
+
+      <h2><span class="hash">#</span>Also installed</h2>
+      <p>You won't reach for these every hour, but they're there when you need them.</p>
+      <table class="keytable">
+        <tr><td><code>atuin</code></td><td>Records every command with its context, fully searchable — a much smarter history behind <kbd>Ctrl</kbd><kbd>R</kbd></td></tr>
+        <tr><td><code>delta</code></td><td>Makes <code>git diff</code> readable — syntax-highlighted, line-by-line</td></tr>
+        <tr><td><code>dust</code></td><td>Shows what's eating disk space, as a tree (a friendlier <code>du</code>)</td></tr>
+        <tr><td><code>duf</code></td><td>Free disk space in clean tables (a friendlier <code>df</code>)</td></tr>
+        <tr><td><code>tokei</code></td><td>Counts lines of code in a project, by language</td></tr>
+        <tr><td><code>hyperfine</code></td><td>Benchmarks a command properly, over many runs</td></tr>
+        <tr><td><code>starship</code></td><td>The prompt itself — the branch, status, and versions you see on the left</td></tr>
+        <tr><td><code>direnv</code></td><td>Loads per-folder settings from a <code>.envrc</code> when you enter (after you allow it)</td></tr>
+        <tr><td><code>mise</code></td><td>Gives each project the right tool versions (Node, Python…) automatically</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>See git status while you list</h3>
+          <p>Inside any Git repo, run <code>ll</code> and look at the status column on the left. Change a file, run it again, watch the marker appear. Then map the layout with <code>eza --tree --level=2</code>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Find, then search, then read</h3>
+          <p>Locate a file by name with <code>fd readme</code>. Search the project's contents with <code>rg "install"</code>. Open one of the hits with <code>bat &lt;file&gt;</code> and notice the highlighting. That find&nbsp;&rarr;&nbsp;search&nbsp;&rarr;&nbsp;read loop is most of a workday.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Teleport between folders</h3>
+          <p>Visit two or three deep folders normally with <code>cd</code>. Now, from anywhere, jump straight back with <code>z</code> and a few letters of one. The more you use it, the better its guesses get.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Stop retyping commands</h3>
+          <p>Press <span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span> and type a few letters of something you ran earlier. Pick it, Enter. Then try <span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span> mid-command to drop in a file path without typing it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Edit a line without arrow keys</h3>
+          <p>Type a long command but don't run it. Jump to the front with <span class="keys"><kbd>Ctrl</kbd><kbd>A</kbd></span>, to the end with <span class="keys"><kbd>Ctrl</kbd><kbd>E</kbd></span>, rub out the last word with <span class="keys"><kbd>Ctrl</kbd><kbd>W</kbd></span>, then wipe the whole line with <span class="keys"><kbd>Ctrl</kbd><kbd>U</kbd></span>. A week of this and your hands stop leaving the home row.</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">Learn one at a time</span>
+        <p>Don't try to absorb the whole table today. Pick <code>rg</code> and <code>z</code> this week — they pay off immediately — and let the rest arrive as you need them. Every tool answers <code>--help</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Under the hood: the zsh setup</h2>
+      <p>The shell you're typing into is <strong>zsh</strong>, and a few small pieces make it feel modern. You don't configure any of this by hand — it's all in <code>~/.zshrc</code> and managed by the setup — but here's what's running and why.</p>
+
+      <h3>Plugins, loaded by antidote</h3>
+      <p><strong>antidote</strong> is the plugin manager. It reads a plain list of plugins from <code>~/.zsh_plugins.txt</code> and loads them fast (it pre-compiles them so your shell still starts instantly). Three plugins are on that list:</p>
+      <table class="keytable">
+        <tr><td><strong>zsh-autosuggestions</strong></td><td>The grey "ghost" text that predicts the rest of a command from your history. Press <span class="keys"><kbd>Ctrl</kbd><kbd>E</kbd></span> to accept the whole thing (home row — no reaching for the arrows), or <span class="keys"><kbd>Alt</kbd><kbd>F</kbd></span> to take just the next word.</td></tr>
+        <tr><td><strong>fast-syntax-highlighting</strong></td><td>Colors your command line as you type — valid commands go one color, unknown ones another, quotes and paths are highlighted. A typo in a command name is visible <em>before</em> you hit Enter.</td></tr>
+        <tr><td><strong>ez-compinit</strong></td><td>Plumbing: it makes zsh's tab-completion system initialize correctly and quickly. You never interact with it directly — it just keeps <kbd>Tab</kbd> completion fast and unbroken.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Adding a plugin</span>
+        <p>Want another? Add its <code>user/repo</code> to <code>~/.zsh_plugins.txt</code> (via <code>chezmoi edit</code> so it sticks), then <code>exec zsh</code> to reload. antidote clones and compiles it on the next start.</p>
+      </div>
+
+      <h3>The init lines — what each tool hooks into your shell</h3>
+      <p>Several tools need a line in <code>~/.zshrc</code> to wire themselves in. This is where the prompt, directory-jumping, history, and version-switching come from:</p>
+      <table class="keytable">
+        <tr><td><code>starship</code></td><td>Draws the prompt — folder, Git branch and status, language versions, how long the last command took</td></tr>
+        <tr><td><code>zoxide</code></td><td>The <code>z</code> command. Type <code>zi</code> instead for an interactive fuzzy picker of your visited folders</td></tr>
+        <tr><td><code>atuin</code></td><td>The smarter <kbd>Ctrl</kbd><kbd>R</kbd> history (searchable by folder, exit code, time). It's set up to leave your <kbd>↑</kbd> arrow alone for plain recall</td></tr>
+        <tr><td><code>fzf</code></td><td>The fuzzy finder behind <kbd>Ctrl</kbd><kbd>R</kbd> / <kbd>Ctrl</kbd><kbd>T</kbd> / <kbd>Alt</kbd><kbd>C</kbd></td></tr>
+        <tr><td><code>mise</code></td><td>Switches tool versions (Node, Python, Go…) automatically per project — see below</td></tr>
+        <tr><td><code>direnv</code></td><td>Loads a folder's <code>.envrc</code> when you <code>cd</code> in (after you approve it once)</td></tr>
+      </table>
+
+      <h3>History that's actually useful</h3>
+      <p>zsh is tuned to keep a long, shared, de-duplicated history: 100,000 lines, written across all your open tabs at once, with exact duplicates collapsed. Two habits this unlocks: start a command with a <em>space</em> and it's kept out of history entirely (for anything with a secret in it), and <kbd>Ctrl</kbd><kbd>R</kbd> (atuin) searches the whole thing instantly.</p>
+
+      <h3>Per-project tool versions — mise</h3>
+      <p>The experienced-developer payoff. Instead of juggling <code>nvm</code>, <code>pyenv</code>, and friends, <strong>mise</strong> reads a <code>mise.toml</code> (or <code>.tool-versions</code>) in a project and gives you exactly the runtimes it asks for — the moment you <code>cd</code> in.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">mise — set a project's tools</span></div>
+        <pre><code><span class="prompt">$ </span>cd ~/code/my-app
+<span class="prompt">$ </span>mise use node@22 python@3.13   <span class="comment"># pins them in mise.toml + installs</span>
+<span class="prompt">$ </span>node --version                 <span class="comment"># the pinned version, here only</span>
+<span class="prompt">$ </span>mise install                   <span class="comment"># on a fresh clone: grab everything the toml asks for</span></code></pre>
+      </div>
+      <p>Walk into a different project and the versions change to match it automatically. Globally, this setup pins Node LTS, pnpm, and Python (in <code>~/.config/mise/config.toml</code>), so every machine agrees on the baseline. Python projects should still use <code>uv</code> for dependencies and virtual environments; mise supplies the interpreter and will source an existing uv <code>.venv</code> when you enter the project.</p>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://missing.csail.mit.edu/2020/shell-tools/" target="_blank" rel="noopener">The Missing Semester: shell tools &amp; scripting</a> — how these fit together.</li>
+        <li><a href="command-line.html">Command line &amp; Unix</a> — this guide's deeper page: core commands, scripting, and curated resources.</li>
+        <li><a href="https://www.shellcheck.net/" target="_blank" rel="noopener">ShellCheck</a> &amp; <a href="https://explainshell.com/" target="_blank" rel="noopener">explainshell</a> — lint a script / explain any command line, piece by piece.</li>
+        <li><a href="https://mise.jdx.dev" target="_blank" rel="noopener">mise documentation</a> — per-project tools, env, and tasks in depth.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="neovim.html"><span class="dir">← Prev</span>Neovim</a>
+        <a href="git.html"><span class="dir">Next →</span>Git</a>
+      </div>
+      <footer class="site">Same fingers, better tools. <code>\ls</code> always brings the old one back.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

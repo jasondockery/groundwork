@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>GPT &amp; ChatGPT · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GPT &amp; ChatGPT · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GPT &amp; ChatGPT · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html" class="active">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+<p class="eyebrow">Thinking partner</p>
+<h1>Use GPT for understanding, planning, and practice before the agent edits.</h1>
+<p class="lead">ChatGPT and GPT models are excellent for tutoring, brainstorming, explaining errors, writing specs, and exploring options. They are not a substitute for a repo-aware coding agent unless you give them the relevant files and verify the output locally.</p>
+
+<div class="trigger"><b>When you'll want this</b> You need a patient tutor, a second opinion, a spec draft, or a way to rehearse a task before asking an agent to change files.</div>
+
+<h2><span class="hash">#</span>Where GPT fits in Groundwork</h2>
+<table class="keytable">
+  <tr><td><strong>Learn a concept</strong></td><td>Ask for a beginner explanation, examples, quizzes, and a tiny exercise. Then apply it in the terminal or editor.</td></tr>
+  <tr><td><strong>Write a spec</strong></td><td>Turn a fuzzy idea into requirements, constraints, acceptance checks, and a first implementation plan.</td></tr>
+  <tr><td><strong>Compare approaches</strong></td><td>Ask for tradeoffs before you let a coding agent touch the repo.</td></tr>
+  <tr><td><strong>Debug your thinking</strong></td><td>Paste an error, command output, or a small code snippet and ask what assumptions could be wrong.</td></tr>
+  <tr><td><strong>Create learning drills</strong></td><td>Have GPT generate practice loops for shell, Git, Unity, React, Python, or any track you are learning.</td></tr>
+</table>
+
+<div class="callout warn">
+  <span class="label">Boundary</span>
+  <p>Do not treat a chat answer as verified. If it affects a real repo, turn it into a local task for Codex, Claude Code, or another agent, then review the diff and run the checks.</p>
+</div>
+
+<h2><span class="hash">#</span>Prompts that teach instead of just answer</h2>
+<div class="prompt-card"><span class="who">tutor</span>Teach me this concept like I am new to it, then give me three tiny exercises and the answer key separately.</div>
+<div class="prompt-card"><span class="who">spec</span>Turn this idea into a one-page implementation spec with goals, non-goals, files likely involved, tests, and edge cases.</div>
+<div class="prompt-card"><span class="who">review before agent</span>Here is my plan. Find unclear requirements, risky assumptions, and what I should ask the coding agent to verify before it edits.</div>
+<div class="prompt-card"><span class="who">after agent</span>Here is the diff summary and test output. Explain what changed, what risk remains, and what I should manually inspect.</div>
+
+<h2><span class="hash">#</span>GPT vs a coding agent</h2>
+<div class="two">
+  <div class="floor"><span class="tag">GPT / ChatGPT</span><h3>Best for thinking</h3><p>Clarify the idea, learn the basics, compare options, draft prompts, and create practice exercises.</p></div>
+  <div class="ceiling"><span class="tag">Codex / Claude Code</span><h3>Best for changing repos</h3><p>Read project instructions, inspect files, edit, run commands, show a diff, and verify the result in the real workspace.</p></div>
+</div>
+
+<h2><span class="hash">#</span>Daily practice</h2>
+<div class="drill"><div class="num">5</div><div class="body"><h3>Ask for a concept</h3><p>Pick one term from the <a href="glossary.html">glossary</a> and ask GPT for a plain-English explanation plus a command you can run.</p></div></div>
+<div class="drill"><div class="num">10</div><div class="body"><h3>Draft an agent prompt</h3><p>Ask GPT to improve a vague coding request into a precise agent task with acceptance criteria.</p></div></div>
+<div class="drill"><div class="num">15</div><div class="body"><h3>Verify locally</h3><p>Give the improved prompt to Codex or Claude Code in a small repo. Read the diff and compare it to the spec.</p></div></div>
+
+<h2><span class="hash">#</span>Official references</h2>
+<ul>
+  <li><a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a> — OpenAI&apos;s main chat product.</li>
+  <li><a href="https://help.openai.com/en/collections/3742473-chatgpt" target="_blank" rel="noopener">OpenAI ChatGPT help</a> — official help articles for ChatGPT features and account behavior.</li>
+  <li><a href="https://platform.openai.com/docs" target="_blank" rel="noopener">OpenAI platform docs</a> — developer docs for using GPT models through the API.</li>
+  <li><a href="codex.html">Codex UI &amp; CLI</a> — when the answer needs to become a repo change.</li>
+</ul>
+
+<div class="pagenav">
+  <a href="codex.html"><span class="dir">Previous</span>Codex UI &amp; CLI</a>
+  <a href="workflow.html"><span class="dir">Next →</span>Everyday workflow</a>
+</div>
+
+      <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

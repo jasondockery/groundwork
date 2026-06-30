@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Apps &amp; browsers · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Apps &amp; browsers · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Apps &amp; browsers · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html" class="active">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Graphical apps</p>
+      <h1>The apps around the terminal — browsers, a launcher, notes.</h1>
+      <p class="lead">Not everything happens in a terminal. On a Mac, Groundwork installs a small desktop layer around the agent workflow: the browser you inspect with, a launcher that keeps context one keystroke away, a durable link library, display controls, and notes. Linux/headless profiles skip this layer; the point is to support the work, not make every app mandatory.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Switching between browsers, notes, launchers, and references is breaking your development flow.</div>
+
+      <h2><span class="hash">#</span>Browsers</h2>
+      <table class="keytable">
+        <tr><td><strong>Zen</strong></td><td>The daily driver. Built on Firefox's engine, with a sidebar, vertical tabs, and workspaces. Private by default and pleasant to live in.</td></tr>
+        <tr><td><strong>Chrome</strong></td><td>The baseline everyone tests against. Keep it for the occasional site that only behaves in Chrome — not as your everyday browser.</td></tr>
+        <tr><td><strong>Dia</strong></td><td>An AI-first browser (from the makers of Arc), installed on personal machines. Experimental — worth a look, not yet a daily driver.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Why two browsers</span>
+        <p>Living in a private browser and keeping a mainstream one for testing is normal for developers. Zen for everything; Chrome when a site demands it.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Syncing Zen across machines</span>
+        <p>Zen rides on <strong>Firefox Sync</strong>: Settings → Sync, sign in with a free Mozilla account, and your <strong>bookmarks, history, saved logins, and open tabs</strong> follow you to every Mac (end-to-end encrypted). The catch — <strong>Spaces (workspaces) don't sync</strong>. They're a Zen-only idea Firefox Sync doesn't understand, and a bookmark's Space assignment is lost in transit, so synced bookmarks land in <em>every</em> Space rather than the one you filed them in. So turn Sync on for the links and passwords, but expect to <strong>recreate your Space layout by hand on each machine</strong> (or use "Send to Device" for one-off tab handoffs). Cross-device Spaces are on Zen's roadmap, not shipped.</p>
+      </div>
+      <div class="callout tip">
+        <span class="label">Zen Space navigation</span>
+        <p>chezmoi writes <code>zen.workspaces.wrap-around-navigation=false</code> into each Zen profile's <code>user.js</code>. That makes Space navigation stop at the leftmost and rightmost Space instead of cycling around. Swipe navigation is left alone; restart Zen after applying Groundwork if the change does not show up immediately.</p>
+      </div>
+      <h3>Browser extensions</h3>
+      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links. On macOS, add <code>--open</code> to open them in Zen, Chrome, or Dia. Chrome and Dia use Chrome Web Store links; Zen uses Firefox Add-ons.</p>
+      <table class="keytable">
+        <tr><td><strong>Core</strong></td><td>Password manager, uBlock Origin Lite / uBlock Origin, Anybox Browser Extension, and Obsidian Web Clipper.</td></tr>
+        <tr><td><strong>Privacy</strong></td><td>Privacy.com is included as the official virtual-card service link. I could not verify a current official browser extension, so it is not treated as an extension install.</td></tr>
+        <tr><td><strong>Optional privacy</strong></td><td>Privacy Badger is available, but keep the extension set small unless you need it; every extension is another trusted code path.</td></tr>
+        <tr><td><strong>Frontend dev</strong></td><td>React Developer Tools, Redux DevTools, Vue.js devtools, Angular DevTools for Chromium, and axe DevTools for accessibility.</td></tr>
+      </table>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">browser extension helper</span></div><pre><code><span class="prompt">$ </span>browser-extensions
+<span class="prompt">$ </span>browser-extensions --browser zen --tier core --open
+<span class="prompt">$ </span>browser-extensions --browser chrome --tier dev --open</code></pre></div>
+
+      <h3>Password manager and autofill</h3>
+      <p>Groundwork installs Bitwarden or 1Password based on the setup choice, but sign-in, autofill provider selection, and SSH-agent approval are intentionally manual. Password managers protect the keys and credentials agents should never see in prompts or dotfiles.</p>
+      <table class="keytable">
+        <tr><td><strong>SSH agent</strong></td><td>Sign in to the desktop app, then enable its SSH agent. Bitwarden: Settings → enable SSH agent. 1Password: Settings → Developer → Use the SSH agent. If commits stop signing, unlock the app and retry. See <a href="git.html">Git</a> for the signing flow.</td></tr>
+        <tr><td><strong>macOS + Safari</strong></td><td>System Settings → General → AutoFill &amp; Passwords: turn on Bitwarden and turn off Passwords/iCloud Keychain if Bitwarden is the source of truth.</td></tr>
+        <tr><td><strong>Chrome / Dia</strong></td><td>Install the Bitwarden extension, sign in, and pin it. Groundwork disables Chrome's built-in password manager by policy; turn Dia's built-in manager off in its own settings.</td></tr>
+        <tr><td><strong>Zen</strong></td><td>Install the Firefox-family Bitwarden add-on, sign in, then Settings → Privacy &amp; Security → uncheck Ask to save logins and passwords.</td></tr>
+        <tr><td><strong>iOS / iPadOS</strong></td><td>Install Bitwarden, sign in, then Settings → General → AutoFill &amp; Passwords: enable Bitwarden and disable Passwords if you want the same source of truth on mobile.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Raycast — the launcher</h2>
+      <p>Raycast is the single biggest quality-of-life app here. One keystroke opens a search box that launches apps, does math, manages windows, remembers your clipboard, and runs little commands — so your hands stay off the mouse. It's meant to take over <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> from Spotlight.</p>
+      <table class="keytable">
+        <tr><td>Launch &amp; search</td><td>Hit the hotkey, type an app or file name, <kbd>Enter</kbd></td></tr>
+        <tr><td>Clipboard history</td><td>Everything you've copied, searchable — no more losing what you copied two things ago</td></tr>
+        <tr><td>Window management</td><td>Snap windows left/right/full from the keyboard — the default window manager for this setup</td></tr>
+        <tr><td>Quicklinks</td><td>Save a keyword that jumps straight to a site or search you use daily</td></tr>
+        <tr><td>Extensions</td><td>A store of add-ons — GitHub, Homebrew, and more</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">Make it your ⌘Space</span>
+        <p>Raycast, not Anybox, should replace Spotlight. In System Settings &rarr; Keyboard &rarr; Keyboard Shortcuts &rarr; Spotlight, change or uncheck "Show Spotlight search," then set Raycast's hotkey to <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> (its onboarding offers to do this for you). chezmoi installs Raycast, but this hotkey lives in Raycast/macOS settings, so export/import a Raycast config to reproduce it.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Raycast extensions are not browser add-ons</span>
+        <p>Browser add-ons live in Zen, Chrome, and Dia. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
+      </div>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">raycast extension helper</span></div><pre><code><span class="prompt">$ </span>raycast-extensions
+<span class="prompt">$ </span>raycast-extensions --tier tabs --open
+<span class="prompt">$ </span>raycast-extensions --tier ai --open</code></pre></div>
+      <h3>Using it day to day</h3>
+      <p>The loop is always the same: tap the hotkey, start typing, press <kbd>Enter</kbd>. What you type can be an app name, a math expression (<code>128*1.2</code>), a unit or currency conversion, or part of a filename — Raycast surfaces the best match. A few habits make it sing:</p>
+      <table class="keytable">
+        <tr><td><strong>Clipboard history</strong></td><td>Give it its own hotkey in Settings → Extensions, then recall anything you copied earlier instead of losing it</td></tr>
+        <tr><td><strong>Window management</strong></td><td>Set hotkeys to snap the focused window left / right / full / to another display — no mouse</td></tr>
+        <tr><td><strong>Quicklinks</strong></td><td>Create one for a site or search you open daily (e.g. a <code>gh</code> Quicklink that opens GitHub); type its keyword to jump there</td></tr>
+        <tr><td><strong>Aliases &amp; hotkeys</strong></td><td>For any command you use a lot, assign a short <em>alias</em> (keyword) or a dedicated hotkey in Settings, so it's one motion away</td></tr>
+        <tr><td><strong>Extensions</strong></td><td>Add from the Store — Browser Bookmarks, Browser Tabs, GitHub, Homebrew, Anybox, the VS Code project opener — and search them right from the bar</td></tr>
+      </table>
+      <p>Reproducing your Raycast setup on another Mac isn't something chezmoi can do (Raycast keeps it internally), so use Settings → Advanced → <strong>Export</strong> to a <code>.rayconfig</code> file and <strong>Import</strong> it on the other machine. The important hotkeys to set first are Raycast itself on <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>, window left half, right half, maximize, restore, clipboard history, Browser Bookmarks, Browser Tabs if you use supported browsers, and Anybox link search.</p>
+
+      <h3>Bookmarks, tabs, and links in Raycast</h3>
+      <table class="keytable">
+        <tr><td><strong>Browser Bookmarks</strong></td><td>Best baseline. It searches bookmarks from the browsers you enable inside the extension, including Firefox-family browsers such as Zen and Chromium-family browsers such as Chrome and Dia. No browser add-on is needed for bookmarks.</td></tr>
+        <tr><td><strong>Browser Tabs</strong></td><td>Use for live open tabs in browsers Raycast can read through macOS automation, especially Safari and Chromium-family browsers. Zen is Firefox-based, so do not rely on Browser Tabs as the universal live-tab layer.</td></tr>
+        <tr><td><strong>Anybox</strong></td><td>The durable cross-browser layer. Save important tabs into Anybox, then search them from Raycast through the Anybox extension. This is more reliable for project/client/teaching links than hoping every browser exposes live tabs the same way.</td></tr>
+        <tr><td><strong>Browser add-ons</strong></td><td>Install the Anybox and Obsidian Web Clipper add-ons in Zen, Chrome, and Dia with <code>browser-extensions --tier core --open</code>. They are for capturing pages, not for making Raycast itself work.</td></tr>
+      </table>
+
+      <h3>Asking Claude, GPT, or Grok from Raycast</h3>
+      <p>There are two good paths. <strong>Raycast Pro</strong> is the cleanest: use Quick AI from the root Raycast search, AI Chat for longer conversations, AI Commands on selected text, and the model picker when you want Claude, OpenAI, or Grok. No per-model extension setup; Raycast owns the subscription and routing.</p>
+      <p>The no-subscription path is <strong>bring your own keys</strong>: install separate ChatGPT, Claude, and Grok extensions from the Store and configure each with its provider API key. It is more fiddly, but it lets you pay providers directly. Run <code>raycast-extensions --tier ai --open</code> to open the relevant Store searches and Raycast AI docs.</p>
+      <div class="callout note">
+        <span class="label">Anybox in Raycast</span>
+        <p>If Raycast Settings only shows Anybox under <strong>Applications</strong>, the Raycast extension is not installed yet. Install the <a href="https://www.raycast.com/anybox/anybox" target="_blank" rel="noopener">Anybox Raycast extension</a> from the Raycast Store, or run <code>open 'raycast://extensions/anybox/anybox?source=webstore'</code>. Its Save Current Tab commands work through Anybox, and its Search Links command has its own required API Key preference. Copy the key from the <strong>Anybox app</strong> &rarr; Preferences &rarr; General, then select the <strong>Search Links</strong> command row in Raycast Settings and paste it there. Good aliases are <code>ab</code> for Search Links and <code>as</code> for Save Current Tab.</p>
+      </div>
+      <table class="keytable">
+        <tr><td><strong>Search Tags</strong></td><td>On — tags should be searchable from Raycast.</td></tr>
+        <tr><td><strong>Search Folders</strong></td><td>On — folders matter once Anybox becomes the shared project/client/teaching link library.</td></tr>
+        <tr><td><strong>Show Tags</strong></td><td>On — useful context while scanning results.</td></tr>
+        <tr><td><strong>Show Folders</strong></td><td>On — useful context while scanning results.</td></tr>
+        <tr><td><strong>As Icons</strong></td><td>Off — list view is faster to scan from Raycast.</td></tr>
+        <tr><td><strong>Prefer Link Icons in Icons view</strong></td><td>Off — only matters if icon view is enabled.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Anybox — bookmarks</h2>
+      <p>Anybox keeps your links organized and a keystroke away. It can live in the menu bar, group links into profiles (one set for work, another for personal), and jump to any of them with a keyword. It syncs across your devices through iCloud.</p>
+      <h3>Using it day to day</h3>
+      <p>Three motions cover it: <strong>save</strong>, <strong>organize</strong>, <strong>recall</strong>.</p>
+      <table class="keytable">
+        <tr><td><strong>Save a link</strong></td><td>Use Anybox's global hotkey, or the macOS <em>share sheet</em> from any browser/app, to drop the current page in</td></tr>
+        <tr><td><strong>Organize</strong></td><td>Tag links or sort them into <strong>profiles</strong> — one set for work, one for home — so each context shows only its own</td></tr>
+        <tr><td><strong>Recall</strong></td><td>Open Anybox Quick Find, search from Raycast, or trigger a <strong>Quick Link</strong> keyword to jump straight to a saved link</td></tr>
+      </table>
+      <p>Run it as a <strong>menu-bar</strong> app so it's always a keystroke away, and it syncs everything through iCloud to your other devices. Pro removes the small free-library cap, which makes Anybox a real shared bookmark layer for work, home, teaching, and client links.</p>
+      <div class="callout note">
+        <span class="label">It's a paid App Store app</span>
+        <p>Anybox is bought once from the App Store — the setup can't purchase it for you. Buy and sign in there first; after that it updates and syncs on its own. There is no AI switch you need for this workflow; Anybox is the link library, not the AI layer.</p>
+      </div>
+
+      <h2><span class="hash">#</span>BetterDisplay — resolutions and monitors</h2>
+      <p>BetterDisplay owns the display layer: menu-bar resolution changes, favorite display modes, refresh rates, brightness/DDC controls for supported monitors, and protection against layouts drifting when displays reconnect. Raycast moves windows; BetterDisplay changes the screens those windows live on.</p>
+      <table class="keytable">
+        <tr><td><strong>Resolution menu</strong></td><td>Switch between favorite scaled resolutions without digging through System Settings</td></tr>
+        <tr><td><strong>External monitor controls</strong></td><td>Adjust brightness, volume, inputs, and color modes on many supported displays</td></tr>
+        <tr><td><strong>Layout protection</strong></td><td>Keep laptop and external monitor arrangements stable after sleep, docks, and reconnects</td></tr>
+        <tr><td><strong>Automation</strong></td><td>Use CLI, URL schemes, Shortcuts, or Raycast commands for repeatable display setups</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">License note</span>
+        <p>BetterDisplay has a free tier and a paid Pro license. For work or contract teams, check the license before relying on Pro features.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Obsidian — notes</h2>
+      <p>Obsidian is a notes app where every note is a plain markdown file you own. Notes link to each other with <code>[[double brackets]]</code>, building a web of ideas you can navigate visually. The setup points it at an iCloud vault so your notes follow you to every Mac and the mobile app.</p>
+      <div class="callout note">
+        <span class="label">Vim mode is on</span>
+        <p>Groundwork enables Obsidian's Vim mode in managed vault defaults. That keeps notes consistent with Neovim muscle memory: <kbd>Esc</kbd> returns to Normal mode, <kbd>j</kbd>/<kbd>k</kbd> move by line, and editing uses familiar Vim motions.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">It pairs with your knowledge base</span>
+        <p>The wiki from the <a href="knowledge.html">Knowledge base</a> page is just a folder of markdown — open it as an Obsidian vault and you get the same notes with a visual graph and link-following on top.</p>
+      </div>
+      <h3>Obsidian AI helpers</h3>
+      <p>Obsidian is useful before adding AI. If you do use AI over notes, keep the data flow explicit: local files stay in the vault, plugins get only the keys or local endpoints they need, and agents work from a project folder you can inspect.</p>
+      <table class="keytable">
+        <tr><td><strong>Keep files local</strong></td><td>Your vault lives at <code>iCloud Drive/Obsidian/&lt;name&gt;</code>. Right-click the folder and choose Keep Downloaded, or turn off Optimize Mac Storage, so notes are available to editors and agents.</td></tr>
+        <tr><td><strong>Plugin first run</strong></td><td>After first launch, restart Obsidian once so Groundwork's auto-installed plugins load before you configure them.</td></tr>
+        <tr><td><strong>Smart Connections</strong></td><td>Add your Claude API key or local Ollama URL, then choose the embedding model you want. For a local path, start Ollama and run <code>ollama pull nomic-embed-text</code>.</td></tr>
+        <tr><td><strong>Whisper</strong></td><td>Use it for speech-to-text notes. Point it at a local endpoint if you want speech fully offline.</td></tr>
+        <tr><td><strong>Claude Code over notes</strong></td><td>For AI chat over a vault, point Claude Code at the vault or the generated knowledge-wiki folder so changes happen through files you can review.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>The terminal window: Ghostty</h2>
+      <p>Everything in the rest of this guide — the shell, tmux, Neovim — runs inside <strong>Ghostty</strong>, a fast, modern terminal app themed to match the rest of the setup. It's the window; <a href="tmux.html">tmux</a> does the splitting inside it. Worth knowing: <span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span> clears the screen.</p>
+      <div class="callout note">
+        <span class="label">Fresh starts in home</span>
+        <p>A fresh Ghostty launch opens in your home folder (<code>~</code>). New tabs, windows, and splits inherit the folder you are already working in, so quick side shells stay near the task. tmux owns project persistence and restoration; Ghostty stays a clean window around it.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Communication</h2>
+      <p>Rounding out the set, installed and ready to sign into:</p>
+      <table class="keytable">
+        <tr><td><strong>Slack</strong> &middot; <strong>Zoom</strong></td><td>Team chat and calls</td></tr>
+        <tr><td><strong>Discord</strong></td><td>Communities and dev servers</td></tr>
+        <tr><td><strong>WhatsApp</strong></td><td>Personal messaging</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>First-time setup</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Hand ⌘Space to Raycast</h3>
+          <p>Free up Spotlight's shortcut (settings above), then set Raycast to <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>. Open it, launch an app, then press it again and try the clipboard history. This is the habit that changes your day.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Make Zen your default</h3>
+          <p>Open Zen and set it as the default browser when it asks. Leave Chrome installed but unused except for testing.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Turn on Anybox</h3>
+          <p>Buy and sign into Anybox from the App Store, enable its menu-bar mode, and add one or two Quick Links for sites you open every day.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Choose your display presets</h3>
+          <p>Open BetterDisplay, mark the resolutions you actually use as favorites, and make sure the menu bar icon is visible. If you use an external display, test brightness and input control.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Open your notes</h3>
+          <p>Launch Obsidian, open the iCloud vault, and make a note. Type <code>[[</code> and watch it offer to link to other notes — that's the whole idea.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://zen-browser.app" target="_blank" rel="noopener">Zen</a> &middot; <a href="https://manual.raycast.com" target="_blank" rel="noopener">Raycast manual</a> &middot; <a href="macos.html">macOS desktop</a></li>
+        <li><a href="https://anybox.app" target="_blank" rel="noopener">Anybox</a> &middot; <a href="https://betterdisplay.pro/" target="_blank" rel="noopener">BetterDisplay</a> &middot; <a href="https://help.obsidian.md" target="_blank" rel="noopener">Obsidian help</a></li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="development.html"><span class="dir">← Prev</span>Development</a>
+        <a href="macos.html"><span class="dir">Next →</span>macOS desktop</a>
+      </div>
+      <footer class="site">The terminal does the work; these make the day around it smooth.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

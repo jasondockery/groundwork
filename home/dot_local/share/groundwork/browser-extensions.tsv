@@ -1,0 +1,16 @@
+# Browser extension catalog managed by Groundwork.
+# Chrome and Dia use the chromium_url. Zen uses the firefox_url.
+# Verified 2026-06-25.
+# tier	scope	name	chromium_url	firefox_url	notes
+core	1password	1Password Password Manager	https://chromewebstore.google.com/detail/1password-password-manage/aeblfdkhhhdcdjpifhhbdiojplfjncoa	https://addons.mozilla.org/en-US/firefox/addon/1password-x-password-manager/	Install only when this machine uses 1Password.
+core	bitwarden	Bitwarden Password Manager	https://chromewebstore.google.com/detail/bitwarden-password-manager/nngceckbapebfimnlniiiahkandclblb	https://addons.mozilla.org/en-US/firefox/addon/bitwarden-password-manager/	Install only when this machine uses Bitwarden.
+core	all	uBlock Origin Lite / uBlock Origin	https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh	https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/	Chrome/Dia use the Manifest V3 Lite build; Zen uses full uBlock Origin.
+core	all	Anybox Browser Extension	https://chromewebstore.google.com/detail/anybox/bpjlhpibdgjhbgafepmakjbdfgnccfed	https://addons.mozilla.org/en-US/firefox/addon/anybox/	Save the current page or selected text into Anybox from Chrome, Dia, and Zen; Safari support comes from the Anybox app.
+core	all	Obsidian Web Clipper	https://chromewebstore.google.com/detail/obsidian-web-clipper/cnjifjpddelmedmihgijeibhnjfabmlf	https://addons.mozilla.org/en-US/firefox/addon/web-clipper-obsidian/	Send durable web captures into Obsidian or the llm-wiki vault.
+privacy	all	Privacy.com	https://privacy.com/	https://privacy.com/	No verified current browser extension; use the official web app for virtual cards.
+optional	all	Privacy Badger	https://chromewebstore.google.com/detail/privacy-badger/pkehgijcmpdhfbdbbnkijodmdjhbjlgp	https://addons.mozilla.org/en-US/firefox/addon/privacy-badger17/	Optional EFF tracker blocker; keep the extension set small if uBlock already covers the workflow.
+dev	all	React Developer Tools	https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi	https://addons.mozilla.org/en-US/firefox/addon/react-devtools/	Inspect React component trees, props, state, and performance.
+dev	all	Redux DevTools	https://chromewebstore.google.com/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd	https://addons.mozilla.org/en-US/firefox/addon/reduxdevtools/	Debug Redux stores, actions, and state history.
+dev	all	Vue.js devtools	https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd	https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/	Install when working on Vue apps.
+dev	chromium	Angular DevTools	https://chromewebstore.google.com/detail/angular-devtools/ienfalfjdbdpebioblfackkekamfmbnh	-	Chromium-only in this catalog; use Chrome or Dia for Angular DevTools.
+dev	all	axe DevTools	https://chromewebstore.google.com/detail/axe-devtools-web-accessib/lhdoppojpmngadmnindnejefpokejbdd	https://addons.mozilla.org/en-US/firefox/addon/axe-devtools/	Accessibility checks during frontend work.

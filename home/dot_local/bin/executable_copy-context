@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+copy-context: copy selected code context to the system clipboard
+
+usage:
+  copy-context [options] <file-or-folder>...
+
+options:
+  --stdout                 Print the context instead of copying it.
+  --paths-only             Copy only the selected file list.
+  --all                    Include hidden and gitignored files when expanding folders.
+  --max-file-bytes <n>     Skip individual files larger than n bytes. Default: 300000.
+  -h, --help               Show this help.
+
+examples:
+  copy-context AGENTS.md scripts/validate-groundwork docs/workflow.html
+  copy-context --stdout src tests
+  copy-context --paths-only docs
+
+Folders are expanded with rg --files when ripgrep is available, so ignored build
+output and dependency folders stay out of the copied context by default.
+EOF
+}
+
+stdout=false
+paths_only=false
+include_all=false
+max_file_bytes=300000
+paths=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --stdout)
+      stdout=true
+      ;;
+    --paths-only)
+      paths_only=true
+      ;;
+    --all)
+      include_all=true
+      ;;
+    --max-file-bytes)
+      shift
+      if [[ $# -eq 0 || ! "$1" =~ ^[0-9]+$ ]]; then
+        echo "copy-context: --max-file-bytes expects a number" >&2
+        exit 2
+      fi
+      max_file_bytes="$1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do
+        paths+=("$1")
+        shift
+      done
+      break
+      ;;
+    -*)
+      echo "copy-context: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      paths+=("$1")
+      ;;
+  esac
+  shift
+done
+
+if [[ ${#paths[@]} -eq 0 ]]; then
+  usage >&2
+  exit 2
+fi
+
+files=()
+
+add_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  files+=("$file")
+}
+
+add_folder_with_rg() {
+  local folder="$1"
+  local rg_args=(--files -0)
+
+  if [[ "$include_all" == true ]]; then
+    rg_args+=(--hidden --no-ignore -g '!.git')
+  fi
+
+  while IFS= read -r -d '' file; do
+    add_file "$file"
+  done < <(rg "${rg_args[@]}" -- "$folder")
+}
+
+add_folder_with_find() {
+  local folder="$1"
+  local find_args=("$folder")
+
+  if [[ "$include_all" == false ]]; then
+    find_args+=(
+      '('
+        -name .git -o
+        -name node_modules -o
+        -name .venv -o
+        -name venv -o
+        -name .next -o
+        -name dist -o
+        -name build -o
+        -name target -o
+        -name vendor -o
+        -name __pycache__
+      ')'
+      -prune -o
+    )
+  fi
+
+  find_args+=(-type f -print0)
+
+  while IFS= read -r -d '' file; do
+    add_file "$file"
+  done < <(find "${find_args[@]}")
+}
+
+for path in "${paths[@]}"; do
+  if [[ ! -e "$path" ]]; then
+    echo "copy-context: missing path: $path" >&2
+    continue
+  fi
+
+  if [[ -f "$path" ]]; then
+    add_file "$path"
+  elif [[ -d "$path" ]]; then
+    if command -v rg >/dev/null 2>&1; then
+      add_folder_with_rg "$path"
+    else
+      add_folder_with_find "$path"
+    fi
+  else
+    echo "copy-context: skipping non-file path: $path" >&2
+  fi
+done
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "copy-context: no files selected" >&2
+  exit 1
+fi
+
+display_path() {
+  local path="$1"
+  case "$path" in
+    ./*) path="${path#./}" ;;
+  esac
+  case "$path" in
+    "$PWD"/*) path="${path#"$PWD"/}" ;;
+  esac
+  printf '%s\n' "$path"
+}
+
+is_text_file() {
+  local file="$1"
+  [[ ! -s "$file" ]] || LC_ALL=C grep -Iq . "$file"
+}
+
+file_size() {
+  wc -c < "$1" | tr -d '[:space:]'
+}
+
+copy_to_clipboard() {
+  if command -v pbcopy >/dev/null 2>&1; then
+    pbcopy
+  elif command -v wl-copy >/dev/null 2>&1; then
+    wl-copy
+  elif command -v xclip >/dev/null 2>&1; then
+    xclip -selection clipboard
+  elif command -v xsel >/dev/null 2>&1; then
+    xsel --clipboard --input
+  elif command -v clip.exe >/dev/null 2>&1; then
+    clip.exe
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    # shellcheck disable=SC2016 # $input is PowerShell syntax, not a shell variable.
+    powershell.exe -NoProfile -Command '$input | Set-Clipboard'
+  else
+    return 1
+  fi
+}
+
+tmp="$(mktemp "${TMPDIR:-/tmp}/copy-context.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+
+included=0
+skipped=0
+
+{
+  printf '# Code context\n\n'
+  printf 'Working directory: %s\n\n' "$PWD"
+  printf 'Selected paths:\n'
+  for path in "${paths[@]}"; do
+    printf -- '- %s\n' "$path"
+  done
+  printf '\n'
+
+  if [[ "$paths_only" == true ]]; then
+    printf 'Files:\n'
+    for file in "${files[@]}"; do
+      printf -- '- %s\n' "$(display_path "$file")"
+      included=$((included + 1))
+    done
+  else
+    for file in "${files[@]}"; do
+      size="$(file_size "$file")"
+      shown_path="$(display_path "$file")"
+
+      if [[ "$size" =~ ^[0-9]+$ && "$size" -gt "$max_file_bytes" ]]; then
+        printf -- '--- SKIPPED FILE: %s ---\n' "$shown_path"
+        printf 'Reason: file is %s bytes; max is %s bytes.\n\n' "$size" "$max_file_bytes"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if ! is_text_file "$file"; then
+        printf -- '--- SKIPPED FILE: %s ---\n' "$shown_path"
+        printf 'Reason: binary or non-text file.\n\n'
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      printf -- '--- BEGIN FILE: %s ---\n' "$shown_path"
+      cat "$file"
+      if [[ -s "$file" ]]; then
+        last_byte="$(tail -c 1 "$file" | od -An -t x1 | tr -d '[:space:]')"
+        [[ "$last_byte" == "0a" ]] || printf '\n'
+      fi
+      printf -- '--- END FILE: %s ---\n\n' "$shown_path"
+      included=$((included + 1))
+    done
+  fi
+} > "$tmp"
+
+bytes="$(file_size "$tmp")"
+
+if [[ "$stdout" == true ]]; then
+  cat "$tmp"
+else
+  if copy_to_clipboard < "$tmp"; then
+    echo "copy-context: copied $included file(s), $bytes bytes to clipboard"
+  else
+    cat "$tmp"
+    echo "copy-context: no clipboard command found; printed context to stdout" >&2
+  fi
+fi
+
+if [[ "$skipped" -gt 0 ]]; then
+  echo "copy-context: skipped $skipped file(s)" >&2
+fi

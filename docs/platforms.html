@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What Groundwork installs on macOS desktop, Linux/WSL, and headless agent workspaces.">
+<title>Platforms · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Platforms · Groundwork">
+<meta property="og:description" content="What Groundwork installs on macOS desktop, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Platforms · Groundwork">
+<meta name="twitter:description" content="What Groundwork installs on macOS desktop, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html" class="active">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Set up</p>
+      <h1>One path, a few machine profiles.</h1>
+      <p class="lead">Groundwork is organized around the learning path, not the operating system. The platform only decides which parts of the environment get installed: the shared terminal and agent layer everywhere, plus the Mac desktop layer where it makes sense.</p>
+
+      <div class="callout note">
+        <span class="label">The rule</span>
+        <p><code>.chezmoi.os</code> decides what the operating system can support. The saved setup answers in <code>~/.config/chezmoi/chezmoi.toml</code> decide the machine role: work or personal, normal Mac or server/CI Mac, optional Unity, optional Xcode.</p>
+      </div>
+
+      <h2><span class="hash">#</span>What changes by platform</h2>
+      <table class="keytable">
+        <tr><td><strong>macOS desktop</strong></td><td>The full setup: shell, Git, tmux, Neovim, mise/uv, Homebrew formulae, casks, App Store apps, browser helpers, Raycast, Anybox, BetterDisplay, Karabiner, and selected macOS defaults.</td></tr>
+        <tr><td><strong>macOS server / CI</strong></td><td>Same operating system, different role. Answer yes to the server/CI Mac prompt to skip desktop apps, App Store apps, browser helpers, Obsidian setup, Karabiner, and macOS defaults.</td></tr>
+        <tr><td><strong>Linux / WSL2</strong></td><td>The terminal layer: shell, Git, tmux, Neovim, shell tools, mise/uv, helper scripts, and agent instructions. Mac-only GUI apps, App Store apps, and macOS defaults are skipped by OS.</td></tr>
+        <tr><td><strong>Headless Docker</strong></td><td>A non-interactive shell environment for agents, CI, and disposable containers. It uses <code>docker/chezmoi.headless.toml</code>, placeholder identity data, and no GUI apps.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>What stays the same</h2>
+      <p>The durable development spine is the same everywhere: shell literacy, file paths, Git, diffs, tmux sessions, editor basics, project instructions, validation, and the habit of checking an agent's work before accepting it.</p>
+      <p>That is why most docs pages are not split by OS. The operating system changes the install surface; it does not change the core practice.</p>
+
+      <h2><span class="hash">#</span>Mac choices</h2>
+      <p>Most Macs should use the default desktop profile. The server/CI prompt exists for the unusual case: a Mac used as a remote runner, build box, or agent host with no logged-in desktop workflow.</p>
+      <table class="keytable">
+        <tr><td><strong>Work machine?</strong></td><td>Turns off personal apps and uses Colima plus Docker CLI instead of Docker Desktop.</td></tr>
+        <tr><td><strong>Server/CI Mac?</strong></td><td>Skips the desktop layer. Most personal and work laptops should answer no.</td></tr>
+        <tr><td><strong>Unity tools?</strong></td><td>Optional. Installs Unity Hub and related editor extensions for the Unity FPS track.</td></tr>
+        <tr><td><strong>Xcode?</strong></td><td>Optional. Attempts the Mac App Store Xcode install for native Apple/iOS development; first launch and signing remain manual.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Check your saved profile</h2>
+      <p>The setup answers live in one local config file. Inspect them before applying a change:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">profile.sh</span></div>
+        <pre><code><span class="prompt">$ </span>sed -n '/^\[data\]/,$p' ~/.config/chezmoi/chezmoi.toml
+<span class="prompt">$ </span>chezmoi diff
+<span class="prompt">$ </span>chezmoi apply</code></pre>
+      </div>
+      <p>To change setup answers, re-run <code>chezmoi init --source ~/code/groundwork</code>, then inspect with <code>chezmoi diff</code> before applying.</p>
+
+      <div class="pagenav">
+        <a href="setup.html"><span class="dir">← Prev</span>Setup &amp; chezmoi</a>
+        <a href="customizing.html"><span class="dir">Next →</span>Customizing</a>
+      </div>
+      <footer class="site">The OS changes the install surface. The practice stays shared.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

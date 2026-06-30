@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Image &amp; video with AI: a week-long build · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Image &amp; video with AI: a week-long build · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/gen-media.html">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Image &amp; video with AI: a week-long build · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+<aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html" class="active">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+<div class="content">
+  <p class="eyebrow">Track &middot; Generative media</p>
+  <h1>Build with image and video models in a week.</h1>
+  <p class="lead">Not a tour of art apps. A developer&apos;s week: you will treat image and video models as <strong>APIs and pipelines</strong> you build with, wire them into code, and ship a small reproducible media tool plus a set of assets you actually use. By Sunday you will have generated images and video programmatically, built a pipeline an agent can run, and put the output into a real project. Plan on roughly ten to twelve focused hours a day.</p>
+
+  <div class="callout note">
+    <span class="label">Why this belongs in an AI-native foundation</span>
+    <p>This track earns its place by being about <em>engineering</em>, not aesthetics: calling models from code, building pipelines you can version and rerun, evaluating output with judgment, and integrating media into the software you ship. That is the same direct-inspect-verify loop as the rest of <a href="agentic-engineering.html">agentic engineering</a>, applied to a new kind of model. If you just want pretty pictures, a consumer app is faster. If you want to <em>build with</em> generative media, start here.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="label">The mental model: three layers</span>
+    <p>Generative media is a <strong>stack</strong>, not a button. The <strong>model</strong> layer (FLUX, Stable Diffusion, Veo, Kling, Wan) does the generation. The <strong>workflow</strong> layer (ComfyUI node graphs, the <code>diffusers</code> library, a hosted API like fal.ai or Replicate) orchestrates it. The <strong>integration</strong> layer is your software: a game&apos;s textures, a site&apos;s images, an app&apos;s media feature. You will work all three this week, and the agent will write most of the code in the middle and top.</p>
+  </div>
+
+  <h2><span class="hash">#</span>Day 0: pick your path and set up</h2>
+  <p>There are two on-ramps. Most people should do a bit of both; choose your primary by your hardware and goal.</p>
+  <ul>
+    <li><strong>Hosted (any machine):</strong> a multi-model API. <a href="https://fal.ai/" target="_blank" rel="noopener">fal.ai</a> and <a href="https://replicate.com/" target="_blank" rel="noopener">Replicate</a> both give one API key and access to hundreds of image and video models. Best if you lack a strong GPU or want to ship fast.</li>
+    <li><strong>Local (good GPU, or Apple Silicon with enough memory):</strong> <a href="https://www.comfy.org/" target="_blank" rel="noopener">ComfyUI</a> for node-based control, plus Hugging Face <a href="https://huggingface.co/docs/diffusers" target="_blank" rel="noopener">diffusers</a> for the code path. Best for control, privacy, reproducibility, and zero per-image cost.</li>
+  </ul>
+  <div class="prompt-card"><span class="who">ask your AI</span>Set up a Python project (uv) for a generative-media pipeline, with an AGENTS.md documenting conventions: keep model calls behind a small interface so we can swap providers, store API keys in environment variables (never in code), log every generation&apos;s prompt and seed, and propose a plan before large changes. Then write a smoke test that generates one image from a text prompt through the provider I chose.</div>
+  <div class="concept"><b>Concept &middot; Models are services with tradeoffs</b>Before generating anything, you are making engineering decisions: <strong>local vs hosted</strong> (cost, privacy, reproducibility vs convenience), <strong>secrets handling</strong> (keys in env, never committed), and a <strong>provider interface</strong> so you are not locked to one model. The field moves monthly and licenses differ per model, so build to swap, and check commercial terms before you ship anything.</div>
+  <div class="yourturn"><b>Your turn:</b> generate the same prompt on two different models and put the results side by side. Learning to <em>see</em> the difference between models is the first real skill here.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Running</b> A project that generates one image from code, with keys in env and a written harness.</div></div>
+
+  <h2><span class="num">1</span>Day 1: first generations and the prompt as a spec</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Build a small script that takes a structured prompt (subject, composition, lighting, style, and a negative prompt) plus a seed, and generates an image, saving the image alongside a JSON record of every parameter used. Generate a set of ten variations of one concept by changing only the seed, then ten more by changing only the style field.</div>
+  <div class="concept"><b>Concept &middot; Diffusion, seeds, and prompt structure</b>Most image models are <strong>diffusion models</strong>: they start from random noise and denoise it into an image over several steps. The <strong>seed</strong> is the starting noise, so the same prompt and seed reproduce the same image, which is how you get <strong>reproducibility</strong>. A good prompt is a structured spec, not a sentence: subject, composition, lighting, lens, style, and what to avoid. This is the spec-then-iterate loop from the rest of the path.</div>
+  <div class="yourturn"><b>Your turn:</b> fix the seed and change one word at a time to see exactly what each part of the prompt controls. Then save a seed you like, you will reuse it for consistency later.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> Reproducible image generation from a structured spec, with every parameter recorded.</div></div>
+
+  <h2><span class="num">2</span>Day 2: control and consistency</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Set up a ComfyUI workflow (or a diffusers pipeline) that uses ControlNet so I can guide a generation with a pose or a depth or edge map, plus image-to-image so I can start from a rough sketch. Then show me how to apply a LoRA to lock a consistent style across many images. Save the workflow as a file I can version and rerun.</div>
+  <div class="concept"><b>Concept &middot; ControlNet, LoRA, and workflows as code</b><strong>Raw prompting</strong> only gets you so far; real production uses <strong>control</strong>. <strong>ControlNet</strong> conditions a generation on a pose, depth, or edge map so composition is intentional. <strong>Image-to-image</strong> starts from an existing picture. A <strong>LoRA</strong> is a small fine-tune that locks a style or character for consistency. The big idea: a <a href="https://www.comfy.org/" target="_blank" rel="noopener">ComfyUI</a> graph is a <strong>program</strong> you can save, diff, and share, the same reproducibility discipline as your code.</div>
+  <div class="yourturn"><b>Your turn:</b> generate the same character in three poses using ControlNet plus a style LoRA. Consistency across images is the hard problem generative media is still solving, and you are now doing it on purpose.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> Controlled, consistent generations from a versioned workflow, not one-off prompt luck.</div></div>
+
+  <h2><span class="num">3</span>Day 3: pipelines in code</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Turn the workflow into a real pipeline: a script that reads a spec file describing a whole asset set (say, a tileable stone texture, a wood texture, a metal texture, and a skybox), generates each with the right settings, post-processes them (resize, make seamless where needed), and writes them into an output folder with a manifest. Make it batchable and resumable.</div>
+  <div class="concept"><b>Concept &middot; Generation as an automated pipeline</b>This is the heart of the track: moving from clicking to a <strong>pipeline</strong> the agent writes and you direct. You will meet <strong>batch generation</strong>, <strong>parameter sweeps</strong>, <strong>post-processing</strong>, and a <strong>manifest</strong> so every output is traceable to its inputs. Whether you call <a href="https://huggingface.co/docs/diffusers" target="_blank" rel="noopener">diffusers</a> locally or a hosted API, the asset set becomes reproducible from a spec file, which is exactly how production media pipelines work.</div>
+  <div class="yourturn"><b>Your turn:</b> change one line in the spec file and regenerate the whole set. A pipeline you can rerun from a spec is the difference between a hobby and an engineering workflow.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> A spec-driven pipeline that generates a complete, reproducible asset set in one command.</div></div>
+
+  <h2><span class="num">4</span>Day 4: video</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Add video to the pipeline. Generate short clips with a current model through a hosted API, and crucially use image-to-video starting from images I made earlier so the look stays consistent. Handle it like the slow, asynchronous job it is: submit, poll for completion, download, and retry on failure. Let me compare a couple of models on the same input.</div>
+  <div class="concept"><b>Concept &middot; The video landscape and async jobs</b>Video is where the field moves fastest. Treat specific model names as current options to verify, not permanent infrastructure: Google Veo, Runway, Luma, Kling, Seedance, and open-weights Wan-style models all evolve quickly and may be reachable directly or through hosted hubs such as <a href="https://fal.ai/" target="_blank" rel="noopener">fal.ai</a> and <a href="https://replicate.com/" target="_blank" rel="noopener">Replicate</a>. <strong>Image-to-video</strong> anchors the result to a frame you control. Because generation is slow, you will write real <strong>asynchronous job handling</strong>, a genuine engineering skill. Build behind a provider interface so model churn becomes configuration, not a rewrite. OpenAI&apos;s <a href="https://openai.com/sora" target="_blank" rel="noopener">Sora discontinuation</a> is the cautionary example.</div>
+  <div class="yourturn"><b>Your turn:</b> take one of your Day 1 images and animate it with image-to-video. Watching a still you generated start to move is the moment this clicks.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> Generated video clips, anchored to your own images, with proper submit-poll-download handling.</div></div>
+
+  <h2><span class="num">5</span>Day 5: into a real project</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Wire the pipeline into something real. Either feed the textures and skybox into the arena from the FPS track, or auto-generate hero images and per-page social-card images for a site from the web track. Make it a repeatable step: a command that regenerates the project&apos;s media assets from the spec, ready to commit.</div>
+  <div class="concept"><b>Concept &middot; Media as part of the build</b>Generated media only matters when it ships <em>inside software</em>. You will connect your pipeline to a real target: game assets for the <a href="game-dev.html">FPS track</a>, or imagery and automated <strong>Open Graph cards</strong> for the <a href="web-dev.html">web track</a>. Auto-generating an OG image per page is a small, genuinely useful build step that most sites do by hand. This is the integration layer, where generative media becomes an asset pipeline.</div>
+  <div class="yourturn"><b>Your turn:</b> regenerate one project&apos;s assets entirely from the spec and diff the result in Git. Treating media as build output, not hand-made one-offs, is the professional move.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> Your generated media is powering a real game or site, regenerable on demand.</div></div>
+
+  <h2><span class="num">6</span>Day 6: build a small media tool</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Wrap the pipeline in a tiny web app: a prompt box and controls, a generate button that runs the pipeline through my provider interface, a gallery of results with the seed and settings shown under each, and a simple history. Keep API keys server-side, add basic cost guards, and let me favorite the good ones.</div>
+  <div class="concept"><b>Concept &middot; Wrapping a model in a product</b>Now you build the thing most people pay for: a <strong>product around a model</strong>. This bridges to the <a href="app-dev.html">Apps track</a> and surfaces real concerns, keeping <strong>keys server-side</strong>, adding <strong>cost controls</strong>, and building an <strong>evaluation UI</strong> so judging output is part of the tool. Showing the seed and settings under each image makes your own work reproducible, which is the habit that separates a tool from a toy.</div>
+  <div class="yourturn"><b>Your turn:</b> add a side-by-side compare view for two models on the same prompt. Building the evaluation surface trains your taste, one of the five chops.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Working</b> Your own minimal media studio: prompt in, reproducible results out, with history and cost guards.</div></div>
+
+  <h2><span class="num">7</span>Day 7: ship, evaluate, and the taste pass</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Help me deploy the tool so I can use it from anywhere, document how to reproduce any result (seed, model version, workflow file), and do an evaluation pass: curate the best outputs, compare models on my real prompts, and write down what each is good at. Help me put together a small showcase of what I built and generated this week.</div>
+  <div class="concept"><b>Concept &middot; Shipping, evaluation, and reproducibility</b>Finishing means <strong>deploying</strong> the tool, <strong>documenting reproducibility</strong> (anyone should be able to regenerate a result from its record), and doing a real <strong>evaluation</strong>, judging models against your actual needs instead of demo reels. Evaluation and taste are chops no model has for you. A curated showcase of a working tool plus the media it makes is something you can genuinely show off.</div>
+  <div class="callout note"><span class="label">Know the rules before you ship</span><p>Commercial rights, training-data and IP questions, and disclosure norms vary by model and by use, so check each model&apos;s license before using output commercially, prefer permissively licensed models when that matters, and consider content-provenance standards (Content Credentials / C2PA) and honest disclosure. Being the person who understands the licensing is part of being the senior partner.</p></div>
+  <h3>Stretch goals (each its own adventure)</h3>
+  <ul>
+    <li><strong>Train your own LoRA</strong> &mdash; fine-tune a consistent style or character of your own on top of an open model.</li>
+    <li><strong>An evaluating agent</strong> &mdash; have an agent score generations against your spec and auto-pick the best.</li>
+    <li><strong>A fully automated pipeline</strong> &mdash; spec in, finished media committed to a project, no clicks.</li>
+  </ul>
+  <div class="check"><span class="ico">▶</span><div><b>Shipped</b> A deployed media tool, a reproducible pipeline, and a set of assets in a real project, built in a hard week.</div></div>
+
+  <h2><span class="hash">#</span>Where to learn more</h2>
+  <p>The durable, excellent 2026 references (specific video tutorials age fast, so favor official docs and the official channels, then search for current-year walkthroughs):</p>
+  <ul>
+    <li><strong>Workflows &amp; control:</strong> <a href="https://www.comfy.org/" target="_blank" rel="noopener">ComfyUI</a> and its <a href="https://docs.comfy.org/" target="_blank" rel="noopener">docs</a> and example workflows, the most important tool for serious local control.</li>
+    <li><strong>Code-first generation:</strong> Hugging Face <a href="https://huggingface.co/docs/diffusers" target="_blank" rel="noopener">diffusers</a> and the free <a href="https://huggingface.co/learn" target="_blank" rel="noopener">Hugging Face courses</a> (including the diffusion course) for the fundamentals of how these models work.</li>
+    <li><strong>Multi-model APIs:</strong> <a href="https://fal.ai/" target="_blank" rel="noopener">fal.ai</a> and <a href="https://replicate.com/" target="_blank" rel="noopener">Replicate</a> docs, the fastest way to call image and video models from code.</li>
+    <li><strong>Models &amp; weights:</strong> <a href="https://blackforestlabs.ai/" target="_blank" rel="noopener">Black Forest Labs</a> (FLUX), <a href="https://stability.ai/" target="_blank" rel="noopener">Stability AI</a> (Stable Diffusion), and <a href="https://huggingface.co/models" target="_blank" rel="noopener">Hugging Face</a> for open weights and model cards.</li>
+    <li><strong>Video:</strong> <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a> (Veo), <a href="https://runwayml.com/" target="_blank" rel="noopener">Runway</a>, and <a href="https://lumalabs.ai/" target="_blank" rel="noopener">Luma</a>, with Kling, Seedance, and open-weights Wan reachable through the multi-model hubs above.</li>
+    <li><strong>The chops:</strong> bring it back to <a href="agentic-engineering.html">Vibe &rarr; agentic</a>, because spec, evaluation, and taste are exactly what generative media rewards.</li>
+  </ul>
+  <div class="callout key"><span class="label">The honest part</span><p>This moves faster than any other track: model names will change within months. That is why the durable skills are the point, building swappable pipelines, calling models from code, evaluating with judgment, and integrating media into real software. Learn the stack, not just this month&apos;s model, and you will keep up no matter what ships next. Get excited, then put in the hours.</p></div>
+
+  <div class="pager">
+    <a href="app-dev.html"><span class="lab">Previous</span>&larr; Apps</a>
+    <a href="path.html"><span class="lab">Next</span>The path &rarr;</a>
+  </div>
+  <p class="foot">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</p>
+</div>
+
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

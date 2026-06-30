@@ -1,0 +1,24 @@
+{{ includeTemplate "ai-thesis.md" . }}
+
+## Claude Code Notes
+
+The operational instructions for the Groundwork checkout live in `AGENTS.md` at the
+root of the Groundwork repo.
+
+On a managed machine, find that checkout with:
+
+```bash
+source="$(chezmoi source-path)"
+if [ "$(basename "$source")" = "home" ]; then dirname "$source"; else printf '%s\n' "$source"; fi
+```
+
+Read the repo-root `AGENTS.md` first and follow it. Do not add shared policy
+here; update `AI_THESIS.md` for the north star or `AGENTS.md` for operational
+repo instructions so Codex, Claude Code, and other coding agents stay aligned.
+
+Claude-specific notes:
+- Use `@file` and `@directory` references when the user asks about specific local context.
+- Use path-scoped rule files under `.claude/rules/` only for Claude-specific behavior that should load for part of the tree.
+- Keep Claude memory/tool notes here only when they cannot apply to other agents.
+
+{{/* Tool-specific content only. The shared north star above lives in home/.chezmoitemplates/ai-thesis.md and is exposed at AI_THESIS.md in the repo root. */}}

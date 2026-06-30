@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+catalog="${GROUNDWORK_BROWSER_EXTENSIONS_CATALOG:-$HOME/.local/share/groundwork/browser-extensions.tsv}"
+password_manager="{{ .password_manager }}"
+browser="all"
+tier="recommended"
+open_links="false"
+
+usage() {
+  cat <<'EOF'
+Usage: browser-extensions [options]
+
+List or open the Groundwork-recommended browser extensions.
+
+Options:
+  --browser all|chrome|dia|zen   Which browser links to show/open (default: all)
+  --tier recommended|core|dev|privacy|optional|all
+  --open                         Open matching store links
+  -h, --help                     Show this help
+
+Examples:
+  browser-extensions
+  browser-extensions --browser zen --tier core --open
+  browser-extensions --browser chrome --tier dev
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --browser)
+      browser="${2:-}"
+      shift 2
+      ;;
+    --tier)
+      tier="${2:-}"
+      shift 2
+      ;;
+    --open)
+      open_links="true"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "$browser" in
+  all|chrome|dia|zen) ;;
+  *)
+    echo "unsupported browser: $browser" >&2
+    exit 2
+    ;;
+esac
+
+case "$tier" in
+  recommended|core|dev|privacy|optional|all) ;;
+  *)
+    echo "unsupported tier: $tier" >&2
+    exit 2
+    ;;
+esac
+
+if [[ ! -f "$catalog" ]]; then
+  echo "missing catalog: $catalog" >&2
+  exit 1
+fi
+
+should_show() {
+  local row_tier="$1"
+  local row_scope="$2"
+
+  case "$row_scope" in
+    all) ;;
+    chromium)
+      [[ "$browser" == "chrome" || "$browser" == "dia" || "$browser" == "all" ]] || return 1
+      ;;
+    1password|bitwarden)
+      [[ "$password_manager" == "$row_scope" || "$tier" == "all" ]] || return 1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "$tier" in
+    recommended)
+      [[ "$row_tier" == "core" || "$row_tier" == "privacy" || "$row_tier" == "dev" ]]
+      ;;
+    all)
+      return 0
+      ;;
+    *)
+      [[ "$row_tier" == "$tier" ]]
+      ;;
+  esac
+}
+
+app_for_browser() {
+  case "$1" in
+    chrome) printf '%s\n' "Google Chrome" ;;
+    dia) printf '%s\n' "Dia" ;;
+    zen) printf '%s\n' "Zen" ;;
+  esac
+}
+
+url_for_browser() {
+  local browser_name="$1"
+  local chromium_url="$2"
+  local firefox_url="$3"
+
+  case "$browser_name" in
+    chrome|dia) printf '%s\n' "$chromium_url" ;;
+    zen) printf '%s\n' "$firefox_url" ;;
+  esac
+}
+
+printed="false"
+while IFS=$'\t' read -r row_tier row_scope name chromium_url firefox_url notes; do
+  [[ -z "${row_tier:-}" || "$row_tier" == \#* ]] && continue
+  should_show "$row_tier" "$row_scope" || continue
+
+  targets=()
+  if [[ "$browser" == "all" ]]; then
+    targets=(zen chrome dia)
+  else
+    targets=("$browser")
+  fi
+
+  for target in "${targets[@]}"; do
+    url="$(url_for_browser "$target" "$chromium_url" "$firefox_url")"
+    [[ -n "$url" && "$url" != "-" ]] || continue
+    printed="true"
+
+    if [[ "$open_links" == "true" ]]; then
+      open -a "$(app_for_browser "$target")" "$url" 2>/dev/null || open "$url"
+    else
+      printf '%-8s %-10s %s\n' "$target" "$row_tier" "$name"
+      printf '  %s\n' "$url"
+      printf '  %s\n\n' "$notes"
+    fi
+  done
+done < "$catalog"
+
+if [[ "$printed" == "false" ]]; then
+  echo "no matching extension links found"
+fi

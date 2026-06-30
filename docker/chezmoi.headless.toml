@@ -1,0 +1,16 @@
+sourceDir = "/opt/groundwork/home"
+
+[data]
+  headless = true
+  work = false
+  github_username = "container"
+  name = "Groundwork Container"
+  email_personal = "dev@localhost"
+  email_work = ""
+  code_dir = "~/code"
+  reset_existing_configs = false
+  password_manager = "none"
+  signingkey = ""
+  obsidian_vault_name = ""
+  game_dev = false
+  xcode = false

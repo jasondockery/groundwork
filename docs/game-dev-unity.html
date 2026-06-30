@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>FPS in a week: Unity build · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FPS in a week: Unity build · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/game-dev-unity.html">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FPS in a week: Unity build · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+<aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html" class="active">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+<div class="content">
+  <p class="eyebrow">Track &middot; FPS &middot; Unity build</p>
+  <h1>Build a first-person shooter in Unity in a week.</h1>
+  <p class="lead">The industry route. You will build a real Call-of-Duty-flavored arena shooter in Unity 6: a polished environment, animated weapons, enemies with navigation and animation, a full HUD with a radar, post-processing, sound, and a shareable build. This is the engine actual studios ship on, and it is a hard week, ten to twelve focused hours a day, plenty of debugging, and real editor work alongside the code.</p>
+
+  <div class="callout note">
+    <span class="label">How AI fits in Unity (read this first)</span>
+    <p>Be clear-eyed: an AI agent is a <strong>scripting and architecture assistant</strong> in Unity, not an end-to-end builder. It writes excellent C#, shaders, and custom editor tools, and it can drive the editor through a <a href="https://github.com/CoplayDev/unity-mcp" target="_blank" rel="noopener">Unity MCP bridge</a>, but Unity&apos;s real work lives in a visual editor and binary scene and asset files an agent cannot fully see. So you will do more hands-on editor work here than in the <a href="game-dev.html">browser version</a>, and lean on free art assets to look professional without being an artist. The payoff: skills that transfer straight to a games job.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="label">How this track actually works</span>
+    <p>Each day is a milestone, not a single prompt. Expect dozens of prompts, many Play-mode tests, and real debugging, plus time spent in the editor wiring prefabs, baking navigation, and dropping in assets. The discipline that keeps it from becoming slop: <strong>spec the day before you prompt</strong>, <strong>review every C# diff</strong>, and <strong>enter Play mode after every change</strong>. Keep the <a href="agentic-engineering.html">five chops</a> open in another tab.</p>
+  </div>
+
+  <h2><span class="hash">#</span>Day 0: the engine, the assets, and the harness</h2>
+  <ol>
+    <li><strong>Unity 6.</strong> Install <a href="https://unity.com/download" target="_blank" rel="noopener">Unity Hub</a>, then the latest <strong>Unity 6 LTS</strong>. Unity Personal is free. Create a new <strong>3D (URP)</strong> project.</li>
+    <li><strong>IDE + agent.</strong> JetBrains <strong>Rider</strong> (free for non-commercial) or VS Code with the C# Dev Kit, plus an AI agent (Claude Code, Codex, or Cursor) opened in the project folder.</li>
+    <li><strong>The editor bridge (optional but recommended).</strong> The free <a href="https://github.com/CoplayDev/unity-mcp" target="_blank" rel="noopener">Unity MCP</a> package lets the agent create objects and run things in the editor: <code>Window &rarr; Package Manager &rarr; + &rarr; Add package from git URL</code>.</li>
+    <li><strong>Free assets so it looks good.</strong> Animations from <a href="https://www.mixamo.com/" target="_blank" rel="noopener">Mixamo</a>, plus a free environment kit and a free weapon pack from the Unity Asset Store. You are a developer this week, not a 3D artist.</li>
+    <li><strong>Git</strong> with a Unity <code>.gitignore</code>, and a <code>CLAUDE.md</code> / <code>AGENTS.md</code> documenting conventions: use the new Input System, <code>SerializeField</code> for inspector fields, prefer events over polling, and propose a plan before large changes.</li>
+  </ol>
+  <div class="prompt-card"><span class="who">ask your AI</span>Set up the project conventions in AGENTS.md for a Unity 6 URP first-person shooter: the new Input System, SerializeField for inspector-exposed fields, ScriptableObjects for weapon and enemy data, small single-responsibility components, and a note to propose a short plan before large changes. Then create a simple test scene with a lit ground plane and confirm the MCP bridge can add a cube.</div>
+  <div class="concept"><b>Concept &middot; The editor and the harness</b>Unity development is part code, part <strong>editor</strong>: the Scene and Game views, the Hierarchy of objects, the Inspector where components expose values, and <strong>prefabs</strong> (reusable object templates). You are also setting the contract the agent follows all week. Understanding the editor and the C# the agent writes, together, is what keeps you in control.</div>
+  <div class="yourturn"><b>Your turn:</b> create one cube by hand, make it a prefab, change the prefab, and watch every copy update. That prefab workflow is the backbone of everything ahead.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Running</b> A URP project, free assets imported, the agent wired into the editor, and a written harness.</div></div>
+
+  <h2><span class="num">1</span>Day 1: controller and a real environment</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Write a first-person controller using a CharacterController and the new Input System: mouse look, WASD, gravity, jump, sprint, and crouch, with values exposed in the inspector. I will build the level from the environment kit; help me set up URP lighting, a skybox, and post-processing (bloom, color grading, ambient occlusion) so a greybox blockout reads as a real space.</div>
+  <div class="concept"><b>Concept &middot; CharacterController, Input System, URP</b>The <strong>CharacterController</strong> handles movement and collision without full physics; the <strong>Input System</strong> maps keys and mouse to actions cleanly. <strong>URP</strong> with <strong>post-processing</strong> is what makes Unity scenes look modern: lighting, bloom, and color grading do most of the visual heavy lifting. You will greybox the arena first (design before decoration), then dress it with the kit.</div>
+  <div class="yourturn"><b>Your turn:</b> block out the arena yourself with primitives before adding art: sightlines and cover first, looks second. Then tune controller speed and sensitivity until it feels right.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> You move through a good-looking, well-lit arena in first person.</div></div>
+
+  <h2><span class="num">2</span>Day 2: animated weapons</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Build a weapon system driven by ScriptableObjects (fire rate, damage, spread, ammo, reload time). Implement raycast firing with muzzle flash and impact effects using particle systems, plus reload logic. I will hook up the weapon models and animations; help me wire fire, reload, and equip animations, add three weapons with distinct data, and weapon switching with audio.</div>
+  <div class="concept"><b>Concept &middot; ScriptableObjects and the asset pipeline</b><strong>ScriptableObjects</strong> are Unity&apos;s way to store data as assets, so a designer can tune weapons in the inspector without touching code: this is real data-driven design. You will meet <strong>particle systems</strong> for effects, the <strong>animation</strong> pipeline for weapon motion, and <strong>AudioSource</strong> for sound. The agent writes the systems; you wire the assets in the editor.</div>
+  <div class="yourturn"><b>Your turn:</b> duplicate a weapon ScriptableObject and tune it into a new gun without writing code. That is the power of data-driven design, felt directly.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Three animated weapons with distinct feel, effects, and reloads.</div></div>
+
+  <h2><span class="num">3</span>Day 3: enemies with navigation and animation</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Create an enemy prefab driven by a NavMeshAgent with a state machine (patrol, chase, attack, retreat) and line-of-sight checks. Write the AI in C#; I will bake the NavMesh and set up the Animator. Add health and damage, hook Mixamo run, attack, and death animations to an Animator Controller, and make two enemy types (a melee rusher and a ranged shooter). Keep it smooth with twenty enemies.</div>
+  <div class="concept"><b>Concept &middot; NavMesh, Animator, and prefab variants</b>Unity&apos;s <strong>NavMesh</strong> gives pathfinding almost for free once you bake a walkable surface; a <strong>NavMeshAgent</strong> steers around obstacles. The <strong>Animator Controller</strong> is a visual state machine for animation that you drive from your AI&apos;s state in code. <strong>Prefab variants</strong> let the two enemy types share a base. Performance and animation transitions are the hard parts.</div>
+  <div class="yourturn"><b>Your turn:</b> bake the NavMesh yourself and watch an agent path around a wall. Then tune one enemy type&apos;s speed and attack range into a different threat.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Animated enemies path through the arena, take cover, and attack. It is tense.</div></div>
+
+  <h2><span class="num">4</span>Day 4: combat systems and the game loop</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Add player health and armor and a damage system using collision layers, with headshot and bodyshot damage zones, hitmarkers, and directional damage indicators. Build a game manager that runs waves of escalating enemies with breaks, tracks score and kill streaks, and handles game-over and victory, using events rather than scattered references. Tune the first five waves to ramp from easy to hard.</div>
+  <div class="concept"><b>Concept &middot; Architecture: layers, events, and managers</b><strong>Collision layers</strong> decide what can hit what; <strong>damage zones</strong> (separate colliders) make headshots possible. A central <strong>game manager</strong> with an <strong>event</strong> system keeps systems decoupled instead of a tangle of direct references, the single most important architecture decision in the project. Balancing the waves is design only you can do.</div>
+  <div class="yourturn"><b>Your turn:</b> review how the manager talks to other systems. If it reaches directly into everything, ask the agent to refactor toward events, and understand why that is better.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> A full combat loop with armor, headshots, escalating waves, and win/lose states.</div></div>
+
+  <h2><span class="num">5</span>Day 5: HUD, menus, and game feel</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Build the UI: health and armor bars, ammo, a radar showing nearby enemies relative to my facing, a kill feed, a reactive crosshair, and an objective marker. Add main menu, pause, and settings (sensitivity, FOV, volume) with proper scene management. Then add game feel with Cinemachine camera shake on hits, a damage vignette via post-processing, hit-stop on kills, and particles.</div>
+  <div class="concept"><b>Concept &middot; Unity UI, scenes, and Cinemachine</b>You will build the HUD with Unity&apos;s UI system and learn <strong>scene management</strong> (menu, game, and how to transition). <strong>Cinemachine</strong> gives professional camera behavior including impulse-based shake. The <strong>radar</strong> projects world positions into screen directions, a real bit of math. Juice via post-processing and hit-stop is what makes it feel like a shipped game.</div>
+  <div class="yourturn"><b>Your turn:</b> tune the Cinemachine shake until a hit feels weighty but not nauseating. Calibrating feel is a judgment you are developing.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> A real HUD with radar and kill feed, full menus, and satisfying combat feel.</div></div>
+
+  <h2><span class="num">6</span>Day 6: audio, optimization, and content</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Set up spatial 3D audio through an Audio Mixer: positional footsteps and gunfire, enemy sounds, and music that shifts in combat. Do an optimization pass with object pooling for bullets and effects, LOD groups, occlusion culling, and the Profiler to hold 60fps. Then add content: a second level, health and armor and ammo pickups, and one elite enemy with more health and a special attack.</div>
+  <div class="concept"><b>Concept &middot; Audio Mixer, the Profiler, and pooling</b>The <strong>Audio Mixer</strong> routes and balances 3D sound. <strong>Object pooling</strong> (reuse instead of Instantiate/Destroy) avoids the garbage-collection stutter that plagues bullet-heavy games. The <strong>Profiler</strong> is how you find the real bottleneck instead of guessing, with <strong>LOD groups</strong> and <strong>occlusion culling</strong> cutting what Unity has to draw. This is the day it runs smooth.</div>
+  <div class="yourturn"><b>Your turn:</b> open the Profiler before and after pooling and read the frame-time difference yourself. Measuring the win is the engineering habit.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Smooth 60fps, spatial sound, two levels, pickups, and an elite to fight.</div></div>
+
+  <h2><span class="num">7</span>Day 7: build it and share it</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Help me make a WebGL build so people can play it in a browser from a link, and a desktop build as a backup. Walk me through Player Settings, a custom name and icon, and uploading to itch.io. Help me capture screenshots and a short clip for the page.</div>
+  <div class="concept"><b>Concept &middot; The build pipeline and platforms</b>Unity&apos;s <strong>build pipeline</strong> turns your project into a real, runnable game. A <strong>WebGL</strong> build plays in a browser (shareable by link); a desktop build is a downloadable executable. <strong>Player Settings</strong> handle branding and platform options. Shipping is where most projects die, so finishing yours puts you ahead of most learners, and a WebGL link is the easiest way to show friends.</div>
+  <h3>Stretch goals (each its own adventure)</h3>
+  <ul>
+    <li><strong>Smarter enemies</strong> &mdash; Unity&apos;s free <strong>ML-Agents</strong> toolkit trains characters with machine learning.</li>
+    <li><strong>An AI announcer</strong> &mdash; call a language model at runtime for dynamic callouts.</li>
+    <li><strong>Multiplayer</strong> &mdash; <strong>Netcode for GameObjects</strong>, the true Call of Duty frontier and a project of its own.</li>
+  </ul>
+  <div class="yourturn"><b>Your turn:</b> send the link to one person and watch them play without helping. Their confusion is your next task.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Shipped</b> A complete Unity shooter with a browser link, built in a hard week, that you are proud to share.</div></div>
+
+  <h2><span class="hash">#</span>Where to go next</h2>
+  <p>You built a real game in the engine studios ship on: a controller, data-driven weapons, NavMesh and Animator enemies, an event-driven combat loop, UI and Cinemachine, an Audio Mixer, profiling and pooling, and a shipped build, understanding the C# the whole way. To go deeper:</p>
+  <ul>
+    <li><strong>Fundamentals, free:</strong> <a href="https://learn.unity.com/" target="_blank" rel="noopener">Unity Learn</a> (Unity Essentials, then Create with Code) and <a href="https://unitycodemonkey.com/freecourses.php" target="_blank" rel="noopener">Code Monkey</a>. Filling in fundamentals after building something fun makes them stick.</li>
+    <li><strong>The chops:</strong> return to <a href="agentic-engineering.html">Vibe &rarr; agentic</a>. Spec each new feature before prompting, then review every diff.</li>
+    <li><strong>The pure-code route:</strong> compare engines by running the <a href="game-dev.html">browser FPS week</a> in Three.js.</li>
+    <li><strong>Practice with a deadline:</strong> a <a href="https://itch.io/jams" target="_blank" rel="noopener">game jam on itch.io</a> teaches more in a weekend than a month of tutorials.</li>
+  </ul>
+  <div class="callout key"><span class="label">The honest part</span><p>Unity is a deep tool and an AI agent only takes you part of the way: it writes the C# and the editor scripts, but you drive the editor, wire the assets, and make the design calls. That is the point. A week of real editor work plus directing an agent, and you have shipped something studios would recognize, while staying the senior partner who understood it. Get excited, then put in the hours.</p></div>
+
+  <div class="pager">
+    <a href="game-dev.html"><span class="lab">Previous</span>&larr; FPS &middot; Browser</a>
+    <a href="web-dev.html"><span class="lab">Next</span>Web &amp; sites &rarr;</a>
+  </div>
+  <p class="foot">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</p>
+</div>
+
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

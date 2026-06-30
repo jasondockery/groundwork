@@ -1,0 +1,279 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo"
+shopt -s nullglob
+
+out_dir="${TMPDIR:-/tmp}/groundwork-rendered-$$"
+trap 'rm -rf "$out_dir"' EXIT
+mkdir -p "$out_dir"
+
+base_data='"github_username":"ci","name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false'
+
+render() {
+  local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
+  local work="${6:-false}"
+  local xcode="${7:-false}"
+  local os_release='{}'
+  [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
+  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  chezmoi --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+}
+
+render_without_xcode_key() {
+  local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
+  local work="${6:-false}"
+  local os_release='{}'
+  [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
+  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  chezmoi --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+}
+
+assert_not_contains() {
+  local pattern="$1" file="$2" message="$3"
+  if grep -Eq "$pattern" "$file"; then
+    echo "$message" >&2
+    sed -n '1,160p' "$file" >&2
+    exit 1
+  fi
+}
+
+assert_symlink_target() {
+  local path="$1" target="$2"
+  if [[ ! -L "$path" ]]; then
+    echo "$path must be a symlink to $target" >&2
+    exit 1
+  fi
+  if [[ "$(readlink "$path")" != "$target" ]]; then
+    echo "$path must point to $target" >&2
+    exit 1
+  fi
+}
+
+assert_no_matches() {
+  local message="$1" status
+  shift
+  if "$@"; then
+    echo "$message" >&2
+    exit 1
+  else
+    status=$?
+    if [[ "$status" -gt 1 ]]; then
+      echo "failed while checking: $message" >&2
+      exit "$status"
+    fi
+  fi
+}
+
+echo "check: bootstrap syntax"
+bash -n bootstrap-mac.sh
+
+echo "check: helper script syntax"
+shellcheck_files=(bootstrap-mac.sh)
+for script in home/dot_local/bin/executable_* home/dot_config/karabiner/modify_karabiner.json scripts/*; do
+  [[ -f "$script" ]] || continue
+  [[ "$script" == *.tmpl ]] && continue
+  if head -n 1 "$script" | grep -q 'bash'; then
+    bash -n "$script"
+    shellcheck_files+=("$script")
+  fi
+done
+
+echo "check: shellcheck"
+shellcheck "${shellcheck_files[@]}"
+
+echo "check: chezmoi root"
+test "$(cat .chezmoiroot)" = "home"
+test -f home/.chezmoi.toml.tmpl
+test ! -f .chezmoi.toml.tmpl
+grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
+grep -q '^  xcode = false$' docker/chezmoi.headless.toml
+grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl
+if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desktop apps' home/.chezmoi.toml.tmpl; then
+  echo "old headless prompt wording found in home/.chezmoi.toml.tmpl" >&2
+  exit 1
+fi
+grep -q 'Install optional Unity game development tools? Large download. \[y/N\]' home/.chezmoi.toml.tmpl
+grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]' home/.chezmoi.toml.tmpl
+grep -Eq "^python[[:space:]]*=[[:space:]]*\\[[\"']3\\.13[\"'][[:space:]]*,[[:space:]]*[\"']3\\.12[\"']\\][[:space:]]*$" home/dot_config/mise/config.toml
+grep -Eq '^[[:space:]]*aider_python="3\.12"[[:space:]]*$' home/run_after_20-tools.sh.tmpl
+grep -qF "uv tool install --python \"\$aider_python\" --reinstall aider-chat" home/run_after_20-tools.sh.tmpl
+
+echo "check: AI thesis wiring"
+test -f home/.chezmoitemplates/ai-thesis.md
+test -L AI_THESIS.md
+test "$(readlink AI_THESIS.md)" = "home/.chezmoitemplates/ai-thesis.md"
+test -f home/dot_claude/CLAUDE.md.tmpl
+test -f home/dot_codex/AGENTS.md.tmpl
+test ! -f home/dot_claude/CLAUDE.md
+test ! -f home/dot_codex/AGENTS.md
+
+echo "check: static docs"
+test -f .github/workflows/pages.yml
+grep -q 'actions/configure-pages@' .github/workflows/pages.yml
+grep -q 'actions/upload-pages-artifact@' .github/workflows/pages.yml
+grep -q 'actions/deploy-pages@' .github/workflows/pages.yml
+grep -q 'path: docs' .github/workflows/pages.yml
+test -f docs/.nojekyll
+test -f docs/assets/favicon.svg
+test -f docs/assets/social-card.png
+test -f docs/platforms.html
+for page in docs/*.html; do
+  grep -q 'name="description"' "$page" || { echo "$page: missing description meta tag" >&2; exit 1; }
+  grep -q ' · Groundwork</title>' "$page" || { echo "$page: page title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
+  grep -q 'property="og:title"' "$page" || { echo "$page: missing Open Graph title" >&2; exit 1; }
+  grep -q 'property="og:title" content=".* · Groundwork"' "$page" || { echo "$page: Open Graph title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
+  grep -q 'name="twitter:title" content=".* · Groundwork"' "$page" || { echo "$page: Twitter title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
+  grep -q 'property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png"' "$page" || { echo "$page: missing PNG Open Graph image" >&2; exit 1; }
+  grep -q 'rel="icon"' "$page" || { echo "$page: missing favicon link" >&2; exit 1; }
+  grep -q 'href="platforms.html"' "$page" || { echo "$page: missing Platforms sidebar link" >&2; exit 1; }
+  for group in "Start here" "Set up" "Foundations" "Daily workflow" "Tracks" "Mac desktop" "Reference"; do
+    grep -q "<h4>$group</h4>" "$page" || { echo "$page: missing sidebar group: $group" >&2; exit 1; }
+  done
+  active_count="$(grep -c 'class="active"' "$page")"
+  [[ "$active_count" == "1" ]] || { echo "$page: expected one active sidebar link, found $active_count" >&2; exit 1; }
+done
+assert_no_matches "old docs title separator found" rg -n '(<title>[^<]*( — | -- | - )Groundwork|<(meta)[^>]+content="[^"]*( — | -- | - )Groundwork")' docs
+assert_no_matches "old macOS windows label found" rg -n "macOS windows" docs README.md
+assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows)</h4>' docs
+
+echo "check: agent skill discovery"
+assert_symlink_target .claude/skills ../skills
+assert_symlink_target .codex/skills ../skills
+if [[ -e .agents/skills || -L .agents/skills ]]; then
+  echo ".agents/skills must not exist in this repo; keep canonical skills in skills/" >&2
+  exit 1
+fi
+
+echo "check: Codex skill metadata"
+allowed_openai_metadata='^[[:space:]]*$|^[[:space:]]*#|^interface:[[:space:]]*$|^[[:space:]]+display_name:[[:space:]]*"[^"]+"[[:space:]]*$'
+for metadata in skills/*/agents/openai.yaml; do
+  [[ -e "$metadata" ]] || continue
+  if grep -vqE "$allowed_openai_metadata" "$metadata"; then
+    echo "$metadata: only interface.display_name is allowed; keep descriptions and prompts in SKILL.md" >&2
+    exit 1
+  fi
+  if ! grep -qE '^[[:space:]]+display_name:[[:space:]]*"[^"]+"[[:space:]]*$' "$metadata"; then
+    echo "$metadata: missing interface.display_name" >&2
+    exit 1
+  fi
+done
+
+echo "check: template brace balance"
+while IFS= read -r template; do
+  left=$(grep -o '{{' "$template" | wc -l | tr -d ' ')
+  right=$(grep -o '}}' "$template" | wc -l | tr -d ' ')
+  [[ "$left" == "$right" ]] || { echo "unbalanced template braces: $template" >&2; exit 1; }
+done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
+
+shell_templates=(home/run_*.sh.tmpl home/dot_local/bin/*.tmpl)
+for os in darwin linux; do
+  for headless in false true; do
+    case_name="${os}-${headless}"
+    mkdir -p "$out_dir/$case_name"
+    echo "check: rendered shell templates ($case_name)"
+    for script in "${shell_templates[@]}"; do
+      rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
+      render "$os" "$headless" "amd64" "$script" "$rendered"
+      bash -n "$rendered"
+      shellcheck "$rendered"
+    done
+
+    echo "check: rendered zsh ($case_name)"
+    render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
+    zsh -n "$out_dir/$case_name/zshrc"
+
+    echo "check: rendered Brewfile ($case_name)"
+    render "$os" "$headless" "amd64" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile"
+    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+      assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
+    fi
+
+    echo "check: rendered ignore ($case_name)"
+    render "$os" "$headless" "amd64" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore"
+    if [[ "$os" != "darwin" || "$headless" == "true" ]]; then
+      grep -q '^Library/\*\*' "$out_dir/$case_name/chezmoiignore"
+      grep -q '^\.config/karabiner/\*\*' "$out_dir/$case_name/chezmoiignore"
+    fi
+
+    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+      render "$os" "$headless" "amd64" home/run_onchange_after_30-macos-defaults.sh.tmpl "$out_dir/$case_name/macos-defaults.sh"
+      assert_not_contains 'defaults write' "$out_dir/$case_name/macos-defaults.sh" "macOS defaults leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_40-obsidian-vault.sh.tmpl "$out_dir/$case_name/obsidian-vault.sh"
+      assert_not_contains 'Obsidian|Library/Mobile Documents|obsidian.json' "$out_dir/$case_name/obsidian-vault.sh" "Obsidian vault body leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_45-obsidian-plugins.sh.tmpl "$out_dir/$case_name/obsidian-plugins.sh"
+      assert_not_contains 'obsidian-plugins|Library/Mobile Documents' "$out_dir/$case_name/obsidian-plugins.sh" "Obsidian plugins body leaked into $case_name"
+      render "$os" "$headless" "amd64" home/run_after_55-zen-bitwarden-biometrics.sh.tmpl "$out_dir/$case_name/zen-bitwarden.sh"
+      assert_not_contains 'NativeMessagingHosts|zen' "$out_dir/$case_name/zen-bitwarden.sh" "Zen biometrics body leaked into $case_name"
+      assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
+    fi
+  done
+done
+
+echo "check: rendered work macOS profile"
+mkdir -p "$out_dir/darwin-work"
+render darwin false arm64 home/.chezmoiignore "$out_dir/darwin-work/chezmoiignore" true
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-work/Brewfile" true
+assert_not_contains '^\.config/karabiner/\*\*' "$out_dir/darwin-work/chezmoiignore" "Karabiner was ignored on work macOS"
+grep -q '^cask "karabiner-elements"$' "$out_dir/darwin-work/Brewfile"
+grep -q '^brew "colima"$' "$out_dir/darwin-work/Brewfile"
+assert_not_contains '^cask "docker-desktop"$' "$out_dir/darwin-work/Brewfile" "Docker Desktop leaked into work macOS"
+assert_not_contains '^mas "Xcode"' "$out_dir/darwin-work/Brewfile" "Xcode leaked into default work macOS"
+
+echo "check: rendered Xcode macOS profile"
+mkdir -p "$out_dir/darwin-no-xcode" "$out_dir/darwin-xcode" "$out_dir/darwin-legacy-no-xcode"
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-no-xcode/Brewfile" false false
+assert_not_contains '^mas "Xcode"' "$out_dir/darwin-no-xcode/Brewfile" "Xcode leaked into default personal macOS"
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-xcode/Brewfile" false true
+grep -q '^mas "Xcode", id: 497799835' "$out_dir/darwin-xcode/Brewfile"
+render_without_xcode_key darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-legacy-no-xcode/Brewfile" false
+assert_not_contains '^mas "Xcode"' "$out_dir/darwin-legacy-no-xcode/Brewfile" "Xcode leaked when xcode key was absent"
+
+echo "check: rendered agent adapters"
+render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"
+render darwin false arm64 home/dot_codex/AGENTS.md.tmpl "$out_dir/AGENTS.md"
+grep -q "AI-Native Groundwork" "$out_dir/CLAUDE.md"
+grep -q "AI-Native Groundwork" "$out_dir/AGENTS.md"
+grep -q "Claude Code Notes" "$out_dir/CLAUDE.md"
+grep -q "Codex Notes" "$out_dir/AGENTS.md"
+
+echo "check: docs links"
+for page in docs/*.html; do
+  dir="$(dirname "$page")"
+  while IFS= read -r href; do
+    case "$href" in
+      http:*|https:*|mailto:*|\#*|"") continue ;;
+    esac
+    target="${href%%#*}"
+    [[ -n "$target" ]] || continue
+    if [[ ! -e "$dir/$target" ]]; then
+      echo "missing $page: $href" >&2
+      exit 1
+    fi
+  done < <(grep -Eo 'href="[^"]+"' "$page" | sed -E 's/^href="([^"]*)"$/\1/')
+done
+
+echo "check: common secret patterns"
+assert_no_matches "secret-like pattern found" git grep -n -E '(-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})'
+
+if [[ -n "${GROUNDWORK_PUBLIC_DENYLIST_PATTERN:-}" ]]; then
+  echo "check: local public denylist env pattern"
+  assert_no_matches "local public denylist env pattern matched" rg -n "$GROUNDWORK_PUBLIC_DENYLIST_PATTERN" . --hidden -g '!.git' -g '!node_modules'
+fi
+
+if [[ -f .groundwork-public-denylist ]]; then
+  echo "check: local public denylist file"
+  while IFS= read -r pattern; do
+    [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+    assert_no_matches "local public denylist file pattern matched" rg -n "$pattern" . --hidden -g '!.git' -g '!node_modules' -g '!.groundwork-public-denylist'
+  done < .groundwork-public-denylist
+fi
+
+echo "check: old name residue"
+assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'
+
+echo "check: whitespace"
+git diff --check
+
+echo "ok: Groundwork validation passed"

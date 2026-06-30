@@ -1,0 +1,40 @@
+{{- $work := promptBoolOnce . "work" "Is this a work machine? [y/N]" false -}}
+{{- $headless := false -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{- $headless = promptBoolOnce . "headless" "Is this a server/CI Mac with no desktop apps? Most Macs should say no. [y/N]" false -}}
+{{- end -}}
+{{- $githubUser := promptStringOnce . "github_username" "What is your GitHub username?" -}}
+{{- $name := promptStringOnce . "name" "What name should Git use for commits?" -}}
+{{- $emailPersonal := promptStringOnce . "email_personal" "What personal email should Git use for commits?" -}}
+{{- $emailWork := promptStringOnce . "email_work" "What work email should Git use? (blank if none)" "" -}}
+{{- $codeDir := promptStringOnce . "code_dir" "Where should projects live?" "~/code" -}}
+{{- $resetExisting := promptBoolOnce . "reset_existing_configs" "Reset old terminal/editor/tmux state before applying? [y/N]" false -}}
+{{- $pwManagers := list "bitwarden" "1password" "none" -}}
+{{- $pwManager := promptChoiceOnce . "password_manager" "Which password manager should Groundwork configure for SSH + git signing?" $pwManagers "bitwarden" -}}
+{{- $signingKey := promptStringOnce . "signingkey" "What SSH public key should Git use for signing? (blank to skip)" "" -}}
+{{- $obsidianVault := promptStringOnce . "obsidian_vault_name" "What should the Obsidian vault be named? (blank to skip)" "my_obsidian_vault" -}}
+{{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools? Large download. [y/N]" false -}}
+{{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple/iOS development? Large (~15GB+). [y/N]" false -}}
+
+sourceDir = {{ .chezmoi.workingTree | quote }}
+
+[data]
+    work = {{ $work }}
+    headless = {{ $headless }}
+    github_username = {{ $githubUser | quote }}
+    name = {{ $name | quote }}
+    email_personal = {{ $emailPersonal | quote }}
+    email_work = {{ $emailWork | quote }}
+    code_dir = {{ $codeDir | quote }}
+    reset_existing_configs = {{ $resetExisting }}
+    password_manager = {{ $pwManager | quote }}
+    signingkey = {{ $signingKey | quote }}
+    obsidian_vault_name = {{ $obsidianVault | quote }}
+    game_dev = {{ $gameDev }}
+    xcode = {{ $xcode }}
+
+[edit]
+    command = "nvim"
+
+[diff]
+    pager = "delta"

@@ -1,0 +1,79 @@
+# VS Code / Cursor extensions, curated from the work Mac.
+# Lines starting with # are skipped by the installer (run_onchange_after_25).
+# Prefix with code: for extensions only published on the Microsoft Marketplace.
+# Unprefixed extensions are shared by VS Code and Cursor/Open VSX.
+# Copilot, Windows-only (WSL), and redundant theme/icon packs were left out on purpose.
+
+# AI + context handoff
+anthropic.claude-code
+code:llacoste2000.llm-copy-files
+
+# Review + verification
+GitHub.vscode-pull-request-github
+GitHub.vscode-github-actions
+ms-playwright.playwright
+
+# Theme + icons
+catppuccin.catppuccin-vsc
+pkief.material-icon-theme
+
+# Editing + navigation
+vscodevim.vim
+usernamehw.errorlens
+alefragnani.bookmarks
+alefragnani.project-manager
+ionutvmi.path-autocomplete
+
+# Git
+eamodio.gitlens
+
+# Format + lint
+esbenp.prettier-vscode
+dbaeumer.vscode-eslint
+editorconfig.editorconfig
+davidanson.vscode-markdownlint
+timonwong.shellcheck
+
+# Web / React / CSS
+bradlc.vscode-tailwindcss
+dsznajder.es7-react-js-snippets
+yoavbls.pretty-ts-errors
+
+# Data / API / formats
+humao.rest-client
+tamasfe.even-better-toml
+graphql.vscode-graphql
+graphql.vscode-graphql-execution
+graphql.vscode-graphql-syntax
+redhat.vscode-yaml
+mechatroner.rainbow-csv
+richie5um2.vscode-sort-json
+bierner.markdown-mermaid
+
+# Containers / remote
+ms-azuretools.vscode-docker
+ms-azuretools.vscode-containers
+code:ms-vscode-remote.remote-containers
+
+{{ if or .work .game_dev -}}
+# C# / Unity / .NET — work stack or optional game-dev track
+code:ms-dotnettools.csharp
+code:ms-dotnettools.csdevkit
+ms-dotnettools.vscode-dotnet-runtime
+code:ms-dotnettools.vscodeintellicode-csharp
+csharpier.csharpier-vscode
+fernandoescolar.vscode-solution-explorer
+aliasadidev.nugetpackagemanagergui
+patcx.vscode-nuget-gallery
+{{- end }}
+{{ if .work -}}
+# Work stack (SQL Server / Kubernetes / Terraform) — work Mac only
+ms-mssql.mssql
+code:ms-mssql.data-workspace-vscode
+code:ms-mssql.sql-bindings-vscode
+code:ms-mssql.sql-database-projects-vscode
+code:adpyke.vscode-sql-formatter
+code:chris-rimmer.liquibase-snippets
+ms-kubernetes-tools.vscode-kubernetes-tools
+4ops.terraform
+{{- end }}

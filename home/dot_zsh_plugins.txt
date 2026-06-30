@@ -1,0 +1,3 @@
+mattmc3/ez-compinit
+zsh-users/zsh-autosuggestions
+zdharma-continuum/fast-syntax-highlighting kind:defer

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Apps with AI · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Apps with AI · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Apps with AI · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+<aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html" class="active">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+<p class="eyebrow">Track · Apps</p>
+      <h1>Build a real app &mdash; spec first, then ship it.</h1>
+      <p class="lead">An app is a site that <em>remembers</em> things. You'll build a small task tracker that saves your data, runs on a real database, and deploys to the cloud &mdash; and you'll do it the way professionals build with AI now: write a short spec first, let the agent implement, review every change, and prove it works with a test. This is where vibe coding grows into engineering.</p>
+      <div class="callout note">
+        <span class="label">How this track reads</span>
+        <p>This is the <a href="path.html">path</a> made concrete for software people depend on. It leans harder on the chops from <a href="agentic-engineering.html">Vibe &rarr; agentic</a> than the other tracks, because apps are where "it works on my screen" stops being good enough. Each step has a <strong>prompt</strong>, the <strong>concept</strong>, and a <strong>your turn</strong>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>What you'll install</h2>
+      <ol>
+        <li><strong>Node.js 24 + VS Code</strong> &mdash; same base as the <a href="web-dev.html">web track</a>; <code>mise</code> from the <a href="setup.html">groundwork environment</a> already gives you Node.</li>
+        <li><strong>An AI assistant that edits files</strong> &mdash; Claude Code, Cursor, or similar, working in your project folder.</li>
+        <li><strong>A free database</strong> &mdash; a hosted Postgres (Neon or Supabase free tier) for the real version, or SQLite to start fully local.</li>
+        <li><strong>Git + a free host</strong> &mdash; a <a href="git.html">Git</a> repo and a Vercel account for serverless deploys.</li>
+      </ol>
+
+      <h2><span class="num">1</span>Write the spec first</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Help me write a one-page spec for a personal task tracker: what it does, the data it stores (a task has text, a done flag, a created date), the actions (add, toggle done, delete), and 3–4 acceptance criteria like "a refreshed page still shows my tasks." Don't write code yet.</div>
+      <div class="concept"><b>Concept · Spec-driven development</b>The spec is the real instruction &mdash; the code is downstream of it. Writing it first turns a vague idea into clear, checkable requirements, and gives the agent a target instead of a vibe. This single habit is the biggest difference between a toy and software you can trust. Keep the spec in the repo; you'll edit it as the app grows.</div>
+      <div class="yourturn"><b>Your turn:</b> add one acceptance criterion the agent didn't think of (an empty task shouldn't be addable?). You're now designing, not just asking.</div>
+
+      <h2><span class="num">2</span>Scaffold the app</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Scaffold a Next.js app for this spec and build the front end first with in-memory data: a form to add a task and a list that shows them with a done toggle and delete. Explain the folder structure as you go.</div>
+      <div class="concept"><b>Concept · App structure &amp; client vs server</b>A framework gives you a real project layout &mdash; pages/routes, components, and a split between code that runs in the browser (the UI) and code that runs on the server. Right now data lives only in memory and vanishes on refresh &mdash; that's the gap the next step fills, and feeling that gap is the point.</div>
+      <div class="yourturn"><b>Your turn:</b> add a task, refresh the page, watch it disappear. Now you <em>want</em> a database &mdash; that's the pain that earns the next step.</div>
+
+      <h2><span class="num">3</span>Give it a memory</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Add a database so tasks persist. Define a tasks table matching the spec, and wire add/toggle/delete to read and write it. Use SQLite locally, or a free hosted Postgres via an environment variable for the connection string.</div>
+      <div class="concept"><b>Concept · Data models, CRUD, and secrets</b>An app's data lives in a database as <strong>tables</strong> (your task model becomes columns). The four basic operations &mdash; Create, Read, Update, Delete (CRUD) &mdash; are most of what apps do. And the database password goes in an <strong>environment variable</strong>, never in the code &mdash; your first real security habit.</div>
+      <div class="yourturn"><b>Your turn:</b> confirm a secret isn't hard-coded anywhere. Ask the agent "where does the connection string come from?" and verify the answer in the files.</div>
+
+      <h2><span class="num">4</span>Prove it works</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Turn my acceptance criteria into automated tests &mdash; at least one that adds a task and confirms it's saved, and one for delete. Show me how to run them.</div>
+      <div class="concept"><b>Concept · Tests as the safety net</b>A test encodes "this should be true" so a machine checks it for you &mdash; forever. When an agent changes code later, the tests catch what it broke. Tests are how you let the AI move fast without holding your breath: green means the behavior you specified still holds.</div>
+      <div class="yourturn"><b>Your turn:</b> deliberately break the add feature, run the tests, and watch one go red. That red line is the test doing its job.</div>
+
+      <h2><span class="num">5</span>Review like an engineer</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Add a feature: let me edit a task's text. Make the change, then show me the diff and explain what you touched and why.</div>
+      <div class="concept"><b>Concept · Diff review</b>This is the central chop. Don't just check that it runs &mdash; read what changed, decide if it's the right design, and make sure it didn't quietly alter something else. The agent is fast and fallible; you are the reviewer who keeps the quality bar. Run the tests after, too.</div>
+      <div class="yourturn"><b>Your turn:</b> find one thing in the diff you'd have done differently and ask the agent to change it. You're directing now, not following.</div>
+
+      <h2><span class="num">6</span>Deploy serverless</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Deploy this to Vercel from my Git repo, set the database connection string as an environment variable in the host, and give me the live URL.</div>
+      <div class="concept"><b>Concept · Serverless hosting</b>Your app runs on infrastructure that scales automatically and costs nothing when idle &mdash; you push to <a href="git.html">Git</a>, it builds and goes live. This "serverless" shape (functions + a managed database) is how modern apps are hosted from a hobby project all the way up to a company's product.</div>
+      <div class="yourturn"><b>Your turn:</b> open the live URL on your phone, add a task, and see it persist. You shipped a real, multi-device app.</div>
+
+      <h2><span class="hash">#</span>Where to go next</h2>
+      <ul>
+        <li><strong>Fundamentals, free:</strong> the <a href="https://nextjs.org/learn" target="_blank" rel="noopener">Next.js Learn</a> course, and <a href="https://www.theodinproject.com/" target="_blank" rel="noopener">The Odin Project</a> for a full free full-stack curriculum.</li>
+        <li><strong>The chops:</strong> keep running the loop from <a href="agentic-engineering.html">Vibe &rarr; agentic</a> &mdash; update the spec, let tests go red, make them green, review the diff, note what changed.</li>
+        <li><strong>Add the next layer:</strong> accounts and login, then multiple users. The moment an app has real users, you're doing professional software.</li>
+      </ul>
+      <div class="callout key"><span class="label">This is the on-ramp to a real platform</span><p>The shape you just built &mdash; spec, a data model, tests, a reviewed diff, a serverless deploy &mdash; is exactly how production apps are made, only smaller. Scale it up with accounts, multiple users, and several apps sharing one login, and you've described a full application platform. That's a long road, and you just walked the first mile of it.</p></div>
+
+      <div class="pager">
+        <a href="web-dev.html"><span class="lab">Previous</span>&larr; Web &amp; sites</a>
+        <a href="gen-media.html"><span class="lab">Next</span>Image &amp; video &rarr;</a>
+      </div>
+      <p class="foot">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</p>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

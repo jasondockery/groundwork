@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Command line &amp; Unix · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Command line &amp; Unix · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Command line &amp; Unix · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html" class="active">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Foundations</p>
+      <h1>The command line &amp; Unix: the bedrock under everything else.</h1>
+      <p class="lead">Once you can open a terminal and move around, this is the next layer: the core commands, how to chain them, how to write a small script, and — the part most guides skip — what "Unix" actually is and how macOS, Linux, and WSL fit together. None of the other tools, or the agents using them, make full sense without it.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Something broke and you realized you cannot navigate, inspect files, or run commands without the agent.</div>
+
+      <div class="callout note">
+        <span class="label">Come here after Getting started</span>
+        <p>This page assumes you've done <a href="getting-started.html">Getting started</a> — you can open Ghostty, read the prompt, and use <code>cd</code>/<code>ls</code>. Here we widen the toolkit and explain the ground it all stands on.</p>
+      </div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — core commands</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>cp</code> / <code>mv</code> / <code>rm</code></span> <span class="act">copy / move / remove</span></div>
+          <div class="qr"><span class="keys"><code>mkdir</code> / <code>touch</code></span> <span class="act">make folder / file</span></div>
+          <div class="qr"><span class="keys"><code>cat</code> / <code>less</code></span> <span class="act">show / page a file</span></div>
+          <div class="qr"><span class="keys"><code>grep</code></span> <span class="act">find text in files</span></div>
+          <div class="qr"><span class="keys"><code>find</code></span> <span class="act">find files</span></div>
+          <div class="qr"><span class="keys"><code>|</code></span> <span class="act">pipe output → next command</span></div>
+          <div class="qr"><span class="keys"><code>&gt;</code> / <code>&gt;&gt;</code></span> <span class="act">write / append to a file</span></div>
+          <div class="qr"><span class="keys"><code>chmod +x</code></span> <span class="act">make a script runnable</span></div>
+          <div class="qr"><span class="keys"><code>man</code> / <code>--help</code></span> <span class="act">read the manual</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></span> <span class="act">stop a command</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>A bigger toolkit</h2>
+      <p>Beyond moving around, these are the verbs you'll use constantly. (This setup swaps a few for nicer versions — <code>ls</code>→eza, <code>cat</code>→bat, and <code>grep</code>/<code>find</code> have faster cousins <code>rg</code>/<code>fd</code> on the <a href="shell.html">Shell page</a> — but the classics below are everywhere, so they're worth knowing by name.)</p>
+      <table class="keytable">
+        <tr><td><code>cp</code> <em>src dst</em></td><td>Copy a file (<code>cp -r</code> for a folder)</td></tr>
+        <tr><td><code>mv</code> <em>src dst</em></td><td>Move or rename</td></tr>
+        <tr><td><code>rm</code> <em>file</em></td><td>Remove a file (<code>rm -r</code> a folder). <strong>No trash — it's gone.</strong> Be careful</td></tr>
+        <tr><td><code>mkdir</code> <em>name</em></td><td>Make a folder (<code>mkdir -p a/b/c</code> makes the whole chain)</td></tr>
+        <tr><td><code>touch</code> <em>file</em></td><td>Create an empty file (or update its timestamp)</td></tr>
+        <tr><td><code>cat</code> <em>file</em></td><td>Print a whole file; <code>less</code> <em>file</em> pages through a long one (<kbd>q</kbd> quits)</td></tr>
+        <tr><td><code>head</code> / <code>tail</code></td><td>First / last lines of a file; <code>tail -f</code> follows a growing log live</td></tr>
+        <tr><td><code>grep</code> <em>text</em></td><td>Find lines matching text (across files with <code>grep -r</code>)</td></tr>
+        <tr><td><code>find</code> <em>path</em></td><td>Find files by name, type, age — powerful and a little fiddly</td></tr>
+        <tr><td><code>wc</code> / <code>sort</code> / <code>uniq</code></td><td>Count lines/words · sort lines · collapse duplicates — the classic text toolkit</td></tr>
+        <tr><td><code>ps</code> / <code>kill</code></td><td>List running processes / stop one by its ID (<code>top</code> shows them live)</td></tr>
+        <tr><td><code>chmod</code> / <code>chown</code></td><td>Change a file's permissions / owner</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>The big idea: small tools, piped together</h2>
+      <p>This is the heart of Unix and the reason the command line is so powerful: each tool does one thing, and you connect them. A <strong>pipe</strong> (<code>|</code>) feeds one command's output into the next; a <strong>redirect</strong> (<code>&gt;</code>) sends output to a file. Chain a few and you've built something none of them does alone.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">composing commands</span></div>
+        <pre><code><span class="prompt">$ </span>history | grep git | tail -5      <span class="comment"># your last 5 git commands</span>
+<span class="prompt">$ </span>ls -la &gt; listing.txt              <span class="comment"># write output to a file (overwrite)</span>
+<span class="prompt">$ </span>echo "a note" &gt;&gt; log.txt           <span class="comment"># append to a file</span>
+<span class="prompt">$ </span>cat names.txt | sort | uniq       <span class="comment"># sorted, de-duplicated list</span></code></pre>
+      </div>
+      <table class="keytable">
+        <tr><td><code>a | b</code></td><td><strong>Pipe</strong> — send <code>a</code>'s output into <code>b</code> as its input</td></tr>
+        <tr><td><code>&gt; file</code></td><td>Send output <strong>into a file</strong>, replacing it</td></tr>
+        <tr><td><code>&gt;&gt; file</code></td><td><strong>Append</strong> output to the end of a file</td></tr>
+        <tr><td><code>&lt; file</code></td><td>Feed a file <strong>in</strong> as a command's input</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Permissions &amp; <code>sudo</code></h2>
+      <p>Every file records who may read, write, and execute it. You'll mostly meet this in two places: making a script <em>executable</em>, and being told "permission denied." <code>chmod +x file</code> grants the run permission. And <code>sudo</code> runs a single command as the all-powerful "root" admin — necessary sometimes, but pause and read any command you're about to <code>sudo</code>, because root can change anything.</p>
+      <div class="callout warn">
+        <span class="label">Two commands to truly respect</span>
+        <p><code>rm -rf</code> deletes a folder and everything under it with no undo, and <code>sudo</code> removes the guardrails. They're normal tools — but read them twice before pressing <kbd>Enter</kbd>, especially if a path has a variable in it.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Writing your first script</h2>
+      <p>A <strong>shell script</strong> is just a file of commands the shell runs top to bottom — the natural next step once you're typing the same sequence repeatedly. Three things make a script: a "shebang" line naming the interpreter, the commands, and the executable permission.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">greet.sh</span></div>
+        <pre><code>#!/usr/bin/env bash            <span class="comment"># the shebang: run this with bash</span>
+set -euo pipefail             <span class="comment"># stop on errors + unset vars (good habit)</span>
+
+name="${1:-world}"            <span class="comment"># first argument, or "world" if none</span>
+for i in 1 2 3; do
+  echo "hello, $name ($i)"
+done</code></pre>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">run it</span></div>
+        <pre><code><span class="prompt">$ </span>chmod +x greet.sh     <span class="comment"># make it runnable (once)</span>
+<span class="prompt">$ </span>./greet.sh Ada        <span class="comment"># the ./ means "in this folder"</span></code></pre>
+      </div>
+      <p>From there the language grows: variables (<code>name="x"</code>, used as <code>$name</code>), conditionals (<code>if</code>), loops (<code>for</code>, <code>while</code>), and functions. The <a href="setup.html">setup's own <code>run_</code> scripts</a> are real-world examples you can read. Two habits that save hours: start every script with <code>set -euo pipefail</code>, and run it through <strong>ShellCheck</strong> (linked below) — it catches the classic mistakes before they bite.</p>
+
+      <h2><span class="hash">#</span>So what <em>is</em> Unix? (and where your Mac fits)</h2>
+      <p>You'll hear "Unix," "Linux," and "macOS" used loosely. Here's the real picture — it explains why some commands you copy from the internet behave differently on a Mac.</p>
+
+      <h3>One ancestor, two branches</h3>
+      <p><strong>Unix</strong> was born at AT&amp;T's Bell Labs in 1969. From it grew two big lineages: the <strong>BSD</strong> branch (from UC Berkeley) and the <strong>System&nbsp;V</strong> branch (AT&amp;T's commercial line). Almost every Unix-like system today traces back to one or both.</p>
+
+      <h3>GNU + Linux = the Linux you hear about</h3>
+      <p>The <strong>GNU project</strong> (started 1983) rebuilt the Unix <em>tools</em> as free software but lacked a kernel. In 1991 <strong>Linus Torvalds</strong> released the <strong>Linux kernel</strong>. GNU's tools + Linux's kernel = a complete free OS, which is why purists call it "GNU/Linux." A <strong>distribution</strong> ("distro") bundles that into a usable system; the big families:</p>
+      <table class="keytable">
+        <tr><td><strong>Debian → Ubuntu</strong></td><td>Ubuntu is built on Debian; both install <code>.deb</code> packages with <code>apt</code>. The common beginner default</td></tr>
+        <tr><td><strong>Fedora → RHEL</strong></td><td>Fedora is the fast-moving upstream; Red Hat Enterprise Linux is the stable downstream. Use <code>dnf</code>/<code>rpm</code></td></tr>
+        <tr><td><strong>Arch</strong></td><td>Independent and "rolling release" (always latest); package manager <code>pacman</code>. Minimal, build-it-yourself</td></tr>
+      </table>
+
+      <h3>macOS: a real Unix, but not Linux</h3>
+      <p>Your Mac's core is <strong>Darwin</strong>, built on the <strong>XNU</strong> kernel — a hybrid of the Mach microkernel and a big helping of <strong>BSD</strong>. That BSD heritage came to Apple from <strong>NeXTSTEP</strong> (acquired in 1997). The surprising part: <strong>macOS is an officially certified UNIX</strong> — it passes The Open Group's UNIX specification, which Linux itself does not. So macOS is genuinely "UNIX," while Linux is "Unix-<em>like</em>." But they share no kernel — <strong>macOS is not Linux</strong>.</p>
+
+      <h3>What this means for you, practically</h3>
+      <p>Because macOS ships the <strong>BSD</strong> versions of the classic tools while most online tutorials assume the <strong>GNU</strong> (Linux) versions, a few commands take different flags. The ones that actually bite:</p>
+      <table class="keytable">
+        <tr><td><code>sed -i</code></td><td>On a Mac it needs an argument: <code>sed -i '' 's/x/y/' file</code> (the <code>''</code> = no backup). On Linux it's just <code>sed -i 's/x/y/' file</code></td></tr>
+        <tr><td><code>date</code></td><td>Mac: <code>date -v-1d</code> for "yesterday"; Linux: <code>date -d "-1 day"</code></td></tr>
+        <tr><td><code>readlink -f</code></td><td>GNU-only — not on stock macOS</td></tr>
+        <tr><td>Filenames' case</td><td>The Mac's default filesystem treats <code>File.txt</code> and <code>file.txt</code> as the <em>same</em> name; Linux treats them as different — a real gotcha when sharing repos</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">The common fix: GNU tools on your Mac</span>
+        <p>If you want the Linux behavior, install the GNU versions: <code>brew install coreutils gnu-sed findutils grep</code>. Homebrew names them with a <code>g</code> prefix (<code>gsed</code>, <code>gdate</code>, <code>gls</code>) so they don't shadow the system ones. Also worth knowing: your Mac's default shell has been <strong>zsh</strong> since macOS Catalina (2019), and the built-in <code>/bin/bash</code> is frozen at an ancient 3.2 — <code>brew install bash</code> if you need a modern one.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Compose a pipeline</h3>
+          <p>Run <code>ls -la /usr/bin | wc -l</code> to count the programs in a folder. Then <code>history | grep cd | tail -3</code>. Notice you're building new tools out of small ones — that's the whole game.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Write and run a script</h3>
+          <p>Save the <code>greet.sh</code> above with <code>nvim greet.sh</code>, <code>chmod +x greet.sh</code>, then <code>./greet.sh yourname</code>. Change the loop, run it again. You just automated something.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Play Bandit</h3>
+          <p>Spend an hour on <a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener">OverTheWire: Bandit</a> — a game where each level teaches a real command (<code>ls</code>, <code>cat</code>, <code>grep</code>, <code>find</code>, <code>ssh</code>) to unlock the next. The single best hands-on way to get fluent.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <p><strong>Learn the basics:</strong></p>
+      <ul>
+        <li><a href="https://linuxcommand.org/tlcl.php" target="_blank" rel="noopener">The Linux Command Line</a> (William Shotts) — the best free book for newcomers, first commands through scripting. Free PDF, kept current.</li>
+        <li><a href="https://missing.csail.mit.edu/" target="_blank" rel="noopener">The Missing Semester</a> (MIT) — free course on the shell, scripting, and tooling; the single best foundation.</li>
+        <li><a href="https://ubuntu.com/tutorials/command-line-for-beginners" target="_blank" rel="noopener">The Linux command line for beginners</a> (Ubuntu) — assumes zero knowledge.</li>
+        <li><a href="https://explainshell.com/" target="_blank" rel="noopener">explainshell.com</a> — paste any command, see every flag explained.</li>
+      </ul>
+      <p><strong>Shell scripting:</strong></p>
+      <ul>
+        <li><a href="https://mywiki.wooledge.org/BashGuide" target="_blank" rel="noopener">BashGuide</a> (Greg's Wiki) — the canonical "learn bash <em>correctly</em>" tutorial; pair it with <a href="https://mywiki.wooledge.org/BashPitfalls" target="_blank" rel="noopener">BashPitfalls</a>.</li>
+        <li><a href="https://www.shellcheck.net/" target="_blank" rel="noopener">ShellCheck</a> — paste a script and it flags bugs instantly. Run it on everything you write.</li>
+        <li><a href="https://google.github.io/styleguide/shellguide.html" target="_blank" rel="noopener">Google Shell Style Guide</a> — sensible conventions, and when <em>not</em> to use a shell script.</li>
+        <li><a href="https://devhints.io/bash" target="_blank" rel="noopener">devhints.io Bash cheat sheet</a> — a dense one-page reference.</li>
+      </ul>
+      <p><strong>Practice &amp; drills:</strong></p>
+      <ul>
+        <li><a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener">OverTheWire: Bandit</a> — 34 levels of real command-line problem-solving. Start here.</li>
+        <li><a href="https://cmdchallenge.com/" target="_blank" rel="noopener">cmdchallenge</a> — "do X in one command" browser puzzles.</li>
+        <li><a href="https://exercism.org/tracks/bash" target="_blank" rel="noopener">Exercism — Bash track</a> — graded exercises with free mentoring.</li>
+        <li><a href="https://sadservers.com/" target="_blank" rel="noopener">SadServers</a> — fix a "broken" Linux server; realistic debugging practice.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="getting-started.html"><span class="dir">← Prev</span>Getting started</a>
+        <a href="setup.html"><span class="dir">Next →</span>Setup &amp; chezmoi</a>
+      </div>
+      <footer class="site">Small tools, piped together — that's Unix. Your Mac is one, with a BSD accent.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

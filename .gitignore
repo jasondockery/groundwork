@@ -1,0 +1,6 @@
+.DS_Store
+.groundwork-public-denylist
+
+# Local agent/tool state. Keep canonical shared instructions in AGENTS.md and
+# tool adapters tracked explicitly; keep per-machine permission history private.
+.claude/settings.local.json

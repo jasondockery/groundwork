@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Groundwork social preview">
+  <rect width="1200" height="630" fill="#1e1e2e"/>
+  <rect x="72" y="72" width="1056" height="486" rx="28" fill="#181825" stroke="#313244" stroke-width="3"/>
+  <text x="116" y="154" fill="#94e2d5" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="34">AI-native developer foundation</text>
+  <text x="116" y="288" fill="#cdd6f4" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="92" font-weight="700">Groundwork</text>
+  <text x="116" y="370" fill="#bac2de" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38">Mac, Linux/WSL, and headless agent workspaces.</text>
+  <text x="116" y="436" fill="#a6adc8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="29">shell · Git · project instructions · verification · agents</text>
+  <rect x="116" y="484" width="292" height="8" rx="4" fill="#cba6f7"/>
+  <rect x="428" y="484" width="188" height="8" rx="4" fill="#89b4fa"/>
+  <rect x="636" y="484" width="132" height="8" rx="4" fill="#94e2d5"/>
+</svg>

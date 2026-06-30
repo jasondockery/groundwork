@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Best-effort Obsidian community-plugin installer. The plugin list and installer
+# live in Groundwork so every vault gets the same curated plugin set. Existing
+# plugin folders are left untouched, so iCloud-synced installs win.
+{{ if and (eq .chezmoi.os "darwin") (not .headless) (not .work) -}}
+set -euo pipefail
+
+vault_name="{{ .obsidian_vault_name }}"
+[ -n "$vault_name" ] || exit 0
+vault="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/$vault_name"
+[ -d "$vault" ] || exit 0
+
+installer="$HOME/.local/bin/obsidian-plugins"
+[ -x "$installer" ] || exit 0
+
+"$installer" "$vault"
+{{- end }}

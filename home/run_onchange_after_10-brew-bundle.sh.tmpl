@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+{{- $brewfile := joinPath .chezmoi.sourceDir "dot_config/homebrew/Brewfile.tmpl" }}
+{{- if stat $brewfile }}
+# Brewfile hash: {{ include "dot_config/homebrew/Brewfile.tmpl" | sha256sum }}
+{{- end }}
+
+for brew_bin in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+done
+unset brew_bin
+
+command -v brew >/dev/null 2>&1 || exit 0
+
+# claude-code and claude-code@latest both install the `claude` binary, so
+# existing stable-channel installs need to be removed before brew bundle can
+# switch them to the latest channel declared in the Brewfile.
+if grep -q '^cask "claude-code@latest"' "$HOME/.config/homebrew/Brewfile" \
+  && brew list --cask claude-code >/dev/null 2>&1 \
+  && ! brew list --cask claude-code@latest >/dev/null 2>&1; then
+  brew uninstall --cask claude-code
+fi
+
+brew bundle --file="$HOME/.config/homebrew/Brewfile"

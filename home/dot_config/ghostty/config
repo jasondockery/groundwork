@@ -1,0 +1,21 @@
+font-family = JetBrainsMono Nerd Font
+font-size = 14
+
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+
+macos-titlebar-style = tabs
+macos-option-as-alt = true
+
+working-directory = home
+window-inherit-working-directory = true
+tab-inherit-working-directory = true
+split-inherit-working-directory = true
+window-save-state = never
+
+term = xterm-256color
+
+copy-on-select = clipboard
+mouse-hide-while-typing = true
+
+window-padding-x = 8
+window-padding-y = 6

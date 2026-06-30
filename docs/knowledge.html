@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Knowledge base · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Knowledge base · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Knowledge base · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html" class="active">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Workflow</p>
+      <h1>Build a knowledge base that compounds.</h1>
+      <p class="lead">Most people re-read their own notes every time they have a question. A better pattern: feed your sources to an AI agent once, have it build a structured wiki, and keep that wiki updated forever. The knowledge accumulates instead of evaporating.</p>
+
+      <h2><span class="hash">#</span>The shift</h2>
+      <p>The usual way to use an AI with your documents is to dump files in and ask questions — the model re-discovers the answer from raw text every single time. Nothing is retained between questions. The wiki pattern flips that: each new source is <em>processed once</em> into durable pages, and every future answer builds on what's already there.</p>
+      <p>The cleanest way to think about it: your sources are source code, the agent is a compiler, and the wiki is the program it builds. Add a source and the agent doesn't just file it away — it reads it, updates the relevant pages, revises summaries, links it to what you already knew, and flags anything that contradicts. The wiki gets smarter; you don't redo the work.</p>
+
+      <h2><span class="hash">#</span>Three layers</h2>
+      <figure class="diagram">
+        <svg viewBox="0 0 720 250" role="img" aria-label="Raw sources are compiled by the agent, guided by the schema, into wiki pages">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--mauve)"/>
+            </marker>
+          </defs>
+          <rect x="14" y="74" width="200" height="120" rx="12" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="34" y="100" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">raw/</text>
+          <text x="34" y="126" font-family="var(--mono)" font-size="13" fill="var(--green)">articles, PDFs,</text>
+          <text x="34" y="146" font-family="var(--mono)" font-size="13" fill="var(--green)">notes, transcripts</text>
+          <text x="34" y="176" font-family="var(--mono)" font-size="11" fill="var(--overlay0)">immutable sources</text>
+          <line x1="224" y1="134" x2="288" y2="134" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <circle cx="360" cy="134" r="56" fill="var(--mantle)" stroke="var(--mauve)"/>
+          <text x="360" y="130" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--mauve)">agent</text>
+          <text x="360" y="150" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay1)">(compiler)</text>
+          <rect x="300" y="20" width="120" height="26" rx="13" fill="var(--mantle)" stroke="var(--sapphire)"/>
+          <text x="360" y="37" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--sapphire)">AGENTS.md</text>
+          <line x1="360" y1="46" x2="360" y2="76" stroke="var(--sapphire)" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <text x="360" y="232" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">schema = build config</text>
+          <line x1="432" y1="134" x2="496" y2="134" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <rect x="506" y="74" width="200" height="120" rx="12" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="526" y="100" font-family="var(--mono)" font-size="12" fill="var(--overlay1)">wiki/</text>
+          <text x="526" y="126" font-family="var(--mono)" font-size="13" fill="var(--blue)">linked pages,</text>
+          <text x="526" y="146" font-family="var(--mono)" font-size="13" fill="var(--blue)">summaries, index</text>
+          <text x="526" y="176" font-family="var(--mono)" font-size="11" fill="var(--overlay0)">the built output</text>
+        </svg>
+        <figcaption>You curate <code>raw/</code>. The agent maintains <code>wiki/</code>. The schema in <code>AGENTS.md</code> tells it how — page shapes, naming, what to do on every ingest.</figcaption>
+      </figure>
+      <ul>
+        <li><strong><code>raw/</code></strong> — the sources you collect. You decide what goes in; you never edit them.</li>
+        <li><strong><code>wiki/</code></strong> — the pages the agent writes: one concept each, cross-linked with <code>[[wiki-links]]</code>, plus an index and a change log.</li>
+        <li><strong><code>AGENTS.md</code></strong> — the schema. The most important file: it turns a general-purpose agent into a disciplined librarian that follows the same rules every time.</li>
+      </ul>
+
+      <h2><span class="hash">#</span>Three operations</h2>
+      <table class="keytable">
+        <tr><td><code>ingest</code></td><td>Read a new source, update or create pages, link it in, flag contradictions, record where it came from.</td></tr>
+        <tr><td><code>query</code></td><td>Answer from the wiki first, citing the pages used; name the gap if it isn't covered yet.</td></tr>
+        <tr><td><code>save-answer</code></td><td>Turn a useful answer into a durable page under <code>wiki/questions/</code> or the right topic folder.</td></tr>
+        <tr><td><code>lint</code></td><td>Health check — orphan pages, broken links, duplicates, claims missing a source.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Start one in seconds</h2>
+      <p>This setup ships a scaffolder. Point it at a new folder and it lays down the structure, the schema, Obsidian vault defaults, and a fresh Git repo. Obsidian plugins are installed by the Groundwork-managed <code>obsidian-plugins</code> command:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">new-wiki</span></div>
+        <pre><code><span class="prompt">$ </span>new-wiki ~/code/llm-wiki
+<span class="prompt">$ </span>obsidian-plugins ~/code/llm-wiki</code></pre>
+      </div>
+      <p>Then open that folder with Claude Code or Codex, add a source, and tell it to ingest:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">first-ingest</span></div>
+        <pre><code><span class="prompt">$ </span>cd ~/code/llm-wiki
+<span class="prompt">$ </span>cp ~/Downloads/some-article.md raw/
+<span class="prompt">$ </span>claude
+<span class="comment"># then: "ingest raw/some-article.md"</span></code></pre>
+      </div>
+
+      <div class="callout note">
+        <span class="label">Obsidian is the viewer</span>
+        <p>Open the folder as an Obsidian vault to browse the pages and follow the <code>[[links]]</code> as a graph. Obsidian only reads the markdown — the agent does the writing — so the two never fight over the files. The Groundwork repo owns the Obsidian plugin list, plugin installer, and Vim-mode default; each vault only receives the runtime files and settings it needs.</p>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">Web Clipper</span>
+        <p>Install <a href="https://obsidian.md/clipper" target="_blank" rel="noopener">Obsidian Web Clipper</a> in your browser and set its destination to <code>raw/clippings/</code>. It saves web content as durable Markdown files in your vault, which fits this workflow exactly.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Keep it yours</h2>
+      <p>A wiki is a record of what you're reading and thinking, so it lives on its own, <strong>separate from Groundwork</strong> — its own Git repo, synced through GitHub, private. The setup repo only ships the empty scaffold and this page; your actual knowledge never rides along with the configuration that may be shared publicly.</p>
+
+      <div class="callout tip">
+        <span class="label">Start tiny</span>
+        <p>Pick one topic you're actively learning and ingest three sources. A small wiki you actually maintain beats a giant one you abandon. It compounds from there.</p>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">Don't hand-edit the output</span>
+        <p>Treat <code>wiki/</code> like compiled output: let the agent maintain it. If a page is wrong, fix the schema or re-ingest — the same way you'd fix source code rather than patching the binary.</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="new-project.html"><span class="dir">← Prev</span>Starting a project</a>
+        <a href="installed.html"><span class="dir">Next →</span>What's installed</a>
+      </div>
+      <footer class="site">Sources in. Pages out. The schema does the rest.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

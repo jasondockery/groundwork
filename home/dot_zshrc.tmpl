@@ -1,0 +1,206 @@
+for _brew in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -x "$_brew" ]] && eval "$("$_brew" shellenv)" && break
+done
+unset _brew
+
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+{{ if and (eq .chezmoi.os "darwin") (not .headless) (ne .password_manager "none") -}}
+{{ if eq .password_manager "bitwarden" }}
+# Bitwarden SSH agent (.dmg/Homebrew build). App Store build:
+# $HOME/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock
+export SSH_AUTH_SOCK="$HOME/.bitwarden-ssh-agent.sock"
+{{- else if eq .password_manager "1password" }}
+export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+{{- end }}
+{{- end }}
+
+export EDITOR="nvim"
+export VISUAL="nvim"
+export PAGER="less"
+export LESS="-R"
+export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
+export FZF_DEFAULT_COMMAND="rg --files"
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND="fd --type d"
+# AI coding agents move quickly; keep Claude Code's package-managed install on
+# its vendor-supported latest path while broad Homebrew/mise upgrades stay manual.
+export CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE=1
+
+for _antidote in "${HOMEBREW_PREFIX:-}/share/antidote/antidote.zsh" /usr/local/share/antidote/antidote.zsh "$HOME/.local/share/antidote/antidote.zsh"; do
+  if [[ -f "$_antidote" ]]; then
+    source "$_antidote"
+    antidote load "$HOME/.zsh_plugins.txt"
+    break
+  fi
+done
+unset _antidote
+
+# Emacs-style command-line editing (Ctrl+A/E/W/U/K; accept an autosuggestion with Ctrl+E).
+# Forced explicitly: zsh otherwise selects vi mode because $EDITOR is nvim (contains "vi"),
+# which leaves those keys unbound. Affects line editing only, not which editor opens.
+bindkey -e
+
+# history
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS HIST_VERIFY HIST_FCNTL_LOCK
+
+# navigation + globbing
+setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT
+setopt EXTENDED_GLOB NO_CASE_GLOB INTERACTIVE_COMMENTS NO_BEEP
+
+# completion
+setopt COMPLETE_IN_WORD ALWAYS_TO_END
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*:descriptions' format '[%d]'
+zstyle ':completion:*' rehash true
+
+command -v starship >/dev/null && eval "$(starship init zsh)"
+command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"
+command -v mise     >/dev/null && eval "$(mise activate zsh)"
+command -v direnv   >/dev/null && eval "$(direnv hook zsh)"
+if command -v fzf >/dev/null && fzf --zsh >/dev/null 2>&1; then
+  source <(fzf --zsh)
+fi
+command -v atuin    >/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
+
+alias vim="nvim"
+alias vi="nvim"
+alias ls="eza --group-directories-first"
+alias ll="eza -lah --git --group-directories-first"
+alias cat="bat"
+alias lg="lazygit"
+alias zen="open -a Zen"
+alias rga="rg -uu"
+
+rgf() {
+  emulate -L zsh
+  local query="${*:-}"
+  local rg_args=(--column --line-number --no-heading --color=always --smart-case)
+
+  if [[ -n "$query" ]]; then
+    rg "${rg_args[@]}" "$query" |
+      fzf --ansi --delimiter : \
+        --preview 'bat --color=always --style=numbers --highlight-line {2} {1}' \
+        --preview-window 'right,60%,border-left,+{2}+3/3,~3' \
+        --bind 'enter:become($EDITOR {1} +{2})'
+  else
+    fzf --ansi --disabled --prompt 'rg> ' --delimiter : \
+      --bind 'change:reload:[[ -n {q} ]] && rg --column --line-number --no-heading --color=always --smart-case {q} || true' \
+      --preview 'bat --color=always --style=numbers --highlight-line {2} {1}' \
+      --preview-window 'right,60%,border-left,+{2}+3/3,~3' \
+      --bind 'enter:become($EDITOR {1} +{2})'
+  fi
+}
+
+# Freshen everything intentionally: pull+apply Groundwork, then upgrade Homebrew and mise-managed tools.
+update-all() {
+  emulate -L zsh
+  chezmoi update || return
+  if command -v brew >/dev/null 2>&1; then
+    brew update || return
+    brew upgrade --greedy || return
+    brew cleanup || return
+  fi
+  if command -v mise >/dev/null 2>&1; then
+    mise upgrade || return
+  fi
+{{ if and (not .work) (not .headless) -}}
+  # OpenCode CLI is installed by its vendor script, so refresh it here too.
+  # The OpenCode desktop app and Codex/Claude casks are covered by Homebrew above.
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://opencode.ai/install | bash || return
+  fi
+{{- end }}
+  local state_dir="$HOME/.local/state/groundwork"
+  mkdir -p "$state_dir"
+  : >| "$state_dir/last-update-all"
+  print "Groundwork tools refreshed. The shell reminder will stay quiet until the next stale window."
+}
+
+groundwork-repo-dir() {
+  emulate -L zsh
+  local source_path="$(chezmoi source-path 2>/dev/null || true)"
+  [[ -n "$source_path" ]] || return 1
+  if [[ "${source_path:t}" == "home" && -f "${source_path:h}/AGENTS.md" ]]; then
+    print -r -- "${source_path:h}"
+  else
+    print -r -- "$source_path"
+  fi
+}
+
+new-wiki() {
+  emulate -L zsh
+  if [[ -z "$1" ]]; then
+    print "usage: new-wiki <path>"
+    return 1
+  fi
+  local dest=${~1}
+  if [[ -e "$dest" ]]; then
+    print "new-wiki: $dest already exists"
+    return 1
+  fi
+  local repo="$(groundwork-repo-dir)"
+  local src="$repo/skel/llm-wiki"
+  if [[ ! -d "$src" ]]; then
+    print "new-wiki: skeleton not found at $src"
+    return 1
+  fi
+  cp -R "$src" "$dest" || return 1
+  [[ -f "$dest/gitignore" ]] && mv "$dest/gitignore" "$dest/.gitignore"
+  git -C "$dest" init -q
+  git -C "$dest" add -A
+  git -C "$dest" commit -qm "init knowledge wiki"
+  print "wiki ready: $dest"
+  print "next: obsidian-plugins $dest"
+  print "then open it with Claude Code or Codex, add a source to raw/, and say: ingest raw/<file>"
+  cd "$dest"
+}
+
+# Personal shell overrides. This file is intentionally unmanaged by Groundwork and
+# loads last, so aliases/functions exported here win without forking the repo.
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+
+{{ if not .headless -}}
+groundwork-update-reminder() {
+  emulate -L zsh
+  [[ -o interactive ]] || return
+  [[ -z "${CI:-}" ]] || return
+  [[ "${GROUNDWORK_UPDATE_REMINDER:-1}" != "0" ]] || return
+
+  local threshold="${GROUNDWORK_UPDATE_REMINDER_DAYS:-7}"
+  [[ "$threshold" == <-> ]] || threshold=7
+  (( threshold > 0 )) || return
+
+  zmodload zsh/stat 2>/dev/null || return
+
+  local state_dir="$HOME/.local/state/groundwork"
+  local stamp="$state_dir/last-update-all"
+  local shown="$state_dir/update-reminder-last-shown"
+  local now shown_epoch last_epoch age_days
+
+  now="$(date +%s 2>/dev/null)" || return
+
+  if [[ -f "$shown" ]]; then
+    shown_epoch="$(zstat +mtime "$shown" 2>/dev/null || print 0)"
+    (( now - shown_epoch < 86400 )) && return
+  fi
+
+  if [[ -f "$stamp" ]]; then
+    last_epoch="$(zstat +mtime "$stamp" 2>/dev/null)" || return
+    age_days=$(( (now - last_epoch) / 86400 ))
+    (( age_days < threshold )) && return
+    print -P "%F{yellow}Groundwork:%f tools last refreshed ${age_days} days ago; run %Bupdate-all%b when you have a few minutes."
+  else
+    print -P "%F{yellow}Groundwork:%f no successful %Bupdate-all%b refresh has been recorded yet; run it when you have a few minutes."
+  fi
+
+  print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
+  mkdir -p "$state_dir" && : >| "$shown"
+}
+groundwork-update-reminder
+unfunction groundwork-update-reminder
+{{- end }}

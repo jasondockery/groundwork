@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Web and sites with AI · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Web and sites with AI · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Web and sites with AI · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+<aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html" class="active">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+<p class="eyebrow">Track · Web &amp; sites</p>
+      <h1>Build and ship your first website with AI.</h1>
+      <p class="lead">You'll go from a blank file to a real, live website anyone can visit &mdash; starting with a single page you fully understand, then layering on style, interactivity, real data, and a framework, and finally deploying it for free. The AI types; you learn the web underneath it.</p>
+      <div class="callout note">
+        <span class="label">How this track reads</span>
+        <p>This is the <a href="path.html">path</a> made concrete for the web. Each step has a <strong>prompt</strong> to ask your assistant, the <strong>concept</strong> you're learning, and a <strong>your turn</strong> tweak you do by hand. Build one small site you care about (a portfolio, a page for a hobby, a tiny tool) and apply each step to it.</p>
+      </div>
+
+      <h2><span class="hash">#</span>What you'll install</h2>
+      <ol>
+        <li><strong>A code editor</strong> &mdash; <a href="https://code.visualstudio.com/" target="_blank" rel="noopener">VS Code</a> is the easy default.</li>
+        <li><strong>Node.js 24</strong> &mdash; the runtime for modern web tooling. If you set up the <a href="setup.html">groundwork environment</a>, you already have it via <code>mise</code>; otherwise grab the LTS from <a href="https://nodejs.org/" target="_blank" rel="noopener">nodejs.org</a>.</li>
+        <li><strong>A browser</strong> with dev tools (Chrome, Firefox, or your <a href="apps.html">daily browser</a>).</li>
+        <li><strong>An AI assistant</strong> &mdash; Claude, Cursor, Copilot, or Codex, ideally one that can edit files in your project folder.</li>
+      </ol>
+      <div class="callout key"><span class="label">The mindset for this whole track</span><p>The web is just three languages &mdash; HTML (structure), CSS (looks), JavaScript (behavior) &mdash; plus tools that organize them. When the AI writes a file, open it and find those three things. If a line is a mystery, ask the agent to explain it. Understanding the layers is what lets you fix the site when something looks wrong, instead of re-prompting blindly.</p></div>
+
+      <h2><span class="num">1</span>One real page</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Create an <code>index.html</code> for a simple personal landing page: a heading with my name, a short bio paragraph, and a list of three links. Use semantic HTML and no styling yet.</div>
+      <div class="concept"><b>Concept · HTML &amp; the document</b>HTML is the structure &mdash; headings, paragraphs, lists, links. Open the file in your browser. "Semantic" tags (<code>&lt;header&gt;</code>, <code>&lt;nav&gt;</code>, <code>&lt;main&gt;</code>) describe <em>what</em> content is, which matters for accessibility and search. This unstyled page is the skeleton everything else hangs on.</div>
+      <div class="yourturn"><b>Your turn:</b> add a fourth link by hand, copying the pattern of the others. You just wrote HTML.</div>
+
+      <h2><span class="num">2</span>Make it yours</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Add a stylesheet that gives the page a clean, modern look &mdash; readable font, comfortable spacing, a color accent, and a layout that works on phones. Keep the CSS in its own file.</div>
+      <div class="concept"><b>Concept · CSS &amp; the box model</b>CSS controls appearance. Every element is a box with content, padding, border, and margin &mdash; the "box model," the thing you'll adjust most. Open your browser's dev tools (right-click &rarr; Inspect) and hover elements to see their boxes. Notice how the layout reflows when you resize the window &mdash; that's responsive design.</div>
+      <div class="yourturn"><b>Your turn:</b> change the accent color to one you like. Find where the AI defined it and edit that one value.</div>
+
+      <h2><span class="num">3</span>Make it do something</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Add a button that toggles the page between light and dark mode using JavaScript. Keep the script small and commented.</div>
+      <div class="concept"><b>Concept · JavaScript &amp; the DOM</b>JavaScript adds behavior. It listens for events (a click) and changes the page (the DOM &mdash; the live tree of elements). Read the script: it's "when this is clicked, flip a class on the page." That listen-then-change loop is most of front-end programming.</div>
+      <div class="yourturn"><b>Your turn:</b> change the button's text. Then open dev tools, click the button, and watch the page's class change in the Elements panel.</div>
+
+      <h2><span class="num">4</span>Pull in real data</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Add a section that fetches data from a free public API (like a quote or weather endpoint) and displays it on the page when it loads. Handle the case where the request fails.</div>
+      <div class="concept"><b>Concept · Fetch, async, and JSON</b>Most real sites get data from somewhere else. <code>fetch</code> asks a server for data; it's <em>asynchronous</em> (the page doesn't freeze while waiting), and the data usually comes back as <strong>JSON</strong>. Notice the AI handled the failure case &mdash; networks fail, and code that ignores that breaks in the real world.</div>
+      <div class="yourturn"><b>Your turn:</b> ask the agent what happens if the API is down, then read its answer against the actual code. That's diff review &mdash; the core engineering chop.</div>
+
+      <h2><span class="num">5</span>Grow into a framework</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>My site is getting repetitive. Scaffold it as an Astro (for a content site) or Next.js (for an app) project, move my page in, and split the header and footer into reusable components. Explain the folder structure.</div>
+      <div class="concept"><b>Concept · Components &amp; a build step</b>A framework lets you write a piece once (a header) and reuse it everywhere &mdash; <strong>components</strong>. It also adds a <em>build step</em> that bundles your code for the browser. This is the jump from "a few files" to "a project," and the structure you see here is how nearly all modern sites are organized.</div>
+      <div class="yourturn"><b>Your turn:</b> edit the shared header once and confirm it changes on every page. That "write once, change everywhere" moment is why components exist.</div>
+
+      <h2><span class="num">6</span>Put it on the internet</h2>
+      <div class="prompt-card"><span class="who">ask your AI</span>Walk me through deploying this site for free &mdash; connect the project's Git repo to a host like Vercel, Netlify, or Cloudflare Pages so it rebuilds and goes live on every push.</div>
+      <div class="concept"><b>Concept · Deploy &amp; the Git workflow</b>Modern hosting watches your <a href="git.html">Git</a> repo: you push a change, it builds and publishes automatically. Free tiers are generous enough for real projects. You now have a public URL &mdash; and the same push-to-deploy loop the pros use.</div>
+      <div class="yourturn"><b>Your turn:</b> make one small edit, commit, and push &mdash; then watch it appear live a minute later. That feedback loop is addictive on purpose.</div>
+
+      <h2><span class="hash">#</span>Where to go next</h2>
+      <ul>
+        <li><strong>Fundamentals, free:</strong> <a href="https://developer.mozilla.org/" target="_blank" rel="noopener">MDN Web Docs</a> (the reference for everything web) and <a href="https://web.dev/learn" target="_blank" rel="noopener">web.dev/learn</a> for structured courses on HTML, CSS, and responsive design.</li>
+        <li><strong>The chops:</strong> on the <a href="agentic-engineering.html">Vibe &rarr; agentic</a> page &mdash; start specifying a feature before you prompt, and review every diff for what it actually changed.</li>
+        <li><strong>Next step up:</strong> the <a href="app-dev.html">Apps track</a> takes the framework you just met and adds real data storage, accounts, and a back end.</li>
+      </ul>
+      <div class="callout key"><span class="label">The arc, in web form</span><p>The first page appearing in your browser is the floor &mdash; exciting and instant. Understanding the three languages, reviewing the data-fetch code, and owning the deploy loop is the climb. Keep doing both.</p></div>
+
+      <div class="pager">
+        <a href="game-dev-unity.html"><span class="lab">Previous</span>&larr; FPS &middot; Unity</a>
+        <a href="app-dev.html"><span class="lab">Next</span>Apps &rarr;</a>
+      </div>
+      <p class="foot">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</p>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+catalog="${GROUNDWORK_COMMANDS:-$HOME/.local/share/groundwork/commands.tsv}"
+
+if [[ ! -f "$catalog" ]]; then
+  source_path="$(chezmoi source-path 2>/dev/null || true)"
+  if [[ -n "$source_path" && -f "$source_path/dot_local/share/groundwork/commands.tsv" ]]; then
+    catalog="$source_path/dot_local/share/groundwork/commands.tsv"
+  elif [[ -n "$source_path" && -f "$source_path/home/dot_local/share/groundwork/commands.tsv" ]]; then
+    catalog="$source_path/home/dot_local/share/groundwork/commands.tsv"
+  else
+    echo "groundwork-help: command catalog not found" >&2
+    echo "expected: $HOME/.local/share/groundwork/commands.tsv" >&2
+    exit 1
+  fi
+fi
+
+query="${*:-}"
+
+awk -F '\t' -v query="$query" '
+  BEGIN {
+    if (query != "") {
+      q = tolower(query)
+      print "groundwork-help: showing matches for \"" query "\""
+      print ""
+    } else {
+      print "groundwork-help: Groundwork command catalog"
+      print "usage: groundwork-help [query]"
+      print ""
+    }
+  }
+  /^#/ || NF < 4 { next }
+  {
+    haystack = tolower($1 " " $2 " " $3 " " $4)
+    if (q != "" && index(haystack, q) == 0) next
+    if ($1 != last) {
+      if (last != "") print ""
+      print "[" $1 "]"
+      last = $1
+    }
+    printf "  %-28s %-8s %s\n", $2, "(" $3 ")", $4
+    found = 1
+  }
+  END {
+    if (!found) {
+      print "No matches."
+      exit 1
+    }
+  }
+' "$catalog"

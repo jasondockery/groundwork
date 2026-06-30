@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Keyboard · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Keyboard · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Keyboard · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html" class="active">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Keyboard</p>
+      <h1>Caps Lock, reborn: the remap that makes everything else reachable.</h1>
+      <p class="lead">The most useful key on the keyboard was wasted on Caps Lock. This setup turns it into the two keys you press most in a terminal — Escape and Control — so the shortcuts on every other page are right under your left pinky.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Your hands are leaving the keyboard for repeated moves you want to make automatic.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — the remapped Caps Lock</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><kbd>Caps</kbd> tap</span> <span class="act">Escape (leave Insert mode)</span></div>
+          <div class="qr"><span class="keys"><kbd>Caps</kbd> hold</span> <span class="act">Control (for any Ctrl-shortcut)</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>One key, two jobs</h2>
+      <p>Via <strong>Karabiner-Elements</strong>, Caps Lock becomes a <strong>dual-role key</strong>:</p>
+      <ul>
+        <li><strong>Tap it</strong> → <kbd>Esc</kbd>. The single most-pressed key in Vim (it's how you leave Insert mode and get back to Normal) — now without reaching to the top-left corner.</li>
+        <li><strong>Hold it</strong> → <kbd>Control</kbd>. Press it together with another key for any Ctrl-shortcut, with your finger already on the home row.</li>
+      </ul>
+      <p>You lose nothing: actual Caps Lock toggling is gone (almost no one misses it), and the key earns its prime spot many times a minute.</p>
+
+      <h2><span class="hash">#</span>Why this is the keystone</h2>
+      <p>Look back at the other pages and notice how much lives on <kbd>Esc</kbd>, <kbd>Ctrl</kbd>, and <kbd>Alt</kbd>:</p>
+      <table class="keytable">
+        <tr><td><a href="neovim.html">Neovim</a></td><td><kbd>Esc</kbd> returns to Normal mode — the move you make constantly</td></tr>
+        <tr><td><a href="tmux.html">tmux</a></td><td>The prefix is <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>; pane nav is <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span></td></tr>
+        <tr><td><a href="shell.html">Shell</a></td><td>Line editing is all <kbd>Ctrl</kbd> — <kbd>Ctrl</kbd><kbd>A</kbd>/<kbd>E</kbd>/<kbd>W</kbd>/<kbd>U</kbd>/<kbd>R</kbd></td></tr>
+      </table>
+      <p>Put <kbd>Esc</kbd> and <kbd>Ctrl</kbd> under your strongest, nearest finger, and make sure <kbd>Option</kbd> sends real <kbd>Alt</kbd>. That whole vocabulary stops being a stretch.</p>
+
+      <div class="callout warn">
+        <span class="label">It needs two permissions — once</span>
+        <p>macOS won't let Karabiner watch the keyboard until you approve it. In System Settings → Privacy &amp; Security, grant <strong>Input Monitoring</strong> <em>and</em> allow its <strong>driver / system extension</strong> (a separate prompt), then quit and reopen Karabiner-Elements. A script can't click these for you — full steps are on the <a href="troubleshooting.html">Troubleshooting</a> page.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The other keyboard tweaks</h2>
+      <p>The setup also nudges a few macOS keyboard defaults so the terminal feels right:</p>
+      <table class="keytable">
+        <tr><td><strong>Fast key repeat</strong></td><td>Hold a key and it repeats quickly, with a short delay before it starts — so <kbd>j</kbd>/<kbd>k</kbd> scrolling and holding a motion in Vim are snappy</td></tr>
+        <tr><td><strong>Press-and-hold off</strong></td><td>Holding a key repeats it instead of popping up the accent menu — essential for Vim, where you hold keys to move</td></tr>
+        <tr><td><strong>Option as Alt</strong></td><td>In <a href="apps.html">Ghostty</a>, the <kbd>⌥</kbd> key sends a real <kbd>Alt</kbd>, so shell shortcuts like <span class="keys"><kbd>Alt</kbd><kbd>F</kbd></span> (forward a word), <span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span> (fzf folder jump), and <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> pane navigation work</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">These apply after a re-login</span>
+        <p>The key-repeat settings are read when an app launches, so they fully take hold after you log out and back in (or restart). If holding a key still shows the accent popup, that's the one to do.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Put it to use</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Tap for Escape</h3>
+          <p>Open <code>nvim</code>, press <kbd>i</kbd> to type, then <strong>tap Caps Lock</strong> to pop back to Normal mode. Do it a few times — this replaces the corner <kbd>Esc</kbd> reach you'd otherwise make hundreds of times a day.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Hold for Control</h3>
+          <p>At the shell, <strong>hold Caps Lock and press <kbd>R</kbd></strong> — that's <kbd>Ctrl</kbd><kbd>R</kbd>, history search. Then hold Caps and tap <kbd>A</kbd> / <kbd>E</kbd> to jump to the start / end of the line. Same finger, no stretch.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://karabiner-elements.pqrs.org/docs/" target="_blank" rel="noopener">Karabiner-Elements documentation</a> — for any other remap you dream up (other dual-role keys, app-specific rules, home-row mods).</li>
+        <li><a href="https://manuals.info.apple.com" target="_blank" rel="noopener">Apple's keyboard settings</a> — the System Settings → Keyboard panel mirrors several of these.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="macos.html"><span class="dir">← Prev</span>macOS desktop</a>
+        <a href="workflow.html"><span class="dir">Next →</span>Everyday workflow</a>
+      </div>
+      <footer class="site">Tap for Esc, hold for Ctrl. The busiest keys, under your strongest finger.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

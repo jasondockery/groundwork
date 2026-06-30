@@ -1,0 +1,15 @@
+# Smart case is the ergonomic default:
+#   rg test   -> matches test, Test, TEST
+#   rg Test   -> matches Test exactly by case
+--smart-case
+
+# Keep giant minified lines readable in terminal output.
+--max-columns=150
+--max-columns-preview
+
+# Even when using rg -uu, Git internals are almost always noise.
+--glob=!.git/*
+
+# Make matches easy to see without changing surrounding text.
+--colors=match:fg:yellow
+--colors=match:style:bold

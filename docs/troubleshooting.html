@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Troubleshooting · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Troubleshooting · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Troubleshooting · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html" class="active">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">When something's not right</p>
+      <h1>Troubleshooting: the calm fixes for the usual snags.</h1>
+      <p class="lead">Most "it's broken" moments after a fresh install are one of a dozen known things — a permission macOS won't let a script grant, a step that needs a restart, a tool that just needs re-applying. Here's the map, roughly in the order you'll hit them.</p>
+
+      <div class="callout tip">
+        <span class="label">The one move that fixes most things</span>
+        <p>Before anything else: preview and re-apply the setup. <code>chezmoi diff</code> shows what's out of sync, <code>chezmoi apply</code> puts managed files back, and <code>chezmoi update</code> pulls the latest first. The repo is the source of truth for managed files, so start there before hand-editing generated config.</p>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">Want out?</span>
+        <p>The first apply creates a focused backup under <code>~/.local/state/groundwork/backups/latest</code>. Run <code>groundwork-restore</code> to restore the backed-up managed files and macOS defaults. It does not uninstall apps or undo Homebrew upgrades.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Quick triage</h2>
+      <table class="keytable">
+        <tr><td><strong>A command isn't found</strong></td><td>The shell hasn't picked up a newly-installed tool. Run <code>exec zsh</code> (reloads the shell) or open a new tab</td></tr>
+        <tr><td><strong>A config edit did nothing</strong></td><td>You edited the file in your home folder, not the repo. Edit with <code>chezmoi edit</code>, or your change gets overwritten on next apply — see <a href="setup.html">Setup</a></td></tr>
+        <tr><td><strong>Icons show as boxes □</strong></td><td>The terminal font isn't the Nerd Font. Set Ghostty's font to <em>JetBrainsMono Nerd Font</em> (it's installed)</td></tr>
+        <tr><td><strong>Ghostty opens in an old project</strong></td><td>A fresh app launch should open in <code>~</code>. This setup disables Ghostty window-state restore and lets tmux own project restoration. Re-run <code>chezmoi apply</code>, quit Ghostty, and launch it again</td></tr>
+        <tr><td><strong>A tool looks unconfigured</strong></td><td>It needs its one-time setup step below (tmux plugins, Neovim sync, Karabiner permission…)</td></tr>
+        <tr><td><strong>Git keeps asking to log in</strong></td><td>An auth issue, not a setup bug — jump to <a href="#git">Git access</a></td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Install &amp; bootstrap</h2>
+      <h3>Homebrew says the Xcode license is not accepted</h3>
+      <p>Fix the first error, then re-run <code>bootstrap-mac.sh</code>. If Homebrew stops at the Xcode license check, the later <code>gh: command not found</code> or <code>chezmoi: command not found</code> messages are just follow-on errors because those tools never installed.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">xcode-license</span></div>
+        <pre><code><span class="prompt">$ </span>sudo xcodebuild -license accept
+<span class="prompt">$ </span>bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"</code></pre>
+      </div>
+      <p>Homebrew also requires the current macOS user to be an Administrator. If <code>sudo -v</code> fails, add that user as an admin first or run the install from an admin account.</p>
+
+      <h3>You cannot find Xcode after setup</h3>
+      <p>Groundwork always handles Apple's Command Line Tools, not full Xcode by default. If <code>xcode-select -p</code> prints <code>/Library/Developer/CommandLineTools</code>, the terminal build layer is present. Full Xcode installs only when you answer yes to the Xcode setup prompt, and even then the App Store install can fail if you are not signed in or Xcode has never been obtained on that Apple Account. If you need it, get Xcode from the Mac App Store, open it once, then run <code>sudo xcode-select -s /Applications/Xcode.app/Contents/Developer</code>.</p>
+
+      <h3>Bootstrap URL returns 404</h3>
+      <p>A <code>404</code> from <code>raw.githubusercontent.com</code> usually means the branch name, path, or URL is wrong, or GitHub is temporarily unreachable. The public bootstrap URL should work without GitHub login. Copy it from the README again, or open the URL in a browser to see the actual GitHub error.</p>
+
+      <h3>Homebrew skipped or failed a package</h3>
+      <p>On a brand-new or beta macOS, Homebrew sometimes has no pre-built bottle for a formula and either builds it slowly from source or skips it. <code>brew bundle</code> deliberately continues past failures, so the install finishes — you just re-run the stragglers:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">brew</span></div>
+        <pre><code><span class="prompt">$ </span>brew bundle --file=~/.config/homebrew/Brewfile   <span class="comment"># retry everything (idempotent)</span>
+<span class="prompt">$ </span>brew install &lt;formula&gt;                            <span class="comment"># or just the one that failed</span>
+<span class="prompt">$ </span>brew doctor                                       <span class="comment"># diagnose a broken install</span></code></pre>
+      </div>
+      <div class="callout note">
+        <span class="label">The setup scripts retry themselves</span>
+        <p>The install scripts are written to be re-run safely: anything that failed (a network blip, a tool that wasn't ready) is picked up on the next <code>chezmoi apply</code>, and steps that already succeeded are skipped. So a clean re-apply is the right first response to a half-finished install.</p>
+      </div>
+
+      <h3>A Python tool tries to build SciPy or asks for gfortran</h3>
+      <p>Global Python tools intentionally use a proven Python version, not the newest Python release. Heavy dependencies such as NumPy and SciPy need mature wheel coverage; when a tool runs on a too-new Python, <code>uv</code> can fall back to a slow source build and fail on a normal Mac because no Fortran compiler is installed. Keep the global tool Python on the Groundwork-managed version, and choose newer Python versions per project with <code>mise use python@...</code> only when that project needs them.</p>
+
+      <h3>Aider crashes with <code>audioop</code> or <code>pyaudioop</code></h3>
+      <p>That means Aider was installed into a too-new Python tool environment. Groundwork keeps Aider's isolated <code>uv</code> runtime on Python 3.12 for now, because Python 3.13 removed <code>audioop</code> and Aider's voice dependency path can still import it on startup. The global mise Python remains 3.13; mise also provisions 3.12 so this tool pin is declared. Repair it with:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">repair aider</span></div>
+        <pre><code><span class="prompt">$ </span>uv tool install --python 3.12 --reinstall aider-chat
+<span class="prompt">$ </span>aider --version</code></pre>
+      </div>
+
+      <h3>"command not found" right after install</h3>
+      <p>Your current shell started before the tool existed. Reload it — <code>exec zsh</code> — or open a new terminal tab. Still missing? Confirm Homebrew actually installed it with <code>brew list &lt;name&gt;</code>, and that Homebrew is on your path with <code>which brew</code> (should be <code>/opt/homebrew/bin/brew</code>).</p>
+
+      <h3>Restore the pre-Groundwork snapshot</h3>
+      <p>Use this when the setup applied successfully but the person decides they do not like the opinionated defaults. The helper runs the latest first-run backup&apos;s restore script and asks for confirmation.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">restore</span></div>
+        <pre><code><span class="prompt">$ </span>groundwork-restore
+<span class="comment"># or inspect the backup first:</span>
+<span class="prompt">$ </span>open ~/.local/state/groundwork/backups/latest</code></pre>
+      </div>
+      <p>The restore is intentionally limited to the files and macOS defaults this repo snapshots. It does not uninstall software, remove Homebrew packages, undo app permissions, or replace a full system backup.</p>
+
+      <h3>Old configs are competing with the setup</h3>
+      <p>On a Mac that has been configured by hand for years, old editor, tmux, shell completion, or plugin state can compete with this setup. During <code>chezmoi init</code>, answer <strong>yes</strong> to the reset prompt for a clean start. The reset moves known conflict zones to <code>~/.local/state/groundwork/reset/latest</code> before applying Groundwork.</p>
+      <table class="keytable">
+        <tr><td><strong>Moved aside</strong></td><td>Neovim config/state/cache, tmux legacy config/plugin/restore state, and <code>.zcompdump*</code> completion caches</td></tr>
+        <tr><td><strong>Not moved</strong></td><td>Raycast&apos;s internal database, app permissions, browser profiles, arbitrary project folders, and unrelated dotfiles</td></tr>
+        <tr><td><strong>Run later</strong></td><td>Edit <code>~/.config/chezmoi/chezmoi.toml</code>, set <code>reset_existing_configs = true</code>, remove <code>~/.local/state/groundwork/reset/.reset-existing-configs-done</code> if present, then run <code>chezmoi apply</code></td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>tmux</h2>
+      <table class="keytable">
+        <tr><td><strong>Plugins missing on first run</strong></td><td>Press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span> to install them (that's TPM's <em>install</em>). Wait a moment, then they load</td></tr>
+        <tr><td><strong>Config edits not applying</strong></td><td>Reload with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span>, or fully restart: <code>tmux kill-server</code> then reopen. Because continuum restore is on, panes may come back from the saved snapshot</td></tr>
+        <tr><td><strong>Status bar looks plain / broken</strong></td><td>The Catppuccin theme didn't load — almost always means plugins aren't installed yet. Do the <kbd>Shift</kbd><kbd>I</kbd> step above</td></tr>
+        <tr><td><strong>Sessions didn't come back</strong></td><td>Auto-restore (continuum) only fires on a fresh tmux <em>server</em> start, not a config reload. To restore by hand: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span></td></tr>
+        <tr><td><strong>Sessions came back after kill-server</strong></td><td>That is continuum restore doing its job. To check what is truly live, run <code>tmux ls</code>. The <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> picker also shows zoxide project folders, not just live tmux sessions. For a clean start, detach or open a fresh Ghostty tab and run <code>tmux-fresh</code></td></tr>
+      </table>
+      <p>See the <a href="tmux.html">tmux page</a> for what each plugin does and how saving/restoring works.</p>
+
+      <h2><span class="hash">#</span>Neovim</h2>
+      <p>The first time you open <code>nvim</code>, LazyVim downloads and compiles its plugins — let it finish before judging anything. After that, two commands diagnose almost everything:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">nvim — in command mode</span></div>
+        <pre><code>:Lazy            <span class="comment"># plugin manager — press U to update, X to clean</span>
+:checkhealth     <span class="comment"># reports missing tools (node, rg, fd…) and how to fix</span></code></pre>
+      </div>
+      <p>If <code>:checkhealth</code> flags a missing command-line tool, install it with <code>brew install &lt;tool&gt;</code> — Neovim's extras lean on the same CLI tools from the <a href="shell.html">Shell page</a> (ripgrep, fd). If the editor ever gets truly wedged, it's safe to wipe its state and let it rebuild: <code>rm -rf ~/.local/share/nvim ~/.local/state/nvim</code>, then reopen.</p>
+
+      <h2><span class="hash">#</span>Shell &amp; prompt</h2>
+      <table class="keytable">
+        <tr><td><strong>No grey autosuggestions / no colors</strong></td><td>The plugins didn't load. Run <code>exec zsh</code>; if it persists, check <code>~/.zsh_plugins.txt</code> exists and that antidote is installed (<code>brew list antidote</code>)</td></tr>
+        <tr><td><strong>Prompt shows boxes or wrong glyphs</strong></td><td>Terminal font isn't a Nerd Font — set Ghostty to <em>JetBrainsMono Nerd Font</em></td></tr>
+        <tr><td><strong>Tab completion feels broken</strong></td><td>The completion cache went stale. Rebuild it: <code>rm -f ~/.zcompdump*</code> then <code>exec zsh</code></td></tr>
+        <tr><td><strong>Slow shell startup</strong></td><td>Time it with <code>hyperfine 'zsh -i -c exit'</code>; a recently-added plugin is the usual cause</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Karabiner (keyboard)</h2>
+      <p>Caps&nbsp;Lock&nbsp;→&nbsp;Esc/Ctrl won't work until macOS trusts Karabiner. It needs <strong>two</strong> approvals that only you can click:</p>
+      <div class="callout warn">
+        <span class="label">System Settings → Privacy &amp; Security</span>
+        <p>Approve <strong>Input Monitoring</strong> for Karabiner, <em>and</em> allow its <strong>driver / system extension</strong> (a separate prompt, sometimes under "Login Items &amp; Extensions"). After both, quit and reopen Karabiner-Elements. A script cannot grant these — macOS requires a human click.</p>
+      </div>
+      <p>If <code>chezmoi apply</code> mentions <code>.config/karabiner/karabiner.json</code>, the usual cause is Karabiner writing device or profile metadata after Groundwork last touched the file. Current Groundwork merges the Caps Lock rule into Karabiner's existing JSON instead of replacing the whole file, so pull the latest repo and re-run <code>chezmoi apply</code>.</p>
+
+      <h2><span class="hash">#</span>Obsidian</h2>
+      <table class="keytable">
+        <tr><td><strong>No vault to open</strong></td><td>The setup now creates one at <code>iCloud&nbsp;Drive/Obsidian/&lt;name&gt;</code> on apply. If it's missing, re-run <code>chezmoi apply</code>, or make one in-app pointed at that folder</td></tr>
+        <tr><td><strong>Plugins not showing</strong></td><td><strong>Restart Obsidian once</strong> after first launch so the auto-installed community plugins load, then enable them in Settings</td></tr>
+        <tr><td><strong>Notes stuck as cloud placeholders</strong></td><td>Right-click the vault folder in Finder → <strong>Keep Downloaded</strong> so iCloud keeps them local</td></tr>
+      </table>
+
+      <h2 id="git"><span class="hash">#</span>Git keeps asking for a login</h2>
+      <p>This is an <em>access</em> problem, not a setup bug. <code>git pull</code> / <code>chezmoi update</code> can't authenticate. The usual culprit is being logged into <code>gh</code> as the wrong account, or using an SSH remote without the matching key/account configured. First, see who you are:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">git auth</span></div>
+        <pre><code><span class="prompt">$ </span>gh auth status                <span class="comment"># is this the right account?</span>
+<span class="prompt">$ </span>gh auth switch                <span class="comment"># choose another already-authenticated account</span>
+<span class="prompt">$ </span>gh auth login --git-protocol https
+<span class="prompt">$ </span>gh auth setup-git --hostname github.com</code></pre>
+      </div>
+      <p>Groundwork itself pulls from a public HTTPS remote by default. The credential helper is still baked into the git config because most developers use GitHub for their own repos, and chezmoi manages <code>~/.gitconfig</code>. SSH is still fine when the Mac's SSH config clearly maps the right key to the right GitHub account.</p>
+
+      <h2><span class="hash">#</span>Still stuck?</h2>
+      <p>Two reliable fallbacks. Re-apply from the source of truth, and if that doesn't do it, ask an agent — it can read the actual error and the config together:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">last resorts</span></div>
+        <pre><code><span class="prompt">$ </span>chezmoi update                <span class="comment"># pull latest + re-apply everything</span>
+<span class="prompt">$ </span>claude                        <span class="comment"># then paste the error and ask</span></code></pre>
+      </div>
+      <div class="callout note">
+        <span class="label">Nothing here is precious</span>
+        <p>Every managed file can be regenerated from the repo, so you can experiment with fixes freely. Worst case, a fresh <code>chezmoi apply</code> resets the managed files to a known-good state.</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="glossary.html"><span class="dir">← Prev</span>Glossary</a>
+        <a href="index.html"><span class="dir">Next →</span>Overview</a>
+      </div>
+      <footer class="site">When in doubt: <code>chezmoi apply</code>. The repo always wins.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

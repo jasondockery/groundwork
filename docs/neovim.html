@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Neovim · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Neovim · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Neovim · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html" class="active">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Editor</p>
+      <h1>Neovim: editing at the speed of thought — once it clicks.</h1>
+      <p class="lead">Neovim is a keyboard-first editor that lives in the terminal. It is optional, not a purity test, but it pairs beautifully with an agent workflow because edits, searches, diagnostics, Git, and terminal panes all stay close. Here it comes pre-loaded with LazyVim, so the file explorer, search, and code intelligence already work on day one.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Editing feels slow and you keep reaching for the mouse when you need to inspect or adjust agent-written code.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — leader is Space, Esc is home</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><kbd>i</kbd> / <kbd>Esc</kbd></span> <span class="act">insert / back to normal</span></div>
+          <div class="qr"><span class="keys"><kbd>:w</kbd> / <kbd>:q</kbd></span> <span class="act">save / quit</span></div>
+          <div class="qr"><span class="keys"><kbd>dd</kbd> <kbd>yy</kbd> <kbd>p</kbd></span> <span class="act">cut / copy line / paste</span></div>
+          <div class="qr"><span class="keys"><kbd>ciw</kbd></span> <span class="act">change the word</span></div>
+          <div class="qr"><span class="keys"><kbd>u</kbd> / <kbd>Ctrl</kbd><kbd>r</kbd></span> <span class="act">undo / redo</span></div>
+          <div class="qr"><span class="keys"><kbd>gg</kbd> / <kbd>G</kbd></span> <span class="act">top / bottom of file</span></div>
+          <div class="qr"><span class="keys"><kbd>Space</kbd><kbd>Space</kbd></span> <span class="act">find a file</span></div>
+          <div class="qr"><span class="keys"><kbd>Space</kbd><kbd>/</kbd></span> <span class="act">search in files</span></div>
+          <div class="qr"><span class="keys"><kbd>Space</kbd><kbd>e</kbd></span> <span class="act">file explorer</span></div>
+          <div class="qr"><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span> <span class="act">lazygit</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>The one idea: modes</h2>
+      <p>Every other editor is always in "typing" mode. Neovim has <strong>modes</strong>, and this is the whole thing to understand. In <strong>Normal</strong> mode — where you start — the keys aren't letters, they're commands: <kbd>d</kbd> deletes, <kbd>y</kbd> copies, <kbd>j</kbd> moves down. To actually type text, you switch to <strong>Insert</strong> mode. To do anything else, you come back to Normal. Normal mode is home base.</p>
+
+      <figure class="diagram">
+        <svg viewBox="0 0 660 240" role="img" aria-label="Normal mode is the hub; press i to enter Insert, v for Visual, colon for Command, and Escape to return to Normal">
+          <defs>
+            <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--mauve)"/></marker>
+            <marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--overlay1)"/></marker>
+          </defs>
+          <rect x="265" y="94" width="140" height="54" rx="10" fill="var(--mantle)" stroke="var(--mauve)" stroke-width="2"/>
+          <text x="335" y="118" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--mauve)">NORMAL</text>
+          <text x="335" y="135" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--overlay1)">commands</text>
+          <rect x="265" y="14" width="140" height="46" rx="10" fill="var(--crust)" stroke="var(--green)"/>
+          <text x="335" y="34" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--green)">INSERT</text>
+          <text x="335" y="50" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--overlay1)">type text</text>
+          <rect x="455" y="94" width="180" height="54" rx="10" fill="var(--crust)" stroke="var(--sapphire)"/>
+          <text x="545" y="118" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--sapphire)">VISUAL</text>
+          <text x="545" y="135" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--overlay1)">select</text>
+          <rect x="245" y="182" width="180" height="46" rx="10" fill="var(--crust)" stroke="var(--peach)"/>
+          <text x="335" y="202" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--peach)">COMMAND</text>
+          <text x="335" y="218" text-anchor="middle" font-family="var(--mono)" font-size="9.5" fill="var(--overlay1)">: save, quit, run</text>
+          <line x1="318" y1="94" x2="318" y2="62" stroke="var(--mauve)" stroke-width="2" marker-end="url(#a)"/>
+          <text x="300" y="80" text-anchor="end" font-family="var(--mono)" font-size="11" fill="var(--mauve)">i a o</text>
+          <line x1="352" y1="60" x2="352" y2="92" stroke="var(--overlay1)" stroke-width="2" marker-end="url(#b)"/>
+          <text x="370" y="80" font-family="var(--mono)" font-size="11" fill="var(--overlay1)">Esc</text>
+          <line x1="405" y1="108" x2="453" y2="108" stroke="var(--mauve)" stroke-width="2" marker-end="url(#a)"/>
+          <text x="429" y="102" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--mauve)">v</text>
+          <line x1="453" y1="134" x2="405" y2="134" stroke="var(--overlay1)" stroke-width="2" marker-end="url(#b)"/>
+          <text x="429" y="148" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--overlay1)">Esc</text>
+          <line x1="318" y1="148" x2="318" y2="180" stroke="var(--mauve)" stroke-width="2" marker-end="url(#a)"/>
+          <text x="300" y="168" text-anchor="end" font-family="var(--mono)" font-size="11" fill="var(--mauve)">:</text>
+          <line x1="352" y1="180" x2="352" y2="150" stroke="var(--overlay1)" stroke-width="2" marker-end="url(#b)"/>
+          <text x="370" y="168" font-family="var(--mono)" font-size="10.5" fill="var(--overlay1)">Esc</text>
+        </svg>
+        <figcaption>From Normal mode: <kbd>i</kbd> to type, <kbd>v</kbd> to select, <kbd>:</kbd> for commands. <kbd>Esc</kbd> always brings you home.</figcaption>
+      </figure>
+
+      <div class="callout note">
+        <span class="label">When in doubt, press Escape</span>
+        <p>Lost, or keys doing strange things? Press <kbd>Esc</kbd>. It returns you to Normal mode from anywhere. This single habit fixes ninety percent of "Neovim is broken" moments.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Surviving your first session</h2>
+      <p>Yes — the classic question is "how do I get <em>out</em>." Here's the whole survival kit. Open a file with <code>nvim &lt;name&gt;</code> (or just <code>vim</code>, which is aliased to it here).</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>i</kbd></span></td><td>Enter Insert mode and start typing</td></tr>
+        <tr><td><span class="keys"><kbd>Esc</kbd></span></td><td>Back to Normal mode</td></tr>
+        <tr><td><span class="keys"><kbd>:</kbd><kbd>w</kbd></span></td><td>Save (write) the file</td></tr>
+        <tr><td><span class="keys"><kbd>:</kbd><kbd>q</kbd></span></td><td>Quit</td></tr>
+        <tr><td><span class="keys"><kbd>:</kbd><kbd>w</kbd><kbd>q</kbd></span></td><td>Save and quit in one go</td></tr>
+        <tr><td><span class="keys"><kbd>:</kbd><kbd>q</kbd><kbd>!</kbd></span></td><td>Quit without saving — throw away changes</td></tr>
+      </table>
+      <p>Those <code>:</code> commands are Command mode. Type the colon, the letters, then <kbd>Enter</kbd>. That's enough to never feel trapped again.</p>
+
+      <h2><span class="hash">#</span>Moving around</h2>
+      <p>In Normal mode you fly without arrow keys (though arrows work too). Your right hand stays on the home row.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></span></td><td>Left, down, up, right</td></tr>
+        <tr><td><span class="keys"><kbd>w</kbd> / <kbd>b</kbd></span></td><td>Forward / back one word</td></tr>
+        <tr><td><span class="keys"><kbd>0</kbd> / <kbd>$</kbd></span></td><td>Start / end of the line</td></tr>
+        <tr><td><span class="keys"><kbd>g</kbd><kbd>g</kbd> / <kbd>G</kbd></span></td><td>Top / bottom of the file</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>d</kbd> / <kbd>Ctrl</kbd><kbd>u</kbd></span></td><td>Half a page down / up</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Editing is a little language</h2>
+      <p>This is the part that makes people fall for Neovim. Edits are built from a <strong>verb plus a motion</strong>, and they combine like grammar. Learn a few verbs and a few motions and you can express thousands of edits.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>d</kbd></span></td><td>Delete &nbsp;&middot;&nbsp; <kbd>c</kbd> change &nbsp;&middot;&nbsp; <kbd>y</kbd> yank (copy) &nbsp;&middot;&nbsp; <kbd>p</kbd> paste</td></tr>
+        <tr><td><span class="keys"><kbd>d</kbd><kbd>w</kbd></span></td><td>Delete a word (verb <kbd>d</kbd> + motion <kbd>w</kbd>)</td></tr>
+        <tr><td><span class="keys"><kbd>c</kbd><kbd>i</kbd><kbd>w</kbd></span></td><td>Change inside the word the cursor is on</td></tr>
+        <tr><td><span class="keys"><kbd>d</kbd><kbd>d</kbd> / <kbd>y</kbd><kbd>y</kbd></span></td><td>Delete / copy the whole line</td></tr>
+        <tr><td><span class="keys"><kbd>u</kbd></span></td><td>Undo &nbsp;&middot;&nbsp; <kbd>Ctrl</kbd><kbd>r</kbd> redo</td></tr>
+      </table>
+      <p>Read them aloud: <kbd>d</kbd><kbd>w</kbd> is "delete word," <kbd>c</kbd><kbd>i</kbd><kbd>w</kbd> is "change inside word." Once the grammar clicks, you stop memorizing keys and start composing them.</p>
+
+      <h2><span class="hash">#</span>It's already set up: LazyVim</h2>
+      <p>You're not running bare Neovim — it's configured with <strong>LazyVim</strong>, which adds a file tree, fuzzy finding, autocomplete, and language smarts out of the box. The gateway to all of it is the <strong>leader key</strong>, which is <kbd>Space</kbd>.</p>
+      <div class="callout tip">
+        <span class="label">The best trick for learning: which-key</span>
+        <p>Press <kbd>Space</kbd> and <em>wait half a second</em>. A menu pops up showing every command you can run next, and what it does. You don't have to memorize the shortcuts below — press <kbd>Space</kbd>, read, and pick. Discovery beats memorization.</p>
+      </div>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>Space</kbd></span></td><td>Find a file by name (just start typing part of it)</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>/</kbd></span></td><td>Search the text of every file in the project</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>e</kbd></span></td><td>Toggle the file explorer</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span></td><td>Open lazygit right inside the editor</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>It plays nice with tmux</h2>
+      <p>Neovim and <a href="tmux.html">tmux</a> are wired together: <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> moves between Neovim's split windows <em>and</em> tmux's panes with the same keys — no thinking about which is which. Open the editor in one tmux pane, a shell in another, and move around the whole layout seamlessly.</p>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Do vimtutor — twice</h3>
+          <p>Close this and run <code>vimtutor</code> in your terminal. It's a free, built-in, ~30-minute hands-on lesson — the single best way to start. Do it once today and once tomorrow. Nothing on this page beats actually doing it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Type, escape, save, quit</h3>
+          <p>Run <code>nvim scratch.txt</code>. Press <kbd>i</kbd>, type a sentence, press <kbd>Esc</kbd>. Save and quit with <kbd>:</kbd><kbd>w</kbd><kbd>q</kbd> then <kbd>Enter</kbd>. Reopen it to prove the text is there. You've now escaped Neovim on purpose.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Speak the grammar</h3>
+          <p>In a file with a few lines, try <kbd>d</kbd><kbd>d</kbd> (delete line), <kbd>u</kbd> (undo it), <kbd>c</kbd><kbd>i</kbd><kbd>w</kbd> on a word (change it), and <kbd>y</kbd><kbd>y</kbd> then <kbd>p</kbd> (copy a line and paste it). Say each one aloud as you go.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Use the real tools</h3>
+          <p>In a project folder, open <code>nvim</code>, then press <kbd>Space</kbd> and wait to see the menu. Find a file with <kbd>Space</kbd><kbd>Space</kbd>, search the project with <kbd>Space</kbd><kbd>/</kbd>, and pop open lazygit with <kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd>.</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">It's hard for everyone at first — and that's fine</span>
+        <p>Plan on a couple of awkward weeks; every Neovim user had them. You can't break anything permanently — the config lives in the setup repo, so if Neovim ever gets strange, re-applying restores it. Push through the dip and it becomes second nature.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Lua and config files</h2>
+      <p>Modern Neovim is configured mostly with <strong>Lua</strong>, a small scripting language. You can use this setup without learning Lua first. Just know that files ending in <code>.lua</code> are editor configuration or plugin code, and <code>:help lua-guide</code> is the built-in reference when you want to go deeper.</p>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <p><strong>Start — learn the motions:</strong></p>
+      <ul>
+        <li><code>vimtutor</code> (or <code>:Tutor</code> in Neovim) — the built-in ~30-minute lesson. Start here, really.</li>
+        <li><a href="https://www.youtube.com/playlist?list=PLm323Lc7iSW_wuxqmKx_xxNtJC_hJbQ7R" target="_blank" rel="noopener">ThePrimeagen: Vim as your editor (video series)</a> — motion by motion; teaches the keys, not config.</li>
+        <li><a href="https://vim-adventures.com" target="_blank" rel="noopener">Vim Adventures</a> &amp; <a href="https://www.openvim.com" target="_blank" rel="noopener">openvim</a> — learn the motions as a game.</li>
+      </ul>
+      <p><strong>Go further — config &amp; mastery:</strong></p>
+      <ul>
+        <li><a href="https://github.com/iggredible/Learn-Vim" target="_blank" rel="noopener">Learn Vim (the Smart Way)</a> — a free, well-structured modern guide to the good parts.</li>
+        <li><a href="https://www.youtube.com/watch?v=m8C0Cq9Uv9o" target="_blank" rel="noopener">TJ DeVries: the only video you need to get started with Neovim</a> — from a core maintainer.</li>
+        <li><a href="https://www.lazyvim.org" target="_blank" rel="noopener">LazyVim docs</a> — what the pre-installed setup gives you and how to extend it.</li>
+        <li><a href="https://pragprog.com/titles/dnvim2/practical-vim-second-edition/" target="_blank" rel="noopener">Practical Vim</a> (book) — 120+ tips; teaches you to think in Vim.</li>
+        <li><a href="https://neovim.io/doc" target="_blank" rel="noopener">Neovim docs</a> and <code>:help lua-guide</code> — the authoritative reference.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="tmux.html"><span class="dir">← Prev</span>tmux</a>
+        <a href="shell.html"><span class="dir">Next →</span>Shell &amp; CLI</a>
+      </div>
+      <footer class="site">Normal mode is home. <kbd>Esc</kbd> always takes you back.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

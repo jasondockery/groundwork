@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>FPS in a week: browser build · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="FPS in a week: browser build · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/game-dev.html">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FPS in a week: browser build · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+<aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html" class="active">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+<div class="content">
+  <p class="eyebrow">Track &middot; FPS &middot; Browser build</p>
+  <h1>Build a first-person shooter in a week.</h1>
+  <p class="lead">Not a toy. A fast, good-looking arena shooter that runs in any browser: real movement and gunplay, enemies that flank and shoot back, a HUD with a radar and a kill feed, sound, objectives, a menu, and a link you can text a friend so they can play it in one click. This is a serious week. Plan on roughly ten to twelve focused hours a day, a lot of debugging, and a lot of reading what the agent wrote. That is the job.</p>
+
+  <div class="callout note">
+    <span class="label">Why the browser, and why this is the AI-native route</span>
+    <p>You will direct an AI agent that writes nearly all the code, in JavaScript, on top of <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a>. Code-first, text-based stacks are exactly where today&apos;s agents are strongest and where <em>you</em> can actually read and understand every line they produce, which is the whole point. It also ships to a URL for free, so &ldquo;come play my game&rdquo; is one link, not an install. Want the industry engine instead? There is a parallel <a href="game-dev-unity.html">Unity week</a>.</p>
+  </div>
+
+  <div class="callout key">
+    <span class="label">How this track actually works</span>
+    <p>Each day below is a milestone, not a single prompt. A real day is dozens of prompts, test runs, and diff reviews, plus genuine debugging when the agent does something plausible but wrong. The discipline that separates a finished game from a pile of slop: <strong>spec the day before you prompt it</strong>, <strong>read every diff</strong> before you accept it, and <strong>play after every change</strong>. You are the engineer and the designer; the agent is the fast hands. Keep the <a href="agentic-engineering.html">five chops</a> open in another tab.</p>
+  </div>
+
+  <h2><span class="hash">#</span>Day 0: the stack and the harness</h2>
+  <p>Set up the tools and, just as importantly, the way you will work with the agent.</p>
+  <ol>
+    <li><strong>Runtime + editor.</strong> Node 24 (you already have it from the <a href="setup.html">Groundwork setup</a> via mise) and <a href="https://code.visualstudio.com/" target="_blank" rel="noopener">VS Code</a> or your editor of choice.</li>
+    <li><strong>An AI coding agent</strong> that edits files in your project: Claude Code, Codex, or Cursor.</li>
+    <li><strong>The project.</strong> A <a href="https://vite.dev/" target="_blank" rel="noopener">Vite</a> + Three.js app, version-controlled with Git from commit one.</li>
+    <li><strong>The harness.</strong> An <code>AGENTS.md</code> in the repo root with your conventions and guardrails, so the agent stays consistent across a week of sessions.</li>
+  </ol>
+  <div class="prompt-card"><span class="who">ask your AI</span>Scaffold a Vite + Three.js project for a first-person shooter. Set up a basic scene with a lit ground plane, a skybox, and a render loop locked to the display refresh rate using a fixed timestep for game logic. Add an AGENTS.md documenting our conventions: ES modules, no framework, small focused files, and a note that you should propose a short plan before large changes.</div>
+  <div class="concept"><b>Concept &middot; The harness is the work</b>Before any gameplay, you are setting up how a human and an agent collaborate over days: a clean repo, a render loop with a <strong>fixed timestep</strong> (so physics behave the same regardless of frame rate), and a written contract the agent reads every session. This is agentic engineering, not vibe coding. The spec and the conventions are the real instructions; the code is downstream.</div>
+  <div class="yourturn"><b>Your turn:</b> open the scaffold and trace one full frame in your head: input, update, render. If you can&apos;t, ask the agent to walk you through the loop line by line. You cannot direct what you don&apos;t understand.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Running</b> A lit 3D scene in the browser, a clean repo, and a written harness for the week.</div></div>
+
+  <h2><span class="num">1</span>Day 1: movement and a world that feels real</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Build a first-person controller with pointer-lock mouse look and WASD movement, including gravity, jumping, sprinting, crouching, and a little air control so it feels responsive. Then build a real arena: walls, cover blocks, crates, ramps, and a raised platform, with proper collision against all of it, textured surfaces, and lighting that reads clearly. No gray boxes.</div>
+  <div class="concept"><b>Concept &middot; Game feel is engineered</b>&ldquo;Feels good&rdquo; is not luck: it is acceleration curves, friction, jump arcs, and mouse smoothing you can tune. You will meet <strong>vectors</strong> (movement and aim are vector math), <strong>delta time</strong> (frame-independent motion), <strong>pointer lock</strong> (capturing the mouse), and <strong>collision</strong> (stopping at walls). The arena is level design: sightlines, cover, and verticality decide whether combat is fun.</div>
+  <div class="yourturn"><b>Your turn:</b> tune movement speed, gravity, and mouse sensitivity until it feels right to <em>you</em>, then add an FOV slider. Comparing 90 vs 103 FOV teaches you why shooters argue about it.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> You sprint, slide around cover, and jump across a real arena in first person.</div></div>
+
+  <h2><span class="num">2</span>Day 2: weapons with weight</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Add a weapon viewmodel with idle sway and bob, plus recoil and a reload animation. Implement hitscan firing with a raycast from screen center, muzzle flash, tracers, and impact decals. Add an ammo and reload system, then a second and third weapon (a fast rifle, a high-spread shotgun, a precise pistol) with distinct fire rates, spread, and damage, and weapon switching on number keys. Wire up firing, reload, and switch sounds.</div>
+  <div class="concept"><b>Concept &middot; Data-driven weapons and feedback</b>Three weapons should not be three copies of code. You will factor shared firing logic and describe each gun with <strong>data</strong> (fire rate, spread, damage, ammo), the first taste of real architecture. <strong>Raycasting</strong> is how hitscan guns hit; <strong>feedback</strong> (flash, tracer, decal, sound, recoil) is what makes a shot feel powerful. Watch the agent for the classic bug: firing tied to frame rate instead of a timer.</div>
+  <div class="yourturn"><b>Your turn:</b> read the firing code and confirm fire rate is time-based, not per-frame. Then change one weapon&apos;s spread and fire rate and feel how two numbers create a whole different gun.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Three weapons that each feel distinct, with punchy hit feedback and reloads.</div></div>
+
+  <h2><span class="num">3</span>Day 3: enemies that fight back</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Create enemy units with health that spawn into the arena and navigate toward the player around walls and cover using pathfinding on a navigation grid. Give them line-of-sight checks, a state machine (idle, hunt, take cover, attack), and two types: a rusher that closes to melee and a shooter that fires from range and retreats when hurt. Add damage, death effects, and a hit reaction. Keep it performant with twenty enemies active.</div>
+  <div class="concept"><b>Concept &middot; AI is state machines plus pathfinding</b>Game AI is not mysterious: a <strong>finite state machine</strong> (a few states and the rules to switch) plus <strong>pathfinding</strong> (A* over a grid, or steering with obstacle avoidance) plus <strong>line of sight</strong> (can it see you?). The hard part is <strong>performance</strong>: twenty units pathfinding every frame will tank your frame rate unless you spread the work out. This is where you start profiling.</div>
+  <div class="yourturn"><b>Your turn:</b> open the browser performance tools and watch the frame time as enemies spawn. Find the most expensive function and ask the agent to optimize that one specifically. That targeted question is the skill.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Enemies hunt you through the arena, take cover, and shoot back. It is genuinely tense.</div></div>
+
+  <h2><span class="num">4</span>Day 4: the combat loop and the stakes</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Give the player health, armor, and regenerating shields, with directional damage indicators showing where hits come from, plus hitmarkers and a headshot damage multiplier with a distinct sound. Build a wave system that spawns escalating groups with a short break between waves, an objective (survive, or clear all waves), a score and kill-streak system, and a clear game-over and victory state. Tune the first five waves so it ramps from easy to genuinely hard.</div>
+  <div class="concept"><b>Concept &middot; A game is a loop with stakes</b>You now assemble the core loop: spawn, fight, survive, escalate. <strong>Game state</strong> (playing, between waves, game over) is a state machine you own. <strong>Balancing</strong> is design work no agent can do for you, because it depends on how the game <em>feels</em> to play, which only you can judge. Stakes (you can lose) are what make winning mean anything.</div>
+  <div class="yourturn"><b>Your turn:</b> play wave 5 ten times and write down what feels unfair, then fix exactly that. Tuning by feel, not by theory, is how shooters get good.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> A full survival shooter with armor, headshots, escalating waves, and a real win/lose.</div></div>
+
+  <h2><span class="num">5</span>Day 5: HUD, menus, and juice</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Build a full HUD: health and armor bars, an ammo counter, a top-corner radar showing nearby enemies relative to where I face, a kill feed, a crosshair that reacts to spread, and an objective marker. Add a main menu, a pause menu, and a settings menu (sensitivity, FOV, volume), plus a game-over and victory screen with run stats. Then add juice: screen shake on hits, a damage vignette, hit-stop on kills, and particle effects.</div>
+  <div class="concept"><b>Concept &middot; UI is architecture, juice is feel</b>A HUD has to read live game values without becoming spaghetti, so you will think about how the UI <strong>observes</strong> game state cleanly. The <strong>radar</strong> teaches a real bit of math: projecting world positions into screen-relative directions. <strong>Juice</strong>, the screen shake and hit-stop and flashes, is the difference between &ldquo;it works&rdquo; and &ldquo;it feels amazing,&rdquo; and a little goes a long way.</div>
+  <div class="yourturn"><b>Your turn:</b> add a toggle to turn all screen shake off, then play with it on and off. Deciding how much juice is too much is a taste you are building.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> It looks and feels like a real game: radar, kill feed, menus, and satisfying feedback.</div></div>
+
+  <h2><span class="num">6</span>Day 6: sound, performance, and content</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Add 3D positional audio so footsteps, gunfire, and enemy sounds come from the right direction and distance, plus ambient music that shifts when combat starts. Do a performance pass: pool bullets and effects instead of creating and destroying them, cull what is off-screen, and hold a steady 60 frames per second with everything active. Then add content: a second arena, health and armor and ammo pickups, and one elite enemy with more health and a special attack.</div>
+  <div class="concept"><b>Concept &middot; Spatial audio, pooling, and profiling</b><strong>3D audio</strong> doubles immersion: hearing a flank is gameplay. <strong>Object pooling</strong> (reuse objects instead of constantly allocating) is the single biggest performance win in a bullet-heavy game, because creating and garbage-collecting objects mid-fight causes stutter. <strong>Profiling</strong> is how you find the real bottleneck instead of guessing. This is the day the game stops hitching.</div>
+  <div class="yourturn"><b>Your turn:</b> profile before and after the pooling change and read the difference in frame time yourself. Measuring the win, not assuming it, is the engineering habit.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Playable</b> Smooth 60fps, directional sound, two arenas, pickups, and an elite to fight.</div></div>
+
+  <h2><span class="num">7</span>Day 7: ship it where friends can play</h2>
+  <div class="prompt-card"><span class="who">ask your AI</span>Make a production build with Vite and walk me through deploying it so it plays in any browser from a single link, on itch.io or GitHub Pages. Add a title screen with the game&apos;s name and branding, a short how-to-play, and make sure it loads fast. Help me capture a few screenshots and a short clip for the page.</div>
+  <div class="concept"><b>Concept &middot; Shipping is a skill</b>A <strong>production build</strong> bundles and minifies everything for the web; <strong>deploying</strong> to a static host gives you a public URL with no install. Shipping is where most projects die, so finishing one, even at small scope, puts you ahead of most people who &ldquo;are learning game dev.&rdquo; The reward is real: a link, and the face of the first friend who plays it.</div>
+  <h3>Stretch goals (each is its own multi-day adventure)</h3>
+  <ul>
+    <li><strong>Online leaderboard</strong> &mdash; add a tiny backend so scores persist and rank. This is the bridge to the <a href="app-dev.html">Apps track</a>.</li>
+    <li><strong>An AI announcer</strong> &mdash; call a language model at runtime for dynamic callouts and enemy taunts.</li>
+    <li><strong>Real-time multiplayer</strong> &mdash; the true Call of Duty frontier. Networking with WebSockets or WebRTC is hard and worth a project of its own.</li>
+  </ul>
+  <div class="yourturn"><b>Your turn:</b> send the link to one person and watch them play without helping. Where they get confused is your next design task.</div>
+  <div class="check"><span class="ico">▶</span><div><b>Shipped</b> A complete, online, good-looking first-person shooter, built in a hard week, that you are proud to share.</div></div>
+
+  <h2><span class="hash">#</span>Where to go next</h2>
+  <p>You touched every core system of a 3D shooter: a controller, gunplay, enemy AI, a combat loop, UI and radar, spatial audio, performance work, and a shipped build, while reading and understanding the code the whole way. To go deeper:</p>
+  <ul>
+    <li><strong>Fundamentals, free:</strong> the <a href="https://threejs.org/docs/" target="_blank" rel="noopener">Three.js docs and examples</a> and <a href="https://developer.mozilla.org/en-US/docs/Games" target="_blank" rel="noopener">MDN Game development</a>. Going back to the fundamentals after building something fun makes them stick.</li>
+    <li><strong>The chops:</strong> return to <a href="agentic-engineering.html">Vibe &rarr; agentic</a>. Before each stretch feature, write a short spec, then review every diff.</li>
+    <li><strong>The industry engine:</strong> run the same arc in a real game engine on the <a href="game-dev-unity.html">Unity FPS week</a>.</li>
+    <li><strong>Practice with a deadline:</strong> join a <a href="https://itch.io/jams" target="_blank" rel="noopener">game jam on itch.io</a>. Finishing a small game on a clock teaches more than a month of tutorials.</li>
+  </ul>
+  <div class="callout key"><span class="label">The honest part</span><p>This is not a one-prompt miracle. It is a week of directing, reading, debugging, and tuning, with an agent that is fast and frequently wrong. That is exactly why finishing it means something: AI made an ambitious shooter reachable, and you stayed the senior partner who understood and shipped it. Get excited, then put in the hours.</p></div>
+
+  <div class="pager">
+    <a href="path.html"><span class="lab">Previous</span>&larr; The path</a>
+    <a href="game-dev-unity.html"><span class="lab">Next</span>FPS &middot; Unity &rarr;</a>
+  </div>
+  <p class="foot">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline.</p>
+</div>
+
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

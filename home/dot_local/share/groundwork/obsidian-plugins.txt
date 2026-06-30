@@ -1,0 +1,23 @@
+# Obsidian community plugins managed by Groundwork.
+# Lines starting with # are ignored by obsidian-plugins.
+dataview
+templater-obsidian
+obsidian-tasks-plugin
+calendar
+periodic-notes
+quickadd
+obsidian-linter
+omnisearch
+obsidian-excalidraw-plugin
+obsidian-kanban
+obsidian-style-settings
+obsidian-day-planner
+pomodoro-timer
+table-editor-obsidian
+obsidian-annotator
+obsidian-icon-folder
+obsidian-advanced-slides
+obsidian-mind-map
+obsidian-git
+smart-connections
+whisper

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>What's installed · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="What's installed · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What's installed · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html" class="active">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Reference</p>
+      <h1>What's installed — and on which machines.</h1>
+      <p class="lead">The setup asks a small set of install-time questions — work machine, whether a Mac is a server/CI machine, password manager, and identity — and those answers decide what gets installed. Here's the inventory by profile, with each line pointing to the page where you learn how it supports the workflow.</p>
+
+      <div class="callout note">
+        <span class="label">Where this comes from</span>
+        <p>Everything here is declared in one file — the <a href="setup.html">Brewfile</a> — and installed by Homebrew on bootstrap. Plain Homebrew entries track Homebrew's current stable package; when an app has a separate faster-moving channel that we intentionally want, the Brewfile names it explicitly, such as <code>claude-code@latest</code>. The setup answers you gave during <a href="setup.html">setup</a> decide which blocks apply. Change machine type by re-running <code>chezmoi init</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Both machines</h2>
+      <p>The terminal-first core — installed everywhere, work or personal.</p>
+
+      <h3>Command line &amp; shell &nbsp;<span class="muted">— see <a href="command-line.html">Command line</a> &amp; <a href="shell.html">Shell</a></span></h3>
+      <table class="keytable">
+        <tr><td><code>git</code> · <code>gh</code></td><td>Version control + the GitHub CLI — see <a href="git.html">Git</a></td></tr>
+        <tr><td><code>jq</code> · <code>yq</code> · <code>wget</code> · <code>age</code></td><td>JSON/YAML processors, downloader, file encryption</td></tr>
+        <tr><td><code>ripgrep</code> · <code>fd</code> · <code>bat</code> · <code>eza</code></td><td>Faster search, find, cat, and ls</td></tr>
+        <tr><td><code>git-delta</code> · <code>dust</code> · <code>duf</code> · <code>tokei</code> · <code>hyperfine</code></td><td>Readable diffs, disk usage, free space, line counts, benchmarks</td></tr>
+        <tr><td><code>starship</code> · <code>antidote</code></td><td>The prompt and the zsh plugin manager</td></tr>
+        <tr><td><code>fzf</code> · <code>zoxide</code> · <code>atuin</code></td><td>Fuzzy finder, directory jumper, smarter history</td></tr>
+        <tr><td><code>mise</code> · <code>uv</code> · <code>direnv</code></td><td>Tool-version manager (Node, Python, etc.), Python project/tool manager, per-folder env</td></tr>
+        <tr><td><code>shellcheck</code></td><td>Static analysis for shell scripts, including the bootstrap and helper scripts agents edit</td></tr>
+        <tr><td><code>go</code> · <code>rustup</code></td><td>Go and Rust toolchains</td></tr>
+      </table>
+
+      <h3>Editor, multiplexer &amp; Git tools &nbsp;<span class="muted">— see <a href="tmux.html">tmux</a>, <a href="neovim.html">Neovim</a>, <a href="git.html">Git</a></span></h3>
+      <table class="keytable">
+        <tr><td><code>tmux</code> · <code>sesh</code> · <code>tmuxp</code></td><td>Terminal multiplexer, smart session switcher, and reusable project layouts</td></tr>
+        <tr><td><code>neovim</code> · <code>vim</code></td><td>The editor (LazyVim-configured) and classic vim</td></tr>
+        <tr><td><code>lazygit</code> · <strong>GitUp</strong></td><td>Terminal Git UI and a graphical history viewer</td></tr>
+      </table>
+
+      <h3>Apps, terminal &amp; system &nbsp;<span class="muted">— see <a href="apps.html">Apps</a>, <a href="macos.html">macOS desktop</a> &amp; <a href="keyboard.html">Keyboard</a></span></h3>
+      <table class="keytable">
+        <tr><td><strong>Ghostty</strong> · JetBrains Mono Nerd Font</td><td>The terminal window and its font</td></tr>
+        <tr><td><strong>Karabiner-Elements</strong></td><td>The <a href="keyboard.html">Caps Lock → Esc/Ctrl</a> remap</td></tr>
+        <tr><td><strong>Zen</strong> · <strong>Chrome</strong></td><td>Daily-driver browser + the testing baseline; use <code>browser-extensions</code> for the curated extension links</td></tr>
+        <tr><td><strong>Raycast</strong> · <strong>Anybox</strong> · <strong>BetterDisplay</strong></td><td>Keyboard launcher/window manager, Raycast Store checklist via <code>raycast-extensions</code>, bookmarks, and display resolution/control</td></tr>
+        <tr><td><strong>Slack</strong> · <strong>Zoom</strong></td><td>Team chat and calls</td></tr>
+        <tr><td>Password manager + CLI</td><td>1Password or Bitwarden — SSH agent &amp; commit <a href="git.html">signing</a></td></tr>
+        <tr><td><strong>Xcode</strong></td><td>Optional, only when <code>xcode=true</code>; App Store install for native Apple/iOS development, with first launch and signing still manual</td></tr>
+        <tr><td><code>groundwork-help</code> · <code>copy-context</code> · <code>chezmoi</code> · <code>mas</code> · <code>defaultbrowser</code></td><td>The command catalog, AI context copier, dotfiles manager, App Store CLI, default-browser setter — see <a href="commands.html">Commands</a> and <a href="setup.html">Setup</a></td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Personal machines only</h2>
+      <p>Gated off work Macs (confirm your employer allows AI tools before enabling them there).</p>
+      <table class="keytable">
+        <tr><td><strong>AI agents</strong></td><td>Claude Code, Codex (CLI + app), OpenCode (CLI + app), Grok Build, aider — see <a href="editors-ai.html">Editors &amp; AI</a></td></tr>
+        <tr><td><strong>AI chat / local</strong></td><td>ChatGPT app, Ollama (local models for Obsidian's Smart Connections)</td></tr>
+        <tr><td><strong>Editors</strong></td><td>VS Code, Cursor, Zed — see <a href="editors-ai.html">Editors &amp; AI</a>. VS Code and Cursor get a lean extension set for agent context, review, CI, testing, linting, formatting, and project formats.</td></tr>
+        <tr><td><strong>Obsidian</strong></td><td>Markdown notes + your <a href="knowledge.html">knowledge base</a></td></tr>
+        <tr><td><strong>Dia</strong></td><td>Experimental AI-first browser; uses the Chrome extension links from <code>browser-extensions</code></td></tr>
+        <tr><td><strong>IINA</strong></td><td>Media player (plays what QuickTime won't)</td></tr>
+        <tr><td><strong>Discord · WhatsApp</strong></td><td>Personal messaging</td></tr>
+        <tr><td><strong>Docker Desktop</strong></td><td>Containers with a GUI (free for personal use)</td></tr>
+        <tr><td><strong>Unity Hub</strong></td><td>Optional, only when <code>game_dev=true</code>; install Unity 6 LTS and WebGL support inside Unity Hub for the <a href="game-dev-unity.html">Unity FPS track</a></td></tr>
+        <tr><td><strong>C# / Unity VS Code extensions</strong></td><td>Optional, only when <code>game_dev=true</code>; C# Dev Kit, runtime support, C# formatting, solution explorer, and NuGet helpers</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Work machines only</h2>
+      <p>Swapped in to keep work Macs license-clean and policy-friendly.</p>
+      <table class="keytable">
+        <tr><td><strong>Colima + Docker CLI</strong></td><td>Containers without Docker Desktop's paid license — <code>colima</code>, <code>docker</code>, <code>docker-compose</code>, <code>docker-buildx</code></td></tr>
+        <tr><td><strong>Work VS Code extensions</strong></td><td>The C#/.NET, SQL Server, Kubernetes, and Terraform stack (from <code>vscode-extensions.txt</code>)</td></tr>
+      </table>
+
+      <div class="callout tip">
+        <span class="label">Adding something of your own</span>
+        <p>To install a new app on every machine, add a line to the <a href="setup.html">Brewfile</a> — in the "both machines" area, the personal-only block, or the work-only block — then commit and <code>chezmoi apply</code>. That's how IINA and the rest got here.</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="knowledge.html"><span class="dir">← Prev</span>Knowledge base</a>
+        <a href="commands.html"><span class="dir">Next →</span>Command catalog</a>
+      </div>
+      <footer class="site">One Brewfile, one question at install — that's the whole split.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

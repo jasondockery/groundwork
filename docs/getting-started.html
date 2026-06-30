@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Getting started · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Getting started · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Getting started · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html" class="active">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Day zero</p>
+      <h1>Getting started: open the terminal and find your feet.</h1>
+      <p class="lead">Never used a command line? Start here. In fifteen minutes you'll know what a terminal is, how to read the prompt, what a command and a file path are, and how to move around — enough that every other page in this guide makes sense.</p>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — the absolute basics</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>pwd</code></span> <span class="act">where am I?</span></div>
+          <div class="qr"><span class="keys"><code>ls</code> / <code>ll</code></span> <span class="act">what's here?</span></div>
+          <div class="qr"><span class="keys"><code>cd</code> name</span> <span class="act">go into a folder</span></div>
+          <div class="qr"><span class="keys"><code>cd ..</code></span> <span class="act">go up one</span></div>
+          <div class="qr"><span class="keys"><kbd>Tab</kbd></span> <span class="act">autocomplete a name</span></div>
+          <div class="qr"><span class="keys"><kbd>↑</kbd></span> <span class="act">previous command</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></span> <span class="act">stop / cancel</span></div>
+          <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span> <span class="act">clear the screen</span></div>
+          <div class="qr"><span class="keys"><code>clear</code></span> <span class="act">also clears it</span></div>
+          <div class="qr"><span class="keys"><code>cmd</code> <code>--help</code></span> <span class="act">how do I use this?</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>What the terminal is</h2>
+      <p>A <strong>terminal</strong> is a window where you type commands instead of clicking buttons. You type a command, press <kbd>Enter</kbd>, and the computer does the thing and prints the result. That's the whole loop. It feels old-fashioned for about a day, and then it feels like a superpower — because typing a precise instruction is faster and more repeatable than hunting through menus.</p>
+      <p>On this Mac the terminal app is <strong>Ghostty</strong>. Open it the way you open anything: press <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> (or your Raycast hotkey), type <em>ghostty</em>, and hit <kbd>Enter</kbd>. You can keep it in the Dock once it's open. Everything else in this guide — the shell, tmux, Neovim — runs <em>inside</em> this window.</p>
+      <p>A fresh Ghostty window opens in your home folder, shown as <code>~</code>. That is the neutral starting place; from there, use <code>z</code>, <code>cd</code>, or <a href="tmux.html">tmux</a>'s session switcher to jump into a project.</p>
+      <div class="callout note">
+        <span class="label">Terminal vs shell</span>
+        <p>Two words for two things. <strong>Ghostty</strong> is the <em>window</em>. The <strong>shell</strong> (here, <code>zsh</code>) is the program running inside it that actually reads your commands. You'll hear "the terminal" used loosely for both — that's fine for now.</p>
+      </div>
+      <div class="callout tip">
+        <span class="label">Why this matters for AI</span>
+        <p>AI coding agents work by reading files, running commands, editing code, and showing diffs. Learning the terminal is how you understand what the agent is doing and step in confidently when it needs direction.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Reading the prompt</h2>
+      <p>When the shell is ready for a command, it shows a <strong>prompt</strong> and waits. On this setup the prompt is drawn by <a href="shell.html">starship</a> and shows useful context — the folder you're in, the Git branch if any, and a <code>❯</code> where your typing goes:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">the prompt</span></div>
+        <pre><code><span class="comment"># folder        branch     cursor sits here</span>
+ ~/code/groundwork    main    ❯ <span class="cursor">_</span></code></pre>
+      </div>
+      <p>Throughout this guide you'll see commands written with a <code>$</code> in front, like <code>$ ls</code>. The <code>$</code> just <em>stands for the prompt</em> — don't type it. Type the part after it. (The copy button on each code block strips it for you.)</p>
+
+      <h2><span class="hash">#</span>A command has a shape</h2>
+      <p>Almost every command is the same three parts: the <strong>command</strong>, some optional <strong>options</strong> (also called flags), and the <strong>thing you're acting on</strong>.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">anatomy</span></div>
+        <pre><code><span class="prompt">$ </span>ls -l ~/code
+<span class="comment">#  │   │    └─ argument: what to act on (a folder)</span>
+<span class="comment">#  │   └─ option/flag: changes how it behaves (-l = long list)</span>
+<span class="comment">#  └─ command: the program to run</span></code></pre>
+      </div>
+      <p>Options usually start with a dash. Short ones are a single letter (<code>-l</code>); long ones are spelled out (<code>--all</code>). When you don't know what a command can do, ask it:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">getting help</span></div>
+        <pre><code><span class="prompt">$ </span>ls --help        <span class="comment"># a quick summary of options</span>
+<span class="prompt">$ </span>man ls           <span class="comment"># the full manual — press q to quit</span></code></pre>
+      </div>
+
+      <h2><span class="hash">#</span>Files, folders, and the path</h2>
+      <p>Your files live in a tree of <strong>folders</strong> (also called directories). A <strong>path</strong> is the address of a file or folder in that tree, with slashes between each step: <code>/Users/you/code/groundwork</code>. A few symbols are worth knowing because they appear everywhere:</p>
+      <table class="keytable">
+        <tr><td><code>/</code></td><td>The very top of the tree (the "root"). Also the separator between folder names.</td></tr>
+        <tr><td><code>~</code></td><td>Your <strong>home</strong> folder — shorthand for <code>/Users/yourname</code>. Most of your stuff lives under here.</td></tr>
+        <tr><td><code>.</code></td><td>"Here" — the folder you're currently in.</td></tr>
+        <tr><td><code>..</code></td><td>"Up one" — the folder that contains the current one.</td></tr>
+      </table>
+      <p>A path that starts at the top (<code>/Users/you/code</code>) is <strong>absolute</strong> — it means the same thing from anywhere. One that starts from where you are (<code>code/groundwork</code> or <code>../notes</code>) is <strong>relative</strong>. Both are normal; you'll use whichever is shorter.</p>
+      <div class="callout note">
+        <span class="label">Hidden files</span>
+        <p>Files and folders whose names start with a dot — <code>.zshrc</code>, <code>.config</code>, <code>.git</code> — are "hidden" and don't show by default. They're where configuration lives (that's what "dotfiles" means). See them with <code>ls -a</code> or <code>ll</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Moving around</h2>
+      <p>Four commands cover ninety percent of getting around. Try each as you read it.</p>
+      <table class="keytable">
+        <tr><td><code>pwd</code></td><td><strong>Print working directory</strong> — shows the full path of where you are right now</td></tr>
+        <tr><td><code>ls</code> &nbsp;·&nbsp; <code>ll</code></td><td><strong>List</strong> what's in the current folder. <code>ll</code> is the detailed version (sizes, dates, Git status)</td></tr>
+        <tr><td><code>cd</code> <em>folder</em></td><td><strong>Change directory</strong> — step into a folder. <code>cd ~</code> goes home, <code>cd ..</code> goes up, <code>cd -</code> jumps back to where you just were</td></tr>
+        <tr><td><code>z</code> <em>name</em></td><td><strong>Jump</strong> to a folder you've visited before from anywhere, by a few letters of its name (this setup's <a href="shell.html">zoxide</a>)</td></tr>
+      </table>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">a typical wander</span></div>
+        <pre><code><span class="prompt">$ </span>pwd                 <span class="comment"># /Users/you</span>
+<span class="prompt">$ </span>cd code             <span class="comment"># step into ~/code</span>
+<span class="prompt">$ </span>ll                  <span class="comment"># see what projects are here</span>
+<span class="prompt">$ </span>cd groundwork   <span class="comment"># into one of them</span>
+<span class="prompt">$ </span>cd ..               <span class="comment"># back up to ~/code</span></code></pre>
+      </div>
+      <div class="callout tip">
+        <span class="label">Let the shell type for you</span>
+        <p>Press <kbd>Tab</kbd> while typing a file or folder name and the shell completes it — start <code>cd mac</code>, hit <kbd>Tab</kbd>, and it fills in <code>groundwork/</code>. Press <kbd>↑</kbd> to bring back a previous command instead of retyping it. These two habits save more keystrokes than anything else.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The survival kit</h2>
+      <p>The handful of keys that get you out of any situation. Memorize these five and you'll never feel stuck.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></span></td><td><strong>Stop the current command.</strong> Something running too long, or you changed your mind? This cancels it and gives the prompt back</td></tr>
+        <tr><td><code>clear</code> <span class="muted">or</span> <span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span></td><td>Wipe the screen clean (history's still there with <kbd>↑</kbd>). Prefer <code>clear</code> — inside <a href="tmux.html">tmux</a>, <kbd>Ctrl</kbd><kbd>L</kbd> jumps panes instead</td></tr>
+        <tr><td><span class="keys"><kbd>↑</kbd> / <kbd>↓</kbd></span></td><td>Step back and forth through commands you've already run</td></tr>
+        <tr><td><span class="keys"><kbd>q</kbd></span></td><td>Quit a full-screen viewer (a <code>man</code> page, a long <code>git log</code>) and return to the prompt</td></tr>
+        <tr><td><code>exit</code></td><td>Close the shell / terminal window</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">If text stops appearing as you type</span>
+        <p>You probably pressed <kbd>Ctrl</kbd><kbd>S</kbd>, which freezes the screen. Press <kbd>Ctrl</kbd><kbd>Q</kbd> to unfreeze. And if a command seems hung, <kbd>Ctrl</kbd><kbd>C</kbd> almost always rescues you.</p>
+      </div>
+
+      <h2><span class="hash">#</span>You really can't break it</h2>
+      <p>Two reasons to experiment freely. First, the commands on this page only <em>look</em> at things — <code>pwd</code>, <code>ls</code>, <code>cd</code> change nothing. Second, this whole machine is rebuildable: every config came from the <a href="setup.html">setup repo</a>, so if something ever gets weird, one <code>chezmoi apply</code> puts it back. The only commands that can destroy work say <code>rm</code> (remove), <code>--force</code>, or <code>--hard</code> — and the <a href="git.html">Git page</a> teaches you to pause on those. Everything else is safe to poke at.</p>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Open it and look around</h3>
+          <p>Launch Ghostty. Run <code>pwd</code> to see where you are, then <code>ll</code> to list what's there. You're standing in your home folder — these are your files.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Walk the tree</h3>
+          <p>Use <code>cd</code> to step into a folder, <code>ll</code> to look, and <code>cd ..</code> to back out. Try <kbd>Tab</kbd> halfway through a folder name to autocomplete it. Lost? <code>cd ~</code> always brings you home.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Ask a command for help</h3>
+          <p>Run <code>ls --help</code> and skim it. Then <code>man ls</code> for the full manual — scroll with <kbd>j</kbd>/<kbd>k</kbd> or arrows, and press <kbd>q</kbd> to leave. Getting comfortable quitting <code>man</code> is half the battle.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Recall and cancel</h3>
+          <p>Run something slow like <code>ping example.com</code>, watch a few lines, then stop it with <span class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></span>. Press <kbd>↑</kbd> to bring the command back without retyping. Finish with <span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span> to clear the screen.</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <span class="label">Where to go next</span>
+        <p>That's the floor — you can now follow any page here. Natural next steps: the <a href="setup.html">Setup &amp; chezmoi</a> page (how this machine builds itself), <a href="customizing.html">Customizing</a> (how to keep personal tweaks), then <a href="shell.html">Shell &amp; CLI</a> (the faster tools and line-editing tricks), and <a href="tmux.html">tmux</a> (many panes in one window).</p>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://missing.csail.mit.edu/2020/course-shell/" target="_blank" rel="noopener">The Missing Semester: the shell</a> — MIT's free, beginner-friendly first lesson.</li>
+        <li><a href="command-line.html">Command line &amp; Unix</a> — the next page here: core commands, scripting, and what Unix actually is.</li>
+        <li><a href="https://linuxcommand.org/tlcl.php" target="_blank" rel="noopener">The Linux Command Line</a> — the best free book for newcomers (the basics apply on a Mac too).</li>
+        <li><a href="https://ghostty.org/docs" target="_blank" rel="noopener">Ghostty docs</a> — the terminal app itself.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="index.html"><span class="dir">← Prev</span>Overview</a>
+        <a href="setup.html"><span class="dir">Next →</span>Setup &amp; chezmoi</a>
+      </div>
+      <footer class="site">Type a command, press Enter, read the result. That's the whole loop.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

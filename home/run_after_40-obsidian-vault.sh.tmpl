@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{ if and (eq .chezmoi.os "darwin") (not .headless) (not .work) -}}
+vault_name="{{ .obsidian_vault_name }}"
+[[ -n "$vault_name" ]] || exit 0
+vault="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/$vault_name"
+
+# Create the vault if it doesn't exist yet. A fresh iCloud account has no Obsidian
+# folder, and the rest of this script only *registers* an existing one -- so without this
+# a first install has nothing to open. mkdir -p at the iCloud path is safe: if a real
+# vault later syncs down to the same path, iCloud reconciles instead of duplicating.
+mkdir -p "$vault/.obsidian"
+
+app_json="$vault/.obsidian/app.json"
+tmp="$(mktemp)"
+if [[ -f "$app_json" ]] && jq empty "$app_json" >/dev/null 2>&1; then
+  jq '.vimMode = true' "$app_json" > "$tmp"
+else
+  printf '%s\n' '{"vimMode":true}' > "$tmp"
+fi
+mv "$tmp" "$app_json"
+
+cfg="$HOME/Library/Application Support/obsidian/obsidian.json"
+
+# Pre-register the vault so Obsidian opens it on first launch. Only when no config
+# exists yet, so we never fight Obsidian's own rewrites afterward.
+if [[ -d "$vault" && ! -f "$cfg" ]]; then
+  mkdir -p "$(dirname "$cfg")"
+  ts=$(( $(date +%s) * 1000 ))
+  vault_id="$(printf '%s' "$vault" | shasum -a 256 | awk '{print substr($1, 1, 16)}')"
+  cat > "$cfg" <<JSON
+{
+  "vaults": {
+    "$vault_id": {
+      "path": "$vault",
+      "ts": $ts,
+      "open": true
+    }
+  }
+}
+JSON
+fi
+
+# Pull the vault fully local now so iCloud isn't holding files as dataless placeholders.
+# This downloads what's currently evicted; it does NOT pin against future eviction.
+# Durable fix is manual: Finder right-click the Obsidian folder -> "Keep Downloaded"
+# (or System Settings -> Apple ID -> iCloud -> turn off "Optimize Mac Storage").
+if [[ -d "$vault" ]]; then
+  brctl download "$vault" 2>/dev/null || true
+fi
+{{- end }}

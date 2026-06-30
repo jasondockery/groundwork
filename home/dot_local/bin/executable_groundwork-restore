@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+backup="${1:-$HOME/.local/state/groundwork/backups/latest}"
+
+if [[ ! -e "$backup" ]]; then
+  echo "No Groundwork backup found at: $backup" >&2
+  echo "Expected first-run backups under ~/.local/state/groundwork/backups/" >&2
+  exit 1
+fi
+
+restore_script="$backup/restore.sh"
+
+if [[ ! -x "$restore_script" ]]; then
+  echo "Backup exists, but restore script is missing or not executable:" >&2
+  echo "  $restore_script" >&2
+  exit 1
+fi
+
+exec "$restore_script"

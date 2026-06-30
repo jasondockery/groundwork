@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Git · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Git · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Git · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html" class="active">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Version control</p>
+      <h1>Git: a save button you can rewind, branch, and share.</h1>
+      <p class="lead">Git records snapshots of your project over time. That means you can go back to any earlier version, try risky things without fear, and work alongside other people on the same code. It's the safety net under everything else.</p>
+
+      <div class="trigger"><b>When you'll want this</b> You're scared to change things, need to review what an agent touched, or want a clean way back.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — daily commands + lazygit</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>git status</code></span> <span class="act">what changed</span></div>
+          <div class="qr"><span class="keys"><code>git add .</code></span> <span class="act">stage everything</span></div>
+          <div class="qr"><span class="keys"><code>git commit -m</code></span> <span class="act">save a snapshot</span></div>
+          <div class="qr"><span class="keys"><code>git push</code> / <code>pull</code></span> <span class="act">sync with GitHub</span></div>
+          <div class="qr"><span class="keys"><code>git switch -c</code></span> <span class="act">new branch</span></div>
+          <div class="qr"><span class="keys"><code>lg</code></span> <span class="act">open lazygit</span></div>
+          <div class="qr"><span class="keys">lazygit <kbd>Space</kbd></span> <span class="act">stage</span></div>
+          <div class="qr"><span class="keys">lazygit <kbd>c</kbd></span> <span class="act">commit</span></div>
+          <div class="qr"><span class="keys">lazygit <kbd>P</kbd> / <kbd>p</kbd></span> <span class="act">push / pull</span></div>
+          <div class="qr"><span class="keys">lazygit <kbd>z</kbd></span> <span class="act">undo last action</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>The mental model</h2>
+      <p>A change moves through three places on your machine before it reaches the world. You <strong>edit</strong> files, you <strong>stage</strong> the ones you want in the next snapshot, and you <strong>commit</strong> to save that snapshot to history. A fourth place, <strong>GitHub</strong>, is the shared copy everyone pulls from and pushes to.</p>
+
+      <figure class="diagram">
+        <svg viewBox="0 0 720 210" role="img" aria-label="Files are staged, then committed to local history, then pushed to GitHub; pull brings changes back">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--mauve)"/>
+            </marker>
+          </defs>
+          <rect x="8" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="83" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--green)">working files</text>
+          <text x="83" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">you edit</text>
+          <rect x="190" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="265" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--text)">staging</text>
+          <text x="265" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">next snapshot</text>
+          <rect x="372" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="447" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--text)">history</text>
+          <text x="447" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">local commits</text>
+          <rect x="554" y="40" width="158" height="80" rx="10" fill="var(--crust)" stroke="var(--sapphire)"/>
+          <text x="633" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--sapphire)">GitHub</text>
+          <text x="633" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">shared copy</text>
+          <line x1="158" y1="80" x2="184" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="171" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">add</text>
+          <line x1="340" y1="80" x2="366" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="353" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">commit</text>
+          <line x1="522" y1="80" x2="548" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="535" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">push</text>
+          <path d="M633 120 L633 160 L83 160 L83 124" fill="none" stroke="var(--peach)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="360" y="180" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--peach)">pull — bring others' changes back down</text>
+        </svg>
+        <figcaption>add &rarr; commit &rarr; push moves work outward; pull brings everyone else's work back in.</figcaption>
+      </figure>
+
+      <h2><span class="hash">#</span>The daily loop</h2>
+      <p>Ninety percent of Git is five commands. Check what changed, stage it, commit it with a message, and sync with GitHub.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">daily</span></div>
+        <pre><code><span class="prompt">$ </span>git status              <span class="comment"># what changed?</span>
+<span class="prompt">$ </span>git add .               <span class="comment"># stage everything</span>
+<span class="prompt">$ </span>git commit -m "message" <span class="comment"># save a snapshot</span>
+<span class="prompt">$ </span>git push                <span class="comment"># send it to GitHub</span>
+<span class="prompt">$ </span>git pull                <span class="comment"># get others' changes</span></code></pre>
+      </div>
+      <p>Write commit messages that say <em>what changed and why</em>, not "stuff" or "fix". Future-you reads them constantly.</p>
+
+      <h2><span class="hash">#</span>The friendly way: lazygit</h2>
+      <p>Typing commands teaches you the words, but <strong>lazygit</strong> teaches you what Git is doing, because you watch it happen. Stage individual lines, write commits, branch, push, and pull — all from one keyboard-driven screen. It's the same app however you open it:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>l</kbd><kbd>g</kbd></span></td><td>In any terminal — the short alias (or type <code>lazygit</code> in full)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span></td><td>In <a href="tmux.html">tmux</a> — opens in a popup over your current folder</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span></td><td>In <a href="neovim.html">Neovim</a> — right inside the editor</td></tr>
+      </table>
+
+      <h3>Finding your way around</h3>
+      <p>The left side holds five panels; the right shows the details of whatever you've selected.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>1</kbd>…<kbd>5</kbd></span></td><td>Jump to a panel: Status, Files, Branches, Commits, Stash</td></tr>
+        <tr><td><span class="keys"><kbd>↑</kbd>/<kbd>↓</kbd> or <kbd>j</kbd>/<kbd>k</kbd></span></td><td>Move within the list</td></tr>
+        <tr><td><span class="keys"><kbd>Enter</kbd></span></td><td>Drill in — e.g. into a file to stage single lines &nbsp;&middot;&nbsp; <kbd>Esc</kbd> backs out</td></tr>
+        <tr><td><span class="keys"><kbd>?</kbd></span></td><td>List every shortcut for the panel you're in &nbsp;&middot;&nbsp; <kbd>q</kbd> quits lazygit</td></tr>
+      </table>
+
+      <h3>The everyday actions</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Space</kbd></span></td><td>Stage / unstage the selected file or line &nbsp;&middot;&nbsp; <kbd>a</kbd> stages everything</td></tr>
+        <tr><td><span class="keys"><kbd>c</kbd></span></td><td>Commit what's staged — type a message, confirm</td></tr>
+        <tr><td><span class="keys"><kbd>P</kbd> / <kbd>p</kbd></span></td><td>Push to GitHub / pull from it</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd></span> <span class="muted">(in Branches)</span></td><td>Check out the selected branch &nbsp;&middot;&nbsp; <kbd>n</kbd> makes a new one</td></tr>
+        <tr><td><span class="keys"><kbd>d</kbd></span></td><td>Discard the selected change — asks first</td></tr>
+        <tr><td><span class="keys"><kbd>z</kbd> / <kbd>Z</kbd></span></td><td>Undo / redo the last action — even a merge or rebase</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">Start here</span>
+        <p>If Git has ever felt abstract, live in lazygit for a week. Watching files move from unstaged to staged to committed makes the whole model click faster than any explanation — and <kbd>z</kbd> undoes almost anything, so you can explore without fear.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Prefer a window? GitUp</span>
+        <p>If you'd rather click than type, <strong>GitUp</strong> is a fast graphical app that draws your history as a live map you can drag and edit. lazygit and GitUp read the same repository, so use whichever suits the moment.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Branches — the superpower</h2>
+      <p>A branch is a parallel line of work. You split off from <code>main</code>, build something without touching the working version, and <strong>merge</strong> it back when it's ready. This is how you try ideas — and how teams avoid stepping on each other.</p>
+
+      <figure class="diagram">
+        <svg viewBox="0 0 560 180" role="img" aria-label="A feature branch splits off from main and later merges back in">
+          <line x1="30" y1="110" x2="530" y2="110" stroke="var(--surface2)" stroke-width="2"/>
+          <text x="30" y="100" font-family="var(--mono)" font-size="11" fill="var(--blue)">main</text>
+          <circle cx="70" cy="110" r="9" fill="var(--blue)"/>
+          <circle cx="150" cy="110" r="9" fill="var(--blue)"/>
+          <circle cx="230" cy="110" r="9" fill="var(--blue)"/>
+          <circle cx="460" cy="110" r="11" fill="var(--green)"/>
+          <text x="460" y="140" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--green)">merge</text>
+          <path d="M230 110 C 270 60, 300 55, 320 55" fill="none" stroke="var(--mauve)" stroke-width="2"/>
+          <line x1="320" y1="55" x2="400" y2="55" stroke="var(--mauve)" stroke-width="2"/>
+          <path d="M400 55 C 425 55, 440 80, 460 99" fill="none" stroke="var(--mauve)" stroke-width="2"/>
+          <text x="318" y="42" font-family="var(--mono)" font-size="11" fill="var(--mauve)">feature</text>
+          <circle cx="320" cy="55" r="9" fill="var(--mauve)"/>
+          <circle cx="400" cy="55" r="9" fill="var(--mauve)"/>
+        </svg>
+        <figcaption>Split off <code>main</code>, do the work safely on a branch, then merge it back when it's done.</figcaption>
+      </figure>
+
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">branching</span></div>
+        <pre><code><span class="prompt">$ </span>git switch -c new-feature  <span class="comment"># create and move onto a branch</span>
+<span class="prompt">$ </span>git switch main            <span class="comment"># hop back to main</span>
+<span class="prompt">$ </span>git merge new-feature      <span class="comment"># fold the branch into main</span></code></pre>
+      </div>
+      <div class="callout note">
+        <span class="label">The best way to learn this</span>
+        <p>Branches click when you <em>see</em> them move. Spend 30 minutes on <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — it animates every command. It's the single fastest way to understand Git.</p>
+      </div>
+
+      <h2><span class="hash">#</span>GitHub and the gh command</h2>
+      <p>GitHub is where repositories live online. The <code>gh</code> command talks to it from the terminal — sign in once, then clone repos and open pull requests without leaving the shell.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gh</span></div>
+        <pre><code><span class="prompt">$ </span>gh auth login --git-protocol https  <span class="comment"># one-time sign-in</span>
+<span class="prompt">$ </span>gh auth status                     <span class="comment"># see the active account</span>
+<span class="prompt">$ </span>gh repo clone owner/name   <span class="comment"># download a repo</span>
+<span class="prompt">$ </span>gh pr create               <span class="comment"># propose your branch for merge</span></code></pre>
+      </div>
+      <p>A <strong>pull request</strong> is how you propose a branch be merged — others review it, discuss, and approve. It's the heart of working together on GitHub.</p>
+
+      <h2><span class="hash">#</span>When something goes wrong</h2>
+      <p>Committed work is very hard to truly lose — Git keeps almost everything. Most "mistakes" have a calm fix:</p>
+      <table class="keytable">
+        <tr><td><code>git restore &lt;file&gt;</code></td><td>Throw away <em>uncommitted</em> edits to a file and go back to the last commit</td></tr>
+        <tr><td><code>git restore --staged &lt;file&gt;</code></td><td>Unstage something you added by mistake (keeps your edits)</td></tr>
+        <tr><td><code>git commit --amend</code></td><td>Fix the message or contents of the commit you just made</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Ask before "force" or "hard"</span>
+        <p>Most commands are safe. The few that can actually destroy work contain the words <code>--force</code> or <code>--hard</code>. If you're about to run one and you're not sure, stop and ask first. lazygit also asks before anything destructive.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Make your first commits</h3>
+          <p>You already have a repo to practice on — the knowledge wiki from <code>new-wiki</code>. Add a line to its <code>README.md</code>, then run <code>git status</code>, <code>git add .</code>, and <code>git commit -m "edit readme"</code>. Do it twice so you have a small history.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Do it again in lazygit</h3>
+          <p>Make another edit, then open <code>lg</code>. Stage it with <kbd>Space</kbd>, commit with <kbd>c</kbd>, and watch it land in the history panel. Notice you just did the same thing as drill 1 — but you could see it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Branch and merge</h3>
+          <p>Run <code>git switch -c experiment</code>, change something, commit it. Switch back with <code>git switch main</code> — your change vanishes from the files (it's safe on the branch). Bring it in with <code>git merge experiment</code>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Understand it for real</h3>
+          <p>Play through <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a>. By the end, the diagram above will feel obvious instead of mysterious.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>What's already configured</h2>
+      <p>Your Git arrives pre-tuned, so the sensible behavior is just the default. You never set this up — but it's worth knowing what's on, because it quietly removes a lot of papercuts.</p>
+
+      <h3>Readable diffs — delta</h3>
+      <p>Plain <code>git diff</code> is a wall of red and green. <strong>delta</strong> reformats every diff Git shows — syntax highlighting, line numbers, and word-level highlighting of exactly what changed on a line. It's wired in as Git's pager, so <code>git diff</code>, <code>git show</code>, and <code>git log -p</code> all use it automatically.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>n</kbd> / <kbd>N</kbd></span></td><td>Jump to the next / previous file in a long diff</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd> / <kbd>b</kbd></span></td><td>Page down / up &nbsp;&middot;&nbsp; <kbd>q</kbd> quits</td></tr>
+      </table>
+
+      <h3>The sensible defaults</h3>
+      <p>A handful of config choices that make day-to-day Git smoother and the history cleaner:</p>
+      <table class="keytable">
+        <tr><td><code>pull.rebase = true</code></td><td><code>git pull</code> <strong>rebases</strong> your local commits on top of what you fetched instead of making a noisy "merge branch" commit — so history stays a clean, straight line</td></tr>
+        <tr><td><code>push.autoSetupRemote</code></td><td>The first <code>git push</code> on a new branch just works — no <code>--set-upstream</code> dance</td></tr>
+        <tr><td><code>fetch.prune = true</code></td><td>Branches deleted on GitHub stop cluttering your list locally — stale <code>origin/*</code> refs are cleaned up on every fetch</td></tr>
+        <tr><td><code>init.defaultBranch = main</code></td><td>New repos start on <code>main</code>, matching GitHub</td></tr>
+        <tr><td><code>merge.conflictstyle = zdiff3</code></td><td>When a merge conflicts, you see three sections — yours, theirs, <em>and the common ancestor</em> — which makes it far clearer <em>why</em> the conflict happened and how to resolve it</td></tr>
+      </table>
+
+      <h3>Signed commits</h3>
+      <p>If you set a signing key during setup, every commit is <strong>signed</strong> automatically — a cryptographic stamp that it really came from you, shown as a "Verified" badge on GitHub. This uses your <strong>SSH key from the password manager</strong> (1Password or Bitwarden), so there's no separate key to manage and nothing private ever touches disk.</p>
+      <div class="callout note">
+        <span class="label">Two gotchas</span>
+        <p>Signing needs the password manager's <strong>SSH agent unlocked</strong> — if commits suddenly won't sign, unlock the app. And verifying signatures <em>locally</em> (<code>git log --show-signature</code>) additionally needs an <code>allowedSignersFile</code> configured; without it, signing still works and GitHub still shows "Verified," but your own machine can't verify the badge. See <a href="troubleshooting.html">Troubleshooting</a> if pushes start prompting for a login.</p>
+      </div>
+
+      <h3>Pulling without prompts — the gh credential helper</h3>
+      <p>GitHub stopped accepting passwords years ago, so Git authenticates through <strong>gh</strong> for HTTPS remotes. The setup bakes <code>gh</code> in as Git's credential helper (in the managed git config, so it survives every <code>chezmoi apply</code>) for your own GitHub repos after you run <code>gh auth login --git-protocol https</code>. SSH remotes are still fine when your <code>~/.ssh/config</code> clearly maps the right key to the right GitHub account.</p>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <p><strong>Start — interactive:</strong></p>
+      <ul>
+        <li><a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — the visual sandbox: type real commands, watch the graph. The best first stop.</li>
+        <li><a href="https://ohmygit.org" target="_blank" rel="noopener">Oh My Git!</a> — an open-source game that shows Git's internals as you play.</li>
+        <li><a href="https://github.com/skills" target="_blank" rel="noopener">GitHub Skills</a> — learn-by-doing courses in real repos (pull requests, collaboration).</li>
+      </ul>
+      <p><strong>Read &amp; reference:</strong></p>
+      <ul>
+        <li><a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener">Pro Git</a> — the definitive, free, complete book. Read it cover to cover when you're ready.</li>
+        <li><a href="https://www.atlassian.com/git/tutorials" target="_blank" rel="noopener">Atlassian Git tutorials</a> — clear, well-illustrated explanations of every workflow.</li>
+        <li><a href="https://ohshitgit.com" target="_blank" rel="noopener">Oh Shit, Git!?!</a> — copy-paste recipes for escaping common messes.</li>
+        <li><a href="https://wizardzines.com/git-cheat-sheet.pdf" target="_blank" rel="noopener">Julia Evans' Git cheat sheet</a> — a friendly one-page "how I actually use git."</li>
+        <li><a href="https://git-scm.com/docs" target="_blank" rel="noopener">Official Git docs</a> — the authoritative command reference.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="shell.html"><span class="dir">← Prev</span>Shell &amp; CLI</a>
+        <a href="editors-ai.html"><span class="dir">Next →</span>Editors &amp; AI</a>
+      </div>
+      <footer class="site">Commit early, commit often. The history is your undo button.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

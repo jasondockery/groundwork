@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Everyday workflow · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Everyday workflow · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Everyday workflow · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html" class="active">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <p class="eyebrow">Putting it together</p>
+      <h1>A day in the life: how the pieces actually work together.</h1>
+      <p class="lead">You've met the tools one at a time. This is the part that turns them into an AI-native way of working — one terminal window where the editor, the shell, Git, and an agent all sit side by side, and nothing is ever lost when you walk away.</p>
+
+      <div class="callout note">
+        <span class="label">Read the tool pages first</span>
+        <p>This page assumes you've skimmed <a href="tmux.html">tmux</a>, <a href="neovim.html">Neovim</a>, <a href="shell.html">Shell</a>, and <a href="git.html">Git</a>. Here we're not learning keys — we're stringing them into a real session.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The shape of a working session</h2>
+      <p>One window, one project, three or four panes. The editor where you write, a shell where you run things, an agent pane where you delegate or ask questions, and whatever else the task needs — logs, a test watcher, a second shell. tmux holds the layout together and keeps it alive; you move between everything with the same four keys.</p>
+      <figure class="diagram">
+        <svg viewBox="0 0 720 250" role="img" aria-label="A tmux window split into an editor pane, a shell pane, and a logs pane, inside a project session">
+          <text x="20" y="26" font-family="var(--mono)" font-size="13" fill="var(--mauve)">SESSION: my-app  (held by tmux — survives reboots)</text>
+          <rect x="20" y="42" width="680" height="188" rx="10" fill="none" stroke="var(--surface1)" stroke-dasharray="4 4"/>
+          <rect x="32" y="54" width="340" height="164" rx="8" fill="var(--crust)" stroke="var(--green)"/>
+          <text x="202" y="130" text-anchor="middle" font-family="var(--mono)" font-size="13" fill="var(--green)">nvim — you write here</text>
+          <text x="202" y="150" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">Space finds files · Space/ searches</text>
+          <rect x="384" y="54" width="304" height="78" rx="8" fill="var(--crust)" stroke="var(--surface2)"/>
+          <text x="536" y="88" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--subtext0)">shell — run commands</text>
+          <text x="536" y="106" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">rg · fd · tests · git</text>
+          <rect x="384" y="140" width="304" height="78" rx="8" fill="var(--crust)" stroke="var(--surface2)"/>
+          <text x="536" y="174" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--subtext0)">logs / server / agent</text>
+          <text x="536" y="192" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">claude · a dev server · tail</text>
+        </svg>
+        <figcaption>Move between all of them with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> — same keys whether the neighbor is a tmux pane or a Neovim split.</figcaption>
+      </figure>
+
+      <h2><span class="hash">#</span>The loop, start to finish</h2>
+      <p>Here's a complete pass at a small task — say, adding a feature to a project. Every step links to the page that teaches the keys.</p>
+
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Open the workspace</h3>
+          <p>Launch Ghostty; a fresh window starts in <code>~</code>. Jump to (or create) the project's tmux session with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> — that's <a href="tmux.html">sesh</a>, the session switcher. Type a few letters of the project, hit <kbd>Enter</kbd>, and you land in that folder with its layout intact. If you were here yesterday, everything's exactly as you left it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Lay out the panes</h3>
+          <p>Open the editor: <code>nvim .</code>. Split off a shell beside it with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>, and a third pane underneath with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>-</kbd></span> for logs or a dev server. Now you can see the code, run things, and watch output without ever switching windows.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Find your way into the code</h3>
+          <p>In <a href="neovim.html">Neovim</a>, press <span class="keys"><kbd>Space</kbd><kbd>Space</kbd></span> and type part of a filename to open it, or <span class="keys"><kbd>Space</kbd><kbd>/</kbd></span> to search the whole project's text. Hop to the shell pane with <span class="keys"><kbd>Alt</kbd><kbd>l</kbd></span> and back with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd></span> — no prefix, no mouse.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Edit, run, repeat</h3>
+          <p>Make a change in the editor. Flip to the shell and run it — search with <code>rg</code>, find files with <code>fd</code>, run the tests. The grey autosuggestion and <span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span> history mean you retype almost nothing. This tight edit→run loop, all on screen at once, is the whole point of the setup.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Hand the boring parts to an agent</h3>
+          <p>In the shell (or a fourth pane), run <code>claude</code> and describe a chunk of work in plain English — "add a loading state to the form and a test for it." It proposes a <a href="editors-ai.html">plan and a diff</a>; you read the diff, ask for changes if needed, run verification, and only then keep it. Commit first so you can undo in one step if you don't like the result.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">6</div>
+        <div class="body">
+          <h3>Package context for a second opinion</h3>
+          <p>When you want another AI tool or a human reviewer to see the same files, copy an explicit bundle instead of screenshots or loose snippets. From the shell or a tmux pane, run <code>copy-context AGENTS.md src tests</code>; it copies each selected file with its path and contents. In VS Code, press <span class="keys"><kbd>⇧</kbd><kbd>⌘</kbd><kbd>P</kbd></span> and run <strong>Copy Opened Files to Clipboard</strong> when the open tabs are already the context you want.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">7</div>
+        <div class="body">
+          <h3>Commit what you've got</h3>
+          <p>Pop open <a href="git.html">lazygit</a> right over your work with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span>. Stage with <kbd>Space</kbd>, commit with <kbd>c</kbd>, push with <kbd>P</kbd>, quit with <kbd>q</kbd>. Small, frequent commits with clear messages — each one is a save point you can return to.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">8</div>
+        <div class="body">
+          <h3>Walk away without losing anything</h3>
+          <p>Done for now? <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span> detaches — close the laptop, the session keeps running. Tomorrow, <code>tmux attach</code> (or the session switcher) drops you back into the exact same panes, editor, and scrollback. That persistence is what makes this feel like a workshop you return to, not a thing you rebuild each morning.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Which tool for which job</h2>
+      <p>When you're not sure what to reach for:</p>
+      <table class="keytable">
+        <tr><td><strong>Move around / keep things alive</strong></td><td><a href="tmux.html">tmux</a> — panes, windows, sessions that survive</td></tr>
+        <tr><td><strong>Write &amp; edit code</strong></td><td><a href="neovim.html">Neovim</a> in a pane (quick, keyboard-only) — or VS Code / Cursor for big visual work</td></tr>
+        <tr><td><strong>Run, search, inspect</strong></td><td>The <a href="shell.html">shell</a> — <code>rg</code>, <code>fd</code>, <code>z</code>, tests, anything one-shot</td></tr>
+        <tr><td><strong>Save &amp; share work</strong></td><td><a href="git.html">Git</a> / lazygit — commit early and often; push to GitHub</td></tr>
+        <tr><td><strong>Delegate a chunk of work</strong></td><td>An <a href="editors-ai.html">agent</a> (<code>claude</code>) — describe it, read the diff, approve</td></tr>
+        <tr><td><strong>Look something up you've learned</strong></td><td>Your <a href="knowledge.html">knowledge base</a> — ask Claude Code over your own notes</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Habits that make it click</h2>
+      <div class="callout tip">
+        <span class="label">Three that pay off fastest</span>
+        <p><strong>One session per project</strong> — name it, and let tmux keep it warm. <strong>Commit before you experiment</strong> — then any change, yours or an agent's, is one command to undo. <strong>Stay on the home row</strong> — the more you lean on <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>, <kbd>Space</kbd> in the editor, and <kbd>Ctrl</kbd><kbd>R</kbd> history, the less the mouse pulls you out of flow.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">AI-native habit</span>
+        <p>Use agents for leverage, not autopilot. Ask for a plan before broad edits, keep the task narrow, require verification, and treat the diff as the source of truth. The agent can draft; the human owns the merge.</p>
+      </div>
+      <div class="callout warn">
+        <span class="label">Don't try to do it all on day one</span>
+        <p>Nobody runs this whole loop smoothly in week one. Get comfortable in <em>one</em> pane first, then add splitting, then lazygit, then agents. The <a href="index.html">learning path</a> on the overview orders it for you.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://missing.csail.mit.edu" target="_blank" rel="noopener">The Missing Semester of Your CS Education</a> — MIT's free course on exactly this: shell, editor, tmux, and Git as one workflow.</li>
+        <li><a href="editors-ai.html">Editors &amp; AI</a> — the agent loop Groundwork uses everywhere: describe, plan, edit, review, verify, commit.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="keyboard.html"><span class="dir">← Prev</span>Keyboard</a>
+        <a href="new-project.html"><span class="dir">Next →</span>Starting a project</a>
+      </div>
+      <footer class="site">One window, one project, everything alive. Detach, return, carry on.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
