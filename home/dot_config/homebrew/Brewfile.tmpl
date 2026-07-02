@@ -1,3 +1,13 @@
+{{- $work := false -}}
+{{- if hasKey . "work" }}{{- $work = .work -}}{{- end -}}
+{{- $headless := false -}}
+{{- if hasKey . "headless" }}{{- $headless = .headless -}}{{- end -}}
+{{- $gameDev := false -}}
+{{- if hasKey . "game_dev" }}{{- $gameDev = .game_dev -}}{{- end -}}
+{{- $xcode := false -}}
+{{- if hasKey . "xcode" }}{{- $xcode = .xcode -}}{{- end -}}
+{{- $pwManager := "none" -}}
+{{- if hasKey . "password_manager" }}{{- $pwManager = .password_manager -}}{{- end -}}
 # Core
 brew "git"
 brew "gh"
@@ -40,23 +50,23 @@ brew "go"
 brew "rustup"
 
 # Security / auth
-{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
+{{ if and (eq .chezmoi.os "darwin") (not $headless) -}}
 brew "mas"
 {{- end }}
-{{ if eq .password_manager "1password" -}}
+{{ if eq $pwManager "1password" -}}
 brew "1password-cli"
-{{- else if eq .password_manager "bitwarden" -}}
+{{- else if eq $pwManager "bitwarden" -}}
 brew "bitwarden-cli"
 {{- end }}
 
-{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
+{{ if and (eq .chezmoi.os "darwin") (not $headless) -}}
 # macOS desktop apps, fonts, browsers, launchers, and App Store apps
 cask "gitup-app"            # GitUp: fast native GUI for visualizing git history
 cask "ghostty"
 cask "font-jetbrains-mono-nerd-font"
-{{ if eq .password_manager "1password" -}}
+{{ if eq $pwManager "1password" -}}
 cask "1password"
-{{- else if eq .password_manager "bitwarden" -}}
+{{- else if eq $pwManager "bitwarden" -}}
 cask "bitwarden"
 {{- end }}
 cask "karabiner-elements"
@@ -67,14 +77,14 @@ cask "zoom"
 cask "slack"
 cask "raycast"                # keyboard-first launcher; Quicklinks jump to daily links
 mas "Anybox", id: 1593408455  # native bookmarks: menu-bar mode + Anydock profiles (paid; buy in App Store first)
-{{ if and (hasKey . "xcode") .xcode -}}
+{{ if $xcode -}}
 mas "Xcode", id: 497799835    # optional native Apple/iOS development; requires App Store sign-in/ownership
 {{- end }}
 cask "betterdisplay"          # display resolution presets, DDC brightness, layout protection, CLI/Shortcuts integration
 
 # Docker. Desktop needs a PAID license for orgs >250 staff or >$10M revenue, so:
 #   personal -> Docker Desktop (app + CLI + daemon); work -> Colima + CLI (free, no GUI).
-{{ if .work -}}
+{{ if $work -}}
 brew "colima"
 brew "docker"
 brew "docker-compose"
@@ -83,15 +93,16 @@ brew "docker-buildx"
 cask "docker-desktop"
 {{- end }}
 
-{{ if not .work -}}
+{{ if not $work -}}
 # Personal machines only: AI agents + editors + personal apps
 cask "claude-code@latest"    # Claude Code CLI: faster-moving latest channel, not the stable cask
 cask "codex"                 # Codex CLI
 cask "codex-app"             # Codex desktop app (manage coding agents)
 cask "chatgpt"               # OpenAI ChatGPT desktop app
+brew "opencode"              # OpenCode CLI
 cask "visual-studio-code"    # hosts the anthropic.claude-code extension (vscode-extensions.txt)
 cask "cursor"
-cask "opencode-desktop"      # OpenCode UI; the CLI is installed in 20-tools.sh
+cask "opencode-desktop"      # OpenCode UI
 cask "zed"
 cask "obsidian"
 cask "ollama-app"            # local LLM runtime; serves localhost:11434 for Smart Connections embeddings + Whisper
@@ -99,7 +110,7 @@ cask "thebrowsercompany-dia" # Arc's successor (AI-first); needs macOS 14+ Apple
 cask "discord"               # communities / gaming / dev servers
 cask "whatsapp"              # messaging
 cask "iina"                  # modern media player (mpv-backed); plays what QuickTime won't
-{{ if .game_dev -}}
+{{ if $gameDev -}}
 cask "unity-hub"             # optional game-dev track: installs Unity Hub; install Unity 6 LTS inside Hub
 {{- end }}
 {{- end }}

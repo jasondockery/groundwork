@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-{{ if and (eq .chezmoi.os "darwin") (index . "reset_existing_configs") -}}
+{{ if and (hasKey . "reset_existing_configs") .reset_existing_configs -}}
 state_dir="$HOME/.local/state/groundwork/reset"
 marker="$state_dir/.reset-existing-configs-done"
 

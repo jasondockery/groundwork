@@ -91,6 +91,30 @@ can_read_repo() {
   GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code "$repo_url" HEAD >/dev/null 2>&1
 }
 
+github_repo_slug() {
+  local url="$1" slug
+  case "$url" in
+    https://github.com/*) slug="${url#https://github.com/}" ;;
+    git@github.com:*) slug="${url#git@github.com:}" ;;
+    ssh://git@github.com/*) slug="${url#ssh://git@github.com/}" ;;
+    *) return 1 ;;
+  esac
+  slug="${slug%/}"
+  slug="${slug%.git}"
+  [[ "$slug" == */* ]] || return 1
+  printf '%s\n' "$slug"
+}
+
+origin_matches_repo_url() {
+  local origin_url="$1" expected_url="$2" origin_slug expected_slug
+  [[ "$origin_url" == "$expected_url" ]] && return 0
+  if origin_slug="$(github_repo_slug "$origin_url")" && expected_slug="$(github_repo_slug "$expected_url")"; then
+    [[ "$origin_slug" == "$expected_slug" ]]
+    return
+  fi
+  return 1
+}
+
 ensure_repo_access() {
   info "Checking Groundwork repo access"
 
@@ -118,7 +142,13 @@ clone_or_update_groundwork() {
   info "Preparing visible Groundwork checkout"
 
   if [[ -d "$groundwork_dir/.git" ]]; then
+    local origin_url
     info "Groundwork checkout already exists: $groundwork_dir"
+    origin_url="$(git -C "$groundwork_dir" remote get-url origin 2>/dev/null || true)"
+    [[ -n "$origin_url" ]] || die "$groundwork_dir has no origin remote. Set GROUNDWORK_DIR to another path or fix the checkout."
+    if ! origin_matches_repo_url "$origin_url" "$repo_url"; then
+      die "$groundwork_dir points at '$origin_url', not '$repo_url'. Move it aside, set GROUNDWORK_DIR, or set GROUNDWORK_REPO_URL to the existing checkout intentionally."
+    fi
     git -C "$groundwork_dir" fetch origin
     git -C "$groundwork_dir" pull --ff-only
     return
@@ -181,6 +211,7 @@ fi
 
 if ! command -v brew >/dev/null 2>&1; then
   info "Installing Homebrew"
+  sudo -v || die "Homebrew needs administrator access; run again from an Administrator account."
   NONINTERACTIVE=1 /bin/bash -c \
     "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 

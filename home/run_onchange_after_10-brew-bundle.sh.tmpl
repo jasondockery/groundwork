@@ -2,7 +2,7 @@
 set -euo pipefail
 {{- $brewfile := joinPath .chezmoi.sourceDir "dot_config/homebrew/Brewfile.tmpl" }}
 {{- if stat $brewfile }}
-# Brewfile hash: {{ include "dot_config/homebrew/Brewfile.tmpl" | sha256sum }}
+# Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.tmpl" . | sha256sum }}
 {{- end }}
 
 for brew_bin in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do

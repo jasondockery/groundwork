@@ -1,7 +1,9 @@
 # Contributing
 
 Thanks for helping improve this setup. This repo is optimized for a readable,
-teachable Mac developer environment, not for maximum cleverness.
+teachable AI-native development foundation across Mac workstations, Linux/WSL
+terminal workflows, and headless agent/container environments, not for maximum
+cleverness.
 
 ## Before Changing Files
 
@@ -9,6 +11,9 @@ teachable Mac developer environment, not for maximum cleverness.
 - Keep beginner docs in `docs/`.
 - Keep repeatable agent procedures in `skills/` only when they are reused often.
 - Keep setup flows in scripts, then explain how to run or inspect the script.
+- Use the chezmoi version pinned in `.chezmoiversion`. It is Groundwork's
+  supported toolchain floor, not a claim that older distro-packaged chezmoi
+  builds cannot render some files.
 
 ## Pull Requests
 

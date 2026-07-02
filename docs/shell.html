@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <title>Shell &amp; modern CLI · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/shell.html">
 <meta property="og:title" content="Shell &amp; modern CLI · Groundwork">
 <meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
@@ -14,17 +15,28 @@
 <meta name="twitter:title" content="Shell &amp; modern CLI · Groundwork">
 <meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/shell.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar">
   <span class="name">Groundwork</span>
-  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
 </div>
-<div class="scrim"></div>
+<div class="scrim" aria-hidden="true"></div>
 <div class="layout">
-  <aside class="sidebar">
+  <aside id="site-sidebar" class="sidebar">
     <div class="brand-row">
       <a class="brand" href="index.html">
       <span class="mark">AI-native</span>
@@ -93,7 +105,7 @@
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
   </aside>
 
-  <main class="main">
+  <main id="main" class="main">
     <div class="content">
       <p class="eyebrow">Commands</p>
       <h1>The modern command line: the names you know, far better tools underneath.</h1>
@@ -126,6 +138,7 @@
       <table class="keytable">
         <tr><td><code>ls</code></td><td>runs <strong>eza</strong> — colored, sorted, folders first</td></tr>
         <tr><td><code>ll</code></td><td>eza in long form with permissions, sizes, and a <strong>git status</strong> column</td></tr>
+        <tr><td><code>lt</code></td><td>eza as a two-deep tree, the quick shape-of-a-repo view (<code>ltt</code> goes three deep)</td></tr>
         <tr><td><code>cat</code></td><td>runs <strong>bat</strong> — syntax highlighting and line numbers</td></tr>
       </table>
       <div class="callout note">
@@ -201,8 +214,8 @@
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">eza</span></div>
         <pre><code><span class="prompt">$ </span>ll
-<span class="prompt">$ </span>eza --tree --level=2
-<span class="comment"># a two-deep tree of the current folder</span></code></pre>
+<span class="prompt">$ </span>lt
+<span class="comment"># a two-deep tree of the current folder (eza --tree --level=2); ltt goes three deep</span></code></pre>
       </div>
 
       <h3>bat — reading files</h3>
@@ -250,7 +263,7 @@
       <p>A fuzzy picker wired into the shell. Groundwork points its file picker at <code>rg --files</code>, so fuzzy file selection respects the same ignore rules as ripgrep. Three keystrokes are worth memorizing:</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span></td><td>Search your command history — start typing, pick, Enter</td></tr>
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a file path into the line you're typing</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a file path into the line you're typing, with a bat preview; opens as a floating popup inside tmux</td></tr>
         <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it</td></tr>
       </table>
 
@@ -283,7 +296,7 @@
         <div class="num">1</div>
         <div class="body">
           <h3>See git status while you list</h3>
-          <p>Inside any Git repo, run <code>ll</code> and look at the status column on the left. Change a file, run it again, watch the marker appear. Then map the layout with <code>eza --tree --level=2</code>.</p>
+          <p>Inside any Git repo, run <code>ll</code> and look at the status column on the left. Change a file, run it again, watch the marker appear. Then map the layout with <code>lt</code>.</p>
         </div>
       </div>
       <div class="drill">
@@ -362,7 +375,7 @@
 <span class="prompt">$ </span>node --version                 <span class="comment"># the pinned version, here only</span>
 <span class="prompt">$ </span>mise install                   <span class="comment"># on a fresh clone: grab everything the toml asks for</span></code></pre>
       </div>
-      <p>Walk into a different project and the versions change to match it automatically. Globally, this setup pins Node LTS, pnpm, and Python (in <code>~/.config/mise/config.toml</code>), so every machine agrees on the baseline. Python projects should still use <code>uv</code> for dependencies and virtual environments; mise supplies the interpreter and will source an existing uv <code>.venv</code> when you enter the project.</p>
+      <p>Walk into a different project and the versions change to match it automatically. Globally, this setup pins Node LTS, pnpm, and Python (in <code>~/.config/mise/config.toml</code>), so every machine agrees on the baseline. <code>mise install</code> installs missing declared versions; <code>mise upgrade</code> deliberately advances floating baselines such as Node LTS to the newest matching patch. Upgrades are live at your next prompt, even in terminals that are already open, because mise refreshes the shell's PATH before each prompt. Python projects should still use <code>uv</code> for dependencies and virtual environments; mise supplies the interpreter and will source an existing uv <code>.venv</code> when you enter the project.</p>
 
       <h2><span class="hash">#</span>Going deeper</h2>
       <ul>

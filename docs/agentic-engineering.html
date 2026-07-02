@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <title>Vibe coding toward agentic engineering · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/agentic-engineering.html">
 <meta property="og:title" content="Vibe coding toward agentic engineering · Groundwork">
 <meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
@@ -14,17 +15,28 @@
 <meta name="twitter:title" content="Vibe coding toward agentic engineering · Groundwork">
 <meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/agentic-engineering.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar">
   <span class="name">Groundwork</span>
-  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
 </div>
-<div class="scrim"></div>
+<div class="scrim" aria-hidden="true"></div>
 <div class="layout">
-<aside class="sidebar">
+<aside id="site-sidebar" class="sidebar">
     <div class="brand-row">
       <a class="brand" href="index.html">
       <span class="mark">AI-native</span>
@@ -93,7 +105,7 @@
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
   </aside>
 
-  <main class="main">
+  <main id="main" class="main">
     <div class="content">
 <p class="eyebrow">The two modes</p>
 <h1>From vibe coding toward agentic engineering.</h1>
@@ -104,12 +116,12 @@
 <div class="two">
   <div class="floor">
     <span class="tag">vibe coding</span>
-    <h3>Raises the floor</h3>
+    <p class="panel-title">Raises the floor</p>
     <p>Access. Momentum. Prototypes. You prompt, run, accept, and iterate until something appears. It is a wonderful way to learn and a risky way to stop learning.</p>
   </div>
   <div class="ceiling">
     <span class="tag">agentic engineering</span>
-    <h3>Raises the ceiling</h3>
+    <p class="panel-title">Raises the ceiling</p>
     <p>Throughput at professional quality. You still use agents, but you own the plan, the tests, the review, the security boundaries, and the architecture.</p>
   </div>
 </div>

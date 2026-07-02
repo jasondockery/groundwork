@@ -10,7 +10,7 @@ unset _brew
 # blip, registry hiccup — is retried on the next apply. The guards below make each
 # install a no-op once the tool is present, so re-running is cheap. Put the install
 # dirs on PATH first so those `command -v` checks find what's already there.
-export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 tmux_plugin_dir="$HOME/.config/tmux/plugins"
 tmux_conf="$HOME/.config/tmux/tmux.conf"
@@ -40,10 +40,13 @@ fi
 
 if [[ ! -e "$HOME/.config/nvim/init.lua" ]]; then
   tmp_nvim="$(mktemp -d)"
-  git clone --depth 1 https://github.com/LazyVim/starter "$tmp_nvim"
-  rm -rf "$tmp_nvim/.git"
-  mkdir -p "$HOME/.config/nvim"
-  cp -R "$tmp_nvim"/. "$HOME/.config/nvim"/
+  if git clone --depth 1 https://github.com/LazyVim/starter "$tmp_nvim"; then
+    rm -rf "$tmp_nvim/.git"
+    mkdir -p "$HOME/.config/nvim"
+    cp -R "$tmp_nvim"/. "$HOME/.config/nvim"/
+  else
+    echo "LazyVim starter clone failed; will retry on next chezmoi apply." >&2
+  fi
   rm -rf "$tmp_nvim"
 fi
 
@@ -73,11 +76,9 @@ if [[ ! -e "$groundwork_state_dir/last-update-all" ]]; then
 fi
 
 {{ if and (not .work) (not .headless) -}}
-if ! command -v opencode >/dev/null 2>&1; then
-  curl -fsSL https://opencode.ai/install | bash || true
-fi
-
 # Grok Build (xAI CLI) — personal machines only. Requires a SuperGrok / X Premium+ subscription.
+# This vendor installer is intentionally best-effort and not part of the
+# reproducible headless path; pin/checksum it before making it required.
 if ! command -v grok >/dev/null 2>&1; then
   curl -fsSL https://x.ai/cli/install.sh | bash || true
 fi

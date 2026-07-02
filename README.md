@@ -98,7 +98,7 @@ less /tmp/bootstrap-mac.sh
 bash /tmp/bootstrap-mac.sh
 ```
 
-That script installs every Brewfile package, lays down all configs, and runs the setup scripts. Re-run later with `chezmoi update` (pull + apply) or `chezmoi apply` (apply local source).
+That script installs every Brewfile package, lays down all configs, and runs the setup scripts. Re-run later with `chezmoi update` (pull + apply) or `chezmoi apply` (apply local source). Those commands sync configuration; they do not upgrade already-installed tools to newer upstream releases.
 
 Advanced users can override the clone URL, for example when using SSH:
 
@@ -108,9 +108,9 @@ GROUNDWORK_REPO_URL=git@github.com:jasondockery/groundwork.git bash /tmp/bootstr
 
 ## Updating Later
 
-`chezmoi update` runs `git pull` from this repo and applies the result. The public repo does not require GitHub login for normal pulls.
+`chezmoi update` runs `git pull` from this repo and applies the result. If the repo changes an install hook, such as the Brewfile bundle, that hook can add newly declared tools; it still does not chase newer Homebrew or mise releases for tools already installed. The public repo does not require GitHub login for normal pulls.
 
-Run `update-all` when you want a visible, batched refresh of Groundwork, Homebrew packages/casks, mise-managed tools, and latest-track AI agent tools such as Claude Code, Codex, and OpenCode. The shell prints a gentle reminder when that refresh has gone stale; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence it.
+Run `update-all` when you want a visible, batched refresh of Groundwork, Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals. The shell prints a gentle reminder when that refresh has gone stale; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence it.
 
 ## Customizing Without Forking
 
@@ -201,7 +201,8 @@ browser-extensions --open       # open vetted browser add-ons for Zen/Chrome/Dia
 raycast-extensions --open       # open recommended Raycast Store entries
 chezmoi diff                 # preview pending changes before applying
 chezmoi apply                # apply source -> home
-chezmoi update               # git pull + apply
+chezmoi update               # git pull + apply managed config
+update-all                   # visible refresh for Groundwork, brew, mise, and agents
 chezmoi edit ~/.zshrc        # edit a managed file at its source
 chezmoi cd                   # shell into the source repo to commit/push
 

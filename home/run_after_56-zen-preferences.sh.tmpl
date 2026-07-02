@@ -17,6 +17,7 @@ $end"
 find "$profiles_dir" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r profile; do
   user_js="$profile/user.js"
   tmp="$(mktemp)"
+  next="$(mktemp)"
 
   if [[ -f "$user_js" ]]; then
     awk -v begin="$begin" -v end="$end" '
@@ -34,8 +35,14 @@ find "$profiles_dir" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r profil
       printf '\n'
     fi
     printf '%s\n' "$block"
-  } > "$user_js"
+  } > "$next"
 
+  if [[ -f "$user_js" ]] && cmp -s "$next" "$user_js"; then
+    rm -f "$tmp" "$next"
+    continue
+  fi
+
+  mv "$next" "$user_js"
   rm -f "$tmp"
   echo "zen preferences: wrote $user_js"
 done

@@ -1,3 +1,7 @@
+{{- $work := false -}}
+{{- if hasKey . "work" }}{{- $work = .work -}}{{- end -}}
+{{- $gameDev := false -}}
+{{- if hasKey . "game_dev" }}{{- $gameDev = .game_dev -}}{{- end -}}
 # VS Code / Cursor extensions, curated from the work Mac.
 # Lines starting with # are skipped by the installer (run_onchange_after_25).
 # Prefix with code: for extensions only published on the Microsoft Marketplace.
@@ -55,7 +59,7 @@ ms-azuretools.vscode-docker
 ms-azuretools.vscode-containers
 code:ms-vscode-remote.remote-containers
 
-{{ if or .work .game_dev -}}
+{{ if or $work $gameDev -}}
 # C# / Unity / .NET — work stack or optional game-dev track
 code:ms-dotnettools.csharp
 code:ms-dotnettools.csdevkit
@@ -66,7 +70,7 @@ fernandoescolar.vscode-solution-explorer
 aliasadidev.nugetpackagemanagergui
 patcx.vscode-nuget-gallery
 {{- end }}
-{{ if .work -}}
+{{ if $work -}}
 # Work stack (SQL Server / Kubernetes / Terraform) — work Mac only
 ms-mssql.mssql
 code:ms-mssql.data-workspace-vscode

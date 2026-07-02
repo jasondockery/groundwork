@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <title>Why Groundwork · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/why.html">
 <meta property="og:title" content="Why Groundwork · Groundwork">
 <meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
@@ -14,17 +15,28 @@
 <meta name="twitter:title" content="Why Groundwork · Groundwork">
 <meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/why.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar">
   <span class="name">Groundwork</span>
-  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
 </div>
-<div class="scrim"></div>
+<div class="scrim" aria-hidden="true"></div>
 <div class="layout">
-<aside class="sidebar">
+<aside id="site-sidebar" class="sidebar">
     <div class="brand-row">
       <a class="brand" href="index.html">
       <span class="mark">AI-native</span>
@@ -93,7 +105,7 @@
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
   </aside>
 
-  <main class="main">
+  <main id="main" class="main">
     <div class="content">
 <p class="eyebrow">Why Groundwork</p>
 <h1>A development environment should teach judgment, not just install tools.</h1>

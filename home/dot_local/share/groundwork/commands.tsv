@@ -1,9 +1,10 @@
 # category	command	kind	description
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
-daily	update-all	function	Pull and apply Groundwork, then visibly update Homebrew packages/casks, mise-managed tools, and latest-track AI agents.
+daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
+daily	update-all	function	Pull and apply Groundwork, then visibly update Homebrew packages/casks, mise-managed tools such as Node LTS, and latest-track AI tools.
 daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
 daily	chezmoi apply	command	Apply the source repo to your home directory.
-daily	chezmoi update	command	Git pull the Groundwork repo and apply it.
+daily	chezmoi update	command	Git pull the Groundwork repo and apply it; syncs config, not already-installed tool upgrades.
 daily	chezmoi edit <file>	command	Edit a managed dotfile at its source instead of editing the generated home file.
 daily	chezmoi cd	command	Open a shell in the Groundwork source repo.
 daily	groundwork-restore	command	Restore the first-run backup of managed files and macOS defaults.
@@ -14,11 +15,14 @@ project	obsidian-plugins <vault>	command	Install the Groundwork-managed Obsidian
 project	gh auth login	command	Sign in to GitHub for gh and HTTPS Git operations.
 project	gh auth setup-git	command	Install gh as Git's HTTPS credential helper.
 shell	ll	alias	List files with details, hidden files, Git status, and directories first.
+shell	lt	alias	Tree view of the current folder, two levels deep; the quick shape-of-a-repo view.
+shell	ltt	alias	Tree view, three levels deep, when lt is not enough.
 shell	lg	alias	Open lazygit.
 shell	vim / vi	alias	Open Neovim.
 shell	cat	alias	Use bat for syntax-highlighted file viewing.
 shell	z <folder>	command	Jump to a frecent folder with zoxide.
-shell	Alt+C	key	Fuzzy-pick a folder and cd into it.
+shell	Alt+C	key	Fuzzy-pick a folder, preview it as a tree, and cd into it.
+shell	Ctrl+T	key	Fuzzy-pick files with a bat preview and insert the chosen paths into the current command.
 shell	mkdir -p <folder>	command	Create a folder, including parent folders if needed.
 shell	pwd	command	Print the current folder path.
 shell	open .	command	Open the current folder in Finder.
@@ -34,7 +38,7 @@ mac	raycast-extensions [--open]	command	List or open the recommended Raycast Sto
 mac	betterdisplaycli	command	BetterDisplay command-line interface for display automation.
 mac	open -a <App>	command	Open a macOS app from the shell.
 dev	mise use <tool@version>	command	Pin a runtime/tool version in the current project.
-dev	mise upgrade	command	Upgrade globally managed mise tools.
+dev	mise upgrade	command	Upgrade globally managed mise tools, including floating baselines such as Node LTS. Takes effect at your next prompt, even in already-open terminals.
 dev	pnpm	command	Package manager installed through mise for JavaScript projects.
 dev	python	command	Python installed and versioned by mise; avoid relying on macOS system Python.
 dev	uv	command	Fast Python package, project, script, tool, and virtualenv manager.

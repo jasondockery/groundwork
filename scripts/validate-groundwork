@@ -5,11 +5,10 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo"
 shopt -s nullglob
 
-out_dir="${TMPDIR:-/tmp}/groundwork-rendered-$$"
+out_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-rendered.XXXXXX")"
 trap 'rm -rf "$out_dir"' EXIT
-mkdir -p "$out_dir"
 
-base_data='"github_username":"ci","name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false'
+base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false'
 
 render() {
   local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
@@ -66,6 +65,16 @@ assert_no_matches() {
   fi
 }
 
+line_number() {
+  local pattern="$1" file="$2" line
+  line="$(grep -nF -m1 "$pattern" "$file" | cut -d: -f1 || true)"
+  if [[ -z "$line" ]]; then
+    echo "$file: missing expected line: $pattern" >&2
+    exit 1
+  fi
+  printf '%s\n' "$line"
+}
+
 echo "check: bootstrap syntax"
 bash -n bootstrap-mac.sh
 
@@ -85,17 +94,20 @@ shellcheck "${shellcheck_files[@]}"
 
 echo "check: chezmoi root"
 test "$(cat .chezmoiroot)" = "home"
+grep -q '^2\.70\.0$' .chezmoiversion
 test -f home/.chezmoi.toml.tmpl
 test ! -f .chezmoi.toml.tmpl
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl
+grep -q 'Headless/server environment with no desktop apps? \[Y/n\]' home/.chezmoi.toml.tmpl
 if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desktop apps' home/.chezmoi.toml.tmpl; then
   echo "old headless prompt wording found in home/.chezmoi.toml.tmpl" >&2
   exit 1
 fi
 grep -q 'Install optional Unity game development tools? Large download. \[y/N\]' home/.chezmoi.toml.tmpl
 grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]' home/.chezmoi.toml.tmpl
+assert_no_matches "personal snippet filename found" rg -n 'jason-snippets' home docs README.md
 grep -Eq "^python[[:space:]]*=[[:space:]]*\\[[\"']3\\.13[\"'][[:space:]]*,[[:space:]]*[\"']3\\.12[\"']\\][[:space:]]*$" home/dot_config/mise/config.toml
 grep -Eq '^[[:space:]]*aider_python="3\.12"[[:space:]]*$' home/run_after_20-tools.sh.tmpl
 grep -qF "uv tool install --python \"\$aider_python\" --reinstall aider-chat" home/run_after_20-tools.sh.tmpl
@@ -120,9 +132,9 @@ grep -qF "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/
 grep -qF "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl
 grep -qF "set -agF status-right '#{E:@catppuccin_status_ram}'" home/dot_config/tmux/tmux.conf.tmpl
 grep -qF "set -agF status-right '#{E:@catppuccin_status_battery}'" home/dot_config/tmux/tmux.conf.tmpl
-catppuccin_source_line="$(grep -nF "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
-cpu_status_line="$(grep -nF "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
-tpm_run_line="$(grep -nF "run '~/.config/tmux/plugins/tpm/tpm'" home/dot_config/tmux/tmux.conf.tmpl | cut -d: -f1)"
+catppuccin_source_line="$(line_number "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl)"
+cpu_status_line="$(line_number "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl)"
+tpm_run_line="$(line_number "run '~/.config/tmux/plugins/tpm/tpm'" home/dot_config/tmux/tmux.conf.tmpl)"
 if (( catppuccin_source_line >= cpu_status_line || cpu_status_line >= tpm_run_line )); then
   echo "tmux status modules must source Catppuccin before set -agF modules, before TPM runs" >&2
   exit 1
@@ -142,6 +154,10 @@ done
 grep -qF "\"\$tmux_plugin_dir/tpm/bin/install_plugins\" || true" home/run_after_20-tools.sh.tmpl
 grep -qF 'enable-atuin-ai' home/dot_zshrc.tmpl
 grep -qF -- '--disable-ai' home/dot_zshrc.tmpl
+grep -qF "files copied to \$dest, but git commit failed" home/dot_zshrc.tmpl
+grep -qF 'reproducible headless path; pin/checksum it before making it required.' home/run_after_20-tools.sh.tmpl
+grep -qF 'https://deb.gierens.de stable main' docker/install-headless-tools.sh
+assert_no_matches "eza apt repo must use HTTPS" rg -n 'http://deb\.gierens\.de' docker
 
 echo "check: AI thesis wiring"
 test -f home/.chezmoitemplates/ai-thesis.md
@@ -154,9 +170,12 @@ test ! -f home/dot_codex/AGENTS.md
 
 echo "check: static docs"
 test -f .github/workflows/pages.yml
+test -f .github/workflows/ci.yml
+test ! -f .github/workflows/validate.yml
 grep -q 'actions/configure-pages@' .github/workflows/pages.yml
 grep -q 'actions/upload-pages-artifact@' .github/workflows/pages.yml
 grep -q 'actions/deploy-pages@' .github/workflows/pages.yml
+assert_no_matches "GitHub Actions must be pinned to full commit SHAs, with the version tag left as a comment" rg -n 'uses:[[:space:]]+[^#]+@v[0-9]' .github/workflows
 grep -q 'path: docs' .github/workflows/pages.yml
 assert_no_matches "Pages workflow must deploy on every main push; do not add paths filters" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/pages.yml
 test -f docs/.nojekyll
@@ -168,19 +187,55 @@ for page in docs/*.html; do
   grep -q ' · Groundwork</title>' "$page" || { echo "$page: page title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
   grep -q 'property="og:title"' "$page" || { echo "$page: missing Open Graph title" >&2; exit 1; }
   grep -q 'property="og:title" content=".* · Groundwork"' "$page" || { echo "$page: Open Graph title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
+  grep -q 'property="og:url" content="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || { echo "$page: missing Open Graph URL" >&2; exit 1; }
   grep -q 'name="twitter:title" content=".* · Groundwork"' "$page" || { echo "$page: Twitter title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
   grep -q 'property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png"' "$page" || { echo "$page: missing PNG Open Graph image" >&2; exit 1; }
+  grep -q 'rel="canonical" href="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || { echo "$page: missing canonical URL" >&2; exit 1; }
   grep -q 'rel="icon"' "$page" || { echo "$page: missing favicon link" >&2; exit 1; }
+  grep -q '<a class="skip-link" href="#main">Skip to content</a>' "$page" || { echo "$page: missing skip link" >&2; exit 1; }
+  grep -q '<main id="main" class="main">' "$page" || { echo "$page: missing main landmark id" >&2; exit 1; }
+  grep -q 'data-nav-toggle aria-controls="site-sidebar" aria-expanded="false"' "$page" || { echo "$page: mobile nav toggle missing aria-controls/expanded" >&2; exit 1; }
+  grep -q '<aside id="site-sidebar" class="sidebar">' "$page" || { echo "$page: sidebar missing controlled id" >&2; exit 1; }
+  grep -q '<div class="scrim" aria-hidden="true"></div>' "$page" || { echo "$page: scrim missing aria-hidden" >&2; exit 1; }
+  grep -q 'localStorage.getItem("fg-theme")' "$page" || { echo "$page: missing early theme bootstrap" >&2; exit 1; }
+  assert_not_contains 'data-theme="dark"' "$page" "$page: hardcoded dark theme causes light-theme flash"
   grep -q 'href="platforms.html"' "$page" || { echo "$page: missing Platforms sidebar link" >&2; exit 1; }
   for group in "Start here" "Set up" "Foundations" "Daily workflow" "Tracks" "Mac desktop" "Reference"; do
     grep -q "<h4>$group</h4>" "$page" || { echo "$page: missing sidebar group: $group" >&2; exit 1; }
   done
-  active_count="$(grep -c 'class="active"' "$page")"
+  active_count="$(grep -c 'class="active"' "$page" || true)"
   [[ "$active_count" == "1" ]] || { echo "$page: expected one active sidebar link, found $active_count" >&2; exit 1; }
 done
 assert_no_matches "old docs title separator found" rg -n '(<title>[^<]*( — | -- | - )Groundwork|<(meta)[^>]+content="[^"]*( — | -- | - )Groundwork")' docs
 assert_no_matches "old macOS windows label found" rg -n "macOS windows" docs README.md
 assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows)</h4>' docs
+commands_page_text="$(
+  sed -E 's/<[^>]+>/ /g; s/&lt;/</g; s/&gt;/>/g; s/&amp;/\\&/g; s/&quot;/\"/g; s/&#39;/'"'"'/g' docs/commands.html |
+    tr '\n' ' ' |
+    tr -s '[:space:]' ' '
+)"
+while IFS=$'\t' read -r _category command _kind _description; do
+  [[ -n "$command" && "$command" != \#* ]] || continue
+  command_key="${command%% *}"
+  case "$command" in
+    Ctrl+a*) command_key="Ctrl a" ;;
+    Ctrl+R) command_key="Ctrl R" ;;
+    Ctrl+T) command_key="Ctrl T" ;;
+    Alt+C) command_key="Alt C" ;;
+    Alt+h*) command_key="Alt h" ;;
+    "vim / vi") command_key="vim" ;;
+    *update_plugins*) command_key="update_plugins" ;;
+  esac
+  grep -Fq "$command_key" <<<"$commands_page_text" || { echo "docs/commands.html missing command catalog entry for: $command" >&2; exit 1; }
+done < home/dot_local/share/groundwork/commands.tsv
+
+echo "check: supply-chain guardrails"
+grep -qE '^FROM ubuntu:24\.04@sha256:[0-9a-f]{64}$' Dockerfile
+grep -q 'package-ecosystem: "github-actions"' .github/dependabot.yml
+grep -q 'package-ecosystem: "docker"' .github/dependabot.yml
+grep -q 'package-ecosystem: "devcontainers"' .github/dependabot.yml
+grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
+assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
 
 echo "check: agent skill discovery"
 assert_symlink_target .claude/skills ../skills
@@ -206,8 +261,8 @@ done
 
 echo "check: template brace balance"
 while IFS= read -r template; do
-  left=$(grep -o '{{' "$template" | wc -l | tr -d ' ')
-  right=$(grep -o '}}' "$template" | wc -l | tr -d ' ')
+  left=$(grep -o '{{' "$template" | wc -l | tr -d ' ' || true)
+  right=$(grep -o '}}' "$template" | wc -l | tr -d ' ' || true)
   [[ "$left" == "$right" ]] || { echo "unbalanced template braces: $template" >&2; exit 1; }
 done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
 
@@ -298,15 +353,30 @@ for page in docs/*.html; do
   dir="$(dirname "$page")"
   while IFS= read -r href; do
     case "$href" in
-      http:*|https:*|mailto:*|\#*|"") continue ;;
+      http:*|https:*|mailto:*|"") continue ;;
     esac
     target="${href%%#*}"
-    [[ -n "$target" ]] || continue
-    if [[ ! -e "$dir/$target" ]]; then
+    fragment=""
+    [[ "$href" == *#* ]] && fragment="${href#*#}"
+    target_path="$dir/${target:-$(basename "$page")}"
+    if [[ ! -e "$target_path" ]]; then
       echo "missing $page: $href" >&2
       exit 1
     fi
+    if [[ -n "$fragment" ]] && ! grep -Eq "(id|name)=\"$fragment\"" "$target_path"; then
+      echo "missing fragment $page: $href" >&2
+      exit 1
+    fi
   done < <(grep -Eo 'href="[^"]+"' "$page" | sed -E 's/^href="([^"]*)"$/\1/')
+  while IFS= read -r src; do
+    case "$src" in
+      http:*|https:*|data:*|"") continue ;;
+    esac
+    if [[ ! -e "$dir/$src" ]]; then
+      echo "missing asset $page: $src" >&2
+      exit 1
+    fi
+  done < <(grep -Eo 'src="[^"]+"' "$page" | sed -E 's/^src="([^"]*)"$/\1/')
 done
 
 echo "check: common secret patterns"

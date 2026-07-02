@@ -3,7 +3,8 @@ for _brew in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/loc
 done
 unset _brew
 
-export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+typeset -gU path PATH
 {{ if and (eq .chezmoi.os "darwin") (not .headless) (ne .password_manager "none") -}}
 {{ if eq .password_manager "bitwarden" }}
 # Bitwarden SSH agent (.dmg/Homebrew build). App Store build:
@@ -22,6 +23,13 @@ export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 export FZF_DEFAULT_COMMAND="rg --files"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND="fd --type d"
+export FZF_DEFAULT_OPTS="--height 40% --layout reverse --border"
+# Ctrl+T previews files with bat; Alt+C previews folders as a short tree.
+export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:200 {}' --preview-window 'right,55%,border-left'"
+export FZF_ALT_C_OPTS="--preview 'eza --tree --level=2 --group-directories-first --color=always {}'"
+# Inside tmux, the Ctrl+T and Alt+C pickers open in a floating popup instead of
+# squashing the pane; fzf's key bindings read this and ignore it outside tmux.
+export FZF_TMUX_OPTS="-p 80%,60%"
 # AI coding agents move quickly; keep Claude Code's package-managed install on
 # its vendor-supported latest path while broad Homebrew/mise upgrades stay manual.
 export CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE=1
@@ -62,8 +70,12 @@ command -v starship >/dev/null && eval "$(starship init zsh)"
 command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"
 command -v mise     >/dev/null && eval "$(mise activate zsh)"
 command -v direnv   >/dev/null && eval "$(direnv hook zsh)"
-if command -v fzf >/dev/null && fzf --zsh >/dev/null 2>&1; then
-  source <(fzf --zsh)
+if command -v fzf >/dev/null; then
+  _fzf_init="$(fzf --zsh 2>/dev/null || true)"
+  if [[ -n "$_fzf_init" ]]; then
+    source <(print -r -- "$_fzf_init")
+  fi
+  unset _fzf_init
 fi
 # Atuin owns Ctrl+R history. Leave Up Arrow as plain shell history. Keep bare ?
 # free unless the user explicitly opts into Atuin AI's question-mark binding.
@@ -80,9 +92,13 @@ alias vim="nvim"
 alias vi="nvim"
 alias ls="eza --group-directories-first"
 alias ll="eza -lah --git --group-directories-first"
+alias lt="eza --tree --level=2 --group-directories-first"
+alias ltt="eza --tree --level=3 --group-directories-first"
 alias cat="bat"
 alias lg="lazygit"
+{{ if eq .chezmoi.os "darwin" -}}
 alias zen="open -a Zen"
+{{- end }}
 alias rga="rg -uu"
 
 rgf() {
@@ -105,7 +121,7 @@ rgf() {
   fi
 }
 
-# Freshen everything intentionally: pull+apply Groundwork, then upgrade Homebrew and mise-managed tools.
+# Freshen everything intentionally: pull+apply Groundwork, then upgrade Homebrew, mise-managed tools, and AI tools.
 update-all() {
   emulate -L zsh
   chezmoi update || return
@@ -117,13 +133,6 @@ update-all() {
   if command -v mise >/dev/null 2>&1; then
     mise upgrade || return
   fi
-{{ if and (not .work) (not .headless) -}}
-  # OpenCode CLI is installed by its vendor script, so refresh it here too.
-  # The OpenCode desktop app and Codex/Claude casks are covered by Homebrew above.
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL https://opencode.ai/install | bash || return
-  fi
-{{- end }}
   local state_dir="$HOME/.local/state/groundwork"
   mkdir -p "$state_dir"
   : >| "$state_dir/last-update-all"
@@ -160,9 +169,14 @@ new-wiki() {
   fi
   cp -R "$src" "$dest" || return 1
   [[ -f "$dest/gitignore" ]] && mv "$dest/gitignore" "$dest/.gitignore"
-  git -C "$dest" init -q
-  git -C "$dest" add -A
-  git -C "$dest" commit -qm "init knowledge wiki"
+  git -C "$dest" init -q || return 1
+  git -C "$dest" add -A || return 1
+  if ! git -C "$dest" commit -qm "init knowledge wiki"; then
+    print "new-wiki: files copied to $dest, but git commit failed"
+    print "fix your git identity/signing setup, then run:"
+    print "  git -C ${(q)dest} add -A && git -C ${(q)dest} commit -m 'init knowledge wiki'"
+    return 1
+  fi
   print "wiki ready: $dest"
   print "next: obsidian-plugins $dest"
   print "then open it with Claude Code or Codex, add a source to raw/, and say: ingest raw/<file>"

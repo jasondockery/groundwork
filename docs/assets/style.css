@@ -3,6 +3,7 @@
    terminal-window code blocks, physical keycaps for shortcuts. */
 
 :root {
+  color-scheme: dark;
   /* Catppuccin Mocha */
   --base: #1e1e2e;
   --mantle: #181825;
@@ -38,6 +39,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   /* Catppuccin Latte */
   --base: #eff1f5;
   --mantle: #e6e9ef;
@@ -45,8 +47,8 @@
   --surface0: #ccd0da;
   --surface1: #bcc0cc;
   --surface2: #acb0be;
-  --overlay0: #9ca0b0;
-  --overlay1: #8c8fa1;
+  --overlay0: #5c5f77;
+  --overlay1: #4c4f69;
   --text: #4c4f69;
   --subtext1: #5c5f77;
   --subtext0: #6c6f85;
@@ -62,6 +64,35 @@
   --red: #d20f39;
   --lavender: #7287fd;
   --shadow: rgba(0, 0, 0, 0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --base: #eff1f5;
+    --mantle: #e6e9ef;
+    --crust: #dce0e8;
+    --surface0: #ccd0da;
+    --surface1: #bcc0cc;
+    --surface2: #acb0be;
+    --overlay0: #5c5f77;
+    --overlay1: #4c4f69;
+    --text: #4c4f69;
+    --subtext1: #5c5f77;
+    --subtext0: #6c6f85;
+    --mauve: #8839ef;
+    --blue: #1e66f5;
+    --sapphire: #209fb5;
+    --sky: #04a5e5;
+    --teal: #179299;
+    --green: #40a02b;
+    --yellow: #df8e1d;
+    --peach: #fe640b;
+    --maroon: #e64553;
+    --red: #d20f39;
+    --lavender: #7287fd;
+    --shadow: rgba(0, 0, 0, 0.12);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -84,6 +115,23 @@ body {
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
+
+.skip-link {
+  position: absolute;
+  z-index: 100;
+  top: 0.7rem;
+  left: 0.7rem;
+  transform: translateY(-150%);
+  background: var(--crust);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  padding: 0.45rem 0.65rem;
+  transition: transform 120ms ease;
+}
+.skip-link:focus { transform: translateY(0); text-decoration: none; }
 
 /* ---------- Layout ---------- */
 .layout { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
@@ -121,7 +169,7 @@ a:hover { text-decoration: underline; }
 .nav-group { margin-bottom: 1.25rem; }
 .nav-group h4 {
   font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--overlay0); margin: 0 0 0.5rem 0.2rem; font-weight: 600;
+  color: var(--subtext0); margin: 0 0 0.5rem 0.2rem; font-weight: 600;
 }
 .nav-group a, .nav-group span.soon {
   display: block; padding: 0.32rem 0.55rem; border-radius: 7px;
@@ -263,15 +311,19 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .arc h3,
 .two h3,
 .arc h4,
-.two h4 { margin: 0.15rem 0 0.4rem; color: var(--text); }
+.two h4,
+.two .panel-title { margin: 0.15rem 0 0.4rem; color: var(--text); }
+.two .panel-title { font-size: 1.12rem; font-weight: 700; }
 .arc .floor h3,
 .two .floor h3,
 .arc .floor h4,
-.two .floor h4 { color: var(--green); }
+.two .floor h4,
+.two .floor .panel-title { color: var(--green); }
 .arc .ceiling h3,
 .two .ceiling h3,
 .arc .ceiling h4,
-.two .ceiling h4 { color: var(--mauve); }
+.two .ceiling h4,
+.two .ceiling .panel-title { color: var(--mauve); }
 .arc .tag,
 .two .tag {
   font-family: var(--mono);
@@ -515,7 +567,8 @@ footer.site { color: var(--overlay0); font-size: 0.82rem; margin-top: 2.5rem; }
 .quickref { border: 1px solid var(--surface1); border-radius: 12px; padding: 1.05rem 1.2rem; margin: 1.6rem 0; background: var(--mantle); }
 .quickref .qr-label { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.85rem; }
 .quickref-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.8rem; }
-.quickref-section h3 { margin: 0 0 0.35rem; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtext0); }
+.quickref-section h3,
+.quickref-heading { margin: 0 0 0.35rem; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtext0); font-weight: 700; }
 .quickref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.1rem 1.8rem; }
 .quickref-sections .quickref-grid { grid-template-columns: 1fr; gap: 0; }
 .quickref-grid .qr { display: flex; gap: 0.7rem; align-items: baseline; padding: 0.32rem 0; border-bottom: 1px solid var(--surface0); font-size: 0.9rem; }

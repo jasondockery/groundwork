@@ -16,7 +16,35 @@ if [[ ! -f "$catalog" ]]; then
   fi
 fi
 
+pick=false
+if [[ "${1:-}" == "--pick" ]]; then
+  pick=true
+  shift
+fi
 query="${*:-}"
+
+if [[ "$pick" == true ]]; then
+  if ! command -v fzf >/dev/null 2>&1; then
+    echo "groundwork-help: --pick needs fzf on PATH" >&2
+    exit 1
+  fi
+  selection="$(
+    grep -v '^#' "$catalog" |
+      fzf --delimiter '\t' --with-nth 1,2,4 --query "$query" \
+        --prompt 'groundwork> ' --layout reverse --border \
+        --preview 'printf "%s\n\n%s" {2} {4}' --preview-window 'down,4,wrap'
+  )" || exit 0
+  cmd="$(cut -f2 <<<"$selection")"
+  if command -v pbcopy >/dev/null 2>&1; then
+    printf '%s' "$cmd" | pbcopy
+    echo "copied to clipboard: $cmd" >&2
+  elif command -v wl-copy >/dev/null 2>&1; then
+    printf '%s' "$cmd" | wl-copy
+    echo "copied to clipboard: $cmd" >&2
+  fi
+  printf '%s\n' "$cmd"
+  exit 0
+fi
 
 awk -F '\t' -v query="$query" '
   BEGIN {
@@ -26,7 +54,8 @@ awk -F '\t' -v query="$query" '
       print ""
     } else {
       print "groundwork-help: Groundwork command catalog"
-      print "usage: groundwork-help [query]"
+      print "usage: groundwork-help [query]          filter the catalog"
+      print "       groundwork-help --pick [query]   fuzzy-pick a command; prints and copies it"
       print ""
     }
   }

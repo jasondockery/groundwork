@@ -90,14 +90,23 @@ add_file() {
 add_folder_with_rg() {
   local folder="$1"
   local rg_args=(--files -0)
+  local list
 
   if [[ "$include_all" == true ]]; then
     rg_args+=(--hidden --no-ignore -g '!.git')
   fi
 
+  list="$(mktemp)"
+  if ! rg "${rg_args[@]}" -- "$folder" > "$list"; then
+    rm -f "$list"
+    echo "copy-context: rg failed while expanding folder: $folder" >&2
+    return 1
+  fi
+
   while IFS= read -r -d '' file; do
     add_file "$file"
-  done < <(rg "${rg_args[@]}" -- "$folder")
+  done < "$list"
+  rm -f "$list"
 }
 
 add_folder_with_find() {

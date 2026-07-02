@@ -3,7 +3,6 @@ sourceDir = "/opt/groundwork/home"
 [data]
   headless = true
   work = false
-  github_username = "container"
   name = "Groundwork Container"
   email_personal = "dev@localhost"
   email_work = ""

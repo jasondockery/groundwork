@@ -34,15 +34,27 @@
     // Mobile nav
     var sidebar = document.querySelector(".sidebar");
     var scrim = document.querySelector(".scrim");
-    document.querySelectorAll("[data-nav-toggle]").forEach(function (btn) {
+    var navButtons = Array.prototype.slice.call(document.querySelectorAll("[data-nav-toggle]"));
+    function setNav(open) {
+      if (sidebar) sidebar.classList.toggle("open", open);
+      if (scrim) scrim.classList.toggle("show", open);
+      navButtons.forEach(function (btn) {
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+    navButtons.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        if (sidebar) sidebar.classList.toggle("open");
-        if (scrim) scrim.classList.toggle("show");
+        setNav(!(sidebar && sidebar.classList.contains("open")));
       });
     });
     if (scrim) scrim.addEventListener("click", function () {
-      sidebar.classList.remove("open");
-      scrim.classList.remove("show");
+      setNav(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && sidebar && sidebar.classList.contains("open")) {
+        setNav(false);
+        navButtons.forEach(function (btn) { btn.blur(); });
+      }
     });
 
     // Copy buttons on terminal blocks
@@ -54,11 +66,19 @@
       btn.className = "copy";
       btn.type = "button";
       btn.textContent = "copy";
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        btn.disabled = true;
+        btn.textContent = "no clipboard";
+        btn.title = "Clipboard API is unavailable in this browser/context.";
+      }
       btn.addEventListener("click", function () {
         var text = pre.innerText.replace(/^\s*\$\s?/gm, "");
         navigator.clipboard.writeText(text).then(function () {
           btn.textContent = "copied"; btn.classList.add("done");
           setTimeout(function () { btn.textContent = "copy"; btn.classList.remove("done"); }, 1400);
+        }).catch(function () {
+          btn.textContent = "failed";
+          setTimeout(function () { btn.textContent = "copy"; }, 1400);
         });
       });
       if (bar) { btn.classList.add("copy"); var holder = document.createElement("span"); holder.className = "copy-wrap"; holder.style.marginLeft = "auto"; holder.appendChild(btn); bar.appendChild(holder); }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <title>Command catalog · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/commands.html">
 <meta property="og:title" content="Command catalog · Groundwork">
 <meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
@@ -14,17 +15,28 @@
 <meta name="twitter:title" content="Command catalog · Groundwork">
 <meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/commands.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar">
   <span class="name">Groundwork</span>
-  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
 </div>
-<div class="scrim"></div>
+<div class="scrim" aria-hidden="true"></div>
 <div class="layout">
-  <aside class="sidebar">
+  <aside id="site-sidebar" class="sidebar">
     <div class="brand-row">
       <a class="brand" href="index.html">
       <span class="mark">AI-native</span>
@@ -93,7 +105,7 @@
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
   </aside>
 
-  <main class="main">
+  <main id="main" class="main">
     <div class="content">
       <p class="eyebrow">Reference</p>
       <h1>Command catalog: the repo's aliases, helper commands, and daily moves.</h1>
@@ -117,9 +129,11 @@
       <h2><span class="hash">#</span>Daily Groundwork commands</h2>
       <table class="keytable">
         <tr><td><code>groundwork-help</code></td><td>Show the command catalog. Add a query to filter it.</td></tr>
-        <tr><td><code>update-all</code></td><td>Run a visible batched refresh: <code>chezmoi update</code>, Homebrew update/<code>brew upgrade --greedy</code>/cleanup, <code>mise upgrade</code>, and the OpenCode CLI refresh.</td></tr>
+        <tr><td><code>groundwork-help --pick</code></td><td>Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.</td></tr>
+        <tr><td><code>update-all</code></td><td>Run a visible batched refresh: <code>chezmoi update</code>, Homebrew update/<code>brew upgrade --greedy</code>/cleanup, <code>mise upgrade</code> for Node LTS and other managed runtimes, and latest-track AI tools.</td></tr>
         <tr><td><code>chezmoi diff</code></td><td>Preview managed-file changes before applying them.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply this repo to your home directory.</td></tr>
+        <tr><td><code>chezmoi update</code></td><td>Pull the Groundwork repo and apply it. This syncs config; it does not upgrade already-installed tools to latest.</td></tr>
         <tr><td><code>chezmoi edit ~/.zshrc</code></td><td>Edit the source template for a managed file.</td></tr>
         <tr><td><code>chezmoi cd</code></td><td>Jump into the Groundwork source repo.</td></tr>
       </table>
@@ -139,6 +153,30 @@
         <tr><td><code>obsidian-plugins ~/code/llm-wiki</code></td><td>Install the Groundwork-managed Obsidian plugin set into a vault.</td></tr>
       </table>
 
+      <h2><span class="hash">#</span>GitHub auth</h2>
+      <table class="keytable">
+        <tr><td><code>gh auth login</code></td><td>Sign in to GitHub for <code>gh</code> and HTTPS Git operations.</td></tr>
+        <tr><td><code>gh auth setup-git</code></td><td>Install <code>gh</code> as Git's HTTPS credential helper.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Dev runtimes</h2>
+      <table class="keytable">
+        <tr><td><code>mise use node@24</code></td><td>Pin a runtime/tool version in the current project.</td></tr>
+        <tr><td><code>mise upgrade</code></td><td>Upgrade globally managed mise tools, including floating baselines such as Node LTS. Takes effect at your next prompt, even in already-open terminals.</td></tr>
+        <tr><td><code>pnpm</code></td><td>Package manager installed through mise for JavaScript projects.</td></tr>
+        <tr><td><code>python</code></td><td>Python installed and versioned by mise. Avoid relying on macOS system Python.</td></tr>
+        <tr><td><code>uv</code></td><td>Fast Python package, project, script, tool, and virtualenv manager.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Git commands</h2>
+      <table class="keytable">
+        <tr><td><code>git status</code></td><td>Show changed, staged, and untracked files.</td></tr>
+        <tr><td><code>git diff</code></td><td>Inspect unstaged changes before asking an agent to continue.</td></tr>
+        <tr><td><code>git add -p</code></td><td>Stage changes in reviewable chunks.</td></tr>
+        <tr><td><code>git commit -m "message"</code></td><td>Commit the staged changes with a short message.</td></tr>
+        <tr><td><code>git show --stat</code></td><td>Review the latest commit summary.</td></tr>
+      </table>
+
       <h2><span class="hash">#</span>Groundwork safety</h2>
       <table class="keytable">
         <tr><td><code>chezmoi diff</code></td><td>Preview what Groundwork would change before applying.</td></tr>
@@ -149,13 +187,16 @@
       <h2><span class="hash">#</span>Shell aliases and search</h2>
       <table class="keytable">
         <tr><td><code>ll</code></td><td>Detailed file listing with hidden files, Git status, and directories first.</td></tr>
+        <tr><td><code>lt</code></td><td>Tree view of the current folder, two levels deep; the quick shape-of-a-repo view.</td></tr>
+        <tr><td><code>ltt</code></td><td>Tree view, three levels deep, when <code>lt</code> is not enough.</td></tr>
         <tr><td><code>lg</code></td><td>Open lazygit.</td></tr>
         <tr><td><code>vim</code> / <code>vi</code></td><td>Open Neovim.</td></tr>
         <tr><td><code>cat</code></td><td>Use <code>bat</code> for syntax-highlighted file viewing.</td></tr>
         <tr><td><code>z name</code></td><td>Jump to a recent/frequent folder with zoxide.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span></td><td>Search shell history with Atuin.</td></tr>
         <tr><td><code>atuin ai inline</code></td><td>Run Atuin's opt-in English-to-shell assistant after setup.</td></tr>
-        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it.</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder, preview it as a tree, and <code>cd</code> into it.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Fuzzy-pick files with a bat preview and insert the chosen paths into the current command.</td></tr>
         <tr><td><code>mkdir -p folder</code></td><td>Create a folder, including parent folders if needed.</td></tr>
         <tr><td><code>pwd</code> / <code>open .</code></td><td>Print the current folder / open it in Finder.</td></tr>
         <tr><td><code>rg text</code> / <code>fd name</code></td><td>Search file contents / find files by name.</td></tr>
@@ -174,11 +215,14 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span></td><td>Save a tmux-resurrect snapshot now.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span></td><td>Restore the last tmux-resurrect snapshot.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td>Update tmux plugins with TPM. Press <kbd>Esc</kbd> or <kbd>Enter</kbd> if the update pane does not repaint.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span></td><td>Install missing tmux plugins with TPM.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span></td><td>Reload the tmux config.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>P</kbd></span></td><td>Rename the active pane.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span></td><td>Rename the active window.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span></td><td>Close the current window and all panes inside it.</td></tr>
         <tr><td><code>tmux kill-session -t name</code></td><td>End a named tmux session.</td></tr>
         <tr><td><code>tmux kill-server</code></td><td>End every live tmux session; snapshots are separate.</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span></td><td>Move between tmux panes and Neovim splits with the same keys.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Mac and display commands</h2>

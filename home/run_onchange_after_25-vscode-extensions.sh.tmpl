@@ -3,7 +3,7 @@ set -euo pipefail
 {{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
 {{- $extList := joinPath .chezmoi.sourceDir "vscode-extensions.txt.tmpl" }}
 {{- if stat $extList }}
-# extensions hash: {{ include "vscode-extensions.txt.tmpl" | sha256sum }}
+# extensions hash: {{ includeTemplate "vscode-extensions.txt.tmpl" . | sha256sum }}
 {{- end }}
 
 list="$HOME/vscode-extensions.txt"

@@ -2,4 +2,5 @@
 {{ if or (ne .chezmoi.os "darwin") .headless }}
 Library/**
 .config/karabiner/**
+vscode-extensions.txt
 {{ end }}

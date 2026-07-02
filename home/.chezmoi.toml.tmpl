@@ -2,8 +2,9 @@
 {{- $headless := false -}}
 {{- if eq .chezmoi.os "darwin" -}}
 {{- $headless = promptBoolOnce . "headless" "Is this a server/CI Mac with no desktop apps? Most Macs should say no. [y/N]" false -}}
+{{- else -}}
+{{- $headless = promptBoolOnce . "headless" "Headless/server environment with no desktop apps? [Y/n]" true -}}
 {{- end -}}
-{{- $githubUser := promptStringOnce . "github_username" "What is your GitHub username?" -}}
 {{- $name := promptStringOnce . "name" "What name should Git use for commits?" -}}
 {{- $emailPersonal := promptStringOnce . "email_personal" "What personal email should Git use for commits?" -}}
 {{- $emailWork := promptStringOnce . "email_work" "What work email should Git use? (blank if none)" "" -}}
@@ -21,7 +22,6 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
 [data]
     work = {{ $work }}
     headless = {{ $headless }}
-    github_username = {{ $githubUser | quote }}
     name = {{ $name | quote }}
     email_personal = {{ $emailPersonal | quote }}
     email_work = {{ $emailWork | quote }}

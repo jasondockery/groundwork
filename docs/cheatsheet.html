@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <title>Cheat sheet · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/cheatsheet.html">
 <meta property="og:title" content="Cheat sheet · Groundwork">
 <meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
@@ -14,17 +15,28 @@
 <meta name="twitter:title" content="Cheat sheet · Groundwork">
 <meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/cheatsheet.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar">
   <span class="name">Groundwork</span>
-  <button class="icon-btn" data-nav-toggle aria-label="Open navigation">☰ menu</button>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
 </div>
-<div class="scrim"></div>
+<div class="scrim" aria-hidden="true"></div>
 <div class="layout">
-  <aside class="sidebar">
+  <aside id="site-sidebar" class="sidebar">
     <div class="brand-row">
       <a class="brand" href="index.html">
       <span class="mark">AI-native</span>
@@ -93,7 +105,7 @@
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
   </aside>
 
-  <main class="main">
+  <main id="main" class="main">
     <div class="content">
       <p class="eyebrow">Reference</p>
       <h1>Cheat sheet: the keys that matter, all on one page.</h1>
@@ -264,7 +276,8 @@
           <div class="qr"><span class="keys"><code>rgf</code></span> <span class="act">fuzzy content search</span></div>
           <div class="qr"><span class="keys"><code>copy-context</code> paths</span> <span class="act">copy files for AI review</span></div>
           <div class="qr"><span class="keys"><code>ll</code></span> <span class="act">list with git status</span></div>
-          <div class="qr"><span class="keys"><code>update-all</code></span> <span class="act">manual tool refresh</span></div>
+          <div class="qr"><span class="keys"><code>lt</code></span> <span class="act">tree view, two levels</span></div>
+          <div class="qr"><span class="keys"><code>update-all</code></span> <span class="act">manual tool upgrades</span></div>
         </div>
       </div>
       <div class="callout note">
@@ -277,9 +290,10 @@
         <div class="quickref-grid">
           <div class="qr"><span class="keys"><code>groundwork-help</code></span> <span class="act">show all helper commands</span></div>
           <div class="qr"><span class="keys"><code>groundwork-help browser</code></span> <span class="act">filter command catalog</span></div>
+          <div class="qr"><span class="keys"><code>groundwork-help --pick</code></span> <span class="act">fuzzy-pick a command</span></div>
           <div class="qr"><span class="keys"><code>chezmoi diff</code></span> <span class="act">preview generated changes</span></div>
           <div class="qr"><span class="keys"><code>chezmoi apply</code></span> <span class="act">apply Groundwork</span></div>
-          <div class="qr"><span class="keys"><code>chezmoi update</code></span> <span class="act">pull repo and apply</span></div>
+          <div class="qr"><span class="keys"><code>chezmoi update</code></span> <span class="act">sync config, not upgrades</span></div>
           <div class="qr"><span class="keys"><code>chezmoi edit</code></span> <span class="act">edit a source template</span></div>
           <div class="qr"><span class="keys"><code>new-project</code></span> <span class="act">scaffold a repo</span></div>
           <div class="qr"><span class="keys"><code>new-wiki</code></span> <span class="act">scaffold an LLM wiki</span></div>
@@ -288,7 +302,7 @@
           <div class="qr"><span class="keys"><code>browser-extensions</code></span> <span class="act">open vetted browser links</span></div>
           <div class="qr"><span class="keys"><code>raycast-extensions</code></span> <span class="act">open Raycast Store links</span></div>
           <div class="qr"><span class="keys"><code>defaultbrowser</code></span> <span class="act">set Zen as default</span></div>
-          <div class="qr"><span class="keys"><code>update-all</code></span> <span class="act">Groundwork + brew + mise + agents</span></div>
+          <div class="qr"><span class="keys"><code>update-all</code></span> <span class="act">upgrade brew, mise, AI tools</span></div>
         </div>
       </div>
 

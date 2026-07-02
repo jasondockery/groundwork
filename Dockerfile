@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
@@ -17,9 +17,22 @@ COPY docker/install-headless-tools.sh /tmp/install-headless-tools.sh
 RUN --mount=type=secret,id=github_token bash /tmp/install-headless-tools.sh && rm /tmp/install-headless-tools.sh
 
 ARG USER=dev
-RUN useradd -m -s /usr/bin/zsh "$USER" \
-  && echo "$USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USER" \
-  && chmod 0440 "/etc/sudoers.d/$USER"
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN set -eux; \
+  if getent group "$USER_GID" >/dev/null; then \
+    existing_group="$(getent group "$USER_GID" | cut -d: -f1)"; \
+    if [ "$existing_group" != "$USER" ]; then groupmod -n "$USER" "$existing_group"; fi; \
+  else \
+    groupadd --gid "$USER_GID" "$USER"; \
+  fi; \
+  if getent passwd "$USER_UID" >/dev/null; then \
+    existing_user="$(getent passwd "$USER_UID" | cut -d: -f1)"; \
+    if [ "$existing_user" != "$USER" ]; then userdel -r "$existing_user" 2>/dev/null || userdel "$existing_user"; fi; \
+  fi; \
+  useradd --uid "$USER_UID" --gid "$USER_GID" -m -s /usr/bin/zsh "$USER"; \
+  echo "$USER ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USER"; \
+  chmod 0440 "/etc/sudoers.d/$USER"
 
 USER $USER
 WORKDIR /home/$USER

@@ -16,7 +16,7 @@ Also review:
 
 - `README.md` for accurate install commands and repo visibility wording.
 - `SECURITY.md` for the current disclosure and secret-handling policy.
-- `.github/workflows/validate.yml` for the required CI check name.
+- `.github/workflows/ci.yml` for the required validation and Docker status checks.
 - Any local `.groundwork-public-denylist` patterns, if used.
 
 ## Public Release Checklist
@@ -48,7 +48,7 @@ gh api --method PUT repos/jasondockery/groundwork/branches/main/protection --inp
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["validate"]
+    "contexts": ["render-lint", "docker-build"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {

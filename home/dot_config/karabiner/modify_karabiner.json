@@ -33,7 +33,11 @@ function run(argv) {
   let config = {};
 
   if (raw) {
-    config = JSON.parse(raw);
+    try {
+      config = JSON.parse(raw);
+    } catch (error) {
+      config = {};
+    }
   }
 
   if (!config || Array.isArray(config) || typeof config !== "object") {
