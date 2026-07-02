@@ -286,7 +286,7 @@
         <tr><td><code>duf</code></td><td>Free disk space in clean tables (a friendlier <code>df</code>)</td></tr>
         <tr><td><code>tokei</code></td><td>Counts lines of code in a project, by language</td></tr>
         <tr><td><code>hyperfine</code></td><td>Benchmarks a command properly, over many runs</td></tr>
-        <tr><td><code>starship</code></td><td>The prompt itself — the branch, status, and versions you see on the left</td></tr>
+        <tr><td><code>starship</code></td><td>The prompt itself — Git branch and status on the left; your folder shows in the tmux pane border or the tab title</td></tr>
         <tr><td><code>direnv</code></td><td>Loads per-folder settings from a <code>.envrc</code> when you enter (after you allow it)</td></tr>
         <tr><td><code>mise</code></td><td>Gives each project the right tool versions (Node, Python…) automatically</td></tr>
       </table>
@@ -351,7 +351,7 @@
       <h3>The init lines — what each tool hooks into your shell</h3>
       <p>Several tools need a line in <code>~/.zshrc</code> to wire themselves in. This is where the prompt, directory-jumping, history, and version-switching come from:</p>
       <table class="keytable">
-        <tr><td><code>starship</code></td><td>Draws the prompt — folder, Git branch and status, language versions, how long the last command took</td></tr>
+        <tr><td><code>starship</code></td><td>Draws the prompt — Git branch and status, plus how long the last command took. The folder shows once in the tmux pane border or terminal tab title, and <code>mise current</code> answers which tool versions are active</td></tr>
         <tr><td><code>zoxide</code></td><td>The <code>z</code> command. Type <code>zi</code> instead for an interactive fuzzy picker of your visited folders</td></tr>
         <tr><td><code>atuin</code></td><td>The smarter <kbd>Ctrl</kbd><kbd>R</kbd> history (searchable by folder, exit code, time). It leaves your <kbd>↑</kbd> arrow alone for plain recall, and Groundwork keeps Atuin AI's bare <kbd>?</kbd> binding off until you opt in</td></tr>
         <tr><td><code>fzf</code></td><td>The fuzzy finder behind <kbd>Ctrl</kbd><kbd>R</kbd> / <kbd>Ctrl</kbd><kbd>T</kbd> / <kbd>Alt</kbd><kbd>C</kbd></td></tr>

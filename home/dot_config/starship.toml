@@ -1,28 +1,22 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# The prompt stays lean on purpose: the current folder shows once per pane in
+# the tmux pane border (or the terminal tab title outside tmux), and mise owns
+# tool versions (`mise current`), so neither repeats on every prompt line.
 format = """
-[](red)\
-$os\
-[](bg:peach fg:red)\
-$directory\
-[](bg:yellow fg:peach)\
 $git_branch\
 $git_status\
-[](fg:yellow bg:green)\
-$c\
-$rust\
-$golang\
-$nodejs\
-$bun\
-$php\
-$java\
-$kotlin\
-$haskell\
-$python\
-[](fg:green)\
 $cmd_duration\
 $line_break\
 $character"""
+
+# Right-side context renders only on the active line: TRANSIENT_RPROMPT in
+# .zshrc erases it once a command is accepted, so scrollback stays clean.
+# Hostname appears only over SSH; jobs only when something runs in background.
+right_format = """
+$jobs\
+$hostname\
+$directory"""
 
 # Switch to catppuccin_latte for a light terminal.
 palette = 'catppuccin_mocha'
@@ -47,10 +41,13 @@ style_root = "bg:red fg:crust"
 format = '[ $user]($style)'
 
 [directory]
-style = "bg:peach fg:crust"
-format = "[ $path ]($style)"
+style = "fg:subtext0"
+format = "[$path]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
+truncate_to_repo = true
+repo_root_style = "bold fg:lavender"
+repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -59,14 +56,17 @@ truncation_symbol = "…/"
 "Pictures" = " "
 "Developer" = "󰲋 "
 
+# The powerline caps live inside the git modules (not the top-level format) so
+# the lavender capsule only appears inside a repository; elsewhere the prompt
+# is a bare prompt character.
 [git_branch]
 symbol = ""
-style = "bg:yellow"
-format = '[[ $symbol $branch ](fg:crust bg:yellow)]($style)'
+style = "bg:lavender"
+format = '[](fg:lavender)[[ $symbol $branch ](fg:crust bg:lavender)]($style)'
 
 [git_status]
-style = "bg:yellow"
-format = '[[($all_status$ahead_behind )](fg:crust bg:yellow)]($style)'
+style = "bg:lavender"
+format = '[[($all_status$ahead_behind )](fg:crust bg:lavender)]($style)[](fg:lavender)'
 
 [nodejs]
 symbol = ""
@@ -117,6 +117,16 @@ format = '[[ $symbol( $version) ](fg:crust bg:green)]($style)'
 symbol = ""
 style = "bg:green"
 format = '[[ $symbol( $version)(\(#$virtualenv\)) ](fg:crust bg:green)]($style)'
+
+[jobs]
+symbol = "✦"
+style = "fg:peach"
+format = '[$symbol$number ]($style)'
+
+[hostname]
+ssh_only = true
+style = "fg:sapphire"
+format = '[$ssh_symbol$hostname ]($style)'
 
 [conda]
 symbol = "  "

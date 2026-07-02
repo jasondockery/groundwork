@@ -8,6 +8,12 @@ shopt -s nullglob
 out_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-rendered.XXXXXX")"
 trap 'rm -rf "$out_dir"' EXIT
 
+# Render hermetically: without --config, chezmoi merges the developer's real
+# ~/.config/chezmoi data under --override-data, so keys a test omits on purpose
+# (like xcode) leak in from the local machine and pass/fail differs from CI.
+empty_config="$out_dir/empty-config.toml"
+: > "$empty_config"
+
 base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false'
 
 render() {
@@ -17,7 +23,7 @@ render() {
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
   local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
-  chezmoi --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
 }
 
 render_without_xcode_key() {
@@ -26,7 +32,7 @@ render_without_xcode_key() {
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
   local data="{${base_data},\"work\":${work},\"headless\":${headless},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
-  chezmoi --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
 }
 
 assert_not_contains() {
@@ -378,6 +384,10 @@ for page in docs/*.html; do
     fi
   done < <(grep -Eo 'src="[^"]+"' "$page" | sed -E 's/^src="([^"]*)"$/\1/')
 done
+
+echo "check: line endings stay LF"
+grep -q '^\* text=auto eol=lf$' .gitattributes
+assert_no_matches "CRLF line endings found in tracked files" git grep -Il $'\r' -- .
 
 echo "check: common secret patterns"
 assert_no_matches "secret-like pattern found" git grep -n -E '(-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})'

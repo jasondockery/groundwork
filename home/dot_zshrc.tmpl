@@ -58,6 +58,10 @@ setopt EXTENDED_HISTORY SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIS
 setopt AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS PUSHD_SILENT
 setopt EXTENDED_GLOB NO_CASE_GLOB INTERACTIVE_COMMENTS NO_BEEP
 
+# Starship's right_format (repo/folder context) shows on the active prompt
+# only; this erases it from lines already accepted, keeping scrollback lean.
+setopt TRANSIENT_RPROMPT
+
 # completion
 setopt COMPLETE_IN_WORD ALWAYS_TO_END
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
@@ -65,6 +69,15 @@ zstyle ':completion:*' menu select
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 zstyle ':completion:*:descriptions' format '[%d]'
 zstyle ':completion:*' rehash true
+
+# The prompt is lean, so show the current folder once in the terminal
+# tab/window title instead. Inside tmux the pane border already carries it,
+# and overwriting the pane title would double the path shown there.
+if [[ -z "${TMUX:-}" ]]; then
+  autoload -Uz add-zsh-hook
+  _groundwork_title_precmd() { print -Pn '\e]0;%~\a'; }
+  add-zsh-hook precmd _groundwork_title_precmd
+fi
 
 command -v starship >/dev/null && eval "$(starship init zsh)"
 command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"

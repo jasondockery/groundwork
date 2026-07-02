@@ -192,6 +192,12 @@
         <tr><td><strong>Run later</strong></td><td>Edit <code>~/.config/chezmoi/chezmoi.toml</code>, set <code>reset_existing_configs = true</code>, remove <code>~/.local/state/groundwork/reset/.reset-existing-configs-done</code> if present, then run <code>chezmoi apply</code></td></tr>
       </table>
 
+      <h3>Windows &amp; WSL: scripts fail with <code>bad interpreter: ^M</code></h3>
+      <p>That <code>^M</code> is a Windows carriage return: the clone was made with Git for Windows converting files to CRLF line endings, which breaks shell scripts and chezmoi templates the moment WSL runs them. Groundwork ships a <code>.gitattributes</code> that forces LF, so a fresh clone made <em>inside WSL</em> checks out correctly. If you hit this, re-clone from a WSL terminal, and tell Git to never introduce CRLF again:</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">inside WSL</span></div><pre><code><span class="prompt">$ </span>git config --global core.autocrlf input
+<span class="prompt">$ </span>git clone https://github.com/jasondockery/groundwork.git</code></pre>
+      </div>
+
       <h2><span class="hash">#</span>tmux</h2>
       <table class="keytable">
         <tr><td><strong>Plugins missing on first run</strong></td><td>Groundwork runs TPM's installer during <code>chezmoi apply</code>. If a network hiccup skipped it, re-run <code>chezmoi apply</code>, or press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span> inside tmux to repair manually</td></tr>

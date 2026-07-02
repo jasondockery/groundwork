@@ -1,0 +1,6 @@
+# Everything here is consumed by Unix tooling (zsh, bash, chezmoi, containers),
+# including checkouts made on Windows for use inside WSL. Force LF on checkout
+# so Git for Windows' core.autocrlf=true default cannot rewrite scripts and
+# templates to CRLF, which breaks them with "bad interpreter: ^M" errors.
+* text=auto eol=lf
+*.png binary

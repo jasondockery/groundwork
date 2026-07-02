@@ -1,0 +1,8 @@
+# Keep line endings LF in every editor, including on Windows, to match
+# .gitattributes; Groundwork's scripts and templates run under Unix tooling.
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8

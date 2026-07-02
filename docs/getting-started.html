@@ -141,11 +141,11 @@
       </div>
 
       <h2><span class="hash">#</span>Reading the prompt</h2>
-      <p>When the shell is ready for a command, it shows a <strong>prompt</strong> and waits. On this setup the prompt is drawn by <a href="shell.html">starship</a> and shows useful context — the folder you're in, the Git branch if any, and a <code>❯</code> where your typing goes:</p>
+      <p>When the shell is ready for a command, it shows a <strong>prompt</strong> and waits. On this setup the prompt is drawn by <a href="shell.html">starship</a> and stays deliberately lean — the Git branch if you're in a repository, how long the last command took, and a <code>❯</code> where your typing goes. The folder you're in shows once per pane in the <a href="tmux.html">tmux</a> pane border, or in the terminal tab title outside tmux, instead of repeating on every line:</p>
       <div class="terminal">
-        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">the prompt</span></div>
-        <pre><code><span class="comment"># folder        branch     cursor sits here</span>
- ~/code/groundwork    main    ❯ <span class="cursor">_</span></code></pre>
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">~/code/groundwork</span></div>
+        <pre><code><span class="comment"># branch    cursor sits here</span>
+  main    ❯ <span class="cursor">_</span></code></pre>
       </div>
       <p>Throughout this guide you'll see commands written with a <code>$</code> in front, like <code>$ ls</code>. The <code>$</code> just <em>stands for the prompt</em> — don't type it. Type the part after it. (The copy button on each code block strips it for you.)</p>
 

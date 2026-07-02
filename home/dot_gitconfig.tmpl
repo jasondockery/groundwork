@@ -33,6 +33,8 @@
 [core]
     editor = nvim
     pager = delta
+    # Never introduce CRLF into repos from a Groundwork machine (mac/Linux/WSL).
+    autocrlf = input
 
 [interactive]
     diffFilter = delta --color-only
