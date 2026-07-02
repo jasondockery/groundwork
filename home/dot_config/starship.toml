@@ -10,13 +10,12 @@ $cmd_duration\
 $line_break\
 $character"""
 
-# Right-side context renders only on the active line: TRANSIENT_RPROMPT in
-# .zshrc erases it once a command is accepted, so scrollback stays clean.
-# Hostname appears only over SSH; jobs only when something runs in background.
+# The right prompt is empty in normal use: hostname appears only over SSH,
+# jobs only while something runs in the background. TRANSIENT_RPROMPT in
+# .zshrc erases it from accepted lines, so scrollback stays clean.
 right_format = """
 $jobs\
-$hostname\
-$directory"""
+$hostname"""
 
 # Switch to catppuccin_latte for a light terminal.
 palette = 'catppuccin_mocha'
