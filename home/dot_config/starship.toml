@@ -1,11 +1,15 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# The prompt stays lean on purpose: the current folder shows once per pane in
-# the tmux pane border (or the terminal tab title outside tmux), and mise owns
-# tool versions (`mise current`), so neither repeats on every prompt line.
+# The prompt shows the OS badge and the repo-relative path on every line so
+# copied terminal text carries its context: when a human pastes a snippet into
+# an AI tool, the agent can see which repo and folder the commands ran in.
+# Versions stay out of the prompt — mise owns those (`mise current`).
 format = """
-$git_branch\
-$git_status\
+[](red)\
+$os\
+[](bg:peach fg:red)\
+$directory\
+[](fg:peach)\
 $cmd_duration\
 $line_break\
 $character"""
@@ -25,6 +29,9 @@ disabled = false
 style = "bg:red fg:crust"
 format = '[ $symbol ]($style)'
 
+# Cover every environment Groundwork targets: Mac desktops, Linux and WSL
+# (which reports the distro, e.g. Ubuntu), Windows itself, and the slim
+# distros common in Docker images. Linux is the catch-all for anything else.
 [os.symbols]
 Macos = "󰀵"
 Linux = "󰌽"
@@ -32,6 +39,12 @@ Ubuntu = "󰕈"
 Arch = "󰣇"
 Debian = "󰣚"
 Fedora = "󰣛"
+Windows = "󰍲"
+Alpine = ""
+CentOS = ""
+RedHatEnterprise = "󱄛"
+Amazon = ""
+NixOS = ""
 
 [username]
 show_always = false
@@ -39,14 +52,15 @@ style_user = "bg:red fg:crust"
 style_root = "bg:red fg:crust"
 format = '[ $user]($style)'
 
+# truncate_to_repo (starship's default) pins the repo name to the front of
+# the path at any depth (…/roost, …/roost/tools/github), so copied terminal
+# text always names the project without spending width on ~/code/.
 [directory]
-style = "fg:subtext0"
-format = "[$path]($style)"
+style = "bg:peach fg:crust"
+format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 truncate_to_repo = true
-repo_root_style = "bold fg:lavender"
-repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -55,9 +69,10 @@ repo_root_format = "[$repo_root]($repo_root_style)[$path]($style)"
 "Pictures" = " "
 "Developer" = "󰲋 "
 
-# The powerline caps live inside the git modules (not the top-level format) so
-# the lavender capsule only appears inside a repository; elsewhere the prompt
-# is a bare prompt character.
+# Not in the top-level format: the path capsule already identifies the repo,
+# and branch/status live one `git status` away. Kept configured so adding
+# $git_branch$git_status back to `format` is a one-line change; the caps are
+# inside the modules so the capsule would only render inside a repository.
 [git_branch]
 symbol = ""
 style = "bg:lavender"

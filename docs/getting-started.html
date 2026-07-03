@@ -141,11 +141,11 @@
       </div>
 
       <h2><span class="hash">#</span>Reading the prompt</h2>
-      <p>When the shell is ready for a command, it shows a <strong>prompt</strong> and waits. On this setup the prompt is drawn by <a href="shell.html">starship</a> and stays deliberately lean — the Git branch if you're in a repository, how long the last command took, and a <code>❯</code> where your typing goes. The folder you're in shows once per pane in the <a href="tmux.html">tmux</a> pane border, or in the terminal tab title outside tmux, instead of repeating on every line:</p>
+      <p>When the shell is ready for a command, it shows a <strong>prompt</strong> and waits. On this setup the prompt is drawn by <a href="shell.html">starship</a> and shows your operating system and the folder you're in on every line, followed by how long the last command took and a <code>❯</code> where your typing goes. The folder appears on every line on purpose: when you copy terminal text into an AI tool, the agent can see exactly which project and folder your commands ran in — context it would otherwise have to ask for. Inside a project the path starts at the project's folder (<code>…/groundwork</code> rather than the full path from home), so the project name stays visible no matter how deep you go:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">~/code/groundwork</span></div>
-        <pre><code><span class="comment"># branch    cursor sits here</span>
-  main    ❯ <span class="cursor">_</span></code></pre>
+        <pre><code><span class="comment"># OS   project          cursor sits here</span>
+ 󰀵  …/groundwork  ❯ <span class="cursor">_</span></code></pre>
       </div>
       <p>Throughout this guide you'll see commands written with a <code>$</code> in front, like <code>$ ls</code>. The <code>$</code> just <em>stands for the prompt</em> — don't type it. Type the part after it. (The copy button on each code block strips it for you.)</p>
 
