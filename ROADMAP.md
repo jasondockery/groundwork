@@ -41,7 +41,14 @@ Roost.
 
 ## Operations
 
-- [x] Renovate configured: hosted app, `renovate.json`, operating notes in
-      `PLAYBOOK.md`.
+- [x] Renovate configured: hosted app (Interactive mode), `renovate.json`,
+      operating notes in `PLAYBOOK.md`. Dependency Dashboard live (issue
+      #5); the ubuntu 26.04 bump is queued there under the cooldown.
+- [x] Dependabot version updates removed (`dependabot.yml` deleted, its PR
+      closed) and Dependabot security-update PRs disabled; alerts stay on
+      as Renovate's data source (2026-07-03).
+- [x] Code scanning enabled via CodeQL default setup (2026-07-03).
+- [x] Secret scanning with push protection confirmed enabled.
+- [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).
