@@ -237,9 +237,13 @@ done < home/dot_local/share/groundwork/commands.tsv
 
 echo "check: supply-chain guardrails"
 grep -qE '^FROM ubuntu:24\.04@sha256:[0-9a-f]{64}$' Dockerfile
-grep -q 'package-ecosystem: "github-actions"' .github/dependabot.yml
-grep -q 'package-ecosystem: "docker"' .github/dependabot.yml
-grep -q 'package-ecosystem: "devcontainers"' .github/dependabot.yml
+# Renovate owns dependency updates (renovate.json); a dependabot.yml would
+# create duplicate PRs, so its absence is the guarded state.
+grep -q '"config:best-practices"' renovate.json
+if [[ -e .github/dependabot.yml ]]; then
+  echo "remove .github/dependabot.yml: Renovate owns dependency updates (see PLAYBOOK.md)" >&2
+  exit 1
+fi
 grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
 assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
 

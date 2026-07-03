@@ -2,9 +2,36 @@
 
 Operational notes for maintaining Groundwork as a shared Mac developer setup.
 
-## Before Making The Repo Public
+## Dependency Updates (Renovate)
 
-Run these checks from the repo root:
+Groundwork uses the hosted Mend Renovate app (installed account-wide, mode:
+Interactive) for dependency updates. Configuration lives in `renovate.json`.
+
+What Renovate manages here:
+
+- GitHub Actions SHA pins in `.github/workflows/` (it updates the pin and the
+  version comment together).
+- The Dockerfile base image digest.
+
+Operating notes:
+
+- Updates arrive weekly as grouped PRs labeled `dependencies`. The Dependency
+  Dashboard issue lists pending updates; checking a box there forces a PR
+  ahead of the schedule.
+- Security PRs are immediate and labeled `security`.
+- Never add a `dependabot.yml`; Dependabot version updates would duplicate
+  Renovate PRs. The old one (github-actions, docker, devcontainers) was
+  removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
+  enabled as a data source.
+- When the shared `renovate-config` preset repo exists, switch `extends` to
+  `github>jasondockery/renovate-config` so policy is defined once for all
+  repos.
+
+## Public Repo Hygiene (recurring)
+
+The repo is public. These checks are recurring hygiene, not a one-time
+release gate. Run them from the repo root before pushing anything
+substantial:
 
 ```bash
 scripts/validate-groundwork
@@ -12,30 +39,20 @@ git status --short
 rg -n "TODO|FIXME|private|secret|token|password|gmail|icloud|/Users/" . --hidden -g '!.git' -g '!node_modules'
 ```
 
-Also review:
+Standing rules for a public repo:
 
-- `README.md` for accurate install commands and repo visibility wording.
-- `SECURITY.md` for the current disclosure and secret-handling policy.
-- `.github/workflows/ci.yml` for the required validation and Docker status checks.
-- Any local `.groundwork-public-denylist` patterns, if used.
+- Never commit personal, client, employer, credential, certificate,
+  provisioning-profile, `.mobileconfig`, or machine-specific material.
+  Pushing is publishing; deletion is not redaction.
+- Keep `README.md` install commands and `SECURITY.md` disclosure policy
+  accurate.
+- Keep `.github/workflows/ci.yml` validation and Docker status checks
+  required and green on `main`.
+- Periodically confirm the fresh-shell install path still works:
 
-## Public Release Checklist
-
-1. Make sure the repo has no personal, client, employer, credential, certificate, provisioning-profile, `.mobileconfig`, or machine-specific material.
-2. Confirm the install path works from a fresh shell:
-
-   ```bash
-   bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"
-   ```
-
-3. Confirm CI is green on `main`.
-4. Make the repo public:
-
-   ```bash
-   gh repo edit jasondockery/groundwork --visibility public --accept-visibility-change-consequences
-   ```
-
-5. Enable `main` branch protection immediately after the repo is public.
+  ```bash
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"
+  ```
 
 ## Main Branch Protection
 

@@ -22,6 +22,10 @@ The tracks are thin branches on a shared spine: the same shell, Git, project-ins
 
 Groundwork is the trailhead and first stretch, not the summit. It will not make someone an agentic engineer by itself; that takes years of judgment, design practice, review, security awareness, and taste. What it does is show the arc, set up the environment, and give learners their first serious practice aimed in the right direction.
 
+## The Roost sibling
+
+Groundwork has a sibling project, Roost: an AI-native platform monorepo that scaffolds an organization's code, process, and knowledge (shared packages, CI/CD gates, specs, repo governance, and agent rules). The division of labor is simple: Groundwork scaffolds the people, meaning their environment, fundamentals, and agent-direction skills, while Roost scaffolds the place they work. The shared verb is the positioning line: Roost scaffolds your company's code; Groundwork scaffolds you. They share one way of working: what Groundwork teaches a learner by practice (verify before claiming done, the human owns Git, direct agents deliberately), Roost encodes as machinery (CI gates, hooks, and enforceable rules). Each stands alone; neither requires the other.
+
 ## Operating Principles
 
 These govern every page and every change, whether a human or an agent makes it.

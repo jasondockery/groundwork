@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Groundwork dependency updates via the hosted Mend Renovate app (installed account-wide, Interactive mode). The surfaces here are GitHub Actions SHA pins and the Dockerfile base image digest. Operational notes live in PLAYBOOK.md.",
+    "Policy mirrors the roost repo: weekly schedule, 4 day cooldown, grouped non-major updates, immediate security PRs. When the shared renovate-config preset repo exists, replace extends with github>jasondockery/renovate-config so the policy is defined once."
+  ],
+  "extends": ["config:best-practices", "schedule:weekly"],
+  "minimumReleaseAge": "4 days",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 3,
+  "rebaseWhen": "behind-base-branch",
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "addLabels": ["security"],
+    "prCreation": "immediate"
+  },
+  "packageRules": [
+    {
+      "groupName": "non-major dependencies",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"]
+    }
+  ]
+}
