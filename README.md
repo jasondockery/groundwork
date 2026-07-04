@@ -1,7 +1,6 @@
 # Groundwork
 
 [![CI](https://github.com/jasondockery/groundwork/actions/workflows/ci.yml/badge.svg)](https://github.com/jasondockery/groundwork/actions/workflows/ci.yml)
-[![Validate](https://github.com/jasondockery/groundwork/actions/workflows/validate.yml/badge.svg)](https://github.com/jasondockery/groundwork/actions/workflows/validate.yml)
 [![Pages](https://github.com/jasondockery/groundwork/actions/workflows/pages.yml/badge.svg)](https://github.com/jasondockery/groundwork/actions/workflows/pages.yml)
 
 An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.

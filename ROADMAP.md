@@ -57,6 +57,13 @@ Roost.
       as Renovate's data source (2026-07-03).
 - [x] Code scanning enabled via CodeQL default setup (2026-07-03).
 - [x] Secret scanning with push protection confirmed enabled.
+- [x] Security-PR automerge enabled, aligned with roost (2026-07-04) — the
+      earlier difference was drift, not policy; shared policy for the
+      future `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
+- [x] `workflow-lint` CI job added: zizmor (pedantic) audits the workflows,
+      mirroring roost's job; existing findings fixed in the same change
+      (2026-07-04). CI is now four required checks (`PLAYBOOK.md`, CI
+      Checks).
 - [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).

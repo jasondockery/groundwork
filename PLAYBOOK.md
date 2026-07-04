@@ -18,7 +18,13 @@ Operating notes:
 - Updates arrive weekly as grouped PRs labeled `dependencies`. The Dependency
   Dashboard issue lists pending updates; checking a box there forces a PR
   ahead of the schedule.
-- Security PRs are immediate and labeled `security`.
+- Security PRs are immediate, labeled `security`, and automerge once CI is
+  green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
+  what a human check would, and a vulnerable Action or base image should not
+  wait on a manual merge. Automerge engages only if the repo has "Allow
+  auto-merge" enabled and the CI checks are required on `main` (see Main
+  Branch Protection below); otherwise Renovate merges on its own next run
+  after checks pass.
 - Never add a `dependabot.yml`; Dependabot version updates would duplicate
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
@@ -26,6 +32,30 @@ Operating notes:
 - When the shared `renovate-config` preset repo exists, switch `extends` to
   `github>jasondockery/renovate-config` so policy is defined once for all
   repos.
+
+## CI Checks (what each job proves)
+
+`.github/workflows/ci.yml` runs four jobs on every push and PR:
+
+- `workflow-lint` — zizmor (pedantic persona) statically audits the
+  workflows themselves: unpinned actions, credential persistence,
+  over-broad permissions, expression injection. Mirrors the roost repo's
+  job (same action, same SHA pin). Its conventions apply to any workflow
+  edit: pin actions to commit SHAs with a version comment, set
+  `persist-credentials: false` on every checkout, scope `write`
+  permissions to the job that needs them with a same-line comment saying
+  why.
+- `render-lint` — `scripts/validate-groundwork`: hermetic chezmoi template
+  rendering across OS/headless/work matrices, plus ShellCheck.
+- `secret-scan` — gitleaks over the full git history.
+- `docker-build` — builds the container image and smoke-tests the
+  installed toolchain.
+
+Run zizmor locally before pushing workflow changes:
+
+```bash
+uvx zizmor --persona pedantic --no-online-audits .github/workflows
+```
 
 ## Public Repo Hygiene (recurring)
 
@@ -46,8 +76,9 @@ Standing rules for a public repo:
   Pushing is publishing; deletion is not redaction.
 - Keep `README.md` install commands and `SECURITY.md` disclosure policy
   accurate.
-- Keep `.github/workflows/ci.yml` validation and Docker status checks
-  required and green on `main`.
+- Keep all four `.github/workflows/ci.yml` checks (`workflow-lint`,
+  `render-lint`, `secret-scan`, `docker-build`) required and green on
+  `main` — Renovate's security automerge trusts them as the gate.
 - Periodically confirm the fresh-shell install path still works:
 
   ```bash
@@ -65,7 +96,7 @@ gh api --method PUT repos/jasondockery/groundwork/branches/main/protection --inp
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["render-lint", "docker-build"]
+    "contexts": ["workflow-lint", "render-lint", "secret-scan", "docker-build"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {

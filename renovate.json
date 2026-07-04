@@ -2,7 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "Groundwork dependency updates via the hosted Mend Renovate app (installed account-wide, Interactive mode). The surfaces here are GitHub Actions SHA pins and the Dockerfile base image digest. Operational notes live in PLAYBOOK.md.",
-    "Policy mirrors the roost repo: weekly schedule, 4 day cooldown, grouped non-major updates, immediate security PRs. When the shared renovate-config preset repo exists, replace extends with github>jasondockery/renovate-config so the policy is defined once."
+    "Policy mirrors the roost repo: weekly schedule, 4 day cooldown, grouped non-major updates, immediate security PRs. When the shared renovate-config preset repo exists, replace extends with github>jasondockery/renovate-config so the policy is defined once.",
+    "Security PRs automerge (decided 2026-07-04, aligning with roost — the automerge difference was drift, not policy): CI here proves the same things a human check would (render validation, gitleaks, Docker build + smoke test), and a vulnerable Action or base image should not wait on a manual merge. Shared policy — goes into the preset when it exists."
   ],
   "extends": ["config:best-practices", "schedule:weekly"],
   "minimumReleaseAge": "4 days",
@@ -12,7 +13,9 @@
   "labels": ["dependencies"],
   "vulnerabilityAlerts": {
     "addLabels": ["security"],
-    "prCreation": "immediate"
+    "prCreation": "immediate",
+    "automerge": true,
+    "platformAutomerge": true
   },
   "packageRules": [
     {
