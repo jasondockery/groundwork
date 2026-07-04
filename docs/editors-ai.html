@@ -249,6 +249,10 @@
         <span class="label">Never paste secrets</span>
         <p>Don't put passwords, API keys, or private tokens into a prompt. If a tool needs a key, it has a proper place to store it — ask before pasting anything sensitive into a chat.</p>
       </div>
+      <div class="callout note">
+        <span class="label">Agents share your machine</span>
+        <p>Every agent session spawns its own builds, tests, and file watchers on the same CPU and memory you're using. One agent is rarely noticeable; three running test suites at once will make a fast machine crawl. When things feel slow, don't guess — run <code>btop</code> in a pane and look at what's actually eating the machine, then pause or narrow one of the tasks. For work that must stay bounded, run it in a container: <code>docker run --cpus 2 --memory 2g …</code> is where hard limits live.</p>
+      </div>
 
       <h2><span class="hash">#</span>Practice</h2>
       <div class="drill">

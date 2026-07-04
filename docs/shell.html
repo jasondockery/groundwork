@@ -202,6 +202,7 @@
         <tr><td><code>delta</code></td><td>Delta means change; this makes Git changes easier to read.</td></tr>
         <tr><td><code>dust</code></td><td>A friendlier <code>du</code> that shows what is taking space. Think "disk usage, sorted tree."</td></tr>
         <tr><td><code>duf</code></td><td>Disk usage/free utility: the readable replacement for <code>df</code>.</td></tr>
+        <tr><td><code>btop</code></td><td>A "better top": live CPU, memory, and process view of the whole machine.</td></tr>
         <tr><td><code>tokei</code></td><td>Japanese for clock/time; here it quickly counts code by language.</td></tr>
         <tr><td><code>hyperfine</code></td><td>A benchmarking tool for fine-grained timing comparisons.</td></tr>
         <tr><td><code>starship</code></td><td>The prompt: the control panel you see before every command.</td></tr>
@@ -284,6 +285,7 @@
         <tr><td><code>delta</code></td><td>Makes <code>git diff</code> readable — syntax-highlighted, line-by-line</td></tr>
         <tr><td><code>dust</code></td><td>Shows what's eating disk space, as a tree (a friendlier <code>du</code>)</td></tr>
         <tr><td><code>duf</code></td><td>Free disk space in clean tables (a friendlier <code>df</code>)</td></tr>
+        <tr><td><code>btop</code></td><td>Live CPU, memory, and process monitor (a friendlier <code>top</code>) — your first stop when the machine feels slow</td></tr>
         <tr><td><code>tokei</code></td><td>Counts lines of code in a project, by language</td></tr>
         <tr><td><code>hyperfine</code></td><td>Benchmarks a command properly, over many runs</td></tr>
         <tr><td><code>starship</code></td><td>The prompt itself — your OS and current folder on every line, so copied terminal text carries its context</td></tr>
@@ -376,6 +378,14 @@
 <span class="prompt">$ </span>mise install                   <span class="comment"># on a fresh clone: grab everything the toml asks for</span></code></pre>
       </div>
       <p>Walk into a different project and the versions change to match it automatically. Globally, this setup pins Node LTS, pnpm, and Python (in <code>~/.config/mise/config.toml</code>), so every machine agrees on the baseline. <code>mise install</code> installs missing declared versions; <code>mise upgrade</code> deliberately advances floating baselines such as Node LTS to the newest matching patch. Upgrades are live at your next prompt, even in terminals that are already open, because mise refreshes the shell's PATH before each prompt. Python projects should still use <code>uv</code> for dependencies and virtual environments; mise supplies the interpreter and will source an existing uv <code>.venv</code> when you enter the project.</p>
+
+      <h3>Resource defaults — open files and parallel builds</h3>
+      <p>Two lines in <code>~/.zshrc</code> make sure commands actually use a modern machine. Both are derived from the machine they run on, so the same setup behaves correctly on a laptop, a Linux box, or inside a container.</p>
+      <table class="keytable">
+        <tr><td><strong>Open-file limit</strong></td><td>macOS still caps each process at 256 open files by default — a limit from another era. File watchers, bundlers, language servers, and agent sessions blow through it and fail with a confusing <code>too many open files</code>. The shell raises its soft limit to 10,240 (never above the hard limit the system allows), and every command you or an agent launches from it inherits the room.</td></tr>
+        <tr><td><strong><code>make</code> parallelism</strong></td><td>Most modern build tools detect your CPU cores and parallelize on their own. Plain <code>make</code> does not — it builds one file at a time unless told otherwise. <code>MAKEFLAGS</code> is set to <code>-j&lt;cores&gt;</code>, counted on this machine at shell start, so compiling dependencies uses the hardware you paid for.</td></tr>
+      </table>
+      <p>What's deliberately <em>not</em> configured: hard CPU or memory caps. macOS can't enforce per-process memory limits anyway, and a cap that silently kills a build is a worse beginner experience than a slow one. When you genuinely need hard limits — a runaway workload, or bounding an agent's sandbox — run it in a container, which is where real limits live: <code>docker run --cpus 2 --memory 2g …</code>. To <em>see</em> what's using the machine right now, run <code>btop</code>.</p>
 
       <h2><span class="hash">#</span>Going deeper</h2>
       <ul>
