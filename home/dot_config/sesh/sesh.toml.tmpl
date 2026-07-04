@@ -1,0 +1,22 @@
+# Session recipes for sesh (prefix T in tmux opens the switcher).
+# sesh already creates a named session for any folder via zoxide; entries here
+# add startup commands so a project opens ready to work. The repo owns the
+# commands (package scripts, roo, mise tasks); this file owns the arrangement.
+# Docs: https://github.com/joshmedeski/sesh
+
+[[session]]
+name = "groundwork"
+path = "{{ .code_dir }}/groundwork"
+startup_command = "scripts/validate-groundwork"
+
+[[session]]
+name = "roost"
+path = "{{ .code_dir }}/roost"
+startup_command = "pnpm run help"
+
+# Template for your own projects: name, path, and the command the first
+# window should run (a dev server, a status view, or nothing at all).
+# [[session]]
+# name = "my-app"
+# path = "{{ .code_dir }}/my-app"
+# startup_command = "pnpm dev"

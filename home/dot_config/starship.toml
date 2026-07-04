@@ -5,11 +5,10 @@
 # an AI tool, the agent can see which repo and folder the commands ran in.
 # Versions stay out of the prompt — mise owns those (`mise current`).
 format = """
-[](red)\
+[](lavender)\
 $os\
-[](bg:peach fg:red)\
 $directory\
-[](fg:peach)\
+[](fg:lavender)\
 $cmd_duration\
 $line_break\
 $character"""
@@ -24,9 +23,12 @@ $hostname"""
 # Switch to catppuccin_latte for a light terminal.
 palette = 'catppuccin_mocha'
 
+# One lavender capsule (OS badge + path together), matching the tmux
+# footer's battery chip, so the prompt and status bar read as one calm
+# palette instead of competing accents.
 [os]
 disabled = false
-style = "bg:red fg:crust"
+style = "bg:lavender fg:crust"
 format = '[ $symbol ]($style)'
 
 # Cover every environment Groundwork targets: Mac desktops, Linux and WSL
@@ -56,7 +58,7 @@ format = '[ $user]($style)'
 # the path at any depth (…/roost, …/roost/tools/github), so copied terminal
 # text always names the project without spending width on ~/code/.
 [directory]
-style = "bg:peach fg:crust"
+style = "bg:lavender fg:crust"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
@@ -166,8 +168,10 @@ vimcmd_replace_one_symbol = '[❮](bold fg:lavender)'
 vimcmd_replace_symbol = '[❮](bold fg:lavender)'
 vimcmd_visual_symbol = '[❮](bold fg:yellow)'
 
+# Whole seconds only ("9s", "1m 7s") — millisecond precision made the
+# duration a wall of digits that was hard to read at a glance.
 [cmd_duration]
-show_milliseconds = true
+show_milliseconds = false
 format = ' [ $duration](fg:overlay1)'
 disabled = false
 

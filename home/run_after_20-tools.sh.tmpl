@@ -67,6 +67,17 @@ if command -v uv >/dev/null 2>&1; then
   fi
 fi
 
+# Docker CLI zsh completion, generated into the same location Docker Desktop's
+# "Configure shell completions -> Install" button uses. The button edits
+# ~/.zshrc directly, which chezmoi owns and would revert on the next apply;
+# generating the file here (with .zshrc adding it to fpath) makes the button
+# unnecessary and clears its FPATH warning. Regenerated on every apply so
+# completions track the installed CLI version.
+if command -v docker >/dev/null 2>&1; then
+  mkdir -p "$HOME/.docker/completions"
+  docker completion zsh > "$HOME/.docker/completions/_docker" 2>/dev/null || true
+fi
+
 # Seed the manual-update reminder without resetting it on every apply. `update-all`
 # refreshes this marker after a successful visible/batched update.
 groundwork_state_dir="$HOME/.local/state/groundwork"

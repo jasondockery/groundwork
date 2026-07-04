@@ -25,6 +25,14 @@ after the work is verified, never aspirationally.
       worktrees, mirroring how Roost runs its implementation queue.
 - [ ] Verification habits page: what proof to run before claiming done, when
       to run it, and how to read the results.
+- [ ] AI-native prompt lesson: why the prompt shows the repo-relative path
+      on every line (pasted snippets carry context agents can use), and how
+      Claude Code's statusline can run Starship so the agent status bar and
+      the shell prompt share one config.
+- [x] Project session recipes: sesh config template in the dotfiles
+      (`~/.config/sesh/sesh.toml`, prefix T switcher) with per-project
+      startup commands (2026-07-04). Follow-up lesson page teaching the
+      pattern: repos own commands, your tools own the layout.
 
 ## Roost integration points (optional on-ramps, not dependencies)
 

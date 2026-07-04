@@ -1,0 +1,33 @@
+# Colima default template: used by `colima start` when creating a NEW
+# instance (existing instances keep their own config — `colima delete`
+# then `colima start` to adopt changes, or `colima start --edit`).
+#
+# Only the settings that matter are pinned; everything omitted falls back
+# to Colima's defaults. Rationale: containers should run at native speed —
+# vz is Apple's virtualization framework (faster, lower energy than qemu),
+# virtiofs is the fastest bind-mount option, and Rosetta accelerates the
+# rare amd64-only image on Apple Silicon instead of falling back to QEMU.
+vmType: vz
+mountType: virtiofs
+mountInotify: true
+{{ if eq .chezmoi.arch "arm64" -}}
+rosetta: true
+{{ end -}}
+# Sized per machine at apply time: half the cores (a cap, not a
+# reservation, so generous is fine), and a third of RAM clamped to 4-12 GB
+# (VM memory is largely held once used, so this one stays conservative).
+{{- $cores := output "sysctl" "-n" "hw.ncpu" | trim | atoi }}
+{{- $memGiB := div (output "sysctl" "-n" "hw.memsize" | trim | atoi) 1073741824 }}
+cpu: {{ max 2 (div $cores 2) }}
+memory: {{ min 12 (max 4 (div $memGiB 3)) }}
+
+# Engine (daemon.json) settings Colima applies inside the VM. Both cap
+# unbounded disk growth — the two classic "Docker filled my disk" causes:
+# the default json-file log driver never rotates, and build cache grows
+# forever without a GC ceiling.
+docker:
+  log-driver: local
+  builder:
+    gc:
+      enabled: true
+      defaultKeepStorage: 20GB

@@ -238,16 +238,21 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>&amp;</kbd></span></td><td>Close the current window and all panes inside it (tmux asks first)</td></tr>
       </table>
       <p>Best names are short nouns: <code>edit</code>, <code>agent</code>, <code>server</code>, <code>logs</code>, <code>db</code>, <code>git</code>. Window names show in the status bar; pane names show in the pane border.</p>
+      <p>Naming is hybrid, on purpose. A window you haven't named renames itself after whatever is running in it (<code>zsh</code>, <code>nvim</code>, <code>claude</code>); the moment you name one with <kbd>Ctrl</kbd><kbd>a</kbd> <kbd>,</kbd> your name sticks — auto-renaming turns off for that window only, and programs are never allowed to rename windows out from under you (they can only set the pane title in the border, which is the right place for an agent's task chatter). Renames are also saved into the restore state immediately, so a name you set survives a reboot instead of depending on the last 15-minute autosave. One habit that makes names largely unnecessary: keep one <em>session</em> per project (the session switcher, <kbd>Ctrl</kbd><kbd>a</kbd> <kbd>T</kbd>, names sessions after their folder), and let windows within it be task lanes.</p>
 
       <h3>Sessions — the persistent part</h3>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span></td><td>Open the session switcher (jump to or create a project workspace)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>x</kbd></span> <em>inside the switcher</em></td><td>Kill the highlighted session without leaving the picker; the list refreshes. Folder rows aren't live sessions, so it does nothing on those</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>s</kbd></span></td><td>tmux's built-in session tree — arrow through every session and window, <kbd>Enter</kbd> switches, <kbd>x</kbd> kills the highlighted one (tmux asks first), <kbd>q</kbd> quits</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span></td><td>Detach — leave everything running and return to the plain shell</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>$</kbd></span></td><td>Rename the session</td></tr>
-        <tr><td><code>tmux attach</code></td><td>From the shell, reattach to where you left off</td></tr>
+        <tr><td><code>tmux ls</code></td><td>From the shell, list the sessions that are actually alive</td></tr>
+        <tr><td><code>tmux attach</code></td><td>From the shell, reattach to where you left off (<code>tmux attach -t name</code> for a specific one)</td></tr>
         <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot</td></tr>
         <tr><td><code>tmux kill-session -t name</code></td><td>End a specific session and everything running inside it</td></tr>
-        <tr><td><code>tmux kill-server</code></td><td>End every live tmux session. Restore is separate and comes only from the last saved snapshot</td></tr>
+        <tr><td><code>tmux kill-session -a</code></td><td>Kill every session <em>except</em> the one you're in — the tidy-up move after a week of experiments</td></tr>
+        <tr><td><code>tmux kill-server</code></td><td>End every live tmux session at once. Restore is separate and comes only from the last saved snapshot</td></tr>
       </table>
       <div class="callout warn">
         <span class="label">Detach vs close</span>
@@ -325,7 +330,8 @@
       </div>
 
       <h2><span class="hash">#</span>Project layouts as code</h2>
-      <p>If a project always wants the same arrangement — editor, agent, server, tests, logs — store that as <code>.tmuxp.yaml</code> in the project. That is the shareable version for teams and students. Resurrect restores whatever you personally had open; tmuxp starts a known layout from a file.</p>
+      <p>Two layers, one rule: the repo owns the <em>commands</em> (its package scripts and CLI), and your own config owns the <em>arrangement</em>. Personal session recipes live in <code>~/.config/sesh/sesh.toml</code> — a name, a folder, and a startup command per project, so the <span class="keys"><kbd>prefix</kbd> <kbd>T</kbd></span> switcher opens a project already doing something useful. Groundwork seeds that file with examples to copy.</p>
+      <p>When a project always wants the same <em>multi-window</em> arrangement — editor, agent, server, tests, logs — store that as <code>.tmuxp.yaml</code> in the project. That is the shareable version for teams and students. Resurrect restores whatever you personally had open; tmuxp starts a known layout from a file.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">.tmuxp.yaml</span></div>
         <pre><code>session_name: my-app
@@ -349,6 +355,7 @@ windows:
         <tr><td><code>tmuxp load .tmuxp.yaml</code></td><td>Start or attach to the layout described by the file</td></tr>
         <tr><td><code>tmuxp freeze &gt; .tmuxp.yaml</code></td><td>Capture the current session as a starter config, then edit the commands and names</td></tr>
         <tr><td><code>sesh connect ~/code/my-app</code></td><td>Create or jump to a normal project session when you do not need a declared layout</td></tr>
+        <tr><td><code>~/.config/sesh/sesh.toml</code></td><td>Your personal recipes: each entry names a project, its folder, and the command its first window runs</td></tr>
       </table>
       <div class="callout note">
         <span class="label">What to commit</span>
@@ -376,7 +383,7 @@ windows:
       </table>
 
       <h3>The status line — useful, not noisy</h3>
-      <p>Full-screen terminal work hides the macOS menu bar, so the tmux status line carries the few machine signals worth seeing while you supervise an editor, tests, logs, or an agent: current app, CPU, RAM, host, battery when the machine has one, and time. It refreshes every 10 seconds, so it stays glanceable without becoming a tiny dashboard that constantly wakes the machine.</p>
+      <p>Full-screen terminal work hides the macOS menu bar, so the tmux status line carries the few machine signals worth seeing while you supervise an editor, tests, logs, or an agent: current app, CPU, RAM, host, battery when the machine has one, and time. It refreshes every 10 seconds, so it stays glanceable without becoming a tiny dashboard that constantly wakes the machine. Window and session renames repaint immediately; the 10-second pace applies only to the system modules.</p>
       <div class="callout note">
         <span class="label">If you see placeholders</span>
         <p>Literal text such as <code>#{cpu_percentage}</code>, <code>#{ram_percentage}</code>, or <code>#{battery_percentage}</code> means the plugin/theme layer has not loaded. Re-run <code>chezmoi apply</code> to let Groundwork install missing TPM plugins, then reload with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span>. If you are already inside an old tmux server, restart tmux from a fresh Ghostty tab so the newly-installed plugins load cleanly.</p>

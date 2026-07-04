@@ -23,6 +23,24 @@ bind C-a send-prefix
 
 bind r source-file ~/.config/tmux/tmux.conf \; display-message "tmux reloaded"
 
+# Window naming is hybrid, and these are tmux's defaults — stated here so the
+# behavior is a documented decision, not an accident. Unnamed windows auto-name
+# from the running command (zsh, nvim, claude); renaming one with prefix-,
+# turns auto-rename off for that window only, so the human's name sticks.
+# allow-rename stays off so programs can't rename windows via escape sequences
+# (they may still set the pane title, shown in the pane border — that's the
+# right place for machine chatter like an agent's task summary).
+set -g allow-rename off
+setw -g automatic-rename on
+
+# rename feedback: the status line only re-renders every status-interval (10s)
+# or on events like switching windows, so a rename can look ignored. Force an
+# immediate status redraw after renaming a window or session, then save the
+# session state — continuum autosaves only every 15 minutes, and a rename that
+# misses the last save before a server restart is silently lost on restore.
+bind , command-prompt -I "#W" "rename-window -- '%%' ; refresh-client -S ; run-shell -b 'save=~/.config/tmux/plugins/tmux-resurrect/scripts/save.sh; [ -x \"$save\" ] && \"$save\" quiet || true'"
+bind '$' command-prompt -I "#S" "rename-session -- '%%' ; refresh-client -S ; run-shell -b 'save=~/.config/tmux/plugins/tmux-resurrect/scripts/save.sh; [ -x \"$save\" ] && \"$save\" quiet || true'"
+
 bind | split-window -h -c "#{pane_current_path}"
 bind - split-window -v -c "#{pane_current_path}"
 bind c new-window -c "#{pane_current_path}"
@@ -65,8 +83,12 @@ bind S set-window-option synchronize-panes \; display-message "sync-panes #{?syn
 # lazygit in a popup, opened in the current folder
 bind g display-popup -E -d "#{pane_current_path}" -w 90% -h 90% lazygit
 
+# Inside the picker, Ctrl+x kills the highlighted tmux session and reloads the
+# list (folder rows aren't live sessions, so Ctrl+x is a no-op on those).
 bind -N "session switcher" T display-popup -E -w 40% -h 50% \
-  "sesh connect \"$(sesh list --icons | fzf --ansi --reverse --no-sort --prompt 'sesh ')\""
+  "sesh connect \"$(sesh list --icons | fzf --ansi --reverse --no-sort --prompt 'sesh ' \
+    --header 'enter connect · ctrl-x kill session' \
+    --bind 'ctrl-x:execute-silent(tmux kill-session -t {2..})+reload(sesh list --icons)')\""
 
 set -g @plugin 'tmux-plugins/tpm'
 set -g @plugin 'tmux-plugins/tmux-sensible'
