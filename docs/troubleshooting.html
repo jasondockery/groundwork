@@ -232,6 +232,13 @@
         <tr><td><strong>Slow shell startup</strong></td><td>Time it with <code>hyperfine 'zsh -i -c exit'</code>; a recently-added plugin is the usual cause</td></tr>
       </table>
 
+      <h2><span class="hash">#</span>Claude Code</h2>
+      <table class="keytable">
+        <tr><td><strong>Esc doesn't cancel in the chat</strong></td><td>Deliberate. Terminal and vim fingers hit <kbd>Esc</kbd> reflexively, so Groundwork ships <code>~/.claude/keybindings.json</code> with the Chat-context Esc cancel binding removed. Stop running work deliberately with <kbd>Ctrl</kbd><kbd>C</kbd> (the hardcoded interrupt — can't be rebound or lost); undo a wrong turn with <code>/rewind</code>. Want stock behavior back? Remove the <code>"escape": null</code> line with <code>chezmoi edit --apply ~/.claude/keybindings.json</code></td></tr>
+        <tr><td><strong>Keybinding edits keep reverting</strong></td><td>The file is chezmoi-managed, and Claude Code's <code>/keybindings</code> shortcut opens the applied copy — edits there are overwritten on the next apply. Make changes with <code>chezmoi edit --apply ~/.claude/keybindings.json</code> instead</td></tr>
+        <tr><td><strong>Keybindings file seems ignored</strong></td><td>Custom keybindings need Claude Code v2.1.18 or later — check with <code>claude --version</code>. On a current version, run <code>/doctor</code> inside Claude Code — it has a section that validates <code>~/.claude/keybindings.json</code> and names the exact problem</td></tr>
+      </table>
+
       <h2><span class="hash">#</span>Karabiner (keyboard)</h2>
       <p>Caps&nbsp;Lock&nbsp;→&nbsp;Esc/Ctrl won't work until macOS trusts Karabiner. It needs <strong>two</strong> approvals that only you can click:</p>
       <div class="callout warn">

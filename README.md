@@ -17,9 +17,9 @@ This repo is the complete, version-controlled source for the setup, docs, valida
 
 ## Who It's For
 
-Groundwork is for adults starting real development, especially people who have never coded before: career changers, people returning to technical work, and later-in-life beginners who want to build seriously. It is equally useful for working developers and teams adopting an AI-native workflow.
+Groundwork is for anyone who wants to build seriously, wherever you are starting from: brand new to development or deep into a career, new to the terminal or fluent in it, new to AI-native work or already practicing it. It sets up a machine, image, or container quickly with everything needed to work — tools, shell, shortcuts, and agent instructions in place — and the docs meet each reader at their own starting point.
 
-It treats beginners as capable adults. It gives a first successful path quickly, then offers substantial practice for people willing to put in real hours. It is deliberately not a children's learn-to-code introduction.
+Wherever you start, the destination is the same: a deeply skilled, technical agentic engineer — someone who understands the system, works the terminal confidently, and directs AI agents without depending on them. That is a long climb, not a weekend project. Every page is written in layers — terms defined once and a first successful path for those who need it, a skimmable workflow-and-config fast path for those who don't — so any reader can take what they need and move. It is deliberately not a children's learn-to-code introduction.
 
 ## How People Learn Here
 

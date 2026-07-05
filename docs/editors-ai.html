@@ -260,6 +260,10 @@
         <p>Don't put passwords, API keys, or private tokens into a prompt. If a tool needs a key, it has a proper place to store it — ask before pasting anything sensitive into a chat.</p>
       </div>
       <div class="callout note">
+        <span class="label">Esc is unbound in Claude Code's chat — that's deliberate</span>
+        <p>In a terminal full of vim and tmux, fingers hit <kbd>Esc</kbd> constantly, and in Claude Code <kbd>Esc</kbd> is the Chat-context cancel key. Groundwork ships <code>~/.claude/keybindings.json</code> with that one binding removed, so a reflexive <kbd>Esc</kbd> no longer triggers a cancel you didn't mean. Stopping running work stays one deliberate key — <kbd>Ctrl</kbd><kbd>C</kbd>, Claude Code's hardcoded interrupt, which can't be rebound or lost — and <code>/rewind</code> restores code and conversation if a run goes sideways. The file is chezmoi-managed like the rest of the setup: to change or remove bindings, use <code>chezmoi edit --apply ~/.claude/keybindings.json</code> (see <a href="customizing.html">Customizing</a>), not Claude Code's <code>/keybindings</code> shortcut, which edits the applied copy that the next apply overwrites.</p>
+      </div>
+      <div class="callout note">
         <span class="label">Agents share your machine</span>
         <p>Every agent session spawns its own builds, tests, and file watchers on the same CPU and memory you're using. One agent is rarely noticeable; three running test suites at once will make a fast machine crawl. When things feel slow, don't guess — run <code>btop</code> in a pane and look at what's actually eating the machine, then pause or narrow one of the tasks. For work that must stay bounded, run it in a container: <code>docker run --cpus 2 --memory 2g …</code> is where hard limits live.</p>
       </div>

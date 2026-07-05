@@ -7,6 +7,15 @@ description: Safely edit and verify Groundwork-managed chezmoi files. Use when c
 
 Use the visible checkout as the source of truth. Never hand-edit the applied copy under `$HOME` and call the task done.
 
+## Ownership Model
+
+Pick the pattern before editing. These are the only patterns this repo uses; do not invent new ones.
+
+- **Fully managed (the default).** Groundwork owns the whole file and updates propagate on `chezmoi update`. Users customize with `chezmoi edit --apply <target>` or a fork. Use for single-file configs: starship, ghostty, mise, `~/.claude/keybindings.json`.
+- **Managed base + unmanaged local overlay.** For files users tweak constantly, the managed file sources an ignored `*.local` file last so personal choices win: `~/.zshrc.local`, `~/.gitconfig.local`, `~/.config/tmux/tmux.local.conf`. If a managed file needs a personal layer, add an overlay hook; never tell users to hand-edit the managed target.
+- **`modify_` merge script.** For files an app also writes to (Karabiner), merge Groundwork's keys into the app's existing JSON on every apply. Never replace the whole file.
+- **Never `create_` seed-once files.** A `create_` target is written only if absent and never updated again: it hides drift from `chezmoi diff`, never receives upstream improvements, and forces users to hand-edit the applied copy — the exact habit this repo forbids. If a file seems to want seeding, it should be fully managed or left unmanaged.
+
 ## Workflow
 
 1. Identify the managed source path:

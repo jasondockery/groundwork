@@ -26,7 +26,7 @@ Then check:
 2. Foundation pages say why the basics matter in an AI-native workflow.
 3. Tool choices are presented as options, not purity tests.
 4. Workflow and why come before keystrokes, flags, packages, and config details.
-5. Pages meet adult beginners where they are: define terms once, give a first successful path, and respect the overview -> quick wins -> substantial practice progression.
+5. Pages meet readers where they are, assuming nothing about background: terms defined once and a first successful path for those who need it, a skimmable fast path (workflow, why, config) for readers who already know the basics, and the overview -> quick wins -> substantial practice progression respected.
 6. Page titles, social titles, nav labels, and compact UI copy use calm product punctuation such as `Page · Groundwork`; avoid em dashes, double hyphens, and hyphen runs as generic separators outside literal command syntax.
 7. Existing useful learner content is preserved unless the user explicitly asks to remove it.
 

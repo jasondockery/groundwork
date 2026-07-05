@@ -6,7 +6,7 @@ Editors, multiplexers, launchers, and browsers are options to choose from, not t
 
 ## Who Groundwork is for
 
-Groundwork is for adults starting real development, especially people who have never coded before: career changers, people returning to technical work, and retirees or later-in-life beginners who want to build seriously. It is equally useful to working developers and teams adopting an AI-native workflow.
+Groundwork is for anyone who wants to build seriously, wherever they are starting from: brand new to development or deep into a career, new to the terminal or fluent in it, new to AI-native work or already practicing it. It does not define personas or gatekeep by background; the only assumption is a willingness to put in real hours. For every user it sets up a machine, image, or container quickly with everything needed to work — tools, shell, shortcuts, and agent instructions in place — and the docs meet each reader at their own starting point. Wherever that is, the destination is the same: a deeply skilled, technical agentic engineer — someone who understands the system, works the terminal confidently, and directs AI agents without depending on them. That is a long climb, not a weekend project, and every page should let any reader take what they need and move.
 
 It is deliberately not a children's "learn to code" introduction. There is already an abundance of material aimed at getting young kids into web development, and Groundwork is not that. It assumes an adult who is willing to put in real hours and wants a foundation that treats them as a capable beginner, not a child, and never talks down to them.
 
@@ -34,7 +34,7 @@ These govern every page and every change, whether a human or an agent makes it.
 2. Interface tools such as editors, multiplexers, launchers, and browsers are presented as choices, not required curriculum. No page should imply someone is wrong for choosing VS Code over Neovim, tabs over tmux, or another capable tool over the local default.
 3. Lead with the workflow and the why. Keystrokes, flags, package names, and config details are the how; they come after the reason they matter.
 4. Anything new must state how it serves directing or supervising agents, or be explicitly labeled foundational. If it can do neither, it does not ship as part of an AI-native environment.
-5. Meet adult beginners where they are. Write for a capable adult who may be new to development: define terms once, give a first successful path quickly, then offer substantial practice for those who want depth. Never gatekeep by prior experience, and never talk down.
+5. Meet readers where they are, wherever that is. Assume nothing about background: define terms once and give a first successful path quickly for those who need it, lead with the workflow and the why, and keep every page skimmable so a reader who already knows the basics can take the config and move on. Simplicity must never read as talking down, and no reader should wade through basics to reach what they came for. Never gatekeep by prior experience.
 
 ## Working Agreement
 

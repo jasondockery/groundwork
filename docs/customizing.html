@@ -128,6 +128,7 @@ alias c='clear'
 export VISUAL=code
 EOF
 <span class="prompt">$ </span>source ~/.zshrc</code></pre></div>
+      <p>Some managed files have no <code>.local</code> overlay — <code>starship.toml</code>, the Ghostty config, <code>~/.claude/keybindings.json</code>. For those, edit the managed source so your change and Groundwork's stay in one place: <code>chezmoi edit --apply ~/.claude/keybindings.json</code>. Your edit lives in your local copy of the source; if a later Groundwork update touches the same file, Git shows a visible conflict instead of silently overwriting you. If you find yourself diverging heavily from upstream in one of these files, that's Tier 3.</p>
 
       <h2><span class="hash">#</span>Tier 2: re-answer setup choices</h2>
       <p>Choices that Groundwork already asks about live in <code>~/.config/chezmoi/chezmoi.toml</code>. That file is machine-local. Edit it directly or re-run <code>chezmoi init</code>, then apply.</p>

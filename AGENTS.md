@@ -25,7 +25,7 @@ Before broad documentation, onboarding, tooling, or agent-instruction changes, r
 - Match the target version and local conventions. Do not upgrade dependencies, runtimes, or formats unless asked.
 - For complex commands or setup flows, prefer one readable script as the source of truth. Docs should link to the script and explain how to run or inspect it, not duplicate long command blocks that can drift.
 - For chezmoi-managed files, edit the source under `home/` or use `chezmoi edit`; do not hand-edit the applied copy under `$HOME` and call the task done. Preview with `chezmoi diff` and apply or verify the generated target when practical.
-- For documentation, write for a capable beginner: define terms once, give a first successful path, then give practice drills.
+- For documentation, write in layers so any reader can enter at their own level: define terms once and give a first successful path for those who need it, keep the workflow and the why up front and skimmable so experienced readers can take the config and move on, then offer practice drills for depth.
 - For page titles, browser-tab labels, social metadata, nav labels, and compact UI copy, prefer the middle dot separator (`Page · Groundwork`). Do not use em dashes, double hyphens, or hyphen runs as generic prose or UI separators; keep `--flag` only when it is literal command syntax.
 
 ## Git

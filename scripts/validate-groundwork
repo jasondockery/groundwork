@@ -113,6 +113,24 @@ if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desk
 fi
 grep -q 'Install optional Unity game development tools? Large download. \[y/N\]' home/.chezmoi.toml.tmpl
 grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]' home/.chezmoi.toml.tmpl
+
+echo "check: no create_ seed files"
+create_seeds="$(find home -name 'create_*' -print)"
+if [[ -n "$create_seeds" ]]; then
+  echo "create_ seed-once files are not used in this repo: they hide drift from chezmoi diff, never receive upstream updates, and push users to hand-edit applied targets. Use a fully managed file or a local override instead (see skills/chezmoi-change/SKILL.md, Ownership Model)." >&2
+  echo "$create_seeds" >&2
+  exit 1
+fi
+
+echo "check: Claude Code keybindings"
+if ! jq -e '
+  (.bindings | type == "array") and
+  ([.bindings[] | select(.context == "Chat")] | length == 1) and
+  ([.bindings[] | select(.context == "Chat")][0].bindings | has("escape") and (.escape == null))
+' home/dot_claude/keybindings.json >/dev/null; then
+  echo "home/dot_claude/keybindings.json must parse as JSON and keep the Chat-context escape unbind (escape: null); see docs/troubleshooting.html Claude Code section" >&2
+  exit 1
+fi
 assert_no_matches "personal snippet filename found" rg -n 'jason-snippets' home docs README.md
 grep -Eq "^python[[:space:]]*=[[:space:]]*\\[[\"']3\\.13[\"'][[:space:]]*,[[:space:]]*[\"']3\\.12[\"']\\][[:space:]]*$" home/dot_config/mise/config.toml
 grep -Eq '^[[:space:]]*aider_python="3\.12"[[:space:]]*$' home/run_after_20-tools.sh.tmpl
