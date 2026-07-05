@@ -184,6 +184,29 @@
         <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
       </div>
 
+      <h2><span class="hash">#</span>Know your AI budget</h2>
+      <p>Every serious AI tool runs inside limits: a <strong>context window</strong> (how much the model can hold right now), <strong>plan or rate limits</strong> (how much you can use per session or week), and sometimes a <strong>spend budget</strong>. Long work fails in confusing ways when you hit these blind — the tool doesn't crash, it just gets worse or stops mid-task.</p>
+      <p>The durable habit: <strong>before starting long work, check your tool's own gauge — and reset context deliberately when it's polluted.</strong></p>
+      <ul>
+        <li><strong>Find the first-party gauge.</strong> Every maintained tool ships one; learn yours. Today that means <code>/context</code> and <code>/usage</code> in Claude Code, <code>/status</code> in Codex CLI, the usage dashboard in Cursor — the commands will change, the habit won't.</li>
+        <li><strong>Start big work with room.</strong> A session at 80% context produces worse results than a fresh one with the right files loaded. Starting a multi-hour task minutes before a rate window resets wastes the window.</li>
+        <li><strong>Reset on pollution.</strong> Wrong turns, giant log dumps, and abandoned approaches stay in the window and keep steering the model. Clearing, compacting, or restarting with a clean summary is a skill, not a defeat.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="label">Prefer first-party gauges over third-party parsers</span>
+        <p>Community tools that parse a vendor's local log files break every time the format changes. Fine as personal experiments; don't build habits — or team process — on them.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Give agents a concrete target</h2>
+      <p>The single highest-leverage change in how you direct an agent: replace descriptions of what you want with an <strong>artifact the agent can check itself against</strong>.</p>
+      <ul>
+        <li><strong>A failing test</strong> — the gold standard for behavior. Write (or have the agent write) a test that fails for exactly the bug or missing feature, then ask for the code that makes it pass. That's the difference between "I think it's fixed" and "the test passes."</li>
+        <li><strong>A screenshot or mock</strong> — for UI work, an image of the desired result beats paragraphs. The agent can compare its output against it and self-correct across iterations.</li>
+        <li><strong>A desired diff shape</strong> — "touch only these two files and add a flag here" bounds the blast radius before work starts.</li>
+        <li><strong>A sample of the output</strong> — for generators, transformations, and reports, show one correct example.</li>
+      </ul>
+      <p>The principle underneath: an agent with a checkable target can verify its own work and iterate; an agent with only prose must guess what you meant and wait for you to notice. On real teams this habit hardens into machinery — a repo rule that every bug fix starts with a red test before any fix is written. You're learning the habit; a well-governed repo enforces it.</p>
+
       <h2><span class="hash">#</span>Daily agent practice</h2>
       <p>Practice with agents the same way you practice Vim or tmux: small loops, repeated often, with a human checking the result.</p>
       <div class="drill">
@@ -213,6 +236,7 @@
         <li><a href="https://agents.md/" target="_blank" rel="noopener">AGENTS.md</a> — the open cross-tool format for coding-agent instructions.</li>
         <li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Claude Code skills</a> — project skills, <code>SKILL.md</code>, and skill discovery paths.</li>
         <li><a href="https://code.claude.com/docs/en/common-workflows" target="_blank" rel="noopener">Claude Code common workflows</a> — how Claude Code references files and uses project memory.</li>
+        <li><a href="https://code.claude.com/docs/en/monitoring-usage" target="_blank" rel="noopener">Claude Code usage monitoring</a> — the first-party gauge pattern: context, plan limits, and org telemetry.</li>
         <li><a href="https://developers.openai.com/codex" target="_blank" rel="noopener">OpenAI Codex docs</a> — OpenAI's coding-agent docs and workflows.</li>
       </ul>
 
