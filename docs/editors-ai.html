@@ -184,6 +184,16 @@
 <span class="comment"># then just describe what you want, in plain English</span></code></pre>
       </div>
 
+      <h2><span class="hash">#</span>Give agents a concrete target</h2>
+      <p>The single highest-leverage change in how you direct an agent: replace a description of what you want with an <strong>artifact the agent can check itself against</strong>. An agent with a checkable target can verify its own work and iterate; an agent with only prose has to guess what you meant and wait for you to notice. Every round-trip you save compounds.</p>
+      <table class="keytable">
+        <tr><td><strong>A failing test</strong></td><td>The gold standard for behavior. Write one (or have the agent write it) that fails for exactly the bug or missing feature, then ask for the code that makes it pass. It turns "I think it's fixed" into "the test passes."</td></tr>
+        <tr><td><strong>A screenshot or mock</strong></td><td>For UI work, an image of the desired result beats paragraphs. Paste a screenshot, sketch a mock, or have the agent generate an image of the design first and then implement it — it can compare its output against the picture and self-correct.</td></tr>
+        <tr><td><strong>A desired diff shape</strong></td><td>"The change should touch only these two files and add a flag here" bounds the blast radius before work starts.</td></tr>
+        <tr><td><strong>A sample of the output</strong></td><td>For generators, transformations, and reports: show one correct example.</td></tr>
+      </table>
+      <p>This is <a href="agentic-engineering.html">spec design and eval design</a> in miniature, and on real teams the habit hardens into repo machinery — for example, a rule that every bug fix starts with a red test before any fix is written. Groundwork teaches the habit; a well-governed repo enforces it.</p>
+
       <h2><span class="hash">#</span>The desktop AI apps</h2>
       <p>Not everything needs the terminal. Two graphical apps are installed for chat and quick questions:</p>
       <table class="keytable">
@@ -253,6 +263,17 @@
         <span class="label">Agents share your machine</span>
         <p>Every agent session spawns its own builds, tests, and file watchers on the same CPU and memory you're using. One agent is rarely noticeable; three running test suites at once will make a fast machine crawl. When things feel slow, don't guess — run <code>btop</code> in a pane and look at what's actually eating the machine, then pause or narrow one of the tasks. For work that must stay bounded, run it in a container: <code>docker run --cpus 2 --memory 2g …</code> is where hard limits live.</p>
       </div>
+
+      <h2><span class="hash">#</span>Know your AI budget</h2>
+      <p>Every serious AI tool runs inside limits: a <strong>context window</strong> (how much the model can hold right now), <strong>plan or rate limits</strong> (how much you can use per session and per week), and sometimes a <strong>spend budget</strong>. Long or complex work fails in confusing ways when you hit these blind — the tool doesn't crash, it just gets worse or stops mid-task.</p>
+      <p>The durable habit: <strong>before starting long work, check your tool's own gauge — and know how to reset context when it's polluted.</strong></p>
+      <table class="keytable">
+        <tr><td><strong>Find the first-party gauge</strong></td><td>Every maintained tool ships one; learn yours. Today that's <code>/context</code> (window usage) and <code>/usage</code> (plan limits) in Claude Code, <code>/status</code> in Codex CLI, and the usage dashboard in Cursor. The names change — the habit doesn't.</td></tr>
+        <tr><td><strong>Start big work with room</strong></td><td>A session at 80% context produces worse results than a fresh one with the right files loaded. Starting a multi-hour task minutes before a rate window resets wastes the window.</td></tr>
+        <tr><td><strong>Reset deliberately</strong></td><td>Wrong turns, huge log dumps, and abandoned approaches stay in the window and keep steering the model. Clearing, compacting, or restarting with a clean summary is a skill, not a defeat.</td></tr>
+        <tr><td><strong>Prefer first-party gauges</strong></td><td>Community tools that parse a vendor's local log files break every time the format changes. Fine as personal experiments; don't build habits or team process on them.</td></tr>
+      </table>
+      <p>Why this counts as fundamentals: you are the senior partner. Knowing the machine's limits before assigning it work is the same judgment you'd apply to any teammate. Token budgets are one half of that awareness; the machine's own CPU and memory (the callout above) are the other.</p>
 
       <h2><span class="hash">#</span>Practice</h2>
       <div class="drill">
