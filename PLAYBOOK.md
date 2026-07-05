@@ -33,6 +33,29 @@ Operating notes:
   `github>jasondockery/renovate-config` so policy is defined once for all
   repos.
 
+## Versioning & Releases
+
+Groundwork uses **SemVer tags + GitHub Releases** — the 2026 convention for
+distributed environment products (Omarchy v3.x, Omakub v1.x, LazyVim v16),
+as opposed to personal dotfiles which roll untagged. Adopted 2026-07-04 with
+three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
+
+- **Scheme:** `v0.MINOR.PATCH` while in early testing. Semver read loosely:
+  **major** = update requires user action (bootstrap flow, template data
+  schema, renamed scripts); **minor** = new tools, docs, or drills;
+  **patch** = fixes.
+- **1.0.0 criterion:** the bootstrap + `chezmoi update` path survives all
+  three user surfaces without manual fixes.
+- **Cadence:** release when a meaningful batch lands, not per commit.
+  `main` stays the rolling edge; tags are the known-good refs.
+- **Release notes are for the actual users** (and are teaching artifacts):
+  what changed, what to run after `chezmoi update`, and any manual step —
+  written for a capable beginner, per the north star.
+- Cut a release: `gh release create v0.X.Y --title "v0.X.Y" --notes-file -`
+  (tag and release together; the tag must point at a green `main` SHA).
+- When the Docker image is published to a registry, image tags mirror the
+  release tags (`groundwork:v0.X.Y` + `latest`).
+
 ## CI Checks (what each job proves)
 
 `.github/workflows/ci.yml` runs four jobs on every push and PR:

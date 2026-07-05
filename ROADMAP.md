@@ -64,6 +64,10 @@ Roost.
       mirroring roost's job; existing findings fixed in the same change
       (2026-07-04). CI is now four required checks (`PLAYBOOK.md`, CI
       Checks).
+- [x] Versioning decided (2026-07-04): SemVer tags + GitHub Releases,
+      v0.x during testing, 1.0.0 when bootstrap + update survive all three
+      user surfaces unaided (`PLAYBOOK.md`, Versioning & Releases).
+- [ ] Cut v0.1.0 — first tagged release with user-facing notes.
 - [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).
