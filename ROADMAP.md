@@ -67,6 +67,13 @@ Roost.
 - [x] Versioning decided (2026-07-04): SemVer tags + GitHub Releases,
       v0.x during testing, 1.0.0 when bootstrap + update survive all three
       user surfaces unaided (`PLAYBOOK.md`, Versioning & Releases).
+- [x] Headless installer verifies release-asset sha256 checksums where the
+      upstream publishes them (atuin, lazygit, sesh); zoxide and delta ship
+      none today and are logged as unverified (2026-07-06).
+- [ ] Raise the headless installer's supply-chain lane from checksums to
+      GitHub artifact attestation (`gh attestation verify`) for upstreams
+      that publish attestations (atuin documents this); needs `gh` in the
+      build image, so weigh the image-size cost when picking it up.
 - [ ] Cut v0.1.0 — first tagged release with user-facing notes.
 - [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
