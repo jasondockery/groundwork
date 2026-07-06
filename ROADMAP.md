@@ -10,6 +10,14 @@ after the work is verified, never aspirationally.
 - [ ] Overview arc reviewed and complete: what AI-native development is, the
       vibe-to-agentic arc, and why the fundamentals matter (reading, not
       setup).
+- [x] Groundwork Twelve shipped (2026-07-06): the 12-week day-by-day path —
+      84 days, weekday hours + Saturday builds, three day modes, agent
+      restriction ladder, log-repo + skill-check + agent-examiner
+      measurement (`docs/groundwork-twelve.html`). Internal pedagogy label:
+      progressive learning.
+- [ ] Groundwork Twelve follow-ups: a `skel/` log-repo template wired into a
+      helper (like `new-wiki`), and revisit week content after first real
+      learners run it.
 - [ ] Quick wins: a first successful session plus a couple of short practice
       drills that produce something real fast.
 - [ ] Interest tracks: browser FPS, Unity FPS, web project, app, and
