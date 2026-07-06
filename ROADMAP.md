@@ -24,8 +24,14 @@ after the work is verified, never aspirationally.
 - [x] Data & storage foundations page shipped (2026-07-06): relational vs
       document stores, hands-on SQLite and jq, agent-at-data safety rules
       (`docs/data.html`); Week 8 of Groundwork Twelve teaches it.
-- [ ] Groundwork Twelve: revisit week content and time estimates after the
-      first real learners run it end to end.
+- [x] Groundwork Twelve v3 (2026-07-06): pace architecture — 12 gate-checked
+      stages decoupled from the calendar; steady/committed/immersed paces
+      with a pace picker on the page; an immersed-day template (two core
+      sessions max, long drill/build/play blocks); per-stage "go deeper"
+      content; and agent-as-scheduler (`syllabus.md` +
+      `prompts/scheduler.md` in the log scaffold) for arbitrary daily hours.
+- [ ] Groundwork Twelve: revisit stage content and time estimates after the
+      first real learners run it end to end, at more than one pace.
 - [ ] Invent the missing learning games: no good game exists for tmux or for
       agent direction. Prototype an agent-as-game-master terminal quest — a
       `skel/` with AGENTS.md gamemaster rules that generates dungeons

@@ -27,6 +27,20 @@
 })();
 </script>
 <link rel="stylesheet" href="assets/style.css">
+<style>
+.pace-picker{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1.2rem 0}
+.pace-picker .icon-btn[aria-pressed="true"]{border-color:var(--mauve);color:var(--mauve)}
+.stage-cadence{font-size:.92em;opacity:.85}
+#twelve[data-pace="steady"] .pace-deep{display:none}
+#twelve[data-pace="steady"] .ph-committed{display:none}
+#twelve[data-pace="steady"] .ph-immersed{display:none}
+#twelve[data-pace="committed"] .ph-steady{display:none}
+#twelve[data-pace="committed"] .ph-immersed{display:none}
+#twelve[data-pace="immersed"] .ph-steady{display:none}
+#twelve[data-pace="immersed"] .ph-committed{display:none}
+#twelve:not([data-pace]) .ph-steady::after,
+#twelve:not([data-pace]) .ph-committed::after{content:" · "}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -108,48 +122,79 @@
   </aside>
 
   <main id="main" class="main">
-    <div class="content">
-      <p class="eyebrow">The daily path</p>
+    <div class="content" id="twelve">
+      <p class="eyebrow">The path, at your pace</p>
       <h1>Groundwork Twelve.</h1>
-      <p class="lead">84 days from zero to AI-native development habits. Twelve weeks, one focused hour on weekdays, one deep build every Saturday — with real progress you can point at, and an agent that starts as your tutor and ends as a delegate you supervise.</p>
+      <p class="lead">Twelve stages from zero to AI-native development habits: terminal, tmux, Git, an editor, real programming, data, the web, and directing agents. Run it steady in twelve weeks, committed in six, or immersed in under a month — same sequence, same gates, your hours.</p>
 
-      <p>Groundwork Twelve combines pieces that are usually separate: from-zero tool fluency, a day-by-day schedule, hours-deep practice that builds muscle memory, honest progress measurement, and directing AI agents as a first-class skill. It sequences the pages already in this guide — each day tells you what to do, how long it takes, and where to read.</p>
-      <p>It's written in layers, like everything here. If you already know a week's material, take its skill check on Monday: pass it and skip ahead, and let the plan slow you down only where your fingers (not your understanding) need the reps.</p>
+      <p>Groundwork Twelve combines pieces that are usually separate: from-zero tool fluency, a session-by-session plan, hours-deep practice that builds muscle memory, honest progress measurement, and directing AI agents as a first-class skill. It sequences the pages already in this guide — each session tells you what to do, how long it takes, and where to read.</p>
+      <p>It's written in layers, like everything here. If you already know a stage's material, take its gate check first: pass it and move on, and let the plan slow you down only where your fingers (not your understanding) need the reps.</p>
 
-      <h2><span class="hash">#</span>The weekly rhythm</h2>
-      <p>Every weekday hour has the same four slots. The plan fills them in for each day below:</p>
+      <h2><span class="hash">#</span>Pick your pace</h2>
+      <p>The plan is <strong>60 core sessions and 12 builds, organized into 12 stages</strong>. A stage ends at a gate check — you advance when you pass it, not when the calendar says so. Pace decides how many sessions you run per day and how deep each day goes. More hours don't just finish sooner; they compound into more total practice, and the hours are the product.</p>
+      <div class="pace-picker" role="group" aria-label="Choose your pace">
+        <span><strong>Show the plan for:</strong></span>
+        <button class="icon-btn" data-pace-btn="steady" aria-pressed="false">Steady · ~1h/day</button>
+        <button class="icon-btn" data-pace-btn="committed" aria-pressed="false">Committed · 2–4h/day</button>
+        <button class="icon-btn" data-pace-btn="immersed" aria-pressed="false">Immersed · 8–12h/day</button>
+      </div>
       <table class="keytable">
-        <tr><td><strong>⟳ Drill</strong> <span class="muted">20m</span></td><td>Repeat an <em>earlier</em> skill until it's automatic. Skills come back on a fading schedule — about two days after you learn them, then a week, then three weeks. The day entries name what to re-drill so you never have to plan it. Skills you use constantly (navigation, Git) stop needing drills because the work itself is the rep.</td></tr>
+        <tr><td><strong>Steady</strong><br><span class="muted">~1h/day</span></td><td>One session per weekday, the build on Saturday, Sunday off. A stage per week, done in <strong>12 weeks / 84 days, ~120 hours</strong>. The proven shape for fitting this around a job — habits and foundations, sustainably.</td></tr>
+        <tr><td><strong>Committed</strong><br><span class="muted">2–4h/day</span></td><td>A session and a half per day plus extended drills and build time. A stage every 3–4 days, done in <strong>~6 weeks, ~180 hours</strong>. Rest when you need it, not by calendar.</td></tr>
+        <tr><td><strong>Immersed</strong><br><span class="muted">8–12h/day</span></td><td>The gamer schedule: two core sessions a day inside long drill, build, and play blocks. A stage every day and a half or two, done in <strong>3–4 weeks, ~250–350 hours</strong> — a different outcome, not just a faster one. The day template below is the whole design.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">An honest word about pace</span>
+        <p>Most people who plan twelve-hour days sustain three. That's fine — the gates don't care. Because progression is check-passed rather than calendar-boxed, the plan never lies about where you are: run immersed for a week, drop to steady for a month, and nothing breaks. Declare your pace in your log, change it when life changes.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The shape of a day</h2>
+      <p>Every core session has the same four slots, about an hour together:</p>
+      <table class="keytable">
+        <tr><td><strong>⟳ Drill</strong> <span class="muted">20m</span></td><td>Repeat an <em>earlier</em> skill until it's automatic. Skills come back on a fading schedule — about two days after you learn them, then a week, then three weeks. Each session names what to re-drill so you never have to plan it.</td></tr>
         <tr><td><strong>New</strong> <span class="muted">25m</span></td><td>Today's new material — a section of a Groundwork page, hands on the keyboard while you read.</td></tr>
         <tr><td><strong>Do</strong> <span class="muted">10m</span></td><td>A small concrete task using the new thing, unassisted.</td></tr>
         <tr><td><strong>Log</strong> <span class="muted">5m</span></td><td>One honest line in <code>log.md</code>, committed. The commit is the day.</td></tr>
       </table>
-      <table class="keytable">
-        <tr><td><strong>Saturday</strong></td><td>The deep build: 2–4 hours, blank canvas, using only skills from the weeks so far. This is not extra practice — it <em>is</em> the week's assessment, and it produces an artifact that lives in your repo.</td></tr>
-        <tr><td><strong>Sunday</strong></td><td>Rest, or catch up on a missed day, plus a three-line weekly review in the log.</td></tr>
+      <p><strong>At Steady pace</strong>, one session is the day, the build is Saturday, and Sunday is rest or catch-up. <strong>At Committed and Immersed pace</strong>, sessions nest inside a bigger day. The immersed day is designed the way gamers actually play — an hour of new mechanics, many hours of play:</p>
+      <table class="keytable pace-deep">
+        <tr><td><strong>Core session</strong> <span class="muted">60–90m</span></td><td>The next session in the sequence, exactly as written.</td></tr>
+        <tr><td><strong>Drill &amp; game block</strong> <span class="muted">1–2h</span></td><td>Extended reps: the stage's "go deeper" drills, game campaigns (Bandit, git-game, Vim Adventures), speed-runs of old katas.</td></tr>
+        <tr><td><strong>Build block</strong> <span class="muted">3–4h</span></td><td>The stage build, grown daily instead of saved for Saturday. This is where immersion pays most — builds get scope Steady pace can't afford.</td></tr>
+        <tr><td><strong>Second core session</strong> <span class="muted">60–90m</span></td><td>The next session. Two per day is the honest ceiling for genuinely new material — beyond that you're skimming, not learning.</td></tr>
+        <tr><td><strong>Play &amp; explore block</strong> <span class="muted">1–2h</span></td><td>Side quests: read a real codebase, rebuild an old artifact from memory ("new game+"), wander the tools. Curiosity time is load-bearing.</td></tr>
+        <tr><td><strong>Close</strong> <span class="muted">15m</span></td><td>Log, commit, and a one-line plan for tomorrow.</td></tr>
       </table>
-      <p>Life happens, so every day has three modes. The streak survives as long as you do the minimum:</p>
+      <p>Life happens at every pace, so every calendar day has three modes. The streak survives as long as you do the minimum:</p>
       <table class="keytable">
-        <tr><td><strong>Full day</strong></td><td>60–75 minutes — the plan as written.</td></tr>
-        <tr><td><strong>Minimum day</strong></td><td>15 minutes — one drill, one log line, one commit. That's a real day.</td></tr>
-        <tr><td><strong>Catch-up day</strong></td><td>90–120 minutes — yesterday's material plus today's. Never stack more than one missed day; if you're two behind, skip the older one and keep moving.</td></tr>
+        <tr><td><strong>Full day</strong></td><td>Your pace, as planned.</td></tr>
+        <tr><td><strong>Minimum day</strong></td><td>15 minutes — one drill, one log line, one commit. That's a real day at any pace.</td></tr>
+        <tr><td><strong>Catch-up day</strong></td><td>Yesterday's material plus today's. Never stack more than one missed day; if you're two behind, skip the older one and keep moving.</td></tr>
       </table>
       <div class="callout tip">
         <span class="label">Recruit one buddy</span>
-        <p>People finish paced programs together far more often than alone. One friend on the same schedule — or even one person who just reads your log once a week — changes the odds more than any tool on this site.</p>
+        <p>People finish paced programs together far more often than alone. One friend on the same sequence — even at a different pace — or one person who reads your log weekly changes the odds more than any tool on this site.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Let the agent run the schedule</h2>
+      <p>Three presets can't capture "90 minutes on weekdays, ten hours on Saturday" — but your agent can, trivially. The log-repo scaffold ships a machine-readable <code>syllabus.md</code> (all 60 sessions, drills, builds, and gates) and a <code>prompts/scheduler.md</code>. Each day, tell the agent your hours; it reads your log and the syllabus and serves a plan sized to exactly the time you have — including which old drills are due for their spaced repeat. You declare intent; it does the bookkeeping. That's the whole Groundwork thesis in miniature.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">a scheduled morning</span></div>
+        <pre><code><span class="prompt">$ </span>cd ~/groundwork-log &amp;&amp; claude
+<span class="prompt">&gt; </span>Use prompts/scheduler.md. I have 6 hours today.</code></pre>
       </div>
 
       <h2><span class="hash">#</span>Play your way through it</h2>
-      <p>If games are what keep you coming back, real ones exist for most of these skills — and they're legitimate substitutes for the ⟳ drill slot (never for the Saturday build). The day entries point at them where they fit:</p>
+      <p>If games are what keep you coming back, real ones exist for most of these skills — legitimate substitutes for drill slots and first-class citizens of the immersed drill &amp; game block (never substitutes for the build):</p>
       <table class="keytable">
-        <tr><td><a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener"><strong>bashcrawl</strong></a></td><td>A dungeon crawler that <em>is</em> a folder tree: explore with <code>cd</code>, examine with <code>ls</code>, read scrolls with <code>cat</code>, fight monsters with scripts. The gentlest possible start — Week 1.</td></tr>
-        <tr><td><a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener"><strong>OverTheWire: Bandit</strong></a></td><td>The classic. SSH into level 0, find the password to level 1, repeat for 30+ levels of escalating shell cleverness. Weeks 2–6 and beyond.</td></tr>
-        <tr><td><a href="https://github.com/veltman/clmystery" target="_blank" rel="noopener"><strong>The Command Line Murder Mystery</strong></a></td><td>Solve a murder with <code>grep</code>, pipes, and wits — a text-adventure whodunit made of files. The Week 2 Saturday build has a game mode built on it.</td></tr>
+        <tr><td><a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener"><strong>bashcrawl</strong></a></td><td>A dungeon crawler that <em>is</em> a folder tree: explore with <code>cd</code>, examine with <code>ls</code>, read scrolls with <code>cat</code>, fight monsters with scripts. The gentlest possible start — Stage 1.</td></tr>
+        <tr><td><a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener"><strong>OverTheWire: Bandit</strong></a></td><td>The classic. SSH into level 0, find the password to level 1, repeat for 30+ levels of escalating shell cleverness. Stages 2–6 and beyond; a full campaign for immersed players.</td></tr>
+        <tr><td><a href="https://github.com/veltman/clmystery" target="_blank" rel="noopener"><strong>The Command Line Murder Mystery</strong></a></td><td>Solve a murder with <code>grep</code>, pipes, and wits — a whodunit made of files. The Stage 2 build has a game mode built on it.</td></tr>
         <tr><td><a href="https://cmdchallenge.com" target="_blank" rel="noopener"><strong>cmdchallenge</strong></a></td><td>One-line shell puzzles in the browser, instant feedback. Great minimum-day material.</td></tr>
-        <tr><td><a href="https://learngitbranching.js.org" target="_blank" rel="noopener"><strong>Learn Git Branching</strong></a></td><td>The most-loved Git visualizer: watch the commit graph move as you type commands. Week 4's secret weapon for branches.</td></tr>
-        <tr><td><a href="https://github.com/git-game/git-game" target="_blank" rel="noopener"><strong>git-game</strong></a> &amp; <a href="https://ohmygit.org" target="_blank" rel="noopener"><strong>Oh My Git!</strong></a></td><td>A treasure hunt played inside a real repo with real commands, and an open-source game that visualizes Git's internals live. Weeks 4–6.</td></tr>
-        <tr><td><a href="https://vim-adventures.com" target="_blank" rel="noopener"><strong>Vim Adventures</strong></a> &amp; <code>vimtutor</code></td><td>Zelda-meets-text-editing in the browser, and the 30-minute interactive tutorial already installed on your machine. Week 5.</td></tr>
-        <tr><td><a href="https://sqlbolt.com" target="_blank" rel="noopener"><strong>SQLBolt</strong></a></td><td>Interactive SQL puzzles in the browser — not dressed as a game, but it plays like one. Week 8.</td></tr>
+        <tr><td><a href="https://learngitbranching.js.org" target="_blank" rel="noopener"><strong>Learn Git Branching</strong></a></td><td>The most-loved Git visualizer: watch the commit graph move as you type commands. Stage 4's secret weapon.</td></tr>
+        <tr><td><a href="https://github.com/git-game/git-game" target="_blank" rel="noopener"><strong>git-game</strong></a> &amp; <a href="https://ohmygit.org" target="_blank" rel="noopener"><strong>Oh My Git!</strong></a></td><td>A treasure hunt played inside a real repo, and an open-source game that visualizes Git's internals live. Stages 4–6.</td></tr>
+        <tr><td><a href="https://vim-adventures.com" target="_blank" rel="noopener"><strong>Vim Adventures</strong></a> &amp; <code>vimtutor</code></td><td>Zelda-meets-text-editing in the browser, and the 30-minute interactive tutorial already installed. Stage 5.</td></tr>
+        <tr><td><a href="https://sqlbolt.com" target="_blank" rel="noopener"><strong>SQLBolt</strong></a></td><td>Interactive SQL puzzles in the browser — not dressed as a game, but it plays like one. Stage 8.</td></tr>
       </table>
       <div class="callout note">
         <span class="label">The gaps are real</span>
@@ -157,247 +202,339 @@
       </div>
 
       <h2><span class="hash">#</span>How progress is measured</h2>
-      <p>Four layers, no gimmicks. No points, no badges, no timers — artifacts and observable skills.</p>
+      <p>Four layers, no gimmicks. No points, no badges, no timers — artifacts, observable skills, and gates.</p>
       <table class="keytable">
-        <tr><td><strong>1. The daily log</strong></td><td>Your log is a Git repository — creating it is Day 1. One line per day, committed daily. The streak <em>is</em> <code>git log</code>, so measuring your progress is itself Git practice. Push it to GitHub for public accountability if that motivates you.</td></tr>
-        <tr><td><strong>2. Weekly skill checks</strong></td><td>Every week ends with a short "can you do this without the cheat sheet?" list. Observable, not timed. If you can't, repeat the drills — that's information, not failure.</td></tr>
-        <tr><td><strong>3. The agent as examiner</strong></td><td>Once a week from Week 4 on, the agent quizzes you (prompt below). It reads your log, sees what you've been avoiding, and gives you real feedback — the thing self-paced learning usually lacks.</td></tr>
-        <tr><td><strong>4. Saturday artifacts</strong></td><td>Twelve builds, one per week, all in your repo — ending with a capstone. By Day 84 your repo is a portfolio of proof, not a certificate.</td></tr>
+        <tr><td><strong>1. The daily log</strong></td><td>Your log is a Git repository — creating it is Session 1. One line per day, committed daily. The streak <em>is</em> <code>git log</code>, so measuring your progress is itself Git practice. Push it to GitHub for public accountability if that motivates you.</td></tr>
+        <tr><td><strong>2. Gate checks</strong></td><td>Every stage ends with a short "can you do this without the cheat sheet?" list. Observable, not timed. Pass it to advance — at any pace. Fail it and repeat the drills; that's information, not failure.</td></tr>
+        <tr><td><strong>3. The agent as examiner</strong></td><td>At every gate from Stage 4 on, the agent quizzes you (prompt below). It reads your log, sees what you've been avoiding, and gives you real feedback — the thing self-paced learning usually lacks.</td></tr>
+        <tr><td><strong>4. Stage builds</strong></td><td>Twelve builds, one per stage, all in your repo — ending with a capstone. They're the assessment, not extra practice. By the end your repo is a portfolio of proof, not a certificate.</td></tr>
       </table>
 
       <h3>The log template</h3>
-      <p>Day 1 creates <code>~/groundwork-log</code>. Start <code>log.md</code> with this and add one line each day:</p>
+      <p>Session 1 creates <code>~/groundwork-log</code>. Start <code>log.md</code> with this — pace declared up top, one line per day:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">log.md</span></div>
         <pre><code># Groundwork Twelve — my log
+Pace: immersed (~9h/day) — declared 2026-07-07, revisit anytime
 
-Day 1 (2026-07-07): Created this repo. pwd/ls/cd feel okay; rm scares me. 60m
-Day 2 (2026-07-08): Navigation drill x5. Stopped reaching for the mouse twice. 60m
-Day 3 (2026-07-09): Minimum day — one drill, this line. 15m</code></pre>
+Day 1 (2026-07-07): Sessions 1+2, bashcrawl cleared, build started. 9h. Hands tired, hooked.
+Day 2 (2026-07-08): Session 3+4, Bandit 0-5. The rm scare happened. 8h.
+Day 3 (2026-07-09): Minimum day — one drill, this line. 15m. Life happened; streak lives.</code></pre>
       </div>
-      <p>Each Sunday, add a short weekly review under a heading: what got easier, what still feels slow, and one thing to repeat next week. Honest beats impressive — the log is for you. (Restarting on a new machine later? <code>new-twelve-log</code> scaffolds the repo with these templates in place.)</p>
+      <p>At every gate, add a short review under a heading: what got easier, what still feels slow, one thing to repeat. Honest beats impressive — the log is for you. (Restarting on a new machine later? <code>new-twelve-log</code> scaffolds the repo with all the templates in place.)</p>
 
       <h3>The examiner prompt</h3>
-      <p>Once a week (each Friday from Week 4 on), start your agent in the log repo and paste this — it also ships in the repo scaffold as <code>prompts/examiner.md</code>:</p>
+      <p>At each gate check from Stage 4 on, start your agent in the log repo and paste this — it ships in the scaffold as <code>prompts/examiner.md</code>:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">agent examiner</span></div>
-        <pre><code>Read log.md and this week's files. You are my examiner, not my helper.
-Give me five small tasks that test this week's skills, one at a time,
+        <pre><code>Read log.md and this stage's files. You are my examiner, not my helper.
+Give me five small tasks that test this stage's skills, one at a time,
 and wait for me to do each in my terminal and report back.
 Don't show me how. After the five, tell me: what am I avoiding,
-what should I repeat next week, and one thing I did well.</code></pre>
+what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
 
       <h2><span class="hash">#</span>Agent rules by phase</h2>
-      <p>The agent is present from Day 1 — but what it's <em>allowed to do</em> grows as your fundamentals harden. This ladder is the heart of the plan: an agent that does the work for you in Week 2 quietly robs you of the practice that makes Week 10 possible. Each day below has an <em>Agent:</em> line applying these rules; state your phase when you start a session.</p>
+      <p>The agent is present from Session 1 — but what it's <em>allowed to do</em> grows as your fundamentals harden. This ladder is the heart of the plan: an agent that does the work for you in Stage 2 quietly robs you of the practice that makes Stage 10 possible. Each session below has an <em>Agent:</em> line applying these rules; state your phase when you start a session.</p>
       <table class="keytable">
-        <tr><td><strong>Weeks 1–3<br>Explainer</strong></td><td><em>Allowed:</em> explain commands and concepts, quiz you, point out mistakes after you try, generate practice drills.<br><em>Not allowed:</em> write commands for you to copy blindly, edit files for you, solve a drill before you've attempted it.</td></tr>
-        <tr><td><strong>Weeks 4–6<br>Reviewer</strong></td><td><em>Allowed:</em> everything above, plus review your commits and diffs, critique your scripts, give you a recovery plan when you're stuck.<br><em>Not allowed:</em> make the commits, fix the script itself, or run recovery commands you don't understand yet.</td></tr>
-        <tr><td><strong>Weeks 7–9<br>Bounded pair</strong></td><td><em>Allowed:</em> everything above, plus implement small pieces <em>after</em> you've written the spec or failing test, and suggest edge cases you missed.<br><em>Not allowed:</em> choose what to build, or merge anything you haven't read line by line.</td></tr>
-        <tr><td><strong>Weeks 10–12<br>Delegate</strong></td><td><em>Allowed:</em> own bounded tasks end to end — plan, edit, run checks, report back with a diff and verification notes.<br><em>Not allowed:</em> skip the plan, skip verification, or commit. You own the merge — that never changes.</td></tr>
+        <tr><td><strong>Stages 1–3<br>Explainer</strong></td><td><em>Allowed:</em> explain commands and concepts, quiz you, point out mistakes after you try, generate practice drills, and (any pace) serve your daily schedule.<br><em>Not allowed:</em> write commands for you to copy blindly, edit files for you, solve a drill before you've attempted it.</td></tr>
+        <tr><td><strong>Stages 4–6<br>Reviewer</strong></td><td><em>Allowed:</em> everything above, plus review your commits and diffs, critique your scripts, give you a recovery plan when you're stuck.<br><em>Not allowed:</em> make the commits, fix the script itself, or run recovery commands you don't understand yet.</td></tr>
+        <tr><td><strong>Stages 7–9<br>Bounded pair</strong></td><td><em>Allowed:</em> everything above, plus implement small pieces <em>after</em> you've written the spec or failing test, and suggest edge cases you missed.<br><em>Not allowed:</em> choose what to build, or merge anything you haven't read line by line.</td></tr>
+        <tr><td><strong>Stages 10–12<br>Delegate</strong></td><td><em>Allowed:</em> own bounded tasks end to end — plan, edit, run checks, report back with a diff and verification notes.<br><em>Not allowed:</em> skip the plan, skip verification, or commit. You own the merge — that never changes.</td></tr>
       </table>
       <div class="callout note">
         <span class="label">Why restrict a tool you're here to learn?</span>
-        <p>Because judgment is the skill. An agent can produce working output on Day 1, but the ability to direct, review, and verify that output only grows out of hands-on fluency. You climb the ladder as fast as your checks pass — the restriction is scaffolding, not punishment.</p>
+        <p>Because judgment is the skill. An agent can produce working output on Session 1, but the ability to direct, review, and verify that output only grows out of hands-on fluency. You climb the ladder as fast as your gates pass — the restriction is scaffolding, not punishment.</p>
       </div>
 
       <h2><span class="hash">#</span>The arc</h2>
       <table class="keytable">
-        <tr><td><strong>Weeks 1–3</strong></td><td>Machine fluency: keyboard, terminal, files, the modern shell tools, tmux. Agent explains and quizzes only.</td></tr>
-        <tr><td><strong>Weeks 4–6</strong></td><td>Craft: Git for real, your editor, pipes and scripts, publishing to GitHub. Agent becomes your reviewer.</td></tr>
-        <tr><td><strong>Weeks 7–9</strong></td><td>Programming, <strong>data, and the web</strong>: code by hand, then SQL and document stores, then HTTP — the three things every real app is made of. Agent becomes a bounded pair.</td></tr>
-        <tr><td><strong>Weeks 10–12</strong></td><td>Direction at scale: narrow agent tasks, then specs, plans, verification, and judgment across whole repos. Capstone.</td></tr>
+        <tr><td><strong>Stages 1–3</strong></td><td>Machine fluency: keyboard, terminal, files, the modern shell tools, tmux. Agent explains and quizzes only.</td></tr>
+        <tr><td><strong>Stages 4–6</strong></td><td>Craft: Git for real, your editor, pipes and scripts, publishing to GitHub. Agent becomes your reviewer.</td></tr>
+        <tr><td><strong>Stages 7–9</strong></td><td>Programming, data, and the web: code by hand, then SQL and document stores, then HTTP — the three things every real app is made of. Agent becomes a bounded pair.</td></tr>
+        <tr><td><strong>Stages 10–12</strong></td><td>Direction at scale: narrow agent tasks, then specs, plans, verification, and judgment across whole repos. Capstone.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Week 1 — Keyboard, terminal, and your log</h2>
+      <h2><span class="hash">#</span>Stage 1 — Keyboard, terminal, and your log</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 1</span><span class="ph-committed">Committed: ≈ days 1–4</span><span class="ph-immersed">Immersed: ≈ days 1–2</span></p>
       <p>Reading: <a href="getting-started.html">Getting started</a>. Everything happens in the terminal from the first minute. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 1 · Mon</strong></td><td><strong>Create your learning repo.</strong><br><em>New:</em> open Ghostty; learn <code>pwd</code>, <code>ls</code>, <code>cd</code>, <code>mkdir</code>, <code>touch</code> by using each five times.<br><em>Do:</em> the ritual — you'll understand it fully in Week 4; for now, trust it: <code>mkdir ~/groundwork-log &amp;&amp; cd ~/groundwork-log &amp;&amp; git init</code>, create <code>log.md</code> from the template, <code>git add -A &amp;&amp; git commit -m "day 1"</code>.<br><em>Log:</em> which command felt strangest?<br><em>Agent:</em> ask it to explain each command in one sentence. Don't let it run them.</td></tr>
-        <tr><td><strong>Day 2 · Tue</strong></td><td><strong>Move without the mouse.</strong><br><em>⟳ Drill:</em> Day 1's five commands, from memory.<br><em>New:</em> line editing — <kbd>Tab</kbd> completion, <kbd>Ctrl</kbd><kbd>A</kbd>/<kbd>E</kbd>, <kbd>Alt</kbd><kbd>B</kbd>/<kbd>F</kbd>, <kbd>Ctrl</kbd><kbd>L</kbd>.<br><em>Do:</em> the walk-the-tree drill from Getting started, five rounds.<br><em>Log:</em> where did your hand drift to the mouse?<br><em>Agent:</em> ask for a ten-question quiz on today's keys.</td></tr>
-        <tr><td><strong>Day 3 · Wed</strong></td><td><strong>Files and folders.</strong><br><em>⟳ Drill:</em> walk-the-tree (Day 2), two rounds.<br><em>New:</em> <code>mv</code>, <code>cp</code>, <code>rm -i</code> in a scratch folder under <code>/tmp</code>.<br><em>Do:</em> delete the wrong file on purpose, feel the stomach drop, recreate it — that feeling is why Week 4 exists. <em>Game option:</em> spend the Do slot in <a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener">bashcrawl</a> instead — it drills exactly today's commands.<br><em>Log:</em> commit it.<br><em>Agent:</em> after your attempt, ask it to point out anything dangerous in how you used <code>rm</code>.</td></tr>
-        <tr><td><strong>Day 4 · Thu</strong></td><td><strong>Shell comfort.</strong><br><em>⟳ Drill:</em> files drill (Day 3), fresh scratch folder.<br><em>New:</em> history with <kbd>Ctrl</kbd><kbd>R</kbd>; <code>--help</code> and <code>man</code>; the survival kit (<kbd>Ctrl</kbd><kbd>C</kbd>, <code>q</code>, <kbd>Ctrl</kbd><kbd>D</kbd>).<br><em>Do:</em> re-run yesterday's drill typing nothing you've typed before — history only.<br><em>Log:</em> one thing <code>man</code> taught you.<br><em>Agent:</em> ask "quiz me: which key gets me out of five stuck situations?"</td></tr>
-        <tr><td><strong>Day 5 · Fri</strong></td><td><strong>tmux, first contact.</strong><br><em>⟳ Drill:</em> history recall (Day 4).<br><em>New:</em> <code>tmux new -s twelve</code>; split panes, move with <kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd>, detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span>, reattach.<br><em>Do:</em> the Week 1 skill check below.<br><em>Log:</em> check results, honestly.<br><em>Agent:</em> ask it to explain what a session actually is, like you're smart but new.</td></tr>
+        <tr><td><strong>Session 1</strong></td><td><strong>Create your learning repo.</strong><br><em>New:</em> open Ghostty; learn <code>pwd</code>, <code>ls</code>, <code>cd</code>, <code>mkdir</code>, <code>touch</code> by using each five times.<br><em>Do:</em> the ritual — you'll understand it fully in Stage 4; for now, trust it: <code>mkdir ~/groundwork-log &amp;&amp; cd ~/groundwork-log &amp;&amp; git init</code>, create <code>log.md</code> from the template (pace line included), <code>git add -A &amp;&amp; git commit -m "day 1"</code>.<br><em>Log:</em> which command felt strangest?<br><em>Agent:</em> ask it to explain each command in one sentence. Don't let it run them.</td></tr>
+        <tr><td><strong>Session 2</strong></td><td><strong>Move without the mouse.</strong><br><em>⟳ Drill:</em> Session 1's five commands, from memory.<br><em>New:</em> line editing — <kbd>Tab</kbd> completion, <kbd>Ctrl</kbd><kbd>A</kbd>/<kbd>E</kbd>, <kbd>Alt</kbd><kbd>B</kbd>/<kbd>F</kbd>, <kbd>Ctrl</kbd><kbd>L</kbd>.<br><em>Do:</em> the walk-the-tree drill from Getting started, five rounds.<br><em>Log:</em> where did your hand drift to the mouse?<br><em>Agent:</em> ask for a ten-question quiz on today's keys.</td></tr>
+        <tr><td><strong>Session 3</strong></td><td><strong>Files and folders.</strong><br><em>⟳ Drill:</em> walk-the-tree (Session 2), two rounds.<br><em>New:</em> <code>mv</code>, <code>cp</code>, <code>rm -i</code> in a scratch folder under <code>/tmp</code>.<br><em>Do:</em> delete the wrong file on purpose, feel the stomach drop, recreate it — that feeling is why Stage 4 exists. <em>Game option:</em> spend the Do slot in <a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener">bashcrawl</a> instead — it drills exactly today's commands.<br><em>Log:</em> commit it.<br><em>Agent:</em> after your attempt, ask it to point out anything dangerous in how you used <code>rm</code>.</td></tr>
+        <tr><td><strong>Session 4</strong></td><td><strong>Shell comfort.</strong><br><em>⟳ Drill:</em> files drill (Session 3), fresh scratch folder.<br><em>New:</em> history with <kbd>Ctrl</kbd><kbd>R</kbd>; <code>--help</code> and <code>man</code>; the survival kit (<kbd>Ctrl</kbd><kbd>C</kbd>, <code>q</code>, <kbd>Ctrl</kbd><kbd>D</kbd>).<br><em>Do:</em> re-run yesterday's drill typing nothing you've typed before — history only.<br><em>Log:</em> one thing <code>man</code> taught you.<br><em>Agent:</em> ask "quiz me: which key gets me out of five stuck situations?"</td></tr>
+        <tr><td><strong>Session 5</strong></td><td><strong>tmux, first contact.</strong><br><em>⟳ Drill:</em> history recall (Session 4).<br><em>New:</em> <code>tmux new -s twelve</code>; split panes, move with <kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd>, detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span>, reattach.<br><em>Do:</em> the Stage 1 gate check below.<br><em>Log:</em> check results, honestly.<br><em>Agent:</em> ask it to explain what a session actually is, like you're smart but new.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 6 (2–3h)</span>
+        <span class="label">Stage 1 build · 2–3h <span class="ph-steady">(your first Saturday)</span></span>
         <p><strong>Your workspace, repeatable.</strong> From a fresh terminal, build the setup you'll use every day: a tmux session with a pane for work, a pane for notes, your log open. Then write <code>workspace.md</code> — the exact steps to open it from cold — and commit it. Blank canvas: no copying from this page, only from your own history and notes.</p>
       </div>
-      <p><strong>Week 1 check</strong> — without the cheat sheet: navigate anywhere and back; create, move, and delete a file; recall a command with <kbd>Ctrl</kbd><kbd>R</kbd>; start, split, detach, and reattach tmux; seven commits in your log.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Clear <a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener">bashcrawl</a> end to end. Start <a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener">Bandit</a> levels 0–5. New game+: rebuild the workspace from memory, no notes. Side quest: keep a second scratch "command journal" — every command you meet, one line on what it did.</p>
+      </div>
+      <p><strong>Gate check 1</strong> — without the cheat sheet: navigate anywhere and back; create, move, and delete a file; recall a command with <kbd>Ctrl</kbd><kbd>R</kbd>; start, split, detach, and reattach tmux; a commit in your log for every day so far.</p>
 
-      <h2><span class="hash">#</span>Week 2 — The daily drivers</h2>
+      <h2><span class="hash">#</span>Stage 2 — The daily drivers</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 2</span><span class="ph-committed">Committed: ≈ days 4–7</span><span class="ph-immersed">Immersed: ≈ days 3–4</span></p>
       <p>Reading: <a href="shell.html">Shell &amp; CLI</a>. Clone a real project to explore: <code>git clone https://github.com/jasondockery/groundwork ~/code/groundwork-explore</code>. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 8 · Mon</strong></td><td><strong>Listing and reading.</strong><br><em>⟳ Drill:</em> tmux basics (Day 5) — open, split, detach, return.<br><em>New:</em> <code>ll</code>, <code>lt</code>, <code>ltt</code> (eza), <code>bat</code>.<br><em>Do:</em> map the cloned repo's structure three levels deep without a file manager; read two files with <code>bat</code>.<br><em>Log:</em> what did <code>ll</code>'s git column show you?<br><em>Agent:</em> ask what the permission letters in <code>ll</code> mean.</td></tr>
-        <tr><td><strong>Day 9 · Tue</strong></td><td><strong>Search inside everything.</strong><br><em>⟳ Drill:</em> files (Day 3, week-old now) — one fast round.<br><em>New:</em> <code>rg</code> — smart case, <code>-t</code> filters, then <code>rgf</code> for fuzzy live search.<br><em>Do:</em> find every mention of "tmux" in the cloned repo; count them with <code>rg -c</code>.<br><em>Log:</em> your favorite find.<br><em>Agent:</em> ask it to set you three search challenges in the repo, then grade you.</td></tr>
-        <tr><td><strong>Day 10 · Wed</strong></td><td><strong>Find files, jump folders.</strong><br><em>⟳ Drill:</em> rg (Day 9), three quick searches.<br><em>New:</em> <code>fd</code> by name; <code>z</code> (zoxide) to teleport between folders you've visited.<br><em>Do:</em> visit three projects, then bounce between them with <code>z</code> fragments only.<br><em>Log:</em> commit.<br><em>Agent:</em> ask when <code>fd</code> beats <code>rg --files</code> and vice versa.</td></tr>
-        <tr><td><strong>Day 11 · Thu</strong></td><td><strong>Fuzzy everything.</strong><br><em>⟳ Drill:</em> z-jumping (Day 10).<br><em>New:</em> <kbd>Ctrl</kbd><kbd>T</kbd> file picker, <kbd>Alt</kbd><kbd>C</kbd> folder jump — fzf everywhere.<br><em>Do:</em> the full loop five times: find a file, search inside it, read it — keyboard only.<br><em>Log:</em> time-to-file, gut feel vs. Monday.<br><em>Agent:</em> quiz — "describe a file, I'll find it in under four keystrokes of picker input."</td></tr>
-        <tr><td><strong>Day 12 · Fri</strong></td><td><strong>History that works for you.</strong><br><em>⟳ Drill:</em> the find-search-read loop (Day 11).<br><em>New:</em> Atuin's <kbd>Ctrl</kbd><kbd>R</kbd> across sessions; the space-prefix privacy trick.<br><em>Do:</em> build <code>cheatsheet.md</code> in your repo — your personal top ten, pulled from real history. Then the skill check.<br><em>Log:</em> check results.<br><em>Agent:</em> ask it to read your cheatsheet and name one command you should be using but aren't.</td></tr>
+        <tr><td><strong>Session 6</strong></td><td><strong>Listing and reading.</strong><br><em>⟳ Drill:</em> tmux basics (Session 5) — open, split, detach, return.<br><em>New:</em> <code>ll</code>, <code>lt</code>, <code>ltt</code> (eza), <code>bat</code>.<br><em>Do:</em> map the cloned repo's structure three levels deep without a file manager; read two files with <code>bat</code>.<br><em>Log:</em> what did <code>ll</code>'s git column show you?<br><em>Agent:</em> ask what the permission letters in <code>ll</code> mean.</td></tr>
+        <tr><td><strong>Session 7</strong></td><td><strong>Search inside everything.</strong><br><em>⟳ Drill:</em> files (Session 3) — one fast round.<br><em>New:</em> <code>rg</code> — smart case, <code>-t</code> filters, then <code>rgf</code> for fuzzy live search.<br><em>Do:</em> find every mention of "tmux" in the cloned repo; count them with <code>rg -c</code>.<br><em>Log:</em> your favorite find.<br><em>Agent:</em> ask it to set you three search challenges in the repo, then grade you.</td></tr>
+        <tr><td><strong>Session 8</strong></td><td><strong>Find files, jump folders.</strong><br><em>⟳ Drill:</em> rg (Session 7), three quick searches.<br><em>New:</em> <code>fd</code> by name; <code>z</code> (zoxide) to teleport between folders you've visited.<br><em>Do:</em> visit three projects, then bounce between them with <code>z</code> fragments only.<br><em>Log:</em> commit.<br><em>Agent:</em> ask when <code>fd</code> beats <code>rg --files</code> and vice versa.</td></tr>
+        <tr><td><strong>Session 9</strong></td><td><strong>Fuzzy everything.</strong><br><em>⟳ Drill:</em> z-jumping (Session 8).<br><em>New:</em> <kbd>Ctrl</kbd><kbd>T</kbd> file picker, <kbd>Alt</kbd><kbd>C</kbd> folder jump — fzf everywhere.<br><em>Do:</em> the full loop five times: find a file, search inside it, read it — keyboard only.<br><em>Log:</em> time-to-file, gut feel vs. Session 6.<br><em>Agent:</em> quiz — "describe a file, I'll find it in under four keystrokes of picker input."</td></tr>
+        <tr><td><strong>Session 10</strong></td><td><strong>History that works for you.</strong><br><em>⟳ Drill:</em> the find-search-read loop (Session 9).<br><em>New:</em> Atuin's <kbd>Ctrl</kbd><kbd>R</kbd> across sessions; the space-prefix privacy trick.<br><em>Do:</em> build <code>cheatsheet.md</code> in your repo — your personal top ten, pulled from real history. Then the gate check.<br><em>Log:</em> check results.<br><em>Agent:</em> ask it to read your cheatsheet and name one command you should be using but aren't.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 13 (2–3h)</span>
+        <span class="label">Stage 2 build · 2–3h</span>
         <p><strong>Scavenger hunt — pick your flavor.</strong> Either: ask your agent to write ten questions about the cloned repo, answer all ten with terminal tools, and commit <code>hunt.md</code> with each question, command, and answer (agent asks and grades — never answers). Or, game mode: play <a href="https://github.com/veltman/clmystery" target="_blank" rel="noopener">The Command Line Murder Mystery</a> and commit your case notes — who did it, and the exact command trail that proved it.</p>
       </div>
-      <p><strong>Week 2 check:</strong> find any file by name and any string by content in a repo you've never seen; jump between three projects with <code>z</code>; resurrect yesterday's commands without retyping them.</p>
-
-      <h2><span class="hash">#</span>Week 3 — tmux and the machine</h2>
-      <p>Reading: <a href="tmux.html">tmux</a>, plus <a href="macos.html">macOS desktop</a> and <a href="keyboard.html">Keyboard</a>. On Linux/WSL, swap Day 18 for your window manager's equivalents — the tools are choices; the keyboard-first habit is the point. Agent phase: <strong>explainer</strong>.</p>
-      <table class="keytable">
-        <tr><td><strong>Day 15 · Mon</strong></td><td><strong>The full tmux model.</strong><br><em>⟳ Drill:</em> personal cheatsheet (Day 12) — run all ten from memory.<br><em>New:</em> sessions vs. windows vs. panes; create, rename, reorder windows; zoom; resize.<br><em>Do:</em> build a three-window session: code, log, scratch.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to draw the session/window/pane hierarchy as ASCII.</td></tr>
-        <tr><td><strong>Day 16 · Tue</strong></td><td><strong>Persistence changes everything.</strong><br><em>⟳ Drill:</em> fuzzy pickers (Day 11).<br><em>New:</em> detach mid-task, quit the terminal app entirely, reopen, reattach — nothing died. The sesh switcher: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span>.<br><em>Do:</em> start a long command, detach while it runs, come back to the result.<br><em>Log:</em> what would this have saved you already?<br><em>Agent:</em> ask how people use this for servers and long jobs.</td></tr>
-        <tr><td><strong>Day 17 · Wed</strong></td><td><strong>Scrollback and copy mode.</strong><br><em>⟳ Drill:</em> window juggling (Day 15).<br><em>New:</em> enter copy mode, search upward through output, select and copy without the mouse.<br><em>Do:</em> run <code>ll -R</code> somewhere big, then find and copy one specific line from the flood.<br><em>Log:</em> commit.<br><em>Agent:</em> quiz — five "find it in the scrollback" tasks.</td></tr>
-        <tr><td><strong>Day 18 · Thu</strong></td><td><strong>The desktop layer.</strong><br><em>⟳ Drill:</em> detach/reattach under pressure (Day 16) — mid-edit this time.<br><em>New:</em> app switching, window snapping with Raycast, tab cycling — the keyboard path outside the terminal.<br><em>Do:</em> a full hour of work without the dock or mission control.<br><em>Log:</em> which mouse habit survived?<br><em>Agent:</em> ask for a "no-mouse hour" checklist tailored to what you named in the log.</td></tr>
-        <tr><td><strong>Day 19 · Fri</strong></td><td><strong>Consolidation.</strong><br><em>⟳ Drill:</em> ten minutes of pure shortcut reps — the fifteen keys you now own.<br><em>New:</em> nothing. Consolidation is the material.<br><em>Do:</em> write <code>keymap.md</code>: your fifteen keys, from memory first, verified after. Then the skill check.<br><em>Log:</em> check results.<br><em>Agent:</em> have it quiz you from your own keymap, shuffled.</td></tr>
-      </table>
-      <div class="callout note">
-        <span class="label">Saturday build · Day 20 (2–3h)</span>
-        <p><strong>Workspace as code.</strong> Turn Week 1's <code>workspace.md</code> into something executable: a small script or sesh entry that opens your whole learning workspace — session, panes, log — in one command. Document it, commit it, and use it every day from now on.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Do <em>both</em> build flavors. Bandit levels 6–12. Speed-run the hunt again with new agent-written questions — beat your own trail. Side quest: pick any repo you admire and map its structure in ten minutes flat, notes committed.</p>
       </div>
-      <p><strong>Week 3 check:</strong> cold start to full workspace in one command; move between editor, terminal, and browser without touching the mouse; survive a detach in the middle of real work.</p>
+      <p><strong>Gate check 2:</strong> find any file by name and any string by content in a repo you've never seen; jump between three projects with <code>z</code>; resurrect yesterday's commands without retyping them.</p>
 
-      <h2><span class="hash">#</span>Week 4 — Git for real</h2>
-      <p>Reading: <a href="git.html">Git</a>. The Day 1 ritual becomes understanding. Agent phase: <strong>reviewer</strong> — from now on, end each day asking it to critique your commits.</p>
+      <h2><span class="hash">#</span>Stage 3 — tmux and the machine</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 3</span><span class="ph-committed">Committed: ≈ days 8–11</span><span class="ph-immersed">Immersed: ≈ days 4–6</span></p>
+      <p>Reading: <a href="tmux.html">tmux</a>, plus <a href="macos.html">macOS desktop</a> and <a href="keyboard.html">Keyboard</a>. On Linux/WSL, swap Session 14 for your window manager's equivalents — the tools are choices; the keyboard-first habit is the point. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 22 · Mon</strong></td><td><strong>The core loop.</strong><br><em>⟳ Drill:</em> workspace opener (Day 20) + copy mode (Day 17).<br><em>New:</em> <code>git status</code>, <code>git diff</code>, <code>git add -p</code>, small commits with honest messages.<br><em>Do:</em> re-read your Day 1 ritual and explain every word of it in your log — you've earned the understanding.<br><em>Log:</em> that explanation.<br><em>Agent:</em> ask it to review your last five commit messages against "will this make sense in a month?"</td></tr>
-        <tr><td><strong>Day 23 · Tue</strong></td><td><strong>Branches.</strong><br><em>⟳ Drill:</em> add -p staging (Day 22) — stage half a change.<br><em>New:</em> create, switch, merge. <em>Game option:</em> spend New in <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — watching the graph move as you type is the fastest way branches click.<br><em>Do:</em> build a tiny change on a branch and land it.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to explain what actually moved when you merged.</td></tr>
-        <tr><td><strong>Day 24 · Wed</strong></td><td><strong>Reading history.</strong><br><em>⟳ Drill:</em> branch-and-merge (Day 23), one quick round.<br><em>New:</em> <code>git log</code>, <code>git show</code>, and <code>lg</code> (lazygit) to see it all at once.<br><em>Do:</em> answer three questions about the cloned Groundwork repo's history: newest commit, what changed in it, who touched a given file last.<br><em>Log:</em> commit.<br><em>Agent:</em> quiz — five history questions, you answer with commands.</td></tr>
-        <tr><td><strong>Day 25 · Thu</strong></td><td><strong>Undo without fear.</strong><br><em>⟳ Drill:</em> reading history (Day 24).<br><em>New:</em> <code>git restore</code>, <code>git revert</code>, when <code>reset</code> is safe.<br><em>Do:</em> break your repo three ways on purpose — bad edit, bad staging, bad commit — and recover each.<br><em>Log:</em> the three recoveries, from memory.<br><em>Agent:</em> after each recovery, ask "was there a safer way?"</td></tr>
-        <tr><td><strong>Day 26 · Fri</strong></td><td><strong>First examiner session.</strong><br><em>⟳ Drill:</em> the undo trio (Day 25) — once more, faster.<br><em>New:</em> nothing. Assessment day.<br><em>Do:</em> run the examiner prompt; do all five tasks. Then the skill check. <em>Game option:</em> finish with <a href="https://github.com/git-game/git-game" target="_blank" rel="noopener">git-game</a> — a treasure hunt inside a real repo.<br><em>Log:</em> what the examiner said you're avoiding.<br><em>Agent:</em> examiner mode.</td></tr>
+        <tr><td><strong>Session 11</strong></td><td><strong>The full tmux model.</strong><br><em>⟳ Drill:</em> personal cheatsheet (Session 10) — run all ten from memory.<br><em>New:</em> sessions vs. windows vs. panes; create, rename, reorder windows; zoom; resize.<br><em>Do:</em> build a three-window session: code, log, scratch.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to draw the session/window/pane hierarchy as ASCII.</td></tr>
+        <tr><td><strong>Session 12</strong></td><td><strong>Persistence changes everything.</strong><br><em>⟳ Drill:</em> fuzzy pickers (Session 9).<br><em>New:</em> detach mid-task, quit the terminal app entirely, reopen, reattach — nothing died. The sesh switcher: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span>.<br><em>Do:</em> start a long command, detach while it runs, come back to the result.<br><em>Log:</em> what would this have saved you already?<br><em>Agent:</em> ask how people use this for servers and long jobs.</td></tr>
+        <tr><td><strong>Session 13</strong></td><td><strong>Scrollback and copy mode.</strong><br><em>⟳ Drill:</em> window juggling (Session 11).<br><em>New:</em> enter copy mode, search upward through output, select and copy without the mouse.<br><em>Do:</em> run <code>ll -R</code> somewhere big, then find and copy one specific line from the flood.<br><em>Log:</em> commit.<br><em>Agent:</em> quiz — five "find it in the scrollback" tasks.</td></tr>
+        <tr><td><strong>Session 14</strong></td><td><strong>The desktop layer.</strong><br><em>⟳ Drill:</em> detach/reattach under pressure (Session 12) — mid-edit this time.<br><em>New:</em> app switching, window snapping with Raycast, tab cycling — the keyboard path outside the terminal.<br><em>Do:</em> a full hour of work without the dock or mission control.<br><em>Log:</em> which mouse habit survived?<br><em>Agent:</em> ask for a "no-mouse hour" checklist tailored to what you named in the log.</td></tr>
+        <tr><td><strong>Session 15</strong></td><td><strong>Consolidation.</strong><br><em>⟳ Drill:</em> ten minutes of pure shortcut reps — the fifteen keys you now own.<br><em>New:</em> nothing. Consolidation is the material.<br><em>Do:</em> write <code>keymap.md</code>: your fifteen keys, from memory first, verified after. Then the gate check.<br><em>Log:</em> check results.<br><em>Agent:</em> have it quiz you from your own keymap, shuffled.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 27 (2–3h)</span>
+        <span class="label">Stage 3 build · 2–3h</span>
+        <p><strong>Workspace as code.</strong> Turn Stage 1's <code>workspace.md</code> into something executable: a small script or sesh entry that opens your whole learning workspace — session, panes, log — in one command. Document it, commit it, and use it every day from now on.</p>
+      </div>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Read your actual <code>tmux.conf</code> top to bottom and annotate what each block does. Make sesh entries for three real projects. Run a whole no-mouse <em>day</em>, not an hour. New game+: <code>keymap.md</code> from memory a second time — the delta between attempts is your real retention score.</p>
+      </div>
+      <p><strong>Gate check 3:</strong> cold start to full workspace in one command; move between editor, terminal, and browser without touching the mouse; survive a detach in the middle of real work.</p>
+
+      <h2><span class="hash">#</span>Stage 4 — Git for real</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 4</span><span class="ph-committed">Committed: ≈ days 11–14</span><span class="ph-immersed">Immersed: ≈ days 6–7</span></p>
+      <p>Reading: <a href="git.html">Git</a>. The Session 1 ritual becomes understanding. Agent phase: <strong>reviewer</strong> — from now on, end each session asking it to critique your commits.</p>
+      <table class="keytable">
+        <tr><td><strong>Session 16</strong></td><td><strong>The core loop.</strong><br><em>⟳ Drill:</em> workspace opener (Stage 3 build) + copy mode (Session 13).<br><em>New:</em> <code>git status</code>, <code>git diff</code>, <code>git add -p</code>, small commits with honest messages.<br><em>Do:</em> re-read your Session 1 ritual and explain every word of it in your log — you've earned the understanding.<br><em>Log:</em> that explanation.<br><em>Agent:</em> ask it to review your last five commit messages against "will this make sense in a month?"</td></tr>
+        <tr><td><strong>Session 17</strong></td><td><strong>Branches.</strong><br><em>⟳ Drill:</em> add -p staging (Session 16) — stage half a change.<br><em>New:</em> create, switch, merge. <em>Game option:</em> spend New in <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — watching the graph move as you type is the fastest way branches click.<br><em>Do:</em> build a tiny change on a branch and land it.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to explain what actually moved when you merged.</td></tr>
+        <tr><td><strong>Session 18</strong></td><td><strong>Reading history.</strong><br><em>⟳ Drill:</em> branch-and-merge (Session 17), one quick round.<br><em>New:</em> <code>git log</code>, <code>git show</code>, and <code>lg</code> (lazygit) to see it all at once.<br><em>Do:</em> answer three questions about the cloned Groundwork repo's history: newest commit, what changed in it, who touched a given file last.<br><em>Log:</em> commit.<br><em>Agent:</em> quiz — five history questions, you answer with commands.</td></tr>
+        <tr><td><strong>Session 19</strong></td><td><strong>Undo without fear.</strong><br><em>⟳ Drill:</em> reading history (Session 18).<br><em>New:</em> <code>git restore</code>, <code>git revert</code>, when <code>reset</code> is safe.<br><em>Do:</em> break your repo three ways on purpose — bad edit, bad staging, bad commit — and recover each.<br><em>Log:</em> the three recoveries, from memory.<br><em>Agent:</em> after each recovery, ask "was there a safer way?"</td></tr>
+        <tr><td><strong>Session 20</strong></td><td><strong>First examiner session.</strong><br><em>⟳ Drill:</em> the undo trio (Session 19) — once more, faster.<br><em>New:</em> nothing. Assessment day.<br><em>Do:</em> run the examiner prompt; do all five tasks. Then the gate check. <em>Game option:</em> finish with <a href="https://github.com/git-game/git-game" target="_blank" rel="noopener">git-game</a> — a treasure hunt inside a real repo.<br><em>Log:</em> what the examiner said you're avoiding.<br><em>Agent:</em> examiner mode.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Stage 4 build · 2–3h</span>
         <p><strong>A history worth reading.</strong> Build a small text project — your cheatsheet grown into a real guide, a recipe collection, anything — in eight or more atomic commits with clear messages, including one documented mistake and its recovery. The artifact is the <code>git log</code> itself.</p>
       </div>
-      <p><strong>Week 4 check:</strong> stage half a file with <code>add -p</code>; explain what HEAD is in one sentence; undo an unstaged change, a staged change, and a bad commit; branch and merge without consulting anything.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Finish Learn Git Branching's main sequence and all of <a href="https://github.com/git-game/git-game" target="_blank" rel="noopener">git-game</a>; try <a href="https://ohmygit.org" target="_blank" rel="noopener">Oh My Git!</a> to see the internals move. Have the agent stage a broken-repo scenario (detached HEAD, lost commit) and dig out with <code>reflog</code>. Side quest: read the Git section of someone else's dotfiles.</p>
+      </div>
+      <p><strong>Gate check 4:</strong> stage half a file with <code>add -p</code>; explain what HEAD is in one sentence; undo an unstaged change, a staged change, and a bad commit; branch and merge without consulting anything.</p>
 
-      <h2><span class="hash">#</span>Week 5 — The editor</h2>
+      <h2><span class="hash">#</span>Stage 5 — The editor</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 5</span><span class="ph-committed">Committed: ≈ days 15–18</span><span class="ph-immersed">Immersed: ≈ days 8–9</span></p>
       <p>Reading: <a href="neovim.html">Neovim</a>. If you've chosen VS Code or another editor, do the same drills with its keyboard equivalents — fluent editing is the requirement; the editor is your choice. Agent phase: <strong>reviewer</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 29 · Mon</strong></td><td><strong>Survival and motion.</strong><br><em>⟳ Drill:</em> git core loop (Day 22, a week old) on your log repo.<br><em>New:</em> run <code>vimtutor</code> — the interactive tutorial already on your machine — through the movement chapters.<br><em>Do:</em> twenty minutes of pure motion in a copy of your log: <code>h j k l</code>, words, lines, <code>:w</code>, <code>:q</code>.<br><em>Log:</em> commit (in the editor, then quit — that's the test).<br><em>Agent:</em> ask why modal editing exists, best two-sentence version.</td></tr>
-        <tr><td><strong>Day 30 · Tue</strong></td><td><strong>Edit verbs.</strong><br><em>⟳ Drill:</em> yesterday's motions, five minutes. <em>Game option:</em> <a href="https://vim-adventures.com" target="_blank" rel="noopener">Vim Adventures</a> for the drill slot all week.<br><em>New:</em> delete, change, yank: <code>ciw</code>, <code>dd</code>, <code>yy</code>, <code>u</code>.<br><em>Do:</em> edit one log entry ten different ways.<br><em>Log:</em> which verb clicked?<br><em>Agent:</em> quiz — "here's a before/after, what's the fewest keystrokes?"</td></tr>
-        <tr><td><strong>Day 31 · Wed</strong></td><td><strong>Search, replace, splits.</strong><br><em>⟳ Drill:</em> verbs (Day 30).<br><em>New:</em> <code>/</code> search, substitute, window splits, jumping between open files.<br><em>Do:</em> rename something across your whole cheatsheet with search-and-replace.<br><em>Log:</em> commit.<br><em>Agent:</em> ask when editor search beats <code>rg</code> and vice versa.</td></tr>
-        <tr><td><strong>Day 32 · Thu</strong></td><td><strong>The LazyVim layer.</strong><br><em>⟳ Drill:</em> search/replace (Day 31).<br><em>New:</em> <kbd>Space</kbd> menu, fuzzy file open, the file tree — or your editor's command-palette equivalents.<br><em>Do:</em> open five files five ways; pick your favorite two.<br><em>Log:</em> commit.<br><em>Agent:</em> ask what else lives under <kbd>Space</kbd> worth knowing this early.</td></tr>
-        <tr><td><strong>Day 33 · Fri</strong></td><td><strong>One workspace.</strong><br><em>⟳ Drill:</em> motions + verbs together — one clean editing kata.<br><em>New:</em> editor splits and tmux panes as one navigable grid with <kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd>.<br><em>Do:</em> skill check, then examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner mode.</td></tr>
+        <tr><td><strong>Session 21</strong></td><td><strong>Survival and motion.</strong><br><em>⟳ Drill:</em> git core loop (Session 16, a stage old) on your log repo.<br><em>New:</em> run <code>vimtutor</code> — the interactive tutorial already on your machine — through the movement chapters.<br><em>Do:</em> twenty minutes of pure motion in a copy of your log: <code>h j k l</code>, words, lines, <code>:w</code>, <code>:q</code>.<br><em>Log:</em> commit (in the editor, then quit — that's the test).<br><em>Agent:</em> ask why modal editing exists, best two-sentence version.</td></tr>
+        <tr><td><strong>Session 22</strong></td><td><strong>Edit verbs.</strong><br><em>⟳ Drill:</em> yesterday's motions, five minutes. <em>Game option:</em> <a href="https://vim-adventures.com" target="_blank" rel="noopener">Vim Adventures</a> for the drill slot all stage.<br><em>New:</em> delete, change, yank: <code>ciw</code>, <code>dd</code>, <code>yy</code>, <code>u</code>.<br><em>Do:</em> edit one log entry ten different ways.<br><em>Log:</em> which verb clicked?<br><em>Agent:</em> quiz — "here's a before/after, what's the fewest keystrokes?"</td></tr>
+        <tr><td><strong>Session 23</strong></td><td><strong>Search, replace, splits.</strong><br><em>⟳ Drill:</em> verbs (Session 22).<br><em>New:</em> <code>/</code> search, substitute, window splits, jumping between open files.<br><em>Do:</em> rename something across your whole cheatsheet with search-and-replace.<br><em>Log:</em> commit.<br><em>Agent:</em> ask when editor search beats <code>rg</code> and vice versa.</td></tr>
+        <tr><td><strong>Session 24</strong></td><td><strong>The LazyVim layer.</strong><br><em>⟳ Drill:</em> search/replace (Session 23).<br><em>New:</em> <kbd>Space</kbd> menu, fuzzy file open, the file tree — or your editor's command-palette equivalents.<br><em>Do:</em> open five files five ways; pick your favorite two.<br><em>Log:</em> commit.<br><em>Agent:</em> ask what else lives under <kbd>Space</kbd> worth knowing this early.</td></tr>
+        <tr><td><strong>Session 25</strong></td><td><strong>One workspace.</strong><br><em>⟳ Drill:</em> motions + verbs together — one clean editing kata.<br><em>New:</em> editor splits and tmux panes as one navigable grid with <kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd>.<br><em>Do:</em> gate check, then examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner mode.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 34 (2–3h)</span>
-        <p><strong>Keyboard-only refactor.</strong> Reorganize your whole learning repo — split <code>log.md</code> weeks into files, tidy your notes into folders — entirely in the editor, no mouse, committed atomically. The constraint is the exercise.</p>
+        <span class="label">Stage 5 build · 2–3h</span>
+        <p><strong>Keyboard-only refactor.</strong> Reorganize your whole learning repo — split <code>log.md</code> stages into files, tidy your notes into folders — entirely in the editor, no mouse, committed atomically. The constraint is the exercise.</p>
       </div>
-      <p><strong>Week 5 check:</strong> make five common edits without arrow keys or mouse; open any file by fuzzy name; move between editor and terminal panes without thinking about it.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Finish all of <code>vimtutor</code> and push into Vim Adventures. Refactor a <em>second</em> repo keyboard-only. Taste one power feature — a macro recorded with <code>q</code>, or multi-file substitute — and write down when you'd reach for it. New game+: redo Session 22's ten edits in half the keystrokes.</p>
+      </div>
+      <p><strong>Gate check 5:</strong> make five common edits without arrow keys or mouse; open any file by fuzzy name; move between editor and terminal panes without thinking about it.</p>
 
-      <h2><span class="hash">#</span>Week 6 — Pipes, scripts, and publishing</h2>
+      <h2><span class="hash">#</span>Stage 6 — Pipes, scripts, and publishing</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 6</span><span class="ph-committed">Committed: ≈ days 18–21</span><span class="ph-immersed">Immersed: ≈ days 9–11</span></p>
       <p>Reading: <a href="command-line.html">Command line &amp; Unix</a>, and the remote sections of <a href="git.html">Git</a>. Agent phase: <strong>reviewer</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 36 · Mon</strong></td><td><strong>Pipes.</strong><br><em>⟳ Drill:</em> editing kata (Day 33).<br><em>New:</em> <code>|</code>, <code>&gt;</code>, <code>wc</code>, <code>sort</code>, <code>uniq</code>, <code>head</code>.<br><em>Do:</em> answer three real questions about your log with one-liners: how many minimum days? which week had the most minutes? most-used word?<br><em>Log:</em> your best pipeline, verbatim.<br><em>Agent:</em> ask it to break your pipeline down stage by stage.</td></tr>
-        <tr><td><strong>Day 37 · Tue</strong></td><td><strong>First script.</strong><br><em>⟳ Drill:</em> pipes (Day 36) — one new question, one new pipeline.<br><em>New:</em> shebang, <code>chmod +x</code>, running it; then <code>shellcheck</code> and fix everything it flags.<br><em>Do:</em> turn yesterday's best pipeline into <code>stats.sh</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to review the script — but you type every fix.</td></tr>
-        <tr><td><strong>Day 38 · Wed</strong></td><td><strong>Variables and loops.</strong><br><em>⟳ Drill:</em> undo trio (Day 25, week+ old) — keep recovery sharp.<br><em>New:</em> variables, <code>for</code> loops, <code>if</code> in shell.<br><em>Do:</em> harden your Week 3 workspace opener: safe to run twice, complains helpfully when something's missing.<br><em>Log:</em> commit.<br><em>Agent:</em> ask what happens when your script runs in a folder with spaces in the name — then prove it.</td></tr>
-        <tr><td><strong>Day 39 · Thu</strong></td><td><strong>Publish.</strong><br><em>⟳ Drill:</em> scripting (Day 37–38) — add one small feature to <code>stats.sh</code>.<br><em>New:</em> <code>gh auth</code>, <code>gh repo create</code>, push your log repo, write a real README.<br><em>Do:</em> your streak is public now, if you want it to be.<br><em>Log:</em> the URL.<br><em>Agent:</em> ask what belongs in a README of a learning log — then write it yourself.</td></tr>
-        <tr><td><strong>Day 40 · Fri</strong></td><td><strong>Pull requests.</strong><br><em>⟳ Drill:</em> branches (Day 23, two+ weeks old).<br><em>New:</em> branch → push → <code>gh pr create</code> → read your own diff with delta → merge.<br><em>Do:</em> ship one improvement to your repo by PR. Skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner, then PR reviewer — require it to name file, line, risk.</td></tr>
+        <tr><td><strong>Session 26</strong></td><td><strong>Pipes.</strong><br><em>⟳ Drill:</em> editing kata (Session 25).<br><em>New:</em> <code>|</code>, <code>&gt;</code>, <code>wc</code>, <code>sort</code>, <code>uniq</code>, <code>head</code>.<br><em>Do:</em> answer three real questions about your log with one-liners: how many minimum days? which stage had the most minutes? most-used word?<br><em>Log:</em> your best pipeline, verbatim.<br><em>Agent:</em> ask it to break your pipeline down stage by stage.</td></tr>
+        <tr><td><strong>Session 27</strong></td><td><strong>First script.</strong><br><em>⟳ Drill:</em> pipes (Session 26) — one new question, one new pipeline.<br><em>New:</em> shebang, <code>chmod +x</code>, running it; then <code>shellcheck</code> and fix everything it flags.<br><em>Do:</em> turn yesterday's best pipeline into <code>stats.sh</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to review the script — but you type every fix.</td></tr>
+        <tr><td><strong>Session 28</strong></td><td><strong>Variables and loops.</strong><br><em>⟳ Drill:</em> undo trio (Session 19, a stage+ old) — keep recovery sharp.<br><em>New:</em> variables, <code>for</code> loops, <code>if</code> in shell.<br><em>Do:</em> harden your Stage 3 workspace opener: safe to run twice, complains helpfully when something's missing.<br><em>Log:</em> commit.<br><em>Agent:</em> ask what happens when your script runs in a folder with spaces in the name — then prove it.</td></tr>
+        <tr><td><strong>Session 29</strong></td><td><strong>Publish.</strong><br><em>⟳ Drill:</em> scripting (Sessions 27–28) — add one small feature to <code>stats.sh</code>.<br><em>New:</em> <code>gh auth</code>, <code>gh repo create</code>, push your log repo, write a real README.<br><em>Do:</em> your streak is public now, if you want it to be.<br><em>Log:</em> the URL.<br><em>Agent:</em> ask what belongs in a README of a learning log — then write it yourself.</td></tr>
+        <tr><td><strong>Session 30</strong></td><td><strong>Pull requests.</strong><br><em>⟳ Drill:</em> branches (Session 17, two stages old).<br><em>New:</em> branch → push → <code>gh pr create</code> → read your own diff with delta → merge.<br><em>Do:</em> ship one improvement to your repo by PR. Gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner, then PR reviewer — require it to name file, line, risk.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 41 (2–4h)</span>
-        <p><strong>A CLI tool of your own.</strong> One script that does one thing you actually want — a log stats summary, a project opener, a daily note generator. README, usage examples, shellcheck-clean, landed by PR. This is the first build a stranger could use. <em>Game players:</em> today's alternative universe is <a href="https://overthewire.org/wargames/bandit/" target="_blank" rel="noopener">Bandit levels 0–10</a> plus a smaller script — but the script ships either way.</p>
+        <span class="label">Stage 6 build · 2–4h</span>
+        <p><strong>A CLI tool of your own.</strong> One script that does one thing you actually want — a log stats summary, a project opener, a daily note generator. README, usage examples, shellcheck-clean, landed by PR. This is the first build a stranger could use.</p>
       </div>
-      <p><strong>Week 6 check:</strong> compose a pipeline from scratch to answer a question; write, run, and lint a script; push a branch and open a PR without looking anything up.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Bandit levels 13–20 — they're pipe-and-trickery country now. Build a <em>second</em> CLI tool, or give the first one flags and a <code>--help</code>. Run shellcheck on a script you find in the wild and explain each warning. Side quest: read a well-made CLI's <code>--help</code> and steal its manners.</p>
+      </div>
+      <p><strong>Gate check 6:</strong> compose a pipeline from scratch to answer a question; write, run, and lint a script; push a branch and open a PR without looking anything up.</p>
 
-      <h2><span class="hash">#</span>Week 7 — Programming, by hand</h2>
+      <h2><span class="hash">#</span>Stage 7 — Programming, by hand</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 7</span><span class="ph-committed">Committed: ≈ days 22–25</span><span class="ph-immersed">Immersed: ≈ days 11–13</span></p>
       <p>Python via <code>uv</code> — the interpreter is already managed for you (<a href="development.html">Development</a>). Agent phase: <strong>bounded pair</strong> — it may implement <em>after</em> you've written a spec or failing test. Not before.</p>
       <table class="keytable">
-        <tr><td><strong>Day 43 · Mon</strong></td><td><strong>The REPL.</strong><br><em>⟳ Drill:</em> PR flow (Day 40).<br><em>New:</em> <code>uv run python</code>; variables, strings, numbers, types.<br><em>Do:</em> compute things about your log in the REPL — days so far, average minutes.<br><em>Log:</em> commit a <code>week7/</code> folder with your experiments.<br><em>Agent:</em> ask why <code>"60" + 10</code> explodes — after you've tried it.</td></tr>
-        <tr><td><strong>Day 44 · Tue</strong></td><td><strong>Control flow — the wall.</strong><br><em>⟳ Drill:</em> REPL warmup (Day 43).<br><em>New:</em> <code>if</code>/<code>else</code> and <code>for</code> loops. Fair warning: this is where most beginner journeys stall. Go slow; confusion here is universal, not a verdict.<br><em>Do:</em> loop over a list of day-minutes and print full/minimum for each.<br><em>Log:</em> honest confusion, if any — it passes.<br><em>Agent:</em> ask for five tiny loop exercises; do them all before checking.</td></tr>
-        <tr><td><strong>Day 45 · Wed</strong></td><td><strong>The wall, again — on purpose.</strong><br><em>⟳ Drill:</em> yesterday's loops, from a blank file.<br><em>New:</em> lists and dictionaries properly; reading error messages as information, not judgment — read the last line first.<br><em>Do:</em> five more loop katas; break one deliberately and read the traceback bottom-up.<br><em>Log:</em> commit.<br><em>Agent:</em> paste an error and ask "what is this telling me?" — before asking for the fix.</td></tr>
-        <tr><td><strong>Day 46 · Thu</strong></td><td><strong>Functions.</strong><br><em>⟳ Drill:</em> loops (Days 44–45) — one kata, no reference.<br><em>New:</em> defining functions, arguments, returns.<br><em>Do:</em> extract this week's REPL work into <code>logstats.py</code> with three named functions.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to name your functions better — accept or reject each suggestion with a reason.</td></tr>
-        <tr><td><strong>Day 47 · Fri</strong></td><td><strong>Red, then green.</strong><br><em>⟳ Drill:</em> functions (Day 46).<br><em>New:</em> <code>pytest</code>: one failing test, watch it fail, make it pass by hand.<br><em>Do:</em> two more test-first rounds on <code>logstats.py</code>. Skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner; then ask it to suggest one edge case your tests miss — write that test yourself.</td></tr>
+        <tr><td><strong>Session 31</strong></td><td><strong>The REPL.</strong><br><em>⟳ Drill:</em> PR flow (Session 30).<br><em>New:</em> <code>uv run python</code>; variables, strings, numbers, types.<br><em>Do:</em> compute things about your log in the REPL — days so far, average minutes.<br><em>Log:</em> commit a <code>stage7/</code> folder with your experiments.<br><em>Agent:</em> ask why <code>"60" + 10</code> explodes — after you've tried it.</td></tr>
+        <tr><td><strong>Session 32</strong></td><td><strong>Control flow — the wall.</strong><br><em>⟳ Drill:</em> REPL warmup (Session 31).<br><em>New:</em> <code>if</code>/<code>else</code> and <code>for</code> loops. Fair warning: this is where most beginner journeys stall. Go slow; confusion here is universal, not a verdict.<br><em>Do:</em> loop over a list of day-minutes and print full/minimum for each.<br><em>Log:</em> honest confusion, if any — it passes.<br><em>Agent:</em> ask for five tiny loop exercises; do them all before checking.</td></tr>
+        <tr><td><strong>Session 33</strong></td><td><strong>The wall, again — on purpose.</strong><br><em>⟳ Drill:</em> yesterday's loops, from a blank file.<br><em>New:</em> lists and dictionaries properly; reading error messages as information, not judgment — read the last line first.<br><em>Do:</em> five more loop katas; break one deliberately and read the traceback bottom-up.<br><em>Log:</em> commit.<br><em>Agent:</em> paste an error and ask "what is this telling me?" — before asking for the fix.</td></tr>
+        <tr><td><strong>Session 34</strong></td><td><strong>Functions.</strong><br><em>⟳ Drill:</em> loops (Sessions 32–33) — one kata, no reference.<br><em>New:</em> defining functions, arguments, returns.<br><em>Do:</em> extract this stage's REPL work into <code>logstats.py</code> with three named functions.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to name your functions better — accept or reject each suggestion with a reason.</td></tr>
+        <tr><td><strong>Session 35</strong></td><td><strong>Red, then green.</strong><br><em>⟳ Drill:</em> functions (Session 34).<br><em>New:</em> <code>pytest</code>: one failing test, watch it fail, make it pass by hand.<br><em>Do:</em> two more test-first rounds on <code>logstats.py</code>. Gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner; then ask it to suggest one edge case your tests miss — write that test yourself.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 48 (2–4h)</span>
+        <span class="label">Stage 7 build · 2–4h</span>
         <p><strong>A program with tests.</strong> A real log analyzer: streak length, day-mode counts, total hours, written by hand with tests first where you can. When it works, ask the agent for a code review — then improve it yourself based on what you agree with. Disagreeing with one suggestion, out loud in the log, is part of the assignment.</p>
       </div>
-      <p><strong>Week 7 check:</strong> write a loop, a dict lookup, and a function from a blank file; make a failing test pass; read a traceback bottom-up and say what it means before fixing it.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Work through a batch of <a href="https://exercism.org/tracks/python" target="_blank" rel="noopener">Exercism Python</a> exercises — real katas with community review. Rebuild <code>logstats.py</code> from a blank file without looking. Teach-back: explain loops in your log as if to a friend — writing it is the test.</p>
+      </div>
+      <p><strong>Gate check 7:</strong> write a loop, a dict lookup, and a function from a blank file; make a failing test pass; read a traceback bottom-up and say what it means before fixing it.</p>
 
-      <h2><span class="hash">#</span>Week 8 — Data: tables and documents</h2>
-      <p>Reading: <a href="data.html">Data &amp; storage</a> — new this week and foundational forever: every real app is data plus rules about who can change it, and agents write data code you must be able to judge. Agent phase: <strong>bounded pair</strong>.</p>
+      <h2><span class="hash">#</span>Stage 8 — Data: tables and documents</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 8</span><span class="ph-committed">Committed: ≈ days 25–28</span><span class="ph-immersed">Immersed: ≈ days 13–14</span></p>
+      <p>Reading: <a href="data.html">Data &amp; storage</a> — foundational forever: every real app is data plus rules about who can change it, and agents write data code you must be able to judge. Agent phase: <strong>bounded pair</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 50 · Mon</strong></td><td><strong>Files in, files out.</strong><br><em>⟳ Drill:</em> test-first round (Day 47).<br><em>New:</em> reading and writing files from Python.<br><em>Do:</em> make <code>logstats.py</code> read the real <code>log.md</code> instead of hardcoded data.<br><em>Log:</em> commit.<br><em>Agent:</em> ask how it would handle a malformed line — then implement your favorite of its ideas yourself.</td></tr>
-        <tr><td><strong>Day 51 · Tue</strong></td><td><strong>Documents: JSON.</strong><br><em>⟳ Drill:</em> pipes (Day 36, weeks old) — one pipeline from memory.<br><em>New:</em> JSON in Python and with <code>jq</code>; the document model — self-contained records, varying shape.<br><em>Do:</em> export your log to <code>log.json</code>; query it three ways with <code>jq</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> ask where JSON's flexibility helps and where it bites.</td></tr>
-        <tr><td><strong>Day 52 · Wed</strong></td><td><strong>SQL: tables and questions.</strong><br><em>⟳ Drill:</em> jq queries (Day 51).<br><em>New:</em> <code>sqlite3</code> — CREATE, INSERT, SELECT, WHERE, ORDER BY, GROUP BY, on the database in your pocket. <em>Game-adjacent:</em> <a href="https://sqlbolt.com" target="_blank" rel="noopener">SQLBolt</a> lessons 1–6 make an excellent New slot.<br><em>Do:</em> build <code>log.db</code>, insert this week by hand, answer three questions with queries.<br><em>Log:</em> best query, verbatim.<br><em>Agent:</em> ask it to write one query you then verify with a different query.</td></tr>
-        <tr><td><strong>Day 53 · Thu</strong></td><td><strong>The WHERE habit.</strong><br><em>⟳ Drill:</em> SELECTs (Day 52).<br><em>New:</em> UPDATE and DELETE — always preceded by their SELECT twin; JOINs, briefly, to connect two tables.<br><em>Do:</em> the "look before you write" drill from the data page; then break the rule once on a throwaway copy and study the wreckage.<br><em>Log:</em> what the bare UPDATE did.<br><em>Agent:</em> from today forward, require every agent-written write query to arrive with its verification SELECT.</td></tr>
-        <tr><td><strong>Day 54 · Fri</strong></td><td><strong>Choosing shapes.</strong><br><em>⟳ Drill:</em> one SQL question + one jq question, same data.<br><em>New:</em> when tables win, when documents win; how DynamoDB-style stores invert the thinking — access patterns first.<br><em>Do:</em> write six sentences in your log: one question each shape made easy, one it made awkward, and which you'd pick for your capstone. Skill check + examiner.<br><em>Log:</em> those sentences.<br><em>Agent:</em> examiner; then debate it — argue for the opposite store and see if it changes your mind.</td></tr>
+        <tr><td><strong>Session 36</strong></td><td><strong>Files in, files out.</strong><br><em>⟳ Drill:</em> test-first round (Session 35).<br><em>New:</em> reading and writing files from Python.<br><em>Do:</em> make <code>logstats.py</code> read the real <code>log.md</code> instead of hardcoded data.<br><em>Log:</em> commit.<br><em>Agent:</em> ask how it would handle a malformed line — then implement your favorite of its ideas yourself.</td></tr>
+        <tr><td><strong>Session 37</strong></td><td><strong>Documents: JSON.</strong><br><em>⟳ Drill:</em> pipes (Session 26, stages old) — one pipeline from memory.<br><em>New:</em> JSON in Python and with <code>jq</code>; the document model — self-contained records, varying shape.<br><em>Do:</em> export your log to <code>log.json</code>; query it three ways with <code>jq</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> ask where JSON's flexibility helps and where it bites.</td></tr>
+        <tr><td><strong>Session 38</strong></td><td><strong>SQL: tables and questions.</strong><br><em>⟳ Drill:</em> jq queries (Session 37).<br><em>New:</em> <code>sqlite3</code> — CREATE, INSERT, SELECT, WHERE, ORDER BY, GROUP BY, on the database in your pocket. <em>Game-adjacent:</em> <a href="https://sqlbolt.com" target="_blank" rel="noopener">SQLBolt</a> lessons 1–6 make an excellent New slot.<br><em>Do:</em> build <code>log.db</code>, insert this stage by hand, answer three questions with queries.<br><em>Log:</em> best query, verbatim.<br><em>Agent:</em> ask it to write one query you then verify with a different query.</td></tr>
+        <tr><td><strong>Session 39</strong></td><td><strong>The WHERE habit.</strong><br><em>⟳ Drill:</em> SELECTs (Session 38).<br><em>New:</em> UPDATE and DELETE — always preceded by their SELECT twin; JOINs, briefly, to connect two tables.<br><em>Do:</em> the "look before you write" drill from the data page; then break the rule once on a throwaway copy and study the wreckage.<br><em>Log:</em> what the bare UPDATE did.<br><em>Agent:</em> from today forward, require every agent-written write query to arrive with its verification SELECT.</td></tr>
+        <tr><td><strong>Session 40</strong></td><td><strong>Choosing shapes.</strong><br><em>⟳ Drill:</em> one SQL question + one jq question, same data.<br><em>New:</em> when tables win, when documents win; how DynamoDB-style stores invert the thinking — access patterns first.<br><em>Do:</em> write six sentences in your log: one question each shape made easy, one it made awkward, and which you'd pick for your capstone. Gate check + examiner.<br><em>Log:</em> those sentences.<br><em>Agent:</em> examiner; then debate it — argue for the opposite store and see if it changes your mind.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 55 (2–4h)</span>
-        <p><strong>Your log, as a database.</strong> Migrate the full log into <code>log.db</code> with a script (parse <code>log.md</code>, insert rows), then write <code>report.py</code>: streaks, weekly totals, mode breakdown — from SQL queries, tested. Back up the database file first; it's a habit now. The artifact is a working pipeline: text → parser → database → report.</p>
+        <span class="label">Stage 8 build · 2–4h</span>
+        <p><strong>Your log, as a database.</strong> Migrate the full log into <code>log.db</code> with a script (parse <code>log.md</code>, insert rows), then write <code>report.py</code>: streaks, stage totals, mode breakdown — from SQL queries, tested. Back up the database file first; it's a habit now. The artifact is a working pipeline: text → parser → database → report.</p>
       </div>
-      <p><strong>Week 8 check:</strong> create a table and query it with WHERE/GROUP BY from memory; run the SELECT-before-UPDATE ritual unprompted; explain tables-vs-documents in two sentences using your own data as the example.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Finish SQLBolt. Model a domain you love — your game library, your records — with two related tables and real JOINs. Repeat the modeling in JSON documents and write the trade-off paragraph. Side quest: open any app's SQLite file you legally can and explore its schema with <code>.tables</code> and <code>.schema</code>.</p>
+      </div>
+      <p><strong>Gate check 8:</strong> create a table and query it with WHERE/GROUP BY from memory; run the SELECT-before-UPDATE ritual unprompted; explain tables-vs-documents in two sentences using your own data as the example.</p>
 
-      <h2><span class="hash">#</span>Week 9 — The web: HTTP and a real app</h2>
+      <h2><span class="hash">#</span>Stage 9 — The web: HTTP and a real app</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 9</span><span class="ph-committed">Committed: ≈ days 29–32</span><span class="ph-immersed">Immersed: ≈ days 15–16</span></p>
       <p>How programs talk: requests, responses, JSON over the wire. Agent phase: <strong>bounded pair</strong>.</p>
       <table class="keytable">
-        <tr><td><strong>Day 57 · Mon</strong></td><td><strong>What the web actually is.</strong><br><em>⟳ Drill:</em> SQL questions (Day 52), from memory.<br><em>New:</em> localhost, ports, request/response; <code>curl</code> a real API and read the JSON with <code>jq</code>.<br><em>Do:</em> hit three public endpoints; save one response and query it.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to narrate one request's journey, DNS to response.</td></tr>
-        <tr><td><strong>Day 58 · Tue</strong></td><td><strong>Fetching from code.</strong><br><em>⟳ Drill:</em> WHERE habit (Day 53).<br><em>New:</em> HTTP from Python; status codes; what to do when it's not 200.<br><em>Do:</em> fetch something small and real; store the interesting part into <code>log.db</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> spec one fetch-and-store function with a test, let it implement, verify against a live call.</td></tr>
-        <tr><td><strong>Day 59 · Wed</strong></td><td><strong>Serving.</strong><br><em>⟳ Drill:</em> traceback reading (Day 45) — break the fetch, read the error.<br><em>New:</em> the smallest possible local web server returning your data as JSON.<br><em>Do:</em> serve one endpoint: your streak, live from the database. <code>curl</code> it from another pane — that's the whole client-server loop, on your machine.<br><em>Log:</em> the curl output.<br><em>Agent:</em> ask what would break with two users at once — file, sqlite, or server?</td></tr>
-        <tr><td><strong>Day 60 · Thu</strong></td><td><strong>A page.</strong><br><em>⟳ Drill:</em> endpoint round-trip (Day 59).<br><em>New:</em> the minimum HTML to show your data in a browser.<br><em>Do:</em> a stats page served locally from <code>log.db</code>. Ugly is fine; yours is the point.<br><em>Log:</em> commit + screenshot.<br><em>Agent:</em> give it your screenshot and one sentence — "make it calmer" — then review its diff line by line.</td></tr>
-        <tr><td><strong>Day 61 · Fri</strong></td><td><strong>Reading strangers' code.</strong><br><em>⟳ Drill:</em> functions kata (Day 46, weeks old).<br><em>New:</em> pick one file in a real open-source project; trace it with <code>rg</code> and the editor.<br><em>Do:</em> write five sentences on what it does; verify with the agent after. Skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner; only <em>after</em> your five sentences, ask it to grade your reading.</td></tr>
+        <tr><td><strong>Session 41</strong></td><td><strong>What the web actually is.</strong><br><em>⟳ Drill:</em> SQL questions (Session 38), from memory.<br><em>New:</em> localhost, ports, request/response; <code>curl</code> a real API and read the JSON with <code>jq</code>.<br><em>Do:</em> hit three public endpoints; save one response and query it.<br><em>Log:</em> commit.<br><em>Agent:</em> ask it to narrate one request's journey, DNS to response.</td></tr>
+        <tr><td><strong>Session 42</strong></td><td><strong>Fetching from code.</strong><br><em>⟳ Drill:</em> WHERE habit (Session 39).<br><em>New:</em> HTTP from Python; status codes; what to do when it's not 200.<br><em>Do:</em> fetch something small and real; store the interesting part into <code>log.db</code>.<br><em>Log:</em> commit.<br><em>Agent:</em> spec one fetch-and-store function with a test, let it implement, verify against a live call.</td></tr>
+        <tr><td><strong>Session 43</strong></td><td><strong>Serving.</strong><br><em>⟳ Drill:</em> traceback reading (Session 33) — break the fetch, read the error.<br><em>New:</em> the smallest possible local web server returning your data as JSON.<br><em>Do:</em> serve one endpoint: your streak, live from the database. <code>curl</code> it from another pane — that's the whole client-server loop, on your machine.<br><em>Log:</em> the curl output.<br><em>Agent:</em> ask what would break with two users at once — file, sqlite, or server?</td></tr>
+        <tr><td><strong>Session 44</strong></td><td><strong>A page.</strong><br><em>⟳ Drill:</em> endpoint round-trip (Session 43).<br><em>New:</em> the minimum HTML to show your data in a browser.<br><em>Do:</em> a stats page served locally from <code>log.db</code>. Ugly is fine; yours is the point.<br><em>Log:</em> commit + screenshot.<br><em>Agent:</em> give it your screenshot and one sentence — "make it calmer" — then review its diff line by line.</td></tr>
+        <tr><td><strong>Session 45</strong></td><td><strong>Reading strangers' code.</strong><br><em>⟳ Drill:</em> functions kata (Session 34, stages old).<br><em>New:</em> pick one file in a real open-source project; trace it with <code>rg</code> and the editor.<br><em>Do:</em> write five sentences on what it does; verify with the agent after. Gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner; only <em>after</em> your five sentences, ask it to grade your reading.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 62 (2–4h)</span>
-        <p><strong>A small app with real storage.</strong> Fuse the last three weeks: a local app — web page or rich terminal UI — backed by <code>log.db</code>, with at least one thing fetched from the outside world. You lead; the agent implements only pieces you've specified with tests. This is the biggest thing you've built, and every layer of it is yours to explain.</p>
+        <span class="label">Stage 9 build · 2–4h</span>
+        <p><strong>A small app with real storage.</strong> Fuse the last three stages: a local app — web page or rich terminal UI — backed by <code>log.db</code>, with at least one thing fetched from the outside world. You lead; the agent implements only pieces you've specified with tests. This is the biggest thing you've built, and every layer of it is yours to explain.</p>
       </div>
-      <p><strong>Week 9 check:</strong> explain request/response and a status code in plain words; fetch, store, and serve the same piece of data; find your way around a codebase you've never seen well enough to describe one file's job.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Add a second data source and a second endpoint. Harden the error paths: kill the network mid-fetch, feed it garbage JSON, watch it fail gracefully. Side quest: read one small real web app top to bottom and diagram its request path in your log.</p>
+      </div>
+      <p><strong>Gate check 9:</strong> explain request/response and a status code in plain words; fetch, store, and serve the same piece of data; find your way around a codebase you've never seen well enough to describe one file's job.</p>
 
-      <h2><span class="hash">#</span>Week 10 — Directing agents on narrow work</h2>
-      <p>Reading: <a href="editors-ai.html">Editors &amp; AI</a> — the loop, concrete targets, and knowing your budget. This week the skill under practice <em>is</em> direction. Agent phase: <strong>bounded pair</strong>, deliberately exercised.</p>
+      <h2><span class="hash">#</span>Stage 10 — Directing agents on narrow work</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 10</span><span class="ph-committed">Committed: ≈ days 32–35</span><span class="ph-immersed">Immersed: ≈ days 16–18</span></p>
+      <p>Reading: <a href="editors-ai.html">Editors &amp; AI</a> — the loop, concrete targets, and knowing your budget. This stage the skill under practice <em>is</em> direction. Agent phase: <strong>bounded pair</strong>, deliberately exercised.</p>
       <table class="keytable">
-        <tr><td><strong>Day 64 · Mon</strong></td><td><strong>The loop, deliberately.</strong><br><em>⟳ Drill:</em> serve-and-curl (Day 59).<br><em>New:</em> describe → plan → edit → review diff → verify, as a conscious cycle.<br><em>Do:</em> three tiny tasks through the full loop; reject one plan on purpose and re-describe.<br><em>Log:</em> what changed between your first and second description?<br><em>Agent:</em> the subject of study.</td></tr>
-        <tr><td><strong>Day 65 · Tue</strong></td><td><strong>Failing-test-first.</strong><br><em>⟳ Drill:</em> red-green by hand (Day 47).<br><em>New:</em> you write the red test, the agent makes it green, you verify.<br><em>Do:</em> two rounds on your app.<br><em>Log:</em> commit.<br><em>Agent:</em> exactly and only the green.</td></tr>
-        <tr><td><strong>Day 66 · Wed</strong></td><td><strong>Visual targets.</strong><br><em>⟳ Drill:</em> loop cycle (Day 64), one task.<br><em>New:</em> give the agent a screenshot or sketch and say "build this"; compare against prose-only for the same change.<br><em>Do:</em> one UI change both ways; keep the better result.<br><em>Log:</em> which spec won and why.<br><em>Agent:</em> the experiment.</td></tr>
-        <tr><td><strong>Day 67 · Thu</strong></td><td><strong>Budget day.</strong><br><em>⟳ Drill:</em> test-first (Day 65).<br><em>New:</em> <code>/context</code>, <code>/usage</code>, clean sessions vs. polluted ones; <code>btop</code> while an agent works.<br><em>Do:</em> deliberately overfill a session's context, watch quality sag, restart clean with a summary — feel the difference.<br><em>Log:</em> what you noticed.<br><em>Agent:</em> ask it to summarize the polluted session for its own replacement.</td></tr>
-        <tr><td><strong>Day 68 · Fri</strong></td><td><strong>Critical review.</strong><br><em>⟳ Drill:</em> visual target (Day 66), one small round.<br><em>New:</em> reviewing as a discipline: for every agent diff today, name one concrete risk out loud before accepting.<br><em>Do:</em> skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner.</td></tr>
+        <tr><td><strong>Session 46</strong></td><td><strong>The loop, deliberately.</strong><br><em>⟳ Drill:</em> serve-and-curl (Session 43).<br><em>New:</em> describe → plan → edit → review diff → verify, as a conscious cycle.<br><em>Do:</em> three tiny tasks through the full loop; reject one plan on purpose and re-describe.<br><em>Log:</em> what changed between your first and second description?<br><em>Agent:</em> the subject of study.</td></tr>
+        <tr><td><strong>Session 47</strong></td><td><strong>Failing-test-first.</strong><br><em>⟳ Drill:</em> red-green by hand (Session 35).<br><em>New:</em> you write the red test, the agent makes it green, you verify.<br><em>Do:</em> two rounds on your app.<br><em>Log:</em> commit.<br><em>Agent:</em> exactly and only the green.</td></tr>
+        <tr><td><strong>Session 48</strong></td><td><strong>Visual targets.</strong><br><em>⟳ Drill:</em> loop cycle (Session 46), one task.<br><em>New:</em> give the agent a screenshot or sketch and say "build this"; compare against prose-only for the same change.<br><em>Do:</em> one UI change both ways; keep the better result.<br><em>Log:</em> which spec won and why.<br><em>Agent:</em> the experiment.</td></tr>
+        <tr><td><strong>Session 49</strong></td><td><strong>Budget day.</strong><br><em>⟳ Drill:</em> test-first (Session 47).<br><em>New:</em> <code>/context</code>, <code>/usage</code>, clean sessions vs. polluted ones; <code>btop</code> while an agent works.<br><em>Do:</em> deliberately overfill a session's context, watch quality sag, restart clean with a summary — feel the difference.<br><em>Log:</em> what you noticed.<br><em>Agent:</em> ask it to summarize the polluted session for its own replacement.</td></tr>
+        <tr><td><strong>Session 50</strong></td><td><strong>Critical review.</strong><br><em>⟳ Drill:</em> visual target (Session 48), one small round.<br><em>New:</em> reviewing as a discipline: for every agent diff today, name one concrete risk out loud before accepting.<br><em>Do:</em> gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 69 (2–4h)</span>
-        <p><strong>An agent-assisted feature, verified.</strong> Add a real feature to your app: you write the spec and the tests, the agent implements, you review and verify everything. Commit <code>verification.md</code> recording what you checked and how — that document is the artifact, and the habit it trains is the one that makes the next two weeks possible.</p>
+        <span class="label">Stage 10 build · 2–4h</span>
+        <p><strong>An agent-assisted feature, verified.</strong> Add a real feature to your app: you write the spec and the tests, the agent implements, you review and verify everything. Commit <code>verification.md</code> recording what you checked and how — that document is the artifact, and the habit it trains is the one that makes the last two stages possible.</p>
       </div>
-      <p><strong>Week 10 check:</strong> run the full loop without skipping review; produce a red test an agent can work from; notice a polluted context before it costs you an hour.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Run the same feature through two different prompts and diff the results — prompt quality made visible. Try two agents in parallel panes on separate tiny tasks; feel the supervision cost. Side quest: reread your Stage 1 log entries and count how many things the agent explained that you now just know.</p>
+      </div>
+      <p><strong>Gate check 10:</strong> run the full loop without skipping review; produce a red test an agent can work from; notice a polluted context before it costs you an hour.</p>
 
-      <h2><span class="hash">#</span>Week 11 — Repo scale: specs, delegation, verification</h2>
+      <h2><span class="hash">#</span>Stage 11 — Repo scale: specs, delegation, verification</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 11</span><span class="ph-committed">Committed: ≈ days 36–39</span><span class="ph-immersed">Immersed: ≈ days 18–20</span></p>
       <p>Reading: <a href="agents.html">AI agents &amp; rules</a>, <a href="new-project.html">Starting a project</a>, and the security chop on <a href="agentic-engineering.html">the agentic engineering page</a>. Agent phase: <strong>delegate</strong> — bounded tasks end to end. You own the merge.</p>
       <table class="keytable">
-        <tr><td><strong>Day 71 · Mon</strong></td><td><strong>AGENTS.md.</strong><br><em>⟳ Drill:</em> risk-naming review (Day 68).<br><em>New:</em> write <code>AGENTS.md</code> for your app: how to run it, test it, what never to touch.<br><em>Do:</em> fresh agent session; see if it follows the rules cold.<br><em>Log:</em> what it got wrong; fix the file, not the agent.<br><em>Agent:</em> the test subject.</td></tr>
-        <tr><td><strong>Day 72 · Tue</strong></td><td><strong>Plan-first delegation.</strong><br><em>⟳ Drill:</em> budget check (Day 67) before starting.<br><em>New:</em> a meaty task, delegated whole: demand the plan, edit the plan, then let it run.<br><em>Do:</em> verify each plan step landed as described.<br><em>Log:</em> where the plan and reality diverged.<br><em>Agent:</em> delegate, plan-first.</td></tr>
-        <tr><td><strong>Day 73 · Wed</strong></td><td><strong>Security pass.</strong><br><em>⟳ Drill:</em> SELECT-before-write (Day 53, weeks old) — still automatic?<br><em>New:</em> secrets, injection, what could leak: audit your own app.<br><em>Do:</em> ask the agent to attack its own earlier work; verify each finding yourself before believing it.<br><em>Log:</em> real findings, fixed.<br><em>Agent:</em> adversary, then you verify.</td></tr>
-        <tr><td><strong>Day 74 · Thu</strong></td><td><strong>Unfamiliar territory.</strong><br><em>⟳ Drill:</em> reading strangers' code (Day 61).<br><em>New:</em> clone a small open-source project; scope one tiny improvement — doc fix, test, small bug.<br><em>Do:</em> write the spec and checklist for it. Just the spec today.<br><em>Log:</em> commit the spec.<br><em>Agent:</em> ask it to poke holes in your scope — too big? unclear?</td></tr>
-        <tr><td><strong>Day 75 · Fri</strong></td><td><strong>Recovery and capture.</strong><br><em>⟳ Drill:</em> undo trio (Day 25 — old friend, one last time).<br><em>New:</em> <code>/rewind</code>, <code>git revert</code>, when to abandon a session; start your <a href="knowledge.html">knowledge base</a> and move durable lessons out of the log.<br><em>Do:</em> skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner.</td></tr>
+        <tr><td><strong>Session 51</strong></td><td><strong>AGENTS.md.</strong><br><em>⟳ Drill:</em> risk-naming review (Session 50).<br><em>New:</em> write <code>AGENTS.md</code> for your app: how to run it, test it, what never to touch.<br><em>Do:</em> fresh agent session; see if it follows the rules cold.<br><em>Log:</em> what it got wrong; fix the file, not the agent.<br><em>Agent:</em> the test subject.</td></tr>
+        <tr><td><strong>Session 52</strong></td><td><strong>Plan-first delegation.</strong><br><em>⟳ Drill:</em> budget check (Session 49) before starting.<br><em>New:</em> a meaty task, delegated whole: demand the plan, edit the plan, then let it run.<br><em>Do:</em> verify each plan step landed as described.<br><em>Log:</em> where the plan and reality diverged.<br><em>Agent:</em> delegate, plan-first.</td></tr>
+        <tr><td><strong>Session 53</strong></td><td><strong>Security pass.</strong><br><em>⟳ Drill:</em> SELECT-before-write (Session 39, stages old) — still automatic?<br><em>New:</em> secrets, injection, what could leak: audit your own app.<br><em>Do:</em> ask the agent to attack its own earlier work; verify each finding yourself before believing it.<br><em>Log:</em> real findings, fixed.<br><em>Agent:</em> adversary, then you verify.</td></tr>
+        <tr><td><strong>Session 54</strong></td><td><strong>Unfamiliar territory.</strong><br><em>⟳ Drill:</em> reading strangers' code (Session 45).<br><em>New:</em> clone a small open-source project; scope one tiny improvement — doc fix, test, small bug.<br><em>Do:</em> write the spec and checklist for it. Just the spec today.<br><em>Log:</em> commit the spec.<br><em>Agent:</em> ask it to poke holes in your scope — too big? unclear?</td></tr>
+        <tr><td><strong>Session 55</strong></td><td><strong>Recovery and capture.</strong><br><em>⟳ Drill:</em> undo trio (Session 19 — old friend, one last time).<br><em>New:</em> <code>/rewind</code>, <code>git revert</code>, when to abandon a session; start your <a href="knowledge.html">knowledge base</a> and move durable lessons out of the log.<br><em>Do:</em> gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 76 (2–4h)</span>
-        <p><strong>The unfamiliar-repo task.</strong> Execute Thursday's spec end to end in the foreign codebase — delegated to the agent against your checklist, every item verified by you, written up in <code>verification.md</code>. Working in code you didn't write, safely, is the truest test this program has.</p>
+        <span class="label">Stage 11 build · 2–4h</span>
+        <p><strong>The unfamiliar-repo task.</strong> Execute Session 54's spec end to end in the foreign codebase — delegated to the agent against your checklist, every item verified by you, written up in <code>verification.md</code>. Working in code you didn't write, safely, is the truest test this program has.</p>
       </div>
-      <p><strong>Week 11 check:</strong> a fresh agent session follows your AGENTS.md without coaching; you catch a plan-reality divergence before merge; the SELECT-before-write and risk-naming habits fire without prompting.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Do it twice: a second unfamiliar repo, second spec, second verified delegation. Write an <code>AGENTS.md</code> for the foreign repo as if you maintained it. Run a second adversarial security round on your own app with a fresh session and compare findings.</p>
+      </div>
+      <p><strong>Gate check 11:</strong> a fresh agent session follows your AGENTS.md without coaching; you catch a plan-reality divergence before merge; the SELECT-before-write and risk-naming habits fire without prompting.</p>
 
-      <h2><span class="hash">#</span>Week 12 — Capstone</h2>
+      <h2><span class="hash">#</span>Stage 12 — Capstone</h2>
+      <p class="stage-cadence"><span class="ph-steady">Steady: week 12</span><span class="ph-committed">Committed: ≈ days 39–42</span><span class="ph-immersed">Immersed: ≈ days 20–21</span></p>
       <p>One small, real thing you want to exist — built the way you now work: planned, directed, verified, explained. Agent phase: <strong>delegate</strong>, with you as the engineer of record.</p>
       <table class="keytable">
-        <tr><td><strong>Day 78 · Mon</strong></td><td><strong>Spec it.</strong><br><em>⟳ Drill:</em> your choice — whatever the Week 11 examiner said you're avoiding.<br><em>New:</em> goals, invariants, storage shape (Week 8 decision, now for real), and what "done" proves.<br><em>Do:</em> write the capstone spec; deliberately small — the craft is the point, not the size.<br><em>Log:</em> the spec, committed.<br><em>Agent:</em> ask it to find the vaguest sentence in your spec; sharpen it.</td></tr>
-        <tr><td><strong>Day 79–81 · Tue–Thu</strong></td><td><strong>Build days.</strong><br><em>⟳ Drill:</em> five minutes, your weakest skill, each morning.<br><em>Do (per day):</em> one planned slice: direct, verify, log honestly what the agent did versus what you did. Three slices, three commits minimum.<br><em>Agent:</em> delegate within the spec; every diff read; every claim verified.</td></tr>
-        <tr><td><strong>Day 82 · Fri</strong></td><td><strong>Harden.</strong><br><em>⟳ Drill:</em> none — today is all Do.<br><em>Do:</em> tests green, security look, README a stranger could follow, database backed up. Final skill check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner, then final adversary pass.</td></tr>
+        <tr><td><strong>Session 56</strong></td><td><strong>Spec it.</strong><br><em>⟳ Drill:</em> your choice — whatever the Stage 11 examiner said you're avoiding.<br><em>New:</em> goals, invariants, storage shape (Stage 8 decision, now for real), and what "done" proves.<br><em>Do:</em> write the capstone spec; deliberately small — the craft is the point, not the size.<br><em>Log:</em> the spec, committed.<br><em>Agent:</em> ask it to find the vaguest sentence in your spec; sharpen it.</td></tr>
+        <tr><td><strong>Sessions 57–59</strong></td><td><strong>Build sessions.</strong><br><em>⟳ Drill:</em> five minutes, your weakest skill, each morning.<br><em>Do (per session):</em> one planned slice: direct, verify, log honestly what the agent did versus what you did. Three slices, three commits minimum.<br><em>Agent:</em> delegate within the spec; every diff read; every claim verified.</td></tr>
+        <tr><td><strong>Session 60</strong></td><td><strong>Harden.</strong><br><em>Do:</em> tests green, security look, README a stranger could follow, database backed up. Final gate check + examiner.<br><em>Log:</em> results.<br><em>Agent:</em> examiner, then final adversary pass.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Saturday build · Day 83 (2–4h)</span>
+        <span class="label">Stage 12 build · 2–4h</span>
         <p><strong>Finish and explain.</strong> Ship the capstone, then write the explanation that matters: what it does, how you verified it, what the agent did and what you did, and what you'd do differently. That write-up — not the code — is the proof this program worked.</p>
       </div>
-      <p><strong>Day 84 · Sunday:</strong> the retrospective. Read your whole log start to finish — Day 1 you and Day 84 you are different people. Then choose what's next.</p>
+      <div class="callout tip pace-deep">
+        <span class="label">Go deeper — Committed &amp; Immersed</span>
+        <p>Stretch goals from your spec's cut list. New game+: rebuild your Stage 6 CLI tool from scratch in half the time it took the first time — the clearest possible measure of what changed. Write "what I'd tell Day-1 me" and pin it at the top of the log.</p>
+      </div>
+      <p><strong>The last day:</strong> the retrospective. Read your whole log start to finish — the person who wrote Day 1 and the person reading it are different people. Then choose what's next.</p>
 
-      <h2><span class="hash">#</span>After Day 84</h2>
-      <p>You have habits, a portfolio repo, and an agent you know how to direct. Point it at something you love: a week-long <a href="game-dev.html">game</a>, <a href="web-dev.html">web</a>, <a href="app-dev.html">app</a>, or <a href="gen-media.html">media</a> track — or straight at <a href="path.html">the longer path</a> toward working like an engineer. The daily log doesn't have to stop; only the schedule does.</p>
+      <h2><span class="hash">#</span>After the twelfth gate</h2>
+      <p>You have habits, a portfolio repo, and an agent you know how to direct. Point it at something you love: a week-long <a href="game-dev.html">game</a>, <a href="web-dev.html">web</a>, <a href="app-dev.html">app</a>, or <a href="gen-media.html">media</a> track — immersed pace makes those a natural next month — or straight at <a href="path.html">the longer path</a> toward working like an engineer. The daily log doesn't have to stop; only the schedule does.</p>
 
       <div class="pagenav">
         <a href="practice.html"><span class="dir">← Prev</span>Practice plan</a>
         <a href="setup.html"><span class="dir">Next →</span>Setup &amp; chezmoi</a>
       </div>
-      <footer class="site">One honest hour at a time. Day 1 is today.</footer>
+      <footer class="site">Same sequence, same gates, your hours.</footer>
     </div>
   </main>
 </div>
 <script src="assets/site.js"></script>
+<script>
+(function () {
+  var KEY = "gw12-pace";
+  var root = document.getElementById("twelve");
+  if (!root) return;
+  var btns = Array.prototype.slice.call(document.querySelectorAll("[data-pace-btn]"));
+  function set(pace, persist) {
+    if (pace) root.setAttribute("data-pace", pace);
+    else root.removeAttribute("data-pace");
+    btns.forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-pace-btn") === pace ? "true" : "false");
+    });
+    if (persist) {
+      try {
+        if (pace) localStorage.setItem(KEY, pace);
+        else localStorage.removeItem(KEY);
+      } catch (e) {}
+    }
+  }
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var pace = b.getAttribute("data-pace-btn");
+      set(root.getAttribute("data-pace") === pace ? null : pace, true);
+    });
+  });
+  try {
+    var saved = localStorage.getItem(KEY);
+    if (saved === "steady" || saved === "committed" || saved === "immersed") set(saved, false);
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
