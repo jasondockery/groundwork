@@ -184,6 +184,36 @@ groundwork-repo-dir() {
   fi
 }
 
+# Scaffold the Groundwork Twelve learning-log repo. Day 1 teaches typing the
+# ritual by hand; this helper is for restarts and additional machines.
+new-twelve-log() {
+  emulate -L zsh
+  local dest="${1:-$HOME/groundwork-log}"
+  dest=${~dest}
+  if [[ -e "$dest" ]]; then
+    print "new-twelve-log: $dest already exists"
+    return 1
+  fi
+  local repo="$(groundwork-repo-dir)"
+  local src="$repo/skel/twelve-log"
+  if [[ ! -d "$src" ]]; then
+    print "new-twelve-log: skeleton not found at $src"
+    return 1
+  fi
+  cp -R "$src" "$dest" || return 1
+  git -C "$dest" init -q || return 1
+  git -C "$dest" add -A || return 1
+  if ! git -C "$dest" commit -qm "init groundwork twelve log"; then
+    print "new-twelve-log: files copied to $dest, but git commit failed"
+    print "fix your git identity/signing setup, then run:"
+    print "  git -C ${(q)dest} add -A && git -C ${(q)dest} commit -m 'init groundwork twelve log'"
+    return 1
+  fi
+  print "log ready: $dest"
+  print "next: open log.md, write your Day 1 line, and commit it — that commit is Day 1"
+  cd "$dest"
+}
+
 new-wiki() {
   emulate -L zsh
   if [[ -z "$1" ]]; then
