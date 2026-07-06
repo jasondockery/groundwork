@@ -18,8 +18,18 @@ after the work is verified, never aspirationally.
 - [x] Groundwork Twelve log scaffold (2026-07-06): `skel/twelve-log` with
       log/examiner/AGENTS.md templates, wired to the `new-twelve-log`
       helper (mirrors `new-wiki`).
+- [x] Groundwork Twelve v2 (2026-07-06): full per-day structure for all 60
+      weekdays (drill/new/do/log/agent slots), spaced drill recurrence named
+      per day, and learning games woven in as drill alternatives.
+- [x] Data & storage foundations page shipped (2026-07-06): relational vs
+      document stores, hands-on SQLite and jq, agent-at-data safety rules
+      (`docs/data.html`); Week 8 of Groundwork Twelve teaches it.
 - [ ] Groundwork Twelve: revisit week content and time estimates after the
       first real learners run it end to end.
+- [ ] Invent the missing learning games: no good game exists for tmux or for
+      agent direction. Prototype an agent-as-game-master terminal quest — a
+      `skel/` with AGENTS.md gamemaster rules that generates dungeons
+      (folders, files, git states) in a scratch repo and grades solutions.
 - [ ] Quick wins: a first successful session plus a couple of short practice
       drills that produce something real fast.
 - [ ] Interest tracks: browser FPS, Unity FPS, web project, app, and

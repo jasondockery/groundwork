@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Data &amp; storage · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/data.html">
+<meta property="og:title" content="Data &amp; storage · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Data &amp; storage · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/data.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html" class="active">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Foundations</p>
+      <h1>Data &amp; storage: where every real app actually lives.</h1>
+      <p class="lead">Strip any serious application down and you find the same thing: data, and rules about who can change it. The code around it comes and goes; the data model outlives everything. This page gives you the two big storage families, hands-on practice with tools already on your machine, and the reason this matters more — not less — now that agents write most of the queries.</p>
+
+      <div class="callout note">
+        <span class="label">Why this is AI-native</span>
+        <p>Agents are excellent at <em>writing</em> SQL and data code — and they will write it confidently whether it's right or wrong. The human's job is judging it: does this query answer the actual question? Will this <code>UPDATE</code> touch three rows or three million? Is this the right shape for the data at all? You can't verify what you can't read. Data fluency is verification fluency.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The two big families</h2>
+      <p>Nearly every storage system you'll meet is one of two shapes — and most real systems use both, for different jobs.</p>
+      <table class="keytable">
+        <tr><td><strong>Relational (SQL)</strong></td><td>Data lives in <strong>tables</strong> — rows and typed columns, like a very strict spreadsheet. Relationships between tables are first-class (<em>this order belongs to that customer</em>), the schema is enforced up front, and you query with <strong>SQL</strong>, a language from 1974 that has outlived everything built to replace it. Examples: <strong>SQLite</strong> (a whole database in one file, already on your Mac), <strong>PostgreSQL</strong> and <strong>MySQL</strong> (the servers behind most of the web).</td></tr>
+        <tr><td><strong>Document</strong></td><td>Data lives as <strong>documents</strong> — typically JSON objects, grouped into collections, looked up by key. The shape can vary record to record, the schema lives in your code's expectations rather than the database, and it scales horizontally in exchange for weaker cross-record queries. Examples: <strong>MongoDB</strong>, <strong>Amazon DynamoDB</strong>, <strong>Firestore</strong>.</td></tr>
+      </table>
+      <table class="keytable">
+        <tr><td><strong>Reach for SQL when…</strong></td><td>Records relate to each other, you'll ask questions you haven't thought of yet, or correctness rules matter (money, inventory, anything you'd be sued over). The default for almost everything.</td></tr>
+        <tr><td><strong>Reach for documents when…</strong></td><td>Records are self-contained blobs with varying shape, you always fetch by key, or you're at a scale where a single SQL server strains. Common in serverless and event-heavy systems.</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">The honest default</span>
+        <p>Start every project with SQLite. It's one file, zero setup, real SQL, and it carries further than people expect — many production systems never outgrow it. Graduate to PostgreSQL when you need concurrent writers or a server; add a document store when a specific access pattern demands it, not because it's trendy.</p>
+      </div>
+
+      <h2><span class="hash">#</span>SQL in ten minutes, on your machine</h2>
+      <p>SQLite ships with macOS and Linux — no install, no server, no account. Open a terminal and type along; this is the whole create-insert-query loop:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">sqlite3</span></div>
+        <pre><code><span class="prompt">$ </span>sqlite3 practice.db
+<span class="prompt">sqlite&gt; </span>CREATE TABLE days (num INTEGER, date TEXT, minutes INTEGER, mode TEXT);
+<span class="prompt">sqlite&gt; </span>INSERT INTO days VALUES (1, '2026-07-07', 60, 'full');
+<span class="prompt">sqlite&gt; </span>INSERT INTO days VALUES (2, '2026-07-08', 15, 'minimum');
+<span class="prompt">sqlite&gt; </span>SELECT * FROM days;
+<span class="prompt">sqlite&gt; </span>SELECT date, minutes FROM days WHERE mode = 'full' ORDER BY date;
+<span class="prompt">sqlite&gt; </span>SELECT mode, COUNT(*), SUM(minutes) FROM days GROUP BY mode;
+<span class="prompt">sqlite&gt; </span>.quit</code></pre>
+      </div>
+      <p>Four verbs carry most of SQL: <code>SELECT</code> (read), <code>INSERT</code> (add), <code>UPDATE</code> (change), <code>DELETE</code> (remove) — plus <code>WHERE</code> to say <em>which rows</em>, and <code>JOIN</code> to connect tables. The classic beginner disaster is an <code>UPDATE</code> or <code>DELETE</code> without a <code>WHERE</code>: it hits every row. Build the habit now that saves production databases later: <strong>run the same condition as a <code>SELECT</code> first</strong>, look at what comes back, and only then change it.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">look before you write</span></div>
+        <pre><code><span class="prompt">sqlite&gt; </span>SELECT * FROM days WHERE mode = 'minimum';   <span class="comment">-- how many rows? the ones you meant?</span>
+<span class="prompt">sqlite&gt; </span>DELETE FROM days WHERE mode = 'minimum';       <span class="comment">-- same WHERE, now it's safe to mean it</span></code></pre>
+      </div>
+
+      <h2><span class="hash">#</span>Documents in ten minutes, no install at all</h2>
+      <p>You already know the document model if you've seen JSON — a document store is conceptually "a folder of JSON, indexed, with an API." You can practice the shape with <code>jq</code> on plain files:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">documents with jq</span></div>
+        <pre><code><span class="prompt">$ </span>echo '[{"day":1,"minutes":60,"tags":["shell"]},
+        {"day":2,"minutes":15,"tags":["tmux","minimum"]}]' > days.json
+<span class="prompt">$ </span>jq '.[] | select(.minutes > 30)' days.json          <span class="comment"># a "query"</span>
+<span class="prompt">$ </span>jq '[.[].minutes] | add' days.json                   <span class="comment"># an "aggregation"</span>
+<span class="prompt">$ </span>jq '.[] | select(.tags | contains(["tmux"]))' days.json</code></pre>
+      </div>
+      <p>Real document databases add what files can't give you: indexes (fast lookup by any field), concurrent access, and durability guarantees. DynamoDB adds one more idea worth knowing early because it inverts SQL thinking: you <strong>design the table around your access patterns</strong> — decide the questions first, then shape keys so each question is one cheap lookup. SQL lets you ask anything later; Dynamo makes you commit to the questions up front in exchange for flat, predictable speed at any scale.</p>
+
+      <h2><span class="hash">#</span>Directing agents at data</h2>
+      <p>This is where the two halves of Groundwork meet. Rules that keep agent-written data code safe:</p>
+      <table class="keytable">
+        <tr><td><strong>Reads are cheap, writes are decisions</strong></td><td>Let an agent draft any <code>SELECT</code> it likes. Any <code>UPDATE</code>, <code>DELETE</code>, <code>DROP</code>, or migration gets read by you, preceded by the matching <code>SELECT</code>, and run against a copy first when the data matters.</td></tr>
+        <tr><td><strong>Make it show its work</strong></td><td>"Write the query <em>and</em> a second query that proves it did the right thing." Row counts before and after are the diff review of the data world.</td></tr>
+        <tr><td><strong>Own the model</strong></td><td>Agents implement schemas well and choose them badly. Deciding what the tables or documents <em>are</em> — what's a row, what relates to what, what must never be lost — is judgment work, and it stays yours.</td></tr>
+        <tr><td><strong>Backups before bravery</strong></td><td>SQLite makes this absurdly easy: <code>cp practice.db practice.backup.db</code>. Do it before any agent-written migration, every time.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Your log as a database</h3>
+          <p>Create <code>log.db</code> with a <code>days</code> table and enter your last week by hand. Answer with queries: total minutes, days per mode, longest streak of full days. Feel where SQL beats scrolling a text file.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>The WHERE habit</h3>
+          <p>Insert twenty rows. Practice five UPDATE/DELETE operations, each preceded by its SELECT twin. Then break the rule once on a throwaway copy — run <code>UPDATE days SET minutes = 0;</code> bare — and look at the wreckage. You'll never forget the WHERE again.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Same data, both shapes</h3>
+          <p>Model your log both ways: rows in SQLite, documents in a JSON file queried with jq. Write down one question each shape made easy and one it made awkward. That pair of sentences is the whole SQL-vs-document debate in miniature.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://sqlbolt.com" target="_blank" rel="noopener">SQLBolt</a> — interactive SQL lessons in the browser; the fastest zero-to-queries path.</li>
+        <li><a href="https://www.sqlite.org/quickstart.html" target="_blank" rel="noopener">SQLite quickstart</a> — the official five-minute intro to the database you already have.</li>
+        <li><a href="https://use-the-index-luke.com" target="_blank" rel="noopener">Use the Index, Luke</a> — when you're ready to understand why queries are fast or slow.</li>
+        <li><a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-general-nosql-design.html" target="_blank" rel="noopener">DynamoDB data modeling</a> — access-pattern-first design, from the source.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="git.html"><span class="dir">← Prev</span>Git</a>
+        <a href="editors-ai.html"><span class="dir">Next →</span>Editors &amp; AI</a>
+      </div>
+      <footer class="site">Code is opinion. Data is fact. Guard the facts.</footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
