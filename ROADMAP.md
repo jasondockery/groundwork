@@ -15,9 +15,11 @@ after the work is verified, never aspirationally.
       restriction ladder, log-repo + skill-check + agent-examiner
       measurement (`docs/groundwork-twelve.html`). Internal pedagogy label:
       progressive learning.
-- [ ] Groundwork Twelve follow-ups: a `skel/` log-repo template wired into a
-      helper (like `new-wiki`), and revisit week content after first real
-      learners run it.
+- [x] Groundwork Twelve log scaffold (2026-07-06): `skel/twelve-log` with
+      log/examiner/AGENTS.md templates, wired to the `new-twelve-log`
+      helper (mirrors `new-wiki`).
+- [ ] Groundwork Twelve: revisit week content and time estimates after the
+      first real learners run it end to end.
 - [ ] Quick wins: a first successful session plus a couple of short practice
       drills that produce something real fast.
 - [ ] Interest tracks: browser FPS, Unity FPS, web project, app, and
