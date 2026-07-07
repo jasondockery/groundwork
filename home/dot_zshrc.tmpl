@@ -161,7 +161,14 @@ update-all() {
   chezmoi update || return
   if command -v brew >/dev/null 2>&1; then
     brew update || return
-    brew upgrade --greedy || return
+    # --greedy-latest, not --greedy: refresh version:latest casks (e.g. the AI
+    # CLIs) while leaving auto-updating GUI apps to their own update channels.
+    # NO_UPGRADE_AUTO_UPDATES_CASKS also stops plain upgrade from re-downloading
+    # a self-updating app it happens to find stale. Re-downloading those apps via
+    # Homebrew reapplies quarantine and re-triggers Gatekeeper's "are you sure
+    # you want to open it?" prompt on apps already accepted. Do not use
+    # --no-quarantine; Groundwork preserves Gatekeeper.
+    HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest || return
     brew cleanup || return
   fi
   if command -v mise >/dev/null 2>&1; then
