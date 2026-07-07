@@ -33,16 +33,18 @@ jobs:
           fetch-tags: true
 
       # Stamp the released version (latest semver tag) into every page
-      # footer, linking to release notes. No tag yet → footers keep the
-      # graceful "latest" text; the version is never hand-edited in HTML.
+      # footer, linking to release notes. The tracked HTML deliberately says
+      # "dev" — truthful for anyone viewing docs from a local checkout — and
+      # only the published build carries a version claim. Versions are never
+      # hand-edited in HTML.
       - name: Stamp docs version from latest tag
         run: |
           VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           if [ -n "$VERSION" ]; then
-            find docs -name '*.html' -exec sed -i "s|class=\"gw-version\"[^>]*>latest<|class=\"gw-version\">${VERSION}<|g" {} +
+            find docs -name '*.html' -exec sed -i "s|class=\"gw-version\"\([^>]*\)>dev<|class=\"gw-version\"\1>${VERSION}<|g" {} +
             echo "Stamped ${VERSION}"
           else
-            echo "No tag found; leaving 'latest'"
+            echo "No tag found; leaving 'dev'"
           fi
 
       - name: Configure Pages
