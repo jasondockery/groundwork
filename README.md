@@ -272,4 +272,6 @@ truth: the Pages build stamps the latest tag into every docs footer with a
 link to [release notes](https://github.com/jasondockery/groundwork/releases)
 (auto-generated from conventional commits). Versions are never hand-edited
 into HTML; a local checkout's footers honestly read `dev`, so only the
-published site ever claims a version.
+published site ever claims a version. To view docs locally with your
+exact checkout stamped in (tag + short commit SHA + dirty marker), run
+`scripts/serve-docs.sh`.
