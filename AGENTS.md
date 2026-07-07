@@ -31,6 +31,7 @@ Before broad documentation, onboarding, tooling, or agent-instruction changes, r
 ## Git
 - Use small, focused changes.
 - Use conventional commit prefixes when committing: `feat`, `fix`, `refactor`, `docs`, `chore`, or `test`.
+- When a commit is due, propose 2–3 message candidates as full commands the user can pick from or edit — e.g. `git commit -m "docs: clarify tmux pane workflow"`, `git commit -m "feat: add shell drill for pipes"`, `git commit -m "chore: bump mise pins"` — including a split-commit option when the diff spans concerns. The user picks.
 - Never commit secrets, keys, tokens, or `.env` contents.
 - Never revert user changes unless explicitly asked.
 
