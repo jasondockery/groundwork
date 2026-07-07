@@ -11,6 +11,14 @@ Before broad documentation, onboarding, tooling, or agent-instruction changes, r
 - Keep repeatable, task-specific agent procedures in `skills/` only when a workflow is reused often enough to justify loading it on demand.
 - Do not create parallel `AI_RULES.md`, `CLAUDE.md`, Cursor rules, or similar files unless the file is a thin adapter, a rendered template wrapper, or there is a tool-specific requirement that cannot live here.
 
+## Agent tooling and plugins
+The rule: Groundwork configures the developer; each repo configures itself. Use this to decide where any agent tool, plugin, skill, or rule belongs.
+- Install the agent CLIs and apps (Claude Code, Codex, Cursor, and peers) through the `Brewfile`. That is machine-level developer setup and belongs in Groundwork.
+- Keep personal, cross-project agent config in Groundwork as a thin, tool-neutral baseline: the rendered adapters under `home/dot_claude/` and `home/dot_codex/` that point at one source of truth, plus personal defaults like model choice or personal MCP servers. Keep it opinion-light and add a new per-tool adapter, not a new integration, when a tool appears.
+- Keep repo-specific plugins, skills, and rules committed in the repo that needs them (this repo already does this under `skills/` and `AGENTS.md`), or in Roost for an organization. Never bake one repo's needs into the machine install: config required for the work to be correct must travel with the repo so teammates and CI agents get it too, not only people who set up via Groundwork.
+- Prefer the tool-neutral `AGENTS.md` spine with thin per-tool adapters over wiring each tool's native plugin system. Plugin ecosystems move fast and differ per tool; the spine outlasts them and keeps the maintenance and bug surface small.
+- Quick test: required for the work to be correct goes in the repo; a personal preference across all your work goes in Groundwork; specific to what Groundwork, Roost, or renovate-config need goes in those repos.
+
 ## Working style
 - Plan before non-trivial changes; for one-liners, just do it.
 - Proceed on reasonable assumptions and state them, rather than stalling to ask. Ask only when genuinely blocked or a choice is irreversible.
