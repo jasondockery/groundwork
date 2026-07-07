@@ -28,6 +28,22 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+          # Tags are the version source of truth for the footer stamp below.
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Stamp the released version (latest semver tag) into every page
+      # footer, linking to release notes. No tag yet → footers keep the
+      # graceful "latest" text; the version is never hand-edited in HTML.
+      - name: Stamp docs version from latest tag
+        run: |
+          VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$VERSION" ]; then
+            find docs -name '*.html' -exec sed -i "s|class=\"gw-version\"[^>]*>latest<|class=\"gw-version\">${VERSION}<|g" {} +
+            echo "Stamped ${VERSION}"
+          else
+            echo "No tag found; leaving 'latest'"
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6

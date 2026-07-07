@@ -262,3 +262,13 @@ home/
 ```
 
 In short: managed configs live under `home/dot_config/`; the `home/run_` scripts do installs and machine setup; global AI standards are in `AGENTS.md`; and `new-project` (installed to `~/.local/bin`) scaffolds per-repo AI guides.
+
+## Releases & versioning
+
+Groundwork uses semantic versioning — `vMAJOR.MINOR.PATCH` (e.g. `v1.0.0`),
+the same scheme as its sibling project. Minor bumps add or revise content;
+major bumps restructure the path. The git tag is the single source of
+truth: the Pages build stamps the latest tag into every docs footer with a
+link to [release notes](https://github.com/jasondockery/groundwork/releases)
+(auto-generated from conventional commits). Versions are never hand-edited
+into HTML.
