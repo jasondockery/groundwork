@@ -1,23 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Groundwork dependency updates via the hosted Mend Renovate app (installed account-wide, Interactive mode). The surfaces here are GitHub Actions SHA pins and the Dockerfile base image digest. Operational notes live in PLAYBOOK.md.",
-    "Policy mirrors the roost repo: weekly schedule, 5 day cooldown, grouped non-major updates, immediate security PRs. When the shared renovate-config preset repo exists, replace extends with github>jasondockery/renovate-config so the policy is defined once.",
-    "Cooldown is 5 days (2026-07-05, aligned with roost): roost needs Renovate one day ahead of pnpm's 4-day timestamp-exact minimumReleaseAge (date-granularity trap, see roost tools/github/README.md). Groundwork has no pnpm layer so 4 would work here, but a differing value is drift the preset would have to resolve — shared policy, one value.",
-    "Security PRs automerge (decided 2026-07-04, aligning with roost — the automerge difference was drift, not policy): CI here proves the same things a human check would (render validation, gitleaks, Docker build + smoke test), and a vulnerable Action or base image should not wait on a manual merge. Shared policy — goes into the preset when it exists."
+    "Groundwork dependency updates via the self-hosted Renovate runner in jasondockery/renovate-config (executor decision: roost tools/github/README.md → Self-hosted Renovate migration). The surfaces here are GitHub Actions SHA pins and the Dockerfile base image digest. Operational notes live in PLAYBOOK.md.",
+    "Shared owner policy (weekly schedule, 5-day cooldown, PR limits, rebase behavior, labels, immediate automerged security PRs) comes from the github>jasondockery/renovate-config preset — defined once, consumed here. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because this repo's surfaces are SHA pins, not semver ranges."
   ],
-  "extends": ["config:best-practices", "schedule:weekly"],
-  "minimumReleaseAge": "5 days",
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 3,
-  "rebaseWhen": "behind-base-branch",
-  "labels": ["dependencies"],
-  "vulnerabilityAlerts": {
-    "addLabels": ["security"],
-    "prCreation": "immediate",
-    "automerge": true,
-    "platformAutomerge": true
-  },
+  "extends": ["github>jasondockery/renovate-config"],
   "packageRules": [
     {
       "groupName": "non-major dependencies",
