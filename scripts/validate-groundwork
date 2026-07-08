@@ -6,7 +6,76 @@ cd "$repo"
 shopt -s nullglob
 
 out_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-rendered.XXXXXX")"
-trap 'rm -rf "$out_dir"' EXIT
+
+# GitHub-aware failure reporting. Locally this is inert: the EXIT trap only
+# cleans up, `check` only echoes the progress line, and `fail` behaves exactly
+# like the echo >&2 + exit 1 it replaces. In GitHub Actions the trap turns a
+# failure into one ::error annotation naming the failing check, and appends a
+# pass/fail summary to $GITHUB_STEP_SUMMARY. Summary/annotation writes are
+# fail-open: they never change the script's exit status.
+current_check="startup"
+checks_started=0
+fail_reason=""
+
+check() {
+  current_check="$1"
+  checks_started=$((checks_started + 1))
+  echo "check: $1"
+}
+
+fail() {
+  fail_reason="$1"
+  echo "$1" >&2
+  exit 1
+}
+
+report_and_cleanup() {
+  local status=$?
+  rm -rf "$out_dir"
+  local cr=$'\r' nl=$'\n'
+  local reason="${fail_reason:-see the failing check output in the job log}"
+  # Annotation messages must be single-line: escape literal % first, then
+  # collapse newlines/carriage returns.
+  reason="${reason//%/%25}"
+  reason="${reason//"$cr"/ }"
+  reason="${reason//"$nl"/ }"
+  local passed="$checks_started"
+  if [[ "$status" -ne 0 && "$checks_started" -gt 0 ]]; then
+    passed=$((checks_started - 1))
+  fi
+  if [[ "$status" -ne 0 && "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    printf '::error title=validate-groundwork: %s failed::%s. Reproduce locally: scripts/validate-groundwork\n' \
+      "$current_check" "$reason" || true
+  fi
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+      echo "## validate-groundwork"
+      echo
+      if [[ "$status" -eq 0 ]]; then
+        echo "**Pass** — all $passed checks passed."
+      else
+        echo "**Fail** — check \`$current_check\` failed after $passed checks passed."
+        echo
+        echo "Reason: ${reason//|/\\|}"
+      fi
+      echo
+      echo "Reproduce locally: \`scripts/validate-groundwork\`"
+    } >>"$GITHUB_STEP_SUMMARY" || true
+  fi
+  exit "$status"
+}
+trap report_and_cleanup EXIT
+
+# In GitHub Actions, gcc format feeds the shellcheck-gcc problem matcher
+# (.github/problem-matchers/shellcheck-gcc.json) so findings surface as
+# file/line annotations; locally keep shellcheck's readable tty output.
+run_shellcheck() {
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    shellcheck --format=gcc "$@"
+  else
+    shellcheck "$@"
+  fi
+}
 
 # Render hermetically: without --config, chezmoi merges the developer's real
 # ~/.config/chezmoi data under --override-data, so keys a test omits on purpose
@@ -39,6 +108,7 @@ render_without_xcode_key() {
 assert_not_contains() {
   local pattern="$1" file="$2" message="$3"
   if grep -Eq "$pattern" "$file"; then
+    fail_reason="$message"
     echo "$message" >&2
     sed -n '1,160p' "$file" >&2
     exit 1
@@ -48,12 +118,10 @@ assert_not_contains() {
 assert_symlink_target() {
   local path="$1" target="$2"
   if [[ ! -L "$path" ]]; then
-    echo "$path must be a symlink to $target" >&2
-    exit 1
+    fail "$path must be a symlink to $target"
   fi
   if [[ "$(readlink "$path")" != "$target" ]]; then
-    echo "$path must point to $target" >&2
-    exit 1
+    fail "$path must point to $target"
   fi
 }
 
@@ -61,12 +129,12 @@ assert_no_matches() {
   local message="$1" status
   shift
   if "$@"; then
-    echo "$message" >&2
-    exit 1
+    fail "$message"
   else
     status=$?
     if [[ "$status" -gt 1 ]]; then
-      echo "failed while checking: $message" >&2
+      fail_reason="failed while checking: $message"
+      echo "$fail_reason" >&2
       exit "$status"
     fi
   fi
@@ -82,10 +150,10 @@ line_number() {
   printf '%s\n' "$line"
 }
 
-echo "check: bootstrap syntax"
+check "bootstrap syntax"
 bash -n bootstrap-mac.sh
 
-echo "check: helper script syntax"
+check "helper script syntax"
 shellcheck_files=(bootstrap-mac.sh)
 for script in docker/*.sh home/dot_local/bin/executable_* home/dot_config/karabiner/modify_karabiner.json scripts/*; do
   [[ -f "$script" ]] || continue
@@ -96,10 +164,10 @@ for script in docker/*.sh home/dot_local/bin/executable_* home/dot_config/karabi
   fi
 done
 
-echo "check: shellcheck"
-shellcheck "${shellcheck_files[@]}"
+check "shellcheck"
+run_shellcheck "${shellcheck_files[@]}"
 
-echo "check: chezmoi root"
+check "chezmoi root"
 test "$(cat .chezmoiroot)" = "home"
 grep -q '^2\.70\.0$' .chezmoiversion
 test -f home/.chezmoi.toml.tmpl
@@ -115,7 +183,7 @@ fi
 grep -q 'Install optional Unity game development tools? Large download. \[y/N\]' home/.chezmoi.toml.tmpl
 grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]' home/.chezmoi.toml.tmpl
 
-echo "check: no create_ seed files"
+check "no create_ seed files"
 create_seeds="$(find home -name 'create_*' -print)"
 if [[ -n "$create_seeds" ]]; then
   echo "create_ seed-once files are not used in this repo: they hide drift from chezmoi diff, never receive upstream updates, and push users to hand-edit applied targets. Use a fully managed file or a local override instead (see skills/chezmoi-change/SKILL.md, Ownership Model)." >&2
@@ -123,7 +191,7 @@ if [[ -n "$create_seeds" ]]; then
   exit 1
 fi
 
-echo "check: Claude Code keybindings"
+check "Claude Code keybindings"
 if ! jq -e '
   (.bindings | type == "array") and
   ([.bindings[] | select(.context == "Chat")] | length == 1) and
@@ -184,7 +252,7 @@ grep -qF 'reproducible headless path; pin/checksum it before making it required.
 grep -qF 'https://deb.gierens.de stable main' docker/install-headless-tools.sh
 assert_no_matches "eza apt repo must use HTTPS" rg -n 'http://deb\.gierens\.de' docker
 
-echo "check: AI thesis wiring"
+check "AI thesis wiring"
 test -f home/.chezmoitemplates/ai-thesis.md
 test -L AI_THESIS.md
 test "$(readlink AI_THESIS.md)" = "home/.chezmoitemplates/ai-thesis.md"
@@ -193,7 +261,7 @@ test -f home/dot_codex/AGENTS.md.tmpl
 test ! -f home/dot_claude/CLAUDE.md
 test ! -f home/dot_codex/AGENTS.md
 
-echo "check: static docs"
+check "static docs"
 test -f .github/workflows/pages.yml
 test -f .github/workflows/ci.yml
 test ! -f .github/workflows/validate.yml
@@ -254,7 +322,7 @@ while IFS=$'\t' read -r _category command _kind _description; do
   grep -Fq "$command_key" <<<"$commands_page_text" || { echo "docs/commands.html missing command catalog entry for: $command" >&2; exit 1; }
 done < home/dot_local/share/groundwork/commands.tsv
 
-echo "check: supply-chain guardrails"
+check "supply-chain guardrails"
 grep -qE '^FROM ubuntu:24\.04@sha256:[0-9a-f]{64}$' Dockerfile
 # Renovate owns dependency updates (renovate.json); a dependabot.yml would
 # create duplicate PRs, so its absence is the guarded state.
@@ -266,7 +334,7 @@ fi
 grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
 assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
 
-echo "check: agent skill discovery"
+check "agent skill discovery"
 assert_symlink_target .claude/skills ../skills
 assert_symlink_target .codex/skills ../skills
 if [[ -e .agents/skills || -L .agents/skills ]]; then
@@ -274,7 +342,7 @@ if [[ -e .agents/skills || -L .agents/skills ]]; then
   exit 1
 fi
 
-echo "check: Codex skill metadata"
+check "Codex skill metadata"
 allowed_openai_metadata='^[[:space:]]*$|^[[:space:]]*#|^interface:[[:space:]]*$|^[[:space:]]+display_name:[[:space:]]*"[^"]+"[[:space:]]*$'
 for metadata in skills/*/agents/openai.yaml; do
   [[ -e "$metadata" ]] || continue
@@ -288,7 +356,7 @@ for metadata in skills/*/agents/openai.yaml; do
   fi
 done
 
-echo "check: template brace balance"
+check "template brace balance"
 while IFS= read -r template; do
   left=$(grep -o '{{' "$template" | wc -l | tr -d ' ' || true)
   right=$(grep -o '}}' "$template" | wc -l | tr -d ' ' || true)
@@ -300,19 +368,19 @@ for os in darwin linux; do
   for headless in false true; do
     case_name="${os}-${headless}"
     mkdir -p "$out_dir/$case_name"
-    echo "check: rendered shell templates ($case_name)"
+    check "rendered shell templates ($case_name)"
     for script in "${shell_templates[@]}"; do
       rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
       render "$os" "$headless" "amd64" "$script" "$rendered"
       bash -n "$rendered"
-      shellcheck "$rendered"
+      run_shellcheck "$rendered"
     done
 
-    echo "check: rendered zsh ($case_name)"
+    check "rendered zsh ($case_name)"
     render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
     zsh -n "$out_dir/$case_name/zshrc"
 
-    echo "check: rendered tmux ($case_name)"
+    check "rendered tmux ($case_name)"
     render "$os" "$headless" "amd64" home/dot_config/tmux/tmux.conf.tmpl "$out_dir/$case_name/tmux.conf"
     grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" "$out_dir/$case_name/tmux.conf"
     if [[ "$headless" == "true" ]]; then
@@ -323,13 +391,13 @@ for os in darwin linux; do
       assert_not_contains "@continuum-restore 'off'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore disabled in $case_name tmux config"
     fi
 
-    echo "check: rendered Brewfile ($case_name)"
+    check "rendered Brewfile ($case_name)"
     render "$os" "$headless" "amd64" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile"
     if [[ "$os" == "linux" || "$headless" == "true" ]]; then
       assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
     fi
 
-    echo "check: rendered ignore ($case_name)"
+    check "rendered ignore ($case_name)"
     render "$os" "$headless" "amd64" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore"
     if [[ "$os" != "darwin" || "$headless" == "true" ]]; then
       grep -q '^Library/\*\*' "$out_dir/$case_name/chezmoiignore"
@@ -350,7 +418,7 @@ for os in darwin linux; do
   done
 done
 
-echo "check: rendered work macOS profile"
+check "rendered work macOS profile"
 mkdir -p "$out_dir/darwin-work"
 render darwin false arm64 home/.chezmoiignore "$out_dir/darwin-work/chezmoiignore" true
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-work/Brewfile" true
@@ -360,7 +428,7 @@ grep -q '^brew "colima"$' "$out_dir/darwin-work/Brewfile"
 assert_not_contains '^cask "docker-desktop"$' "$out_dir/darwin-work/Brewfile" "Docker Desktop leaked into work macOS"
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-work/Brewfile" "Xcode leaked into default work macOS"
 
-echo "check: rendered Xcode macOS profile"
+check "rendered Xcode macOS profile"
 mkdir -p "$out_dir/darwin-no-xcode" "$out_dir/darwin-xcode" "$out_dir/darwin-legacy-no-xcode"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-no-xcode/Brewfile" false false
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-no-xcode/Brewfile" "Xcode leaked into default personal macOS"
@@ -369,7 +437,7 @@ grep -q '^mas "Xcode", id: 497799835' "$out_dir/darwin-xcode/Brewfile"
 render_without_xcode_key darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-legacy-no-xcode/Brewfile" false
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-legacy-no-xcode/Brewfile" "Xcode leaked when xcode key was absent"
 
-echo "check: rendered beta channel profile"
+check "rendered beta channel profile"
 mkdir -p "$out_dir/darwin-beta" "$out_dir/darwin-nobeta" "$out_dir/darwin-beta-noxcode"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-beta/Brewfile" false true true
 grep -q '^brew "xcodes"' "$out_dir/darwin-beta/Brewfile"
@@ -390,7 +458,7 @@ assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/zshrc" "beta
 grep -q 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest' "$out_dir/darwin-beta/zshrc"
 assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/zshrc" "update-all reverted to --greedy (re-quarantines self-updating casks)"
 
-echo "check: rendered agent adapters"
+check "rendered agent adapters"
 render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"
 render darwin false arm64 home/dot_codex/AGENTS.md.tmpl "$out_dir/AGENTS.md"
 grep -q "AI-Native Groundwork" "$out_dir/CLAUDE.md"
@@ -398,7 +466,7 @@ grep -q "AI-Native Groundwork" "$out_dir/AGENTS.md"
 grep -q "Claude Code Notes" "$out_dir/CLAUDE.md"
 grep -q "Codex Notes" "$out_dir/AGENTS.md"
 
-echo "check: docs links"
+check "docs links"
 for page in docs/*.html; do
   dir="$(dirname "$page")"
   while IFS= read -r href; do
@@ -429,30 +497,30 @@ for page in docs/*.html; do
   done < <(grep -Eo 'src="[^"]+"' "$page" | sed -E 's/^src="([^"]*)"$/\1/')
 done
 
-echo "check: line endings stay LF"
+check "line endings stay LF"
 grep -q '^\* text=auto eol=lf$' .gitattributes
 assert_no_matches "CRLF line endings found in tracked files" git grep -Il $'\r' -- .
 
-echo "check: common secret patterns"
+check "common secret patterns"
 assert_no_matches "secret-like pattern found" git grep -n -E '(-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})'
 
 if [[ -n "${GROUNDWORK_PUBLIC_DENYLIST_PATTERN:-}" ]]; then
-  echo "check: local public denylist env pattern"
+  check "local public denylist env pattern"
   assert_no_matches "local public denylist env pattern matched" rg -n "$GROUNDWORK_PUBLIC_DENYLIST_PATTERN" . --hidden -g '!.git' -g '!node_modules'
 fi
 
 if [[ -f .groundwork-public-denylist ]]; then
-  echo "check: local public denylist file"
+  check "local public denylist file"
   while IFS= read -r pattern; do
     [[ -z "$pattern" || "$pattern" == \#* ]] && continue
     assert_no_matches "local public denylist file pattern matched" rg -n "$pattern" . --hidden -g '!.git' -g '!node_modules' -g '!.groundwork-public-denylist'
   done < .groundwork-public-denylist
 fi
 
-echo "check: old name residue"
+check "old name residue"
 assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'
 
-echo "check: whitespace"
+check "whitespace"
 git diff --check
 
 echo "ok: Groundwork validation passed"

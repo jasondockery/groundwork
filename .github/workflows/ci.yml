@@ -17,6 +17,9 @@ jobs:
   workflow-lint:
     name: workflow-lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # zizmor uploads SARIF findings to code scanning
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -26,12 +29,14 @@ jobs:
       # Static security analysis for the workflows themselves: unpinned
       # actions, expression injection, over-broad permissions. Mirrors the
       # roost repo's workflow-lint job (same action, same pin, same persona).
-      # advanced-security (SARIF upload) needs GHAS + extra permissions.
+      # advanced-security uploads SARIF to the repo's code scanning tab —
+      # free on public repos — so findings persist and annotate PRs instead
+      # of living only in the job log.
       - name: Zizmor
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
-          advanced-security: false
+          advanced-security: true
 
   # Runs on Linux deliberately: the darwin cases in validate-groundwork are
   # chezmoi template *data* (rendered profiles), not host requirements — the
@@ -53,6 +58,13 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ripgrep zsh shellcheck jq
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+
+      # The validation script emits gcc-format shellcheck output under
+      # GITHUB_ACTIONS; this matcher turns those lines into file/line
+      # annotations on the PR. Registration is a workflow command (an echo),
+      # not an action, and staying registered for the rest of the job is fine.
+      - name: Register shellcheck problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/shellcheck-gcc.json"
 
       - name: Validate Groundwork
         run: scripts/validate-groundwork
@@ -105,5 +117,16 @@ jobs:
           secrets: |
             github_token=${{ github.token }}
 
+      # pipefail so a smoke-test failure is not masked by tee; the summary
+      # append is fail-open (|| true) so reporting can never fail the job.
       - name: Smoke test image
-        run: docker run --rm groundwork:test zsh -ic 'rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK'
+        run: |
+          set -o pipefail
+          docker run --rm groundwork:test zsh -ic 'rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK' | tee "$RUNNER_TEMP/smoke-versions.txt"
+          {
+            echo "## docker-build smoke test"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/smoke-versions.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY" || true

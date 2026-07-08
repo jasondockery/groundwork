@@ -63,8 +63,9 @@ three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
 - `workflow-lint` — zizmor (pedantic persona) statically audits the
   workflows themselves: unpinned actions, credential persistence,
   over-broad permissions, expression injection. Mirrors the roost repo's
-  job (same action, same SHA pin). Its conventions apply to any workflow
-  edit: pin actions to commit SHAs with a version comment, set
+  job (same action, same SHA pin). Findings upload as SARIF to the repo's
+  code scanning tab (free on public repos). Its conventions apply to any
+  workflow edit: pin actions to commit SHAs with a version comment, set
   `persist-credentials: false` on every checkout, scope `write`
   permissions to the job that needs them with a same-line comment saying
   why.
@@ -73,6 +74,14 @@ three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
 - `secret-scan` — gitleaks over the full git history.
 - `docker-build` — builds the container image and smoke-tests the
   installed toolchain.
+
+Failures explain themselves without opening the log: a validation failure
+annotates the run with the failing check name and the local repro command
+(`scripts/validate-groundwork`), ShellCheck findings surface as file/line
+annotations via a problem matcher (`.github/problem-matchers/`), zizmor
+findings land in code scanning, and the run summary shows validation
+pass/fail, the smoke-tested tool versions, and (on Pages deploys) the
+published URL.
 
 Run zizmor locally before pushing workflow changes:
 
