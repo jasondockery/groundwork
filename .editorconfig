@@ -1,8 +1,18 @@
-# Keep line endings LF in every editor, including on Windows, to match
-# .gitattributes; Groundwork's scripts and templates run under Unix tooling.
+# Editor defaults for every editor, including on Windows. Groundwork has no
+# Prettier, so this file is the primary formatting guide across shell, JSON,
+# Lua, HTML, and templates. LF matches .gitattributes so Git for Windows'
+# autocrlf cannot rewrite scripts and templates to CRLF; Groundwork's scripts
+# and templates run under Unix tooling. The corpus is uniformly 2-space.
 root = true
 
 [*]
+indent_style = space
+indent_size = 2
 end_of_line = lf
-insert_final_newline = true
 charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Trailing whitespace is a hard line break in Markdown.
+[*.{md,mdx}]
+trim_trailing_whitespace = false
