@@ -16,6 +16,10 @@
 {{- $obsidianVault := promptStringOnce . "obsidian_vault_name" "What should the Obsidian vault be named? (blank to skip)" "my_obsidian_vault" -}}
 {{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools? Large download. [y/N]" false -}}
 {{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple/iOS development? Large (~15GB+). [y/N]" false -}}
+{{- $beta := false -}}
+{{- if $xcode -}}
+{{- $beta = promptBoolOnce . "beta" "Also follow Apple's Xcode beta channel? Adds the xcodes tool so you can install Xcode betas from Apple's developer downloads; you sign in with your Apple Account (no paid membership needed) and choose versions yourself. [y/N]" false -}}
+{{- end -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
 
@@ -32,6 +36,7 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     obsidian_vault_name = {{ $obsidianVault | quote }}
     game_dev = {{ $gameDev }}
     xcode = {{ $xcode }}
+    beta = {{ $beta }}
 
 [edit]
     command = "nvim"

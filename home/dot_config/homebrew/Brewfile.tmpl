@@ -6,6 +6,8 @@
 {{- if hasKey . "game_dev" }}{{- $gameDev = .game_dev -}}{{- end -}}
 {{- $xcode := false -}}
 {{- if hasKey . "xcode" }}{{- $xcode = .xcode -}}{{- end -}}
+{{- $beta := false -}}
+{{- if hasKey . "beta" }}{{- $beta = .beta -}}{{- end -}}
 {{- $pwManager := "none" -}}
 {{- if hasKey . "password_manager" }}{{- $pwManager = .password_manager -}}{{- end -}}
 # Core
@@ -80,6 +82,9 @@ cask "raycast"                # keyboard-first launcher; Quicklinks jump to dail
 mas "Anybox", id: 1593408455  # native bookmarks: menu-bar mode + Anydock profiles (paid; buy in App Store first)
 {{ if $xcode -}}
 mas "Xcode", id: 497799835    # optional native Apple/iOS development; requires App Store sign-in/ownership
+{{- end }}
+{{ if and $xcode $beta -}}
+brew "xcodes"                 # install/switch Xcode betas from the Apple Developer portal; App Store ships release only. You sign in and pick the version.
 {{- end }}
 cask "betterdisplay"          # display resolution presets, DDC brightness, layout protection, CLI/Shortcuts integration
 

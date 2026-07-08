@@ -20,9 +20,10 @@ render() {
   local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
   local work="${6:-false}"
   local xcode="${7:-false}"
+  local beta="${8:-false}"
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
-  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
   chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
 }
 
@@ -367,6 +368,27 @@ render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwi
 grep -q '^mas "Xcode", id: 497799835' "$out_dir/darwin-xcode/Brewfile"
 render_without_xcode_key darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-legacy-no-xcode/Brewfile" false
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-legacy-no-xcode/Brewfile" "Xcode leaked when xcode key was absent"
+
+echo "check: rendered beta channel profile"
+mkdir -p "$out_dir/darwin-beta" "$out_dir/darwin-nobeta" "$out_dir/darwin-beta-noxcode"
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-beta/Brewfile" false true true
+grep -q '^brew "xcodes"' "$out_dir/darwin-beta/Brewfile"
+render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-beta/zshrc" false true true
+grep -q "beta channel on" "$out_dir/darwin-beta/zshrc"
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-nobeta/Brewfile" false true false
+assert_not_contains '^brew "xcodes"' "$out_dir/darwin-nobeta/Brewfile" "xcodes leaked without the beta channel"
+render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-nobeta/zshrc" false true false
+assert_not_contains "beta channel on" "$out_dir/darwin-nobeta/zshrc" "beta reminder leaked into update-all without the beta channel"
+# beta is only meaningful with Xcode: xcode=false + beta=true must normalize to
+# no xcodes and no reminder, matching the prompt that only offers beta under Xcode.
+render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-beta-noxcode/Brewfile" false false true
+assert_not_contains '^brew "xcodes"' "$out_dir/darwin-beta-noxcode/Brewfile" "xcodes installed with beta but no Xcode"
+render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-beta-noxcode/zshrc" false false true
+assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/zshrc" "beta reminder shown with beta but no Xcode"
+# Lock the update-all Homebrew command so it cannot revert to bare --greedy,
+# which re-downloads and re-quarantines self-updating casks (repeated Gatekeeper prompts).
+grep -q 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest' "$out_dir/darwin-beta/zshrc"
+assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/zshrc" "update-all reverted to --greedy (re-quarantines self-updating casks)"
 
 echo "check: rendered agent adapters"
 render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"

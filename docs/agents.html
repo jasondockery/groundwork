@@ -186,6 +186,45 @@
         <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
       </div>
 
+      <h2 id="direct-one-agent-well-then-direct-many"><span class="hash">#</span>Direct one agent well, then direct many</h2>
+      <p>Once you can hand a single agent a clean task and review the result, the next move is to stop being the only worker. In an orchestrated setup you become the <strong>orchestrator</strong>: one agent plans and delegates, and other agents (subagents, workers) each own a piece. This is not a new skill so much as three you already practice — decomposition, verification, and context economy — pointed at other agents. Learn to run one agent first; a beginner should not be commanding a fleet before they can direct a pair.</p>
+      <p>The reason it works is <strong>context isolation</strong>: each subagent gets its own context window, so you can hand off a big search or a noisy read and get back only the conclusion, keeping your main thread clean. The patterns are tool-independent — the vocabulary below outlives any product's buttons.</p>
+      <table class="keytable">
+        <tr><td><strong>Fan-out</strong></td><td>Split independent subtasks across parallel agents, then gather. Worth it for breadth and speed when the subtasks do not depend on each other.</td></tr>
+        <tr><td><strong>Pipeline</strong></td><td>Each item flows through ordered stages, such as draft then verify. Worth it for staged work repeated over many items.</td></tr>
+        <tr><td><strong>Supervisor</strong></td><td>One agent plans and delegates; workers execute in isolation. The most predictable pattern and a common production default — the workflow controls the agents, not the reverse.</td></tr>
+        <tr><td><strong>Debate / verify</strong></td><td>Separate agents critique or verify each other's work before you trust it. Your "verify before done" habit, with more independent hands.</td></tr>
+        <tr><td><strong>Swarm</strong></td><td>Many peer agents self-coordinate. The frontier: most capable, least predictable, hardest to supervise. Reach for it last.</td></tr>
+      </table>
+      <p>A few rules separate an orchestration that works from one that quietly lies to you:</p>
+      <ul>
+        <li><strong>Tell every subagent it is a subagent.</strong> Left unsaid, it behaves as a standalone assistant and talks to the user instead of returning results to the orchestrator.</li>
+        <li><strong>Build and test workers in isolation first,</strong> then wire the orchestrator to them. Constraint and predictability are features, not limitations.</li>
+        <li><strong>Keep it observable.</strong> If you cannot watch what each agent did, you cannot review or debug it — and reviewing it is still your job.</li>
+        <li><strong>Test off-target.</strong> Ask for something no worker owns. A sound system returns "nothing found"; a broken one invents a confident answer.</li>
+        <li><strong>Isolate writes.</strong> When agents edit files in parallel, give each its own branch or worktree so they do not clobber each other.</li>
+      </ul>
+      <p>The <em>mechanism</em> moves fast and differs per tool, so learn your tool's current surface the same way you learn its usage gauge. Today that means subagents and <code>/agents</code> in Claude Code, background agents in Cursor, and delegation through their own agent or session configuration in Codex and opencode. The commands will change; the patterns above will not.</p>
+      <div class="callout warn">
+        <span class="label">When not to reach for many agents</span>
+        <p>A single agent is the right default for any task that follows a linear path, fits in one context window, and crosses no hard security boundary. Multi-agent systems burn materially more tokens — Anthropic reports a single agent at roughly <strong>4x</strong> the token use of a chat and a multi-agent system around <strong>15x</strong> — so only pay that cost when the task genuinely decomposes into independent, high-value work. And more agents means more diffs to review: orchestration moves work off your keyboard and onto your judgment, it never removes the human. If step B needs step A's output, or the task is small, keep it one agent.</p>
+      </div>
+      <div class="callout tip">
+        <span class="label">Practice</span>
+        <p>Take one real task. Do it with a single agent and review the diff. Then redo it as a <strong>delegate-and-verify pair</strong>: one agent makes the change, a second, told it is a reviewer, tries to break it. Compare the result <em>and</em> your review effort. You are learning the judgment of when the second agent earned its cost — not the buttons.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Thesis, goals, specs, playbooks: the context agents share</h2>
+      <p>Orchestration only turns "many agents" into "a team" if every agent runs on the same written context. Four layers carry that context, and Groundwork already has a home for each. They overlap on purpose, and sharpening one raises the value of the others.</p>
+      <table class="keytable">
+        <tr><td><strong>Thesis</strong></td><td><code>AI_THESIS.md</code></td><td>Why the work exists and the direction no agent may drift from.</td></tr>
+        <tr><td><strong>Goals</strong></td><td>The objective you set per task</td><td>What "done" means for this specific piece of work.</td></tr>
+        <tr><td><strong>Specs</strong></td><td>A checkable target — a failing test, a mock, acceptance criteria (see <a href="#give-agents-a-concrete-target">Give agents a concrete target</a>)</td><td>The precise contract each agent verifies its own output against.</td></tr>
+        <tr><td><strong>Playbooks</strong></td><td><code>skills/</code></td><td>The repeatable <em>how</em>, so every agent runs a procedure the same way.</td></tr>
+      </table>
+      <p>Here is why this matters more as you add agents, not less. One agent working from a vague goal produces one plausible-but-wrong diff, and you catch it. Fan that same vagueness out to five agents and you get five diffs drifting in five directions — the exact 2026 failure mode the industry named <strong>drift</strong> and built <em>spec-driven development</em> to kill: confident code that quietly solves the wrong problem because nobody grounded it in a real spec. So the shared context is not paperwork you skip to move fast; scaling is precisely when it starts paying. A sharper spec makes delegation safe, a good playbook makes a worker reliable, and the thesis keeps a swarm from optimizing the wrong thing.</p>
+      <p>The durable workflow, tool-independent: write the spec first, derive a plan, break it into atomic tasks, then let one agent or ten build with that spec as their shared memory. Every major tool shipped a flavor of this in 2025–2026 (GitHub Spec Kit, AWS Kiro, and others), but do not adopt a vendor's ceremony — adopt the habit. Ground the work in something checkable before you hand it off, and the same contract that makes a single agent reliable is what lets you trust a team of them.</p>
+
       <h2><span class="hash">#</span>Know your AI budget</h2>
       <p>Every serious AI tool runs inside limits: a <strong>context window</strong> (how much the model can hold right now), <strong>plan or rate limits</strong> (how much you can use per session or week), and sometimes a <strong>spend budget</strong>. Long work fails in confusing ways when you hit these blind — the tool doesn't crash, it just gets worse or stops mid-task.</p>
       <p>The durable habit: <strong>before starting long work, check your tool's own gauge — and reset context deliberately when it's polluted.</strong></p>
@@ -199,7 +238,7 @@
         <p>Community tools that parse a vendor's local log files break every time the format changes. Fine as personal experiments; don't build habits — or team process — on them.</p>
       </div>
 
-      <h2><span class="hash">#</span>Give agents a concrete target</h2>
+      <h2 id="give-agents-a-concrete-target"><span class="hash">#</span>Give agents a concrete target</h2>
       <p>The single highest-leverage change in how you direct an agent: replace descriptions of what you want with an <strong>artifact the agent can check itself against</strong>.</p>
       <ul>
         <li><strong>A failing test</strong> — the gold standard for behavior. Write (or have the agent write) a test that fails for exactly the bug or missing feature, then ask for the code that makes it pass. That's the difference between "I think it's fixed" and "the test passes."</li>
@@ -240,6 +279,9 @@
         <li><a href="https://code.claude.com/docs/en/common-workflows" target="_blank" rel="noopener">Claude Code common workflows</a> — how Claude Code references files and uses project memory.</li>
         <li><a href="https://code.claude.com/docs/en/monitoring-usage" target="_blank" rel="noopener">Claude Code usage monitoring</a> — the first-party gauge pattern: context, plan limits, and org telemetry.</li>
         <li><a href="https://developers.openai.com/codex" target="_blank" rel="noopener">OpenAI Codex docs</a> — OpenAI's coding-agent docs and workflows.</li>
+        <li><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them" target="_blank" rel="noopener">When to use multi-agent systems (and when not to)</a> — Anthropic on the patterns, the costs, and the single-agent default.</li>
+        <li><a href="https://www.anthropic.com/engineering/multi-agent-research-system" target="_blank" rel="noopener">How we built our multi-agent research system</a> — Anthropic's token-cost figures (agents ~4x a chat, multi-agent ~15x) and when the cost is justified.</li>
+        <li><a href="https://developer.microsoft.com/blog/spec-driven-development-ai-native-engineering" target="_blank" rel="noopener">Spec-driven development</a> — the spec-first approach that grounds agents in a checkable contract before they build.</li>
       </ul>
 
       <div class="pagenav">
