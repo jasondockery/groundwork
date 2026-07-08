@@ -4,3 +4,8 @@
 # Local agent/tool state. Keep canonical shared instructions in AGENTS.md and
 # tool adapters tracked explicitly; keep per-machine permission history private.
 .claude/settings.local.json
+
+# Agent worktrees (harness-registered in .git/info/exclude, which
+# format/lint/scan tools cannot see - declared here so they never scan a
+# sibling agent checkout)
+**/.claude/worktrees/
