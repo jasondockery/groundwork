@@ -76,9 +76,16 @@ def lastmod(path: pathlib.Path) -> str:
     return out or "1970-01-01"
 
 
+def is_site_page(path: pathlib.Path) -> bool:
+    # Verification stubs (Search Console's google*.html and similar) live in
+    # docs/ but are not pages: no Groundwork head, and they must never
+    # appear in the sitemap or llms.txt.
+    return 'property="og:site_name" content="Groundwork"' in path.read_text()
+
+
 def main() -> int:
     check = "--check" in sys.argv
-    pages = sorted(p for p in DOCS.glob("*.html"))
+    pages = sorted(p for p in DOCS.glob("*.html") if is_site_page(p))
     changed: list[str] = []
     entries = []
 
