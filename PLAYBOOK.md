@@ -31,7 +31,8 @@ Operating notes:
   wait on a manual merge. Automerge engages only if the repo has "Allow
   auto-merge" enabled and the CI checks are required on `main` (see Main
   Branch Protection below); otherwise Renovate merges on its own next run
-  after checks pass.
+  after checks pass. Both conditions hold here: auto-merge was enabled
+  2026-07-09 and the four CI checks are required.
 - Never add a `dependabot.yml`; Dependabot version updates would duplicate
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
