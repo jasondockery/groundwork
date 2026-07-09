@@ -102,7 +102,9 @@ Roost.
       GitHub artifact attestation (`gh attestation verify`) for upstreams
       that publish attestations (atuin documents this); needs `gh` in the
       build image, so weigh the image-size cost when picking it up.
-- [ ] Cut v0.1.0 — first tagged release with user-facing notes.
+- [x] Cut the first tagged release with user-facing notes — shipped as
+      v1.0.0 (the bootstrap + update path had already survived all three
+      user surfaces, so v0.x was skipped).
 - [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).

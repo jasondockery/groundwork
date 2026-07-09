@@ -52,6 +52,7 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - When build, test, lint, or validation commands exist, run the relevant ones and report results.
 - For dotfile changes, prefer a focused `chezmoi diff` or targeted `chezmoi apply` check when practical.
 - For keyboard and terminal changes, verify the live binding or config where possible, not just the source file.
+- Classify every handoff as release-affecting or not. Groundwork releases are SemVer tags + GitHub Releases (`PLAYBOOK.md`, Versioning & Releases): a change that alters what a fresh install or `update-all` delivers is release-affecting and should propose cutting a release; internal automation, docs-only cleanup, and dependency plumbing are not — say "no release cut" and why. Never bump a version for a milestone; only for a changed consumable artifact.
 
 ## Learning focus
 - This repo is meant to be shared with adult learners, teammates, and working developers.
