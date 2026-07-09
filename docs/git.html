@@ -118,26 +118,13 @@
 
       <div class="quickref">
         <div class="qr-label">Quick reference · daily Git</div>
-        <div class="quickref-sections">
-          <div class="quickref-section">
-            <h3>Terminal</h3>
-            <div class="quickref-grid">
-              <div class="qr"><span class="keys"><code>git status</code></span> <span class="act">what changed</span></div>
-              <div class="qr"><span class="keys"><code>git add .</code></span> <span class="act">stage everything</span></div>
-              <div class="qr"><span class="keys"><code>git commit -m</code></span> <span class="act">save a snapshot</span></div>
-              <div class="qr"><span class="keys"><code>git push</code> / <code>pull</code></span> <span class="act">sync with GitHub</span></div>
-              <div class="qr"><span class="keys"><code>git switch -c</code></span> <span class="act">new branch</span></div>
-            </div>
-          </div>
-          <div class="quickref-section">
-            <h3>lazygit (open with <code>lg</code>)</h3>
-            <div class="quickref-grid">
-              <div class="qr"><span class="keys"><kbd>Space</kbd></span> <span class="act">stage</span></div>
-              <div class="qr"><span class="keys"><kbd>c</kbd></span> <span class="act">commit</span></div>
-              <div class="qr"><span class="keys"><kbd>P</kbd> / <kbd>p</kbd></span> <span class="act">push / pull</span></div>
-              <div class="qr"><span class="keys"><kbd>z</kbd></span> <span class="act">undo last action</span></div>
-            </div>
-          </div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>git status</code></span> <span class="act">what changed</span></div>
+          <div class="qr"><span class="keys"><code>git add .</code></span> <span class="act">stage everything</span></div>
+          <div class="qr"><span class="keys"><code>git commit -m</code></span> <span class="act">save a snapshot</span></div>
+          <div class="qr"><span class="keys"><code>git push</code> / <code>pull</code></span> <span class="act">sync with GitHub</span></div>
+          <div class="qr"><span class="keys"><code>git switch -c</code></span> <span class="act">new branch</span></div>
+          <div class="qr"><span class="keys"><code>git log --oneline</code></span> <span class="act">history at a glance</span></div>
         </div>
       </div>
 
@@ -186,41 +173,6 @@
 <span class="prompt">$ </span>git pull                <span class="comment"># get others' changes</span></code></pre>
       </div>
       <p>Write commit messages that say <em>what changed and why</em>, not "stuff" or "fix". Future-you reads them constantly.</p>
-
-      <h2><span class="hash">#</span>The friendly way: lazygit</h2>
-      <p>Typing commands teaches you the words, but <strong>lazygit</strong> teaches you what Git is doing, because you watch it happen. Stage individual lines, write commits, branch, push, and pull — all from one keyboard-driven screen. It's the same app however you open it:</p>
-      <table class="keytable">
-        <tr><td><span class="keys"><kbd>l</kbd><kbd>g</kbd></span></td><td>In any terminal — the short alias (or type <code>lazygit</code> in full)</td></tr>
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span></td><td>In <a href="tmux.html">tmux</a> — opens in a popup over your current folder</td></tr>
-        <tr><td><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span></td><td>In <a href="neovim.html">Neovim</a> — right inside the editor</td></tr>
-      </table>
-
-      <h3>Finding your way around</h3>
-      <p>The left side holds five panels; the right shows the details of whatever you've selected.</p>
-      <table class="keytable">
-        <tr><td><span class="keys"><kbd>1</kbd>…<kbd>5</kbd></span></td><td>Jump to a panel: Status, Files, Branches, Commits, Stash</td></tr>
-        <tr><td><span class="keys"><kbd>↑</kbd>/<kbd>↓</kbd> or <kbd>j</kbd>/<kbd>k</kbd></span></td><td>Move within the list</td></tr>
-        <tr><td><span class="keys"><kbd>Enter</kbd></span></td><td>Drill in — e.g. into a file to stage single lines &nbsp;&middot;&nbsp; <kbd>Esc</kbd> backs out</td></tr>
-        <tr><td><span class="keys"><kbd>?</kbd></span></td><td>List every shortcut for the panel you're in &nbsp;&middot;&nbsp; <kbd>q</kbd> quits lazygit</td></tr>
-      </table>
-
-      <h3>The everyday actions</h3>
-      <table class="keytable">
-        <tr><td><span class="keys"><kbd>Space</kbd></span></td><td>Stage / unstage the selected file or line &nbsp;&middot;&nbsp; <kbd>a</kbd> stages everything</td></tr>
-        <tr><td><span class="keys"><kbd>c</kbd></span></td><td>Commit what's staged — type a message, confirm</td></tr>
-        <tr><td><span class="keys"><kbd>P</kbd> / <kbd>p</kbd></span></td><td>Push to GitHub / pull from it</td></tr>
-        <tr><td><span class="keys"><kbd>Space</kbd></span> <span class="muted">(in Branches)</span></td><td>Check out the selected branch &nbsp;&middot;&nbsp; <kbd>n</kbd> makes a new one</td></tr>
-        <tr><td><span class="keys"><kbd>d</kbd></span></td><td>Discard the selected change — asks first</td></tr>
-        <tr><td><span class="keys"><kbd>z</kbd> / <kbd>Z</kbd></span></td><td>Undo / redo the last action — even a merge or rebase</td></tr>
-      </table>
-      <div class="callout tip">
-        <span class="label">Start here</span>
-        <p>If Git has ever felt abstract, live in lazygit for a week. Watching files move from unstaged to staged to committed makes the whole model click faster than any explanation — and <kbd>z</kbd> undoes almost anything, so you can explore without fear.</p>
-      </div>
-      <div class="callout note">
-        <span class="label">Prefer a window? GitUp</span>
-        <p>If you'd rather click than type, <strong>GitUp</strong> is a fast graphical app that draws your history as a live map you can drag and edit. lazygit and GitUp read the same repository, so use whichever suits the moment.</p>
-      </div>
 
       <h2><span class="hash">#</span>Branches — the superpower</h2>
       <p>A branch is a parallel line of work. You split off from <code>main</code>, build something without touching the working version, and <strong>merge</strong> it back when it's ready. This is how you try ideas — and how teams avoid stepping on each other.</p>
@@ -275,7 +227,42 @@
       </table>
       <div class="callout warn">
         <span class="label">Ask before "force" or "hard"</span>
-        <p>Most commands are safe. The few that can actually destroy work contain the words <code>--force</code> or <code>--hard</code>. If you're about to run one and you're not sure, stop and ask first. lazygit also asks before anything destructive.</p>
+        <p>Most commands are safe. The few that can actually destroy work contain the words <code>--force</code> or <code>--hard</code>. If you're about to run one and you're not sure, stop and ask first. Visual tools like lazygit (next section) also ask before anything destructive.</p>
+      </div>
+
+      <h2><span class="hash">#</span>lazygit: a picture of Git, not a replacement for it</h2>
+      <p>Now that the commands are in your hands, meet <strong>lazygit</strong>: a keyboard-driven view of the same repository, where every keystroke maps to a command you already know. Its value is that you can <em>see</em> the model this page taught: files moving from unstaged to staged to committed, branches as a live graph, and every line an agent touched, reviewable one hunk at a time. Learn the commands first (they're the shared language between you, the docs, and your agents); use lazygit to watch what they do and to move faster at things that are genuinely visual, like staging individual lines or reading history. It's the same app however you open it:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>l</kbd><kbd>g</kbd></span></td><td>In any terminal — the short alias (or type <code>lazygit</code> in full)</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span></td><td>In <a href="tmux.html">tmux</a> — opens in a popup over your current folder</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span></td><td>In <a href="neovim.html">Neovim</a> — right inside the editor</td></tr>
+      </table>
+
+      <h3>Finding your way around</h3>
+      <p>The left side holds five panels; the right shows the details of whatever you've selected.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>1</kbd>…<kbd>5</kbd></span></td><td>Jump to a panel: Status, Files, Branches, Commits, Stash</td></tr>
+        <tr><td><span class="keys"><kbd>↑</kbd>/<kbd>↓</kbd> or <kbd>j</kbd>/<kbd>k</kbd></span></td><td>Move within the list</td></tr>
+        <tr><td><span class="keys"><kbd>Enter</kbd></span></td><td>Drill in — e.g. into a file to stage single lines &nbsp;&middot;&nbsp; <kbd>Esc</kbd> backs out</td></tr>
+        <tr><td><span class="keys"><kbd>?</kbd></span></td><td>List every shortcut for the panel you're in &nbsp;&middot;&nbsp; <kbd>q</kbd> quits lazygit</td></tr>
+      </table>
+
+      <h3>The everyday actions</h3>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>Space</kbd></span></td><td>Stage / unstage the selected file or line &nbsp;&middot;&nbsp; <kbd>a</kbd> stages everything</td></tr>
+        <tr><td><span class="keys"><kbd>c</kbd></span></td><td>Commit what's staged — type a message, confirm</td></tr>
+        <tr><td><span class="keys"><kbd>P</kbd> / <kbd>p</kbd></span></td><td>Push to GitHub / pull from it</td></tr>
+        <tr><td><span class="keys"><kbd>Space</kbd></span> <span class="muted">(in Branches)</span></td><td>Check out the selected branch &nbsp;&middot;&nbsp; <kbd>n</kbd> makes a new one</td></tr>
+        <tr><td><span class="keys"><kbd>d</kbd></span></td><td>Discard the selected change — asks first</td></tr>
+        <tr><td><span class="keys"><kbd>z</kbd> / <kbd>Z</kbd></span></td><td>Undo / redo the last action — even a merge or rebase</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">A lens, not a crutch</span>
+        <p>If Git feels abstract, open lazygit right after your commands and watch what they did; the model clicks fastest when you see it move. But keep typing the commands until they're reflex. If you can only work through the TUI, you'll be lost in CI logs, agent transcripts, and anywhere else Git is words. <kbd>z</kbd> undoes almost anything, so explore without fear.</p>
+      </div>
+      <div class="callout note">
+        <span class="label">Prefer a window? GitUp</span>
+        <p>If you'd rather click than type, <strong>GitUp</strong> is a fast graphical app that draws your history as a live map you can drag and edit. lazygit and GitUp read the same repository, so use whichever suits the moment.</p>
       </div>
 
       <h2><span class="hash">#</span>Practice</h2>
