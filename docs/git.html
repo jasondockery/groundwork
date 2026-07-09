@@ -129,7 +129,7 @@
       </div>
 
       <h2><span class="hash">#</span>The mental model</h2>
-      <p>You've already been on the receiving end of Git. Groundwork itself lives in a Git repository on GitHub, and this page is a file inside it. When this page gets improved, the maintainer <strong>edits</strong> the file, <strong>stages</strong> it (picks it for the next snapshot), <strong>commits</strong> it (saves the snapshot, with a note saying why), and <strong>pushes</strong> it to GitHub. The next time your machine updates Groundwork, it <strong>pulls</strong>: the new snapshot comes down, and the page you're reading quietly gets better. Every project you'll ever touch moves the same way; only the file names change.</p>
+      <p>You've already been on the receiving end of Git. Groundwork itself lives in a Git repository on GitHub, and this page is a file inside it. When this page gets improved, Jason, who created and maintains Groundwork (in Git terms, its <strong>maintainer</strong>), <strong>edits</strong> the file, <strong>stages</strong> it (picks it for the next snapshot), <strong>commits</strong> it (saves the snapshot, with a note saying why), and <strong>pushes</strong> it to GitHub. The next time your machine updates Groundwork, it <strong>pulls</strong>: the new snapshot comes down, and the page you're reading quietly gets better. Every project you'll ever touch moves the same way; only the names change.</p>
 
       <figure class="diagram">
         <svg viewBox="0 0 720 300" role="img" aria-label="A docs improvement is edited, staged, and committed on the maintainer's laptop, pushed to GitHub, and pulled down to your machine">
@@ -139,7 +139,7 @@
             </marker>
           </defs>
           <rect x="8" y="30" width="470" height="122" rx="12" fill="none" stroke="var(--surface1)" stroke-dasharray="5 5"/>
-          <text x="24" y="52" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">the maintainer's laptop</text>
+          <text x="24" y="52" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">Jason's laptop (Groundwork's maintainer)</text>
           <rect x="24" y="66" width="130" height="62" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
           <text x="89" y="92" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--green)">1 · edit</text>
           <text x="89" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">this page</text>
@@ -243,7 +243,7 @@
         <div class="num">4</div>
         <div class="body">
           <h3>Try it now: read a real history</h3>
-          <p>Clone this very repo with <code>gh repo clone jasondockery/groundwork</code>, <code>cd</code> into it, and run <code>git log --oneline -10</code>: real commits by a real maintainer. Then run <code>git log --oneline -- docs/git.html</code> to see every commit that shaped the page you're reading, including the one you'll receive next time you pull.</p>
+          <p>Clone this very repo with <code>gh repo clone jasondockery/groundwork</code>, <code>cd</code> into it, and run <code>git log --oneline -10</code>: Jason's real commits, newest first. Then run <code>git log --oneline -- docs/git.html</code> to see every commit that shaped the page you're reading, including the one you'll receive next time you pull.</p>
         </div>
       </div>
 
@@ -318,12 +318,22 @@
         <tr><td><span class="keys"><kbd>Space</kbd> / <kbd>b</kbd></span></td><td>Page down / up &nbsp;&middot;&nbsp; <kbd>q</kbd> quits</td></tr>
       </table>
 
+      <h3>Fetch vs pull, and what "prune" really removes</h3>
+      <p>Two commands bring things from GitHub to you, and they are politely different. <code>git fetch</code> downloads what's new and updates your local <em>bookmarks</em> of the remote (the <code>origin/*</code> names you see in branch lists) while touching nothing of yours: it is purely "go look". <code>git pull</code> is fetch plus "and fold it into the branch I'm on". <strong>Prune</strong> is bookkeeping on those bookmarks: after a branch is deleted on GitHub (normally because its pull request merged), your local <code>origin/that-branch</code> bookmark points at something that no longer exists. Pruning removes the stale bookmark, and only the bookmark: never your local branches, never your edits, never a commit. Despite the alarming name, it cannot delete work.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">fetch, pull, prune</span></div>
+        <pre><code><span class="prompt">$ </span>git fetch           <span class="comment"># download news; change nothing of yours</span>
+<span class="prompt">$ </span>git pull            <span class="comment"># fetch + bring it into your current branch</span>
+<span class="prompt">$ </span>git fetch --prune   <span class="comment"># also drop origin/* bookmarks for deleted branches</span>
+<span class="prompt">$ </span>git branch -a       <span class="comment"># see local branches and the origin/* bookmarks</span></code></pre>
+      </div>
+
       <h3>The sensible defaults</h3>
       <p>A handful of config choices that make day-to-day Git smoother and the history cleaner:</p>
       <table class="keytable">
         <tr><td><code>pull.rebase = true</code></td><td><code>git pull</code> <strong>rebases</strong> your local commits on top of what you fetched instead of making a noisy "merge branch" commit — so history stays a clean, straight line</td></tr>
         <tr><td><code>push.autoSetupRemote</code></td><td>The first <code>git push</code> on a new branch just works — no <code>--set-upstream</code> dance</td></tr>
-        <tr><td><code>fetch.prune = true</code></td><td>Branches deleted on GitHub stop cluttering your list locally — stale <code>origin/*</code> refs are cleaned up on every fetch</td></tr>
+        <tr><td><code>fetch.prune = true</code></td><td>Runs the prune from the section above on every fetch: stale <code>origin/*</code> bookmarks for branches already deleted on GitHub are dropped. Bookmarks only; local branches, edits, and commits are never touched</td></tr>
         <tr><td><code>init.defaultBranch = main</code></td><td>New repos start on <code>main</code>, matching GitHub</td></tr>
         <tr><td><code>merge.conflictstyle = zdiff3</code></td><td>When a merge conflicts, you see three sections — yours, theirs, <em>and the common ancestor</em> — which makes it far clearer <em>why</em> the conflict happened and how to resolve it</td></tr>
       </table>

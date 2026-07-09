@@ -29,6 +29,17 @@ Then check:
 5. Pages meet readers where they are, assuming nothing about background: terms defined once and a first successful path for those who need it, a skimmable fast path (workflow, why, config) for readers who already know the basics, and the overview -> quick wins -> substantial practice progression respected.
 6. Page titles, social titles, nav labels, and compact UI copy use calm product punctuation such as `Page · Groundwork`; avoid em dashes, double hyphens, and hyphen runs as generic separators outside literal command syntax.
 7. Existing useful learner content is preserved unless the user explicitly asks to remove it.
+8. Learner-facing pages follow the Teaching Structure below: concrete story before abstraction, interleaved try-it-now drills, terms defined at first use, destructive-sounding defaults disarmed with precision, resource ladders instead of piles.
+
+## Teaching Structure
+
+How Groundwork pages teach (decided 2026-07-09, first applied on `docs/git.html`):
+
+1. **Concrete before abstract (concreteness fading).** Open with a true, specific story the reader already participates in — Groundwork itself, the page they are reading, a repo they cloned — and derive the general model from the story. Prefer real public referents ("Jason's laptop") over role words ("the maintainer") until the role has been defined.
+2. **Explain, show, try — interleaved.** Every concept section ends with a short "Try it now" drill exercising exactly what was just taught, on something the reader already has. Never bunch drills into one Practice block at the end of a page: practice that is not adjacent to the concept does not happen.
+3. **Define terms at first use, in-sentence,** then use them freely ("Jason, who created and maintains Groundwork (in Git terms, its maintainer)").
+4. **Precision disarms fear.** Any default, flag, or command that sounds destructive (prune, force, hard, clean) must state exactly what it does and does not touch, adjacent to where it appears — including an explicit "never your X".
+5. **Resource lists are ladders, not piles.** Order external resources by reader level (first hour → second stage → reference), say who each rung is for, and never lead with the most authoritative source just because it is authoritative.
 
 ## Change Pattern
 
