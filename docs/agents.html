@@ -239,6 +239,27 @@
         <p>Community tools that parse a vendor's local log files break every time the format changes. Fine as personal experiments; don't build habits — or team process — on them.</p>
       </div>
 
+      <h2><span class="hash">#</span>Sessions: pick up, hand off, clean up</h2>
+      <p>Three days into the browser FPS track, the terminal window running your agent session closes by accident, or the laptop sleeps overnight, or you simply hit a rate limit before finishing for the day. The next session you open has no memory of the last one: no chat history, no sense of what you decided or why. If the work survives that gap anyway, it is because the state was never really in the conversation. It was in the repo: the plan you wrote down, the commits with real messages, the notes in <code>AGENTS.md</code> about what is verified and what is next. A <strong>session</strong> is the live back-and-forth with the model; it is compute, not memory. The repo is the memory.</p>
+      <p>That gives you a test for whether you packaged the work well: could a brand-new session, with no access to the old chat transcript, read your repo and know what is true? If the honest answer is "only if it reads the transcript too," the work was not handed off, it was just left sitting in a chat window. Write the decision, the progress, and the next step down somewhere a fresh session, or a different tool entirely, can find it.</p>
+      <table class="keytable">
+        <tr><td><strong>Claude Code</strong></td><td><code>claude --continue</code> reopens the most recent session for the current directory. <code>claude --resume</code> opens a session picker across all of them, so name your active sessions before you have several to tell apart. Transcripts are stored as JSONL under <code>~/.claude/projects/</code>. <code>/compact &lt;instructions&gt;</code> summarizes deliberately, telling the model what to keep; automatic compaction also happens on its own once the window fills. The <code>cleanupPeriodDays</code> setting (in <code>settings.json</code>) auto-deletes transcripts older than N days.</td></tr>
+        <tr><td><strong>Codex CLI</strong></td><td><code>codex resume</code> reopens a previous session. Sessions are saved as JSONL under <code>~/.codex/sessions/</code>, and <code>/export</code> saves a readable transcript. There is no automatic cleanup yet, so the sessions directory grows until you prune it yourself.</td></tr>
+        <tr><td>Other tools</td><td>Cursor, Grok, and the rest ship the same shape under different keystrokes: some resume command, a session store on disk, some way to export or summarize. Learn your tool's version the same way you learn its usage gauge: the mechanism moves fast, the pattern does not.</td></tr>
+      </table>
+      <p>When a session fills up mid-task, the default move is not to compact and keep limping along: start a fresh session and re-onboard it from repo state, the same way you would want a teammate to. Compact deliberately, with focus instructions, only when the in-session continuity itself is what you need to keep, such as a long debugging thread where the reasoning matters as much as the code. Starting big work with room, as above, heads off most of this before it starts.</p>
+      <div class="callout tip">
+        <span class="label">Deleting old sessions loses nothing that mattered</span>
+        <p>If the work was packaged the way the handoff test above asks for, an old transcript is disposable. It never touches your code, your commits, or your docs; it is a log of how you got there, not the record of what is true. Clearing it, letting <code>cleanupPeriodDays</code> sweep it, or pruning <code>~/.codex/sessions/</code> by hand costs you nothing but the execution log.</p>
+      </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Reconstruct without the transcript</h3>
+          <p>Run <code>claude --resume</code> (or <code>codex resume</code>) in a project you have worked in before, find an old session, and reopen it. Then ask yourself: could you have rebuilt the same context from the repo alone, without reading that transcript? If not, that is the gap. Go fix your project's instruction files so the next session does not need the old chat to know what is correct.</p>
+        </div>
+      </div>
+
       <h2 id="give-agents-a-concrete-target"><span class="hash">#</span>Give agents a concrete target</h2>
       <p>The single highest-leverage change in how you direct an agent: replace descriptions of what you want with an <strong>artifact the agent can check itself against</strong>.</p>
       <ul>
