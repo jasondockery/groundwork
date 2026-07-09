@@ -4,8 +4,14 @@ Operational notes for maintaining Groundwork as a shared Mac developer setup.
 
 ## Dependency Updates (Renovate)
 
-Groundwork uses the hosted Mend Renovate app (installed account-wide, mode:
-Interactive) for dependency updates. Configuration lives in `renovate.json`.
+Groundwork's dependency updates run through the self-hosted Renovate
+runner in `jasondockery/renovate-config` (cron 4x daily + manual
+dispatch; run logs live in that repo's Actions). Shared owner policy
+comes from the same repo's preset via `extends`; groundwork-specific
+rules live in the local `renovate.json`. The hosted Mend app was retired
+2026-07-08 after the self-hosted proof PRs went green (rationale and
+migration record: roost `tools/github/README.md` → Self-hosted Renovate
+migration).
 
 What Renovate manages here:
 
@@ -17,7 +23,8 @@ Operating notes:
 
 - Updates arrive weekly as grouped PRs labeled `dependencies`. The Dependency
   Dashboard issue lists pending updates; checking a box there forces a PR
-  ahead of the schedule.
+  ahead of the schedule (the runner acts on it at its next cron/dispatch
+  run, not instantly).
 - Security PRs are immediate, labeled `security`, and automerge once CI is
   green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
   what a human check would, and a vulnerable Action or base image should not
@@ -29,9 +36,10 @@ Operating notes:
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
   enabled as a data source.
-- When the shared `renovate-config` preset repo exists, switch `extends` to
-  `github>jasondockery/renovate-config` so policy is defined once for all
-  repos.
+- Policy is defined once for all owner repos: `extends` points at
+  `github>jasondockery/renovate-config` (switched 2026-07-08). Preset
+  changes propagate on the next run with no PR in this repo — policy
+  review happens in the preset repo.
 
 ## Versioning & Releases
 

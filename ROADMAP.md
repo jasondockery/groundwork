@@ -76,16 +76,18 @@ Roost.
 ## Operations
 
 - [x] Renovate configured: hosted app (Interactive mode), `renovate.json`,
-      operating notes in `PLAYBOOK.md`. Dependency Dashboard live (issue
-      #5); the ubuntu 26.04 bump is queued there under the cooldown.
+      operating notes in `PLAYBOOK.md`. Migrated 2026-07-08 to the
+      self-hosted runner + shared preset in `renovate-config` (hosted app
+      retired; dashboard is now issue #6, where the ubuntu 26.04 bump is
+      queued under the cooldown).
 - [x] Dependabot version updates removed (`dependabot.yml` deleted, its PR
       closed) and Dependabot security-update PRs disabled; alerts stay on
       as Renovate's data source (2026-07-03).
 - [x] Code scanning enabled via CodeQL default setup (2026-07-03).
 - [x] Secret scanning with push protection confirmed enabled.
 - [x] Security-PR automerge enabled, aligned with roost (2026-07-04) — the
-      earlier difference was drift, not policy; shared policy for the
-      future `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
+      earlier difference was drift, not policy; shared policy now lives in
+      the `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
 - [x] `workflow-lint` CI job added: zizmor (pedantic) audits the workflows,
       mirroring roost's job; existing findings fixed in the same change
       (2026-07-04). CI is now four required checks (`PLAYBOOK.md`, CI
