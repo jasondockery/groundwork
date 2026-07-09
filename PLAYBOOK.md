@@ -46,6 +46,41 @@ Operating notes:
   changes propagate on the next run with no PR in this repo — policy
   review happens in the preset repo.
 
+## Discoverability (search + AI tools)
+
+Machinery (automatic): `scripts/generate-discovery` derives per-page meta
+descriptions from each page's lead paragraph, plus `docs/sitemap.xml` and
+`docs/llms.txt` (the file IDE agents like Claude Code and Cursor fetch when
+pointed at a docs site). `validate-groundwork` fails when artifacts go
+stale. Authors never hand-edit these; see `skills/docs-alignment`,
+Discoverability.
+
+Owner actions (one-time, only a human can do these):
+
+1. **Google Search Console**: verify `https://jasondockery.github.io/groundwork/`
+   as a URL-prefix property (HTML-file method: drop the token file in
+   `docs/`), then submit `docs/sitemap.xml` and request indexing of the
+   homepage. Without this, indexing is at Google's leisure.
+2. **Bing Webmaster Tools**: same, and it matters more than it sounds:
+   ChatGPT's browsing and several AI assistants retrieve via Bing's index,
+   so Bing coverage is AI-suggestion coverage.
+3. Keep the GitHub repo's About fields rich (description, topics, homepage
+   URL): repo pages rank quickly and are how AI assistants corroborate
+   that the project exists.
+
+Constraints to know: a GitHub *project* page cannot serve a root-level
+`robots.txt` or `/llms.txt` (those live at the domain root, which is
+GitHub's). A custom domain would restore root control and strengthen the
+brand query long-term; decide when the name is settled, not before.
+
+Expectations: technical discoverability is table stakes, not ranking.
+A new site with no inbound links takes weeks to rank for brand queries
+against established namesakes. What moves it: links from real places
+(the GitHub repo README, profile README, LinkedIn, directories,
+awesome-lists), and time. AI assistants suggesting Groundwork follows the
+same inputs: crawlable pages, consistent one-line positioning everywhere,
+and third-party mentions they can corroborate.
+
 ## Versioning & Releases
 
 Groundwork uses **SemVer tags + GitHub Releases** — the 2026 convention for

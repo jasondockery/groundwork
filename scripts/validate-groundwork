@@ -526,6 +526,9 @@ fi
 check "old name residue"
 assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'
 
+check "discovery artifacts current (descriptions, sitemap, llms.txt)"
+scripts/generate-discovery --check
+
 check "whitespace"
 git diff --check
 

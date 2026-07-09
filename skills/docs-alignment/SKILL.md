@@ -41,6 +41,13 @@ How Groundwork pages teach (decided 2026-07-09, first applied on `docs/git.html`
 4. **Precision disarms fear.** Any default, flag, or command that sounds destructive (prune, force, hard, clean) must state exactly what it does and does not touch, adjacent to where it appears — including an explicit "never your X".
 5. **Resource lists are ladders, not piles.** Order external resources by reader level (first hour → second stage → reference), say who each rung is for, and never lead with the most authoritative source just because it is authoritative.
 
+## Discoverability
+
+Discovery artifacts are generated, never hand-edited: `scripts/generate-discovery` derives every page's meta description (search snippet), `docs/sitemap.xml`, and `docs/llms.txt` from the pages themselves, and `validate-groundwork` fails when they are stale. Two consequences for authors:
+
+- The lead paragraph IS the search snippet and the AI-tool routing description. Write the first ~155 characters of every `p.lead` to stand alone: what the page is, for whom, in plain words a searcher would use.
+- After adding or retitling a page, run `scripts/generate-discovery` and commit the regenerated artifacts with the page.
+
 ## Change Pattern
 
 Prefer small edits:

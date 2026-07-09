@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Generate search/AI discovery artifacts from the docs pages themselves.
+
+Derives, so pages stay the single source of truth:
+  - per-page meta descriptions (description, og:description,
+    twitter:description) from each page's lead paragraph: the lead IS the
+    search snippet, so write leads accordingly (skills/docs-alignment).
+  - docs/sitemap.xml for search engines (submit once in Search Console;
+    project pages cannot serve a root robots.txt, so the sitemap is
+    registered there rather than referenced from robots).
+  - docs/llms.txt for AI/IDE agents (Claude Code, Cursor, and peers fetch
+    it when pointed at a docs site).
+
+Modes: --write (default) rewrites artifacts; --check exits 1 if a rewrite
+would change anything (wired into scripts/validate-groundwork).
+"""
+
+import html
+import pathlib
+import re
+import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+DOCS = ROOT / "docs"
+BASE = "https://jasondockery.github.io/groundwork"
+SITE = "Groundwork"
+SUMMARY = (
+    "An AI-native development foundation for Mac, Linux/WSL, and headless "
+    "agent workspaces: tool setup plus the fundamentals that stay useful "
+    "when tools change (shell, Git, project instructions, verification, "
+    "and directing AI agents)."
+)
+MAX_DESC = 158
+
+LEAD_RE = re.compile(r'<p class="lead">(.*?)</p>', re.S)
+FIRST_P_RE = re.compile(r'<div class="content">.*?<p[^>]*>(.*?)</p>', re.S)
+TITLE_RE = re.compile(r"<title>(.*?)</title>", re.S)
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def page_description(text: str) -> str:
+    m = LEAD_RE.search(text) or FIRST_P_RE.search(text)
+    if not m:
+        return SUMMARY
+    raw = html.unescape(TAG_RE.sub("", m.group(1)))
+    desc = " ".join(raw.split())
+    if len(desc) > MAX_DESC:
+        desc = desc[: MAX_DESC + 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return desc
+
+
+def page_title(text: str) -> str:
+    m = TITLE_RE.search(text)
+    return " ".join(m.group(1).split()) if m else SITE
+
+
+def set_meta(text: str, pattern: str, replacement: str) -> str:
+    return re.sub(pattern, replacement, text, count=1)
+
+
+def lastmod(path: pathlib.Path) -> str:
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--", str(path)],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.strip()
+    if dirty:
+        out = subprocess.run(
+            ["date", "+%Y-%m-%d"], capture_output=True, text=True
+        ).stdout.strip()
+        return out
+    out = subprocess.run(
+        ["git", "log", "-1", "--format=%cs", "--", str(path)],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.strip()
+    return out or "1970-01-01"
+
+
+def main() -> int:
+    check = "--check" in sys.argv
+    pages = sorted(p for p in DOCS.glob("*.html"))
+    changed: list[str] = []
+    entries = []
+
+    for page in pages:
+        text = page.read_text()
+        desc_attr = html.escape(page_description(text), quote=True)
+        new = text
+        new = set_meta(
+            new,
+            r'(<meta name="description" content=")[^"]*(")',
+            rf"\g<1>{desc_attr}\g<2>",
+        )
+        new = set_meta(
+            new,
+            r'(<meta property="og:description" content=")[^"]*(")',
+            rf"\g<1>{desc_attr}\g<2>",
+        )
+        new = set_meta(
+            new,
+            r'(<meta name="twitter:description" content=")[^"]*(")',
+            rf"\g<1>{desc_attr}\g<2>",
+        )
+        if new != text:
+            changed.append(f"docs/{page.name}")
+            if not check:
+                page.write_text(new)
+        entries.append((page, page_title(new), page_description(new)))
+
+    url_of = lambda p: f"{BASE}/" if p.name == "index.html" else f"{BASE}/{p.name}"
+
+    sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
+    sitemap_lines.append(
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    )
+    for page, _title, _desc in entries:
+        sitemap_lines.append("  <url>")
+        sitemap_lines.append(f"    <loc>{url_of(page)}</loc>")
+        sitemap_lines.append(f"    <lastmod>{lastmod(page)}</lastmod>")
+        sitemap_lines.append("  </url>")
+    sitemap_lines.append("</urlset>")
+    sitemap = "\n".join(sitemap_lines) + "\n"
+
+    llms_lines = [f"# {SITE}", "", f"> {SUMMARY}", ""]
+    llms_lines.append(
+        "Groundwork scaffolds the developer: environment, fundamentals, and"
+    )
+    llms_lines.append(
+        "agent-direction skills. Its sibling, Roost, scaffolds an"
+    )
+    llms_lines.append(
+        "organization's code and process. Repo:"
+    )
+    llms_lines.append("https://github.com/jasondockery/groundwork")
+    llms_lines.append("")
+    llms_lines.append("## Docs")
+    llms_lines.append("")
+    for page, title, desc in entries:
+        llms_lines.append(f"- [{title}]({url_of(page)}): {desc}")
+    llms = "\n".join(llms_lines) + "\n"
+
+    for name, content in (("sitemap.xml", sitemap), ("llms.txt", llms)):
+        path = DOCS / name
+        if not path.exists() or path.read_text() != content:
+            changed.append(f"docs/{name}")
+            if not check:
+                path.write_text(content)
+
+    if check and changed:
+        print("discovery artifacts stale; run scripts/generate-discovery:")
+        for c in sorted(set(changed)):
+            print(f"  {c}")
+        return 1
+    if changed:
+        print(f"updated: {len(set(changed))} file(s)")
+    else:
+        print("discovery artifacts already current")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
