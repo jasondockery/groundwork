@@ -129,38 +129,43 @@
       </div>
 
       <h2><span class="hash">#</span>The mental model</h2>
-      <p>A change moves through three places on your machine before it reaches the world. You <strong>edit</strong> files, you <strong>stage</strong> the ones you want in the next snapshot, and you <strong>commit</strong> to save that snapshot to history. A fourth place, <strong>GitHub</strong>, is the shared copy everyone pulls from and pushes to.</p>
+      <p>You've already been on the receiving end of Git. Groundwork itself lives in a Git repository on GitHub, and this page is a file inside it. When this page gets improved, the maintainer <strong>edits</strong> the file, <strong>stages</strong> it (picks it for the next snapshot), <strong>commits</strong> it (saves the snapshot, with a note saying why), and <strong>pushes</strong> it to GitHub. The next time your machine updates Groundwork, it <strong>pulls</strong>: the new snapshot comes down, and the page you're reading quietly gets better. Every project you'll ever touch moves the same way; only the file names change.</p>
 
       <figure class="diagram">
-        <svg viewBox="0 0 720 210" role="img" aria-label="Files are staged, then committed to local history, then pushed to GitHub; pull brings changes back">
+        <svg viewBox="0 0 720 300" role="img" aria-label="A docs improvement is edited, staged, and committed on the maintainer's laptop, pushed to GitHub, and pulled down to your machine">
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0 0 L10 5 L0 10 z" fill="var(--mauve)"/>
             </marker>
           </defs>
-          <rect x="8" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
-          <text x="83" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--green)">working files</text>
-          <text x="83" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">you edit</text>
-          <rect x="190" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
-          <text x="265" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--text)">staging</text>
-          <text x="265" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">next snapshot</text>
-          <rect x="372" y="40" width="150" height="80" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
-          <text x="447" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--text)">history</text>
-          <text x="447" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">local commits</text>
-          <rect x="554" y="40" width="158" height="80" rx="10" fill="var(--crust)" stroke="var(--sapphire)"/>
-          <text x="633" y="74" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--sapphire)">GitHub</text>
-          <text x="633" y="94" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">shared copy</text>
-          <line x1="158" y1="80" x2="184" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="171" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">add</text>
-          <line x1="340" y1="80" x2="366" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="353" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">commit</text>
-          <line x1="522" y1="80" x2="548" y2="80" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="535" y="32" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">push</text>
-          <path d="M633 120 L633 160 L83 160 L83 124" fill="none" stroke="var(--peach)" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="360" y="180" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--peach)">pull — bring others' changes back down</text>
+          <rect x="8" y="30" width="470" height="122" rx="12" fill="none" stroke="var(--surface1)" stroke-dasharray="5 5"/>
+          <text x="24" y="52" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">the maintainer's laptop</text>
+          <rect x="24" y="66" width="130" height="62" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="89" y="92" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--green)">1 · edit</text>
+          <text x="89" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">this page</text>
+          <rect x="178" y="66" width="130" height="62" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="243" y="92" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--text)">2 · stage</text>
+          <text x="243" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">pick the change</text>
+          <rect x="332" y="66" width="130" height="62" rx="10" fill="var(--crust)" stroke="var(--surface1)"/>
+          <text x="397" y="92" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--text)">3 · commit</text>
+          <text x="397" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">snapshot saved</text>
+          <line x1="154" y1="97" x2="172" y2="97" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <line x1="308" y1="97" x2="326" y2="97" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <rect x="540" y="58" width="172" height="80" rx="10" fill="var(--crust)" stroke="var(--sapphire)"/>
+          <text x="626" y="92" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--sapphire)">GitHub</text>
+          <text x="626" y="112" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">the shared copy</text>
+          <line x1="478" y1="98" x2="534" y2="98" stroke="var(--mauve)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="506" y="86" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--mauve)">4 · push</text>
+          <rect x="24" y="204" width="300" height="72" rx="10" fill="var(--crust)" stroke="var(--green)"/>
+          <text x="174" y="234" text-anchor="middle" font-family="var(--mono)" font-size="12" fill="var(--green)">your machine</text>
+          <text x="174" y="254" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--overlay0)">your Groundwork clone</text>
+          <path d="M626 138 L626 240 L330 240" fill="none" stroke="var(--peach)" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="478" y="262" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--peach)">5 · pull: your update brings it down</text>
         </svg>
-        <figcaption>add &rarr; commit &rarr; push moves work outward; pull brings everyone else's work back in.</figcaption>
+        <figcaption>The loop behind every docs improvement you receive: edit, stage, commit on one machine; push to the shared copy; pull on every other.</figcaption>
       </figure>
+
+      <p>That's the whole model: four places. Three live on any machine doing the writing: the <strong>working files</strong> being edited, the <strong>staging area</strong> where the next snapshot is assembled, and the <strong>history</strong> of saved snapshots. The fourth, <strong>GitHub</strong>, is the shared copy every machine pushes to and pulls from. Every command on this page just moves change between these four places, and when it's your project, you're the one on the laptop at the top of the diagram.</p>
 
       <h2><span class="hash">#</span>The daily loop</h2>
       <p>Ninety percent of Git is five commands. Check what changed, stage it, commit it with a message, and sync with GitHub.</p>
@@ -173,6 +178,13 @@
 <span class="prompt">$ </span>git pull                <span class="comment"># get others' changes</span></code></pre>
       </div>
       <p>Write commit messages that say <em>what changed and why</em>, not "stuff" or "fix". Future-you reads them constantly.</p>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Try it now: your first commits</h3>
+          <p>You already have a repo to practice on: the knowledge wiki from <code>new-wiki</code>. Add a line to its <code>README.md</code>, then run <code>git status</code>, <code>git add .</code>, and <code>git commit -m "edit readme"</code>. Do it twice so you have a small history, then read it back with <code>git log --oneline</code>. You just ran steps 1 to 3 of the diagram above; in this repo, you're the maintainer.</p>
+        </div>
+      </div>
 
       <h2><span class="hash">#</span>Branches — the superpower</h2>
       <p>A branch is a parallel line of work. You split off from <code>main</code>, build something without touching the working version, and <strong>merge</strong> it back when it's ready. This is how you try ideas — and how teams avoid stepping on each other.</p>
@@ -202,9 +214,19 @@
 <span class="prompt">$ </span>git switch main            <span class="comment"># hop back to main</span>
 <span class="prompt">$ </span>git merge new-feature      <span class="comment"># fold the branch into main</span></code></pre>
       </div>
-      <div class="callout note">
-        <span class="label">The best way to learn this</span>
-        <p>Branches click when you <em>see</em> them move. Spend 30 minutes on <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — it animates every command. It's the single fastest way to understand Git.</p>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Try it now: branch and merge</h3>
+          <p>In your practice repo, run <code>git switch -c experiment</code>, change something, commit it. Switch back with <code>git switch main</code>: your change vanishes from the files (it's safe on the branch). Bring it in with <code>git merge experiment</code>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>See branches move</h3>
+          <p>Branches click when you <em>see</em> them. Spend 30 minutes on the beginner levels of <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a>: it animates every command you just typed, and by the end the diagram above feels obvious instead of mysterious.</p>
+        </div>
       </div>
 
       <h2><span class="hash">#</span>GitHub and the gh command</h2>
@@ -217,6 +239,13 @@
 <span class="prompt">$ </span>gh pr create               <span class="comment"># propose your branch for merge</span></code></pre>
       </div>
       <p>A <strong>pull request</strong> is how you propose a branch be merged — others review it, discuss, and approve. It's the heart of working together on GitHub.</p>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Try it now: read a real history</h3>
+          <p>Clone this very repo with <code>gh repo clone jasondockery/groundwork</code>, <code>cd</code> into it, and run <code>git log --oneline -10</code>: real commits by a real maintainer. Then run <code>git log --oneline -- docs/git.html</code> to see every commit that shaped the page you're reading, including the one you'll receive next time you pull.</p>
+        </div>
+      </div>
 
       <h2><span class="hash">#</span>When something goes wrong</h2>
       <p>Committed work is very hard to truly lose — Git keeps almost everything. Most "mistakes" have a calm fix:</p>
@@ -228,6 +257,13 @@
       <div class="callout warn">
         <span class="label">Ask before "force" or "hard"</span>
         <p>Most commands are safe. The few that can actually destroy work contain the words <code>--force</code> or <code>--hard</code>. If you're about to run one and you're not sure, stop and ask first. Visual tools like lazygit (next section) also ask before anything destructive.</p>
+      </div>
+      <div class="drill">
+        <div class="num">5</div>
+        <div class="body">
+          <h3>Try it now: break something on purpose</h3>
+          <p>In your practice repo, edit a file and confirm the damage with <code>git status</code>, then throw the edit away with <code>git restore &lt;file&gt;</code>. Next, stage a change with <code>git add .</code> and unstage it with <code>git restore --staged &lt;file&gt;</code>. Notice that nothing committed was ever at risk; that safety is why you commit early and often.</p>
+        </div>
       </div>
 
       <h2><span class="hash">#</span>lazygit: a picture of Git, not a replacement for it</h2>
@@ -264,34 +300,11 @@
         <span class="label">Prefer a window? GitUp</span>
         <p>If you'd rather click than type, <strong>GitUp</strong> is a fast graphical app that draws your history as a live map you can drag and edit. lazygit and GitUp read the same repository, so use whichever suits the moment.</p>
       </div>
-
-      <h2><span class="hash">#</span>Practice</h2>
       <div class="drill">
-        <div class="num">1</div>
+        <div class="num">6</div>
         <div class="body">
-          <h3>Make your first commits</h3>
-          <p>You already have a repo to practice on — the knowledge wiki from <code>new-wiki</code>. Add a line to its <code>README.md</code>, then run <code>git status</code>, <code>git add .</code>, and <code>git commit -m "edit readme"</code>. Do it twice so you have a small history.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">2</div>
-        <div class="body">
-          <h3>Do it again in lazygit</h3>
-          <p>Make another edit, then open <code>lg</code>. Stage it with <kbd>Space</kbd>, commit with <kbd>c</kbd>, and watch it land in the history panel. Notice you just did the same thing as drill 1 — but you could see it.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">3</div>
-        <div class="body">
-          <h3>Branch and merge</h3>
-          <p>Run <code>git switch -c experiment</code>, change something, commit it. Switch back with <code>git switch main</code> — your change vanishes from the files (it's safe on the branch). Bring it in with <code>git merge experiment</code>.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">4</div>
-        <div class="body">
-          <h3>Understand it for real</h3>
-          <p>Play through <a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a>. By the end, the diagram above will feel obvious instead of mysterious.</p>
+          <h3>Try it now: the first drill, visually</h3>
+          <p>Make another edit in your practice repo, then open <code>lg</code>. Stage it with <kbd>Space</kbd>, commit with <kbd>c</kbd>, and watch it land in the history panel. Notice you just did the same thing as the first drill, but this time you could see it move.</p>
         </div>
       </div>
 
