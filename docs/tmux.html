@@ -231,6 +231,20 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span></td><td>Zoom — make one pane fill the screen, then back</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>x</kbd></span></td><td>Close the pane</td></tr>
       </table>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Try it now: split and move</h3>
+          <p>Type <code>tmux</code> and press Enter. Split side by side with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>, then top/bottom with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>-</kbd></span>. Hop between the panes with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>. Run <code>ls</code> in one and <code>top</code> in another so they feel distinct.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Try it now: zoom and resize</h3>
+          <p>Land on the busiest pane and press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span> to blow it up full-screen, then again to bring the others back. Now nudge a border: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>H</kbd></span> a few times to widen it.</p>
+        </div>
+      </div>
 
       <h3>Windows</h3>
       <table class="keytable">
@@ -242,6 +256,13 @@
       </table>
       <p>Best names are short nouns: <code>edit</code>, <code>agent</code>, <code>server</code>, <code>logs</code>, <code>db</code>, <code>git</code>. Window names show in the status bar; pane names show in the pane border.</p>
       <p>Naming is hybrid, on purpose. A window you haven't named renames itself after whatever is running in it (<code>zsh</code>, <code>nvim</code>, <code>claude</code>); the moment you name one with <kbd>Ctrl</kbd><kbd>a</kbd> <kbd>,</kbd> your name sticks — auto-renaming turns off for that window only, and programs are never allowed to rename windows out from under you (they can only set the pane title in the border, which is the right place for an agent's task chatter). Renames are also saved into the restore state immediately, so a name you set survives a reboot instead of depending on the last 15-minute autosave. One habit that makes names largely unnecessary: keep one <em>session</em> per project (the session switcher, <kbd>Ctrl</kbd><kbd>a</kbd> <kbd>T</kbd>, names sessions after their folder), and let windows within it be task lanes.</p>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Try it now: windows as tabs</h3>
+          <p>Make two more windows with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>c</kbd></span>. Jump straight to the first with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>1</kbd></span>. Rename one with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span> so the status bar reads something useful.</p>
+        </div>
+      </div>
 
       <h3>Sessions — the persistent part</h3>
       <table class="keytable">
@@ -266,6 +287,13 @@
         <span class="label">The session switcher is broader than tmux</span>
         <p><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> opens <strong>sesh</strong>, not raw <code>tmux ls</code>. It shows live tmux sessions <em>and</em> useful project folders from zoxide, so seeing <code>~/code/roost</code> or <code>~/code/groundwork</code> in that picker does not always mean a tmux session is alive. After <code>tmux kill-server</code>, those folder rows can still appear because they are places you could start a session, not sessions still running. To see only live tmux sessions, run <code>tmux ls</code> or <code>sesh list --tmux</code>. To see only directory suggestions, run <code>sesh list --zoxide</code>.</p>
       </div>
+      <div class="drill">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Try it now: the magic trick, detach and return</h3>
+          <p>Start something long-running, like <code>ping example.com</code>. Detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span> — you're back at the plain shell. <strong>Close the terminal entirely.</strong> Open a new one and type <code>tmux attach</code>. Everything is exactly where you left it, still running. That's the whole reason tmux exists.</p>
+        </div>
+      </div>
 
       <h3>Extras</h3>
       <table class="keytable">
@@ -276,49 +304,17 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>K</kbd></span></td><td>Clear the shell screen and tmux scrollback</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span></td><td>Reload the tmux config after editing it</td></tr>
       </table>
-
-      <h2><span class="hash">#</span>Practice</h2>
-      <p>Do these in order, out loud if it helps. Fifteen minutes here beats reading the table ten times.</p>
-
-      <div class="drill">
-        <div class="num">1</div>
-        <div class="body">
-          <h3>Split and move</h3>
-          <p>Type <code>tmux</code> and press Enter. Split side by side with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>, then top/bottom with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>-</kbd></span>. Hop between the panes with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>. Run <code>ls</code> in one and <code>top</code> in another so they feel distinct.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">2</div>
-        <div class="body">
-          <h3>Zoom and resize</h3>
-          <p>Land on the busiest pane and press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span> to blow it up full-screen, then again to bring the others back. Now nudge a border: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>H</kbd></span> a few times to widen it.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">3</div>
-        <div class="body">
-          <h3>Windows as tabs</h3>
-          <p>Make two more windows with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>c</kbd></span>. Jump straight to the first with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>1</kbd></span>. Rename one with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span> so the status bar reads something useful.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">4</div>
-        <div class="body">
-          <h3>The magic trick: detach &amp; return</h3>
-          <p>Start something long-running, like <code>ping example.com</code>. Detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span> — you're back at the plain shell. <strong>Close the terminal entirely.</strong> Open a new one and type <code>tmux attach</code>. Everything is exactly where you left it, still running. That's the whole reason tmux exists.</p>
-        </div>
-      </div>
       <div class="drill">
         <div class="num">5</div>
         <div class="body">
-          <h3>Sessions and lazygit</h3>
+          <h3>Try it now: sessions and lazygit</h3>
           <p>Open the session switcher with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span> and create a workspace for a project folder. Inside it, in any folder that's a Git repo, press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>g</kbd></span> to pop open lazygit, then <kbd>q</kbd> to close it.</p>
         </div>
       </div>
       <div class="drill">
         <div class="num">6</div>
         <div class="body">
-          <h3>Scroll back</h3>
+          <h3>Try it now: scroll back</h3>
           <p>Output flew past? Press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> to enter scroll mode and move with the arrow keys or <kbd>k</kbd>/<kbd>j</kbd>. Press <kbd>v</kbd> to start selecting, <kbd>y</kbd> to copy, and <kbd>q</kbd> to drop back to normal.</p>
         </div>
       </div>
