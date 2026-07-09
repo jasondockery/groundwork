@@ -28,7 +28,10 @@ export SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/
 export EDITOR="nvim"
 export VISUAL="nvim"
 export PAGER="less"
-export LESS="-R"
+# -i = smart-case search in everything less pages (bat, man, git log):
+# lowercase patterns match any case; one uppercase letter makes it exact.
+# Matches the rg/fzf/LazyVim default so / behaves the same in every tool.
+export LESS="-iR"
 export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 export FZF_DEFAULT_COMMAND="rg --files"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
