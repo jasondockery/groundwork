@@ -158,6 +158,21 @@ rgf() {
   fi
 }
 
+# Yazi visual file browser. `y` opens it, and on quit drops the shell into
+# whatever folder you were browsing, so a visual detour ends where you looked
+# instead of back where you started. `command cat` bypasses the bat alias so
+# the cwd file reads as plain text. Image/PDF previews render inline in Ghostty.
+y() {
+  emulate -L zsh
+  local tmp cwd
+  tmp="$(mktemp -t yazi-cwd.XXXXXX)" || return
+  yazi "$@" --cwd-file="$tmp"
+  if cwd="$(command cat -- "$tmp")" && [[ -n "$cwd" && "$cwd" != "$PWD" ]]; then
+    builtin cd -- "$cwd"
+  fi
+  rm -f -- "$tmp"
+}
+
 # Freshen everything intentionally: pull+apply Groundwork, then upgrade Homebrew, mise-managed tools, and AI tools.
 update-all() {
   emulate -L zsh

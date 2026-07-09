@@ -23,6 +23,7 @@ shell	cat	alias	Use bat for syntax-highlighted file viewing.
 shell	z <folder>	command	Jump to a frecent folder with zoxide.
 shell	Alt+C	key	Fuzzy-pick a folder, preview it as a tree, and cd into it.
 shell	Ctrl+T	key	Fuzzy-pick files with a bat preview and insert the chosen paths into the current command.
+shell	y	function	Open Yazi, a visual file browser with inline preview; navigate a folder, then quit to land the shell in whatever directory you were browsing.
 shell	mkdir -p <folder>	command	Create a folder, including parent folders if needed.
 shell	pwd	command	Print the current folder path.
 shell	open .	command	Open the current folder in Finder.

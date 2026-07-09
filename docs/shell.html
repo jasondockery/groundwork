@@ -201,6 +201,7 @@
         <tr><td><code>fd</code></td><td>A short, friendly <code>find</code>. Remember it as "find, but direct."</td></tr>
         <tr><td><code>zoxide</code></td><td>The <code>z</code> command is the memory hook: jump to frequently used folders by typing a few letters.</td></tr>
         <tr><td><code>fzf</code></td><td>Fuzzy finder. It finds the thing even when you only remember a fuzzy part of the name.</td></tr>
+        <tr><td><code>yazi</code></td><td>A visual file browser (the <code>y</code> command). Think "the folder landscape, with previews" — a TUI over the same <code>fd</code>/<code>rg</code>/<code>fzf</code> tools.</td></tr>
         <tr><td><code>atuin</code></td><td>A shell-history vault. Use the practical memory hook: "a tuned-in history."</td></tr>
         <tr><td><code>delta</code></td><td>Delta means change; this makes Git changes easier to read.</td></tr>
         <tr><td><code>dust</code></td><td>A friendlier <code>du</code> that shows what is taking space. Think "disk usage, sorted tree."</td></tr>
@@ -270,6 +271,15 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a file path into the line you're typing, with a bat preview; opens as a floating popup inside tmux</td></tr>
         <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it</td></tr>
       </table>
+
+      <h3>yazi — browsing the folder landscape</h3>
+      <p>When you want to <em>see</em> a directory rather than list it — skim a tree, preview files as you arrow through them, do a quick bulk rename or move — <code>y</code> opens Yazi, a visual file browser. It is a choice, not a replacement for <code>cd</code>, <code>fd</code>, and <code>eza</code>: those composable commands stay the fundamentals and the shared language with agents. Yazi is the visual layer on top for the moments you would otherwise leave the terminal for a GUI file manager. Quit with <kbd>q</kbd> and the shell lands in whatever folder you were browsing, so a visual detour ends where you looked.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">yazi</span></div>
+        <pre><code><span class="prompt">$ </span>y
+<span class="comment"># arrow keys or hjkl to move, Enter to open, q to quit into the current folder</span></code></pre>
+      </div>
+      <p>Image, PDF, and video previews render inline in Ghostty, which speaks the Kitty graphics protocol. Yazi already uses the <code>fd</code>, <code>rg</code>, <code>fzf</code>, and <code>bat</code> that Groundwork installs; for richer previews of more formats you can optionally add <code>poppler</code> (PDF) and <code>ffmpeg</code> (video thumbnails).</p>
 
       <h3>copy-context — sharing exact files with another AI tool</h3>
       <p>When a chat app or outside reviewer cannot see your repo, copy a small, explicit bundle instead of pasting random snippets. <code>copy-context</code> takes files or folders, expands folders through <code>rg --files</code> when available, and puts path-labeled contents on the clipboard. It works the same way inside tmux because it is just a shell command.</p>
