@@ -4,6 +4,10 @@ Operational notes for maintaining Groundwork as a shared Mac developer setup.
 
 ## Dependency Updates (Renovate)
 
+Learner-facing explanation of this whole lane (what the bot does, the
+shared preset, cooldown rationale, setup on a new project):
+[docs/dependencies.html](docs/dependencies.html).
+
 Groundwork's dependency updates run through the self-hosted Renovate
 runner in `jasondockery/renovate-config` (cron 4x daily + manual
 dispatch; run logs live in that repo's Actions). Shared owner policy

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<title>Dependencies · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/dependencies.html">
+<meta property="og:title" content="Dependencies · Groundwork">
+<meta property="og:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dependencies · Groundwork">
+<meta name="twitter:description" content="An AI-native development foundation for Mac, Linux/WSL, and headless agent workspaces.">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/dependencies.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="dependencies.html" class="active">Dependencies</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Daily workflow</p>
+      <h1>Dependencies: an agent you configure once and supervise forever.</h1>
+      <p class="lead">Every real project sits on top of packages other people update weekly. Left alone, those updates pile up into risky, months-long upgrade projects. Handled well, they arrive as a steady stream of small pull requests opened by a bot, tested by your CI, and merged under your review. That bot is a dependency-update agent, and directing it uses the exact skills this whole site teaches: write the rules down, let machinery do the repetitive work, verify before trusting.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Your project warns about outdated packages, a security alert lands, or you wonder how serious teams stay current without spending Fridays on upgrades.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — the moving parts</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>renovate.json</code></span> <span class="act">the bot's written instructions</span></div>
+          <div class="qr"><span class="keys">Dependency Dashboard</span> <span class="act">one issue listing all pending updates</span></div>
+          <div class="qr"><span class="keys">cooldown</span> <span class="act">ignore releases younger than N days</span></div>
+          <div class="qr"><span class="keys">lockfile</span> <span class="act">exact resolved versions, committed</span></div>
+          <div class="qr"><span class="keys">automerge</span> <span class="act">merge without a human once CI is green</span></div>
+          <div class="qr"><span class="keys">grouping</span> <span class="act">many small bumps, one reviewable PR</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>The mental model</h2>
+      <p>Your project declares <strong>intent</strong> (roughly which versions it wants, in <code>package.json</code> or similar) and records <strong>resolution</strong> (exactly which versions it got, in a lockfile). A dependency bot watches the package registries, notices when something newer satisfies your intent, and opens a pull request that updates both files together. Your CI runs on that PR like on any other. You review and merge, or you teach the bot which categories it may merge itself.</p>
+      <p>The tool used across these repos is <a href="https://docs.renovatebot.com" target="_blank" rel="noopener">Renovate</a>. Treat it exactly like the coding agents on the <a href="agents.html">AI agents &amp; rules</a> page: it is tireless and consistent, it does exactly what its instructions say, and it has no judgment about what its changes <em>mean</em>. The instructions file is the contract; the PRs and dashboard are how you supervise.</p>
+
+      <h2><span class="hash">#</span>What the bot actually does to a repo</h2>
+      <p>Concretely, on this repo (Groundwork) and its siblings, Renovate:</p>
+      <ul>
+        <li>Opens <strong>weekly, grouped PRs</strong> labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
+        <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is waiting on schedule, what is held by the cooldown. Ticking a checkbox forces a PR ahead of schedule.</li>
+        <li>Opens <strong>security PRs immediately</strong>, bypassing the weekly schedule, and merges them itself once CI is green. A known-vulnerable version should not wait for Monday.</li>
+        <li>Updates things that are not npm packages at all: <strong>GitHub Actions pinned to commit SHAs</strong> (it moves the pin and the human-readable version comment together) and <strong>Docker base-image digests</strong>.</li>
+        <li>Embeds each package's <strong>release notes in the PR body</strong>, so the review starts with what changed, not with hunting for a changelog.</li>
+      </ul>
+      <div class="callout note">
+        <p><strong>The bot bumps versions; it never adopts features.</strong> If a release ships a new API that would simplify your code, that judgment call is yours (or a task for a coding agent you direct at it). Reading the release notes in each PR is where those opportunities surface, which is a strong reason to keep updates small and regular instead of letting them pile up.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The cooldown: patience as a security control</h2>
+      <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: never propose a release younger than N days. These repos use five days. You give up a little freshness and buy a real defense: by the time a version reaches a PR, the world has had a week to notice if it was poisoned.</p>
+      <p>Package managers are adopting the same idea at install time (pnpm's <code>minimumReleaseAge</code> refuses too-young versions during resolution), so the floor holds even when a human runs the install by hand. Security fixes get an explicit escape hatch, because for a known vulnerability the risk calculus reverses.</p>
+
+      <h2><span class="hash">#</span>One policy, many repos</h2>
+      <p>Once two repos both run the bot, their configs drift: one repo gets a better cooldown, the other keeps the old value, and nobody decided that. The fix is the same one you use for agent rules: define shared policy <strong>once</strong>, in one place, and have each repo reference it. Renovate supports this with shareable presets. These repos extend a small public preset repo, <a href="https://github.com/jasondockery/renovate-config" target="_blank" rel="noopener">renovate-config</a>, which holds only the policy that must stay identical everywhere: schedule, cooldown, PR limits, labels, rebase behavior, and the security-PR rules. Anything repo-specific (which packages need human review, which groups make sense) stays in that repo's own <code>renovate.json</code>.</p>
+      <div class="callout tip">
+        <p><strong>Copy, don't depend.</strong> That preset repo is MIT-licensed and deliberately public as a worked example: read it, fork it, copy the files into your own automation repo. Don't <code>extends</code> someone else's living policy, including this one; it changes without notice, and your dependency policy should answer to you.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Hosted or self-hosted: a real choice</h2>
+      <p>Renovate runs two ways, and both are legitimate:</p>
+      <ul>
+        <li><strong>The hosted Mend app</strong>: two clicks to install, zero credentials to manage. Right for a first project and for anyone who never wants to read a job log. One trap: in the onboarding wizard the default mode can be "Scan Only," which runs silently and opens nothing. Pick "Scan and Alert" (Interactive), or the bot looks installed but broken.</li>
+        <li><strong>A self-hosted runner</strong>: a small GitHub Actions workflow in an automation repo that runs Renovate on a schedule with a token you control. You gain what hosted hides: every run is a log you can open, grep, and re-dispatch with debug logging. These repos moved to self-hosted after three separate "why is the bot ignoring me?" mysteries whose answers all lived in logs only the hosted portal could see.</li>
+      </ul>
+      <p>The trade is the same one this site keeps pointing at: convenience versus observability. Start hosted if you're new; move to self-hosted the first time you can't answer "what is the bot doing?" from where you sit. The config file is identical either way, so switching is an executor swap, not a migration.</p>
+
+      <h2><span class="hash">#</span>Supervising the bot</h2>
+      <p>The human stays the senior partner. In practice that means the config encodes different trust levels for different blast radii:</p>
+      <ul>
+        <li><strong>Majors are held for approval.</strong> Framework majors (React, Next.js, TypeScript) appear on the dashboard as approval requests, not open PRs. A major upgrade is deliberate work with its own plan, never something absorbed into a routine merge.</li>
+        <li><strong>High-blast-radius packages always get human review</strong>, even for patches. Deployment engines and infrastructure adapters can break everything at once; the config forbids automerging them.</li>
+        <li><strong>Automerge is earned, not default.</strong> Security fixes automerge because CI proves what a human glance would. Routine bumps automerge only after the machinery has demonstrated, over enough cycles, that green CI genuinely means safe.</li>
+        <li><strong>The dashboard is the console.</strong> When something seems stuck, the answer is almost always there: waiting on schedule, held by cooldown, or a config error the bot is telling you about.</li>
+      </ul>
+
+      <h2><span class="hash">#</span>Set it up on your own project</h2>
+      <p>The five-minute version, for a project on GitHub:</p>
+      <ol>
+        <li>Install the <a href="https://github.com/apps/renovate" target="_blank" rel="noopener">Mend Renovate app</a> on your repo (choose Renovate Only, mode Interactive).</li>
+        <li>Merge the onboarding PR it opens, or commit a minimal <code>renovate.json</code> yourself:</li>
+      </ol>
+      <pre><code>{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices", "schedule:weekly"],
+  "minimumReleaseAge": "5 days",
+  "labels": ["dependencies"]
+}</code></pre>
+      <ol start="3">
+        <li>Make sure CI runs on pull requests, so bot PRs get the same verification as yours. If there is no CI yet, that is the first thing to fix; a dependency bot without tests is just automated risk.</li>
+        <li>Watch the Dependency Dashboard issue it opens, and read your first few PRs end to end, release notes included.</li>
+      </ol>
+      <div class="callout warn">
+        <p><strong>Never add a <code>dependabot.yml</code> alongside Renovate.</strong> GitHub's Dependabot would open duplicate PRs for the same updates. Keep Dependabot's <em>alerts</em> on (they're a data source Renovate reads for security PRs) and leave version updates to one bot.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Practice</h2>
+      <ul>
+        <li>Open the Dependency Dashboard issue on a repo that has one. For each pending update, say out loud <em>why</em> it hasn't merged yet: schedule, cooldown, or awaiting review.</li>
+        <li>Read one Renovate PR top to bottom, including the embedded release notes. Find one changed thing that could matter to the code, even if the answer is "nothing here affects us."</li>
+        <li>Tick a dashboard checkbox to force a PR ahead of schedule, watch CI run on it, and merge it yourself.</li>
+        <li>In any project, run your package manager's outdated command (<code>pnpm outdated</code>, <code>npm outdated</code>) and compare what it shows against what the bot has proposed. If they differ, work out which policy (cooldown, grouping, held majors) explains the gap.</li>
+      </ul>
+
+      <h2><span class="hash">#</span>Going deeper</h2>
+      <ul>
+        <li><a href="https://docs.renovatebot.com/upgrade-best-practices/" target="_blank" rel="noopener">Renovate's upgrade best practices</a>: the maintainers' own advice on cadence, grouping, and automerge.</li>
+        <li><a href="https://docs.renovatebot.com/key-concepts/dashboard/" target="_blank" rel="noopener">The Dependency Dashboard</a>: everything the checkboxes can do.</li>
+        <li><a href="https://github.com/jasondockery/renovate-config" target="_blank" rel="noopener">renovate-config</a>: this owner's shared preset and self-hosted runner, documented as a copyable reference, including the token permissions that tripped us and the incidents that drove the self-hosted move.</li>
+        <li><a href="https://docs.renovatebot.com/configuration-options/" target="_blank" rel="noopener">Renovate configuration options</a>: the full vocabulary once you outgrow the starter config.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="agents.html"><span class="dir">← Prev</span>AI agents &amp; rules</a>
+        <a href="codex.html"><span class="dir">Next →</span>Codex UI &amp; CLI</a>
+      </div>
+      <footer class="site">The bot bumps versions. You own the judgment. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
