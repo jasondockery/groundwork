@@ -103,6 +103,33 @@ if [[ -z "${TMUX:-}" ]]; then
   add-zsh-hook precmd _groundwork_title_precmd
 fi
 
+# Self-refreshing shells: after `chezmoi apply` rewrites ~/.zshrc, every open
+# pane is a stale shell that never re-reads config. Instead of anything
+# reaching into panes (unsafe mid-vim/ssh/typing), each shell checks its own
+# config mtime at the prompt boundary — the one moment nothing is running —
+# and reloads itself. Guard: background jobs would die on exec, so with jobs
+# present it prints a hint once instead. cwd and history survive exec zsh;
+# only the pushd stack resets.
+zmodload -F zsh/stat b:zstat 2>/dev/null
+if (( $+builtins[zstat] )); then
+  _groundwork_zshrc_mtime() { zstat +mtime -- "${ZDOTDIR:-$HOME}/.zshrc" 2>/dev/null; }
+  _groundwork_zshrc_loaded="$(_groundwork_zshrc_mtime)"
+  _groundwork_config_refresh_precmd() {
+    local now
+    now="$(_groundwork_zshrc_mtime)" || return 0
+    [[ -n "$now" && -n "$_groundwork_zshrc_loaded" && "$now" != "$_groundwork_zshrc_loaded" ]] || return 0
+    if [[ -z "$(jobs)" ]]; then
+      print -P '%F{cyan}↻ shell config updated — reloading this shell%f'
+      exec zsh
+    elif [[ "${_groundwork_config_notified:-}" != "$now" ]]; then
+      _groundwork_config_notified="$now"
+      print -P '%F{yellow}↻ shell config updated — reloads when background jobs finish (or run exec zsh)%f'
+    fi
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _groundwork_config_refresh_precmd
+fi
+
 command -v starship >/dev/null && eval "$(starship init zsh)"
 command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"
 command -v mise     >/dev/null && eval "$(mise activate zsh)"
