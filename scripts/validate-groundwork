@@ -282,6 +282,9 @@ test -f docs/assets/favicon.svg
 test -f docs/assets/social-card.png
 test -f docs/platforms.html
 for page in docs/*.html; do
+  # Search-engine verification stubs (google*.html) live in docs/ but are
+  # not pages; the same marker rule generate-discovery uses.
+  grep -q 'property="og:site_name" content="Groundwork"' "$page" || continue
   grep -q 'name="description"' "$page" || { echo "$page: missing description meta tag" >&2; exit 1; }
   grep -q ' · Groundwork</title>' "$page" || { echo "$page: page title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
   grep -q 'property="og:title"' "$page" || { echo "$page: missing Open Graph title" >&2; exit 1; }
