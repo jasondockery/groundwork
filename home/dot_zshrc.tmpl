@@ -170,6 +170,9 @@ update-all() {
     # --no-quarantine; Groundwork preserves Gatekeeper.
     HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest || return
     brew cleanup || return
+    {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
+    "$HOME/.local/bin/groundwork-karabiner-start" || true
+    {{- end }}
   fi
   if command -v mise >/dev/null 2>&1; then
     mise upgrade || return

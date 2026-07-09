@@ -22,3 +22,10 @@ if grep -q '^cask "claude-code@latest"' "$HOME/.config/homebrew/Brewfile" \
 fi
 
 brew bundle --file="$HOME/.config/homebrew/Brewfile"
+
+{{- if and (eq .chezmoi.os "darwin") (not .headless) }}
+# Karabiner is a desktop keyboard driver with user-facing permission prompts.
+# Homebrew may quit it during an install/upgrade; reopen it if it is installed
+# but not running so Caps Lock rules do not silently disappear.
+"$HOME/.local/bin/groundwork-karabiner-start" || true
+{{- end }}

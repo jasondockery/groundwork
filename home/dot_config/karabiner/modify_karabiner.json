@@ -47,9 +47,8 @@ function run(argv) {
   if (!config.global || typeof config.global !== "object") {
     config.global = {};
   }
-  if (config.global.show_in_menu_bar === undefined) {
-    config.global.show_in_menu_bar = false;
-  }
+  // Keep Karabiner discoverable for permissions, driver status, and rule debugging.
+  config.global.show_in_menu_bar = true;
 
   const profile = selectedProfile(config);
 

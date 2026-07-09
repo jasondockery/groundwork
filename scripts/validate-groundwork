@@ -172,6 +172,12 @@ test "$(cat .chezmoiroot)" = "home"
 grep -q '^2\.70\.0$' .chezmoiversion
 test -f home/.chezmoi.toml.tmpl
 test ! -f .chezmoi.toml.tmpl
+grep -qF 'config.global.show_in_menu_bar = true;' home/dot_config/karabiner/modify_karabiner.json
+assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging" rg -n 'show_in_menu_bar[[:space:]]*=[[:space:]]*false|show_in_menu_bar"[[:space:]]*:[[:space:]]*false' home/dot_config/karabiner
+test -f home/dot_local/bin/executable_groundwork-karabiner-start
+test -x home/dot_local/bin/executable_groundwork-karabiner-start
+grep -qF 'groundwork-karabiner-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
+grep -qF 'groundwork-karabiner-start' home/dot_zshrc.tmpl
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl
@@ -324,9 +330,9 @@ done < home/dot_local/share/groundwork/commands.tsv
 
 check "supply-chain guardrails"
 grep -qE '^FROM ubuntu:24\.04@sha256:[0-9a-f]{64}$' Dockerfile
-# Renovate owns dependency updates (renovate.json); a dependabot.yml would
-# create duplicate PRs, so its absence is the guarded state.
-grep -q '"config:best-practices"' renovate.json
+# Renovate owns dependency updates (renovate.json) through the shared preset; a
+# dependabot.yml would create duplicate PRs, so its absence is the guarded state.
+grep -q '"github>jasondockery/renovate-config"' renovate.json
 if [[ -e .github/dependabot.yml ]]; then
   echo "remove .github/dependabot.yml: Renovate owns dependency updates (see PLAYBOOK.md)" >&2
   exit 1

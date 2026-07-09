@@ -329,20 +329,32 @@
       <h3>Pulling without prompts — the gh credential helper</h3>
       <p>GitHub stopped accepting passwords years ago, so Git authenticates through <strong>gh</strong> for HTTPS remotes. The setup bakes <code>gh</code> in as Git's credential helper (in the managed git config, so it survives every <code>chezmoi apply</code>) for your own GitHub repos after you run <code>gh auth login --git-protocol https</code>. SSH remotes are still fine when your <code>~/.ssh/config</code> clearly maps the right key to the right GitHub account.</p>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
-      <p><strong>Start — interactive:</strong></p>
+      <h2><span class="hash">#</span>Going deeper: a ladder, not a pile</h2>
+      <p>Pick your entry point by where you are, not by what looks most authoritative. The classic mistake is starting with Pro Git (the "Git bible"): it is the definitive reference and a rough first week, because it covers internals, hooks, and server setup alongside the basics. This ladder runs from first hour to deep mechanics. Step on at your level, step off when you have what you need, and come back a rung higher later.</p>
+
+      <p><strong>First week: the on-ramp (hands-on, about an hour each)</strong></p>
+      <ol>
+        <li><a href="https://github.com/skills/introduction-to-github" target="_blank" rel="noopener">GitHub Skills: Introduction to GitHub</a>: branches, commits, pull requests, and merging in under an hour, inside a real repo, no prerequisites.</li>
+        <li><a href="https://github.com/skills/introduction-to-git" target="_blank" rel="noopener">GitHub Skills: Introduction to Git</a>: the Git side proper, on the command line and VS Code, still hands-on.</li>
+        <li><a href="https://www.freecodecamp.org/news/git-and-github-crash-course-for-beginners/" target="_blank" rel="noopener">freeCodeCamp's Git &amp; GitHub crash course</a>: one free video covering the real daily workflow: staging, commits, branches, merge conflicts, push/pull, stash, revert, rebase, and pull requests.</li>
+        <li><a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> (beginner levels): the visual sandbox. Type real commands, watch the graph move. This is where branching clicks.</li>
+      </ol>
+
+      <p><strong>Second stage: depth without the reference manual</strong></p>
       <ul>
-        <li><a href="https://learngitbranching.js.org" target="_blank" rel="noopener">Learn Git Branching</a> — the visual sandbox: type real commands, watch the graph. The best first stop.</li>
-        <li><a href="https://ohmygit.org" target="_blank" rel="noopener">Oh My Git!</a> — an open-source game that shows Git's internals as you play.</li>
-        <li><a href="https://github.com/skills" target="_blank" rel="noopener">GitHub Skills</a> — learn-by-doing courses in real repos (pull requests, collaboration).</li>
+        <li><a href="https://www.freecodecamp.org/news/learn-how-to-use-git-and-github-a-beginner-friendly-handbook" target="_blank" rel="noopener">freeCodeCamp's beginner-friendly handbook</a>: plain-English long form, from "what is Git" gradually into branching, merging, conflicts, and safely undoing mistakes.</li>
+        <li><a href="https://www.freecodecamp.org/news/git-for-professionals/" target="_blank" rel="noopener">Git for Professionals</a> (free video): crafting good commits, choosing a branching strategy, and merge versus rebase. Watch it once the commands feel comfortable, not on day one.</li>
+        <li><a href="https://ohmygit.org" target="_blank" rel="noopener">Oh My Git!</a>: an open-source game that shows Git's internals as you play.</li>
+        <li><a href="https://github.blog/tag/github-for-beginners/" target="_blank" rel="noopener">GitHub for Beginners</a>: GitHub's own blog-plus-video series on its features, for when you want the official voice.</li>
       </ul>
-      <p><strong>Read &amp; reference:</strong></p>
+
+      <p><strong>Reference: for looking things up, not reading through</strong></p>
       <ul>
-        <li><a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener">Pro Git</a> — the definitive, free, complete book. Read it cover to cover when you're ready.</li>
-        <li><a href="https://www.atlassian.com/git/tutorials" target="_blank" rel="noopener">Atlassian Git tutorials</a> — clear, well-illustrated explanations of every workflow.</li>
-        <li><a href="https://ohshitgit.com" target="_blank" rel="noopener">Oh Shit, Git!?!</a> — copy-paste recipes for escaping common messes.</li>
-        <li><a href="https://wizardzines.com/git-cheat-sheet.pdf" target="_blank" rel="noopener">Julia Evans' Git cheat sheet</a> — a friendly one-page "how I actually use git."</li>
-        <li><a href="https://git-scm.com/docs" target="_blank" rel="noopener">Official Git docs</a> — the authoritative command reference.</li>
+        <li><a href="https://www.atlassian.com/git/tutorials" target="_blank" rel="noopener">Atlassian Git tutorials</a>: the practical team-workflow reference; clearer than Pro Git for day-to-day questions.</li>
+        <li><a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener">Pro Git</a>: the definitive, free, complete book. Superb once you have real mileage; internals, hooks, and refspecs live here.</li>
+        <li><a href="https://ohshitgit.com" target="_blank" rel="noopener">Oh Shit, Git!?!</a>: copy-paste recipes for escaping common messes.</li>
+        <li><a href="https://wizardzines.com/git-cheat-sheet.pdf" target="_blank" rel="noopener">Julia Evans' Git cheat sheet</a>: a friendly one-page "how I actually use git."</li>
+        <li><a href="https://git-scm.com/docs" target="_blank" rel="noopener">Official Git docs</a>: the authoritative command reference.</li>
       </ul>
 
       <div class="pagenav">

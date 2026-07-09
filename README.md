@@ -166,7 +166,7 @@ Stored in `~/.config/chezmoi/chezmoi.toml`; re-run with `chezmoi init`.
 
 These are the one-time steps macOS or the app vendor should own: account sign-in, App Store purchases, permission prompts, secrets, per-device hotkeys, display IDs, and cloud sync. Groundwork manages stable file/plist-backed defaults; the README keeps the operational checklist, and the linked docs carry the longer context.
 
-- [ ] **Karabiner** — System Settings → Privacy & Security: approve **Input Monitoring** and the driver/system extension. Enables Caps Lock = Esc/Ctrl. See `docs/keyboard.html`.
+- [ ] **Karabiner** — Groundwork opens Karabiner after install/update if it is not running, but macOS still requires you to approve **Input Monitoring** and the driver/system extension in System Settings → Privacy & Security. Enables Caps Lock = Esc/Ctrl. See `docs/keyboard.html`.
 - [ ] **Apple Developer / Xcode** — optional and large. If you enabled the Xcode setup option, Groundwork attempts the App Store install; if it does not go through, get Xcode from the Mac App Store manually. Then open Xcode once, accept first-launch setup/license prompts, sign in at Xcode → Settings → Accounts, and let Xcode manage certificates/profiles. Never put certificates, provisioning profiles, or `.mobileconfig` profiles in dotfiles. See `docs/macos.html`.
 - [ ] **Password manager** — sign in, enable the SSH agent, and confirm signed commits work. See `docs/apps.html` and `docs/git.html`.
 - [ ] **Bitwarden as default autofill** — make Bitwarden the source of truth for macOS, browsers, and mobile autofill. See `docs/apps.html`.
