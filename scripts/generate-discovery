@@ -59,6 +59,26 @@ def set_meta(text: str, pattern: str, replacement: str) -> str:
     return re.sub(pattern, replacement, text, count=1)
 
 
+def assert_full_history() -> None:
+    """Git history is an input here, not ambient state: sitemap lastmod dates
+    come from each page's `git log`. A shallow clone reports HEAD's date for
+    every file, silently producing wrong dates that pass locally and fail in
+    CI. Fail early and loudly instead. Unknown/old git (no --is-shallow) is
+    treated as not-shallow so this never blocks a normal full clone."""
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.strip()
+    if shallow == "true":
+        sys.stderr.write(
+            "generate-discovery: shallow clone detected; sitemap lastmod "
+            "dates would be wrong (git log reports HEAD for every file). In "
+            "GitHub Actions set checkout fetch-depth: 0 (preferably with "
+            "filter: blob:none); locally run `git fetch --unshallow`.\n"
+        )
+        raise SystemExit(1)
+
+
 def lastmod(path: pathlib.Path) -> str:
     dirty = subprocess.run(
         ["git", "status", "--porcelain", "--", str(path)],
@@ -85,6 +105,7 @@ def is_site_page(path: pathlib.Path) -> bool:
 
 def main() -> int:
     check = "--check" in sys.argv
+    assert_full_history()
     pages = sorted(p for p in DOCS.glob("*.html") if is_site_page(p))
     changed: list[str] = []
     entries = []

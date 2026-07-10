@@ -24,6 +24,7 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - Proceed on reasonable assumptions and state them, rather than stalling to ask. Ask only when genuinely blocked or a choice is irreversible.
 - Show diffs. Lead with the change, not the preamble. Keep explanations short.
 - Prefer the repository's existing style, structure, and tools over inventing new patterns.
+- Prefer the cheapest command or CI step that preserves correctness, and treat git history (clone depth, tags, ancestry, per-file dates) as a declared input, not ambient state. See the `command-efficiency` skill; guardrails such as `generate-discovery`'s shallow-clone check enforce it, but authoring it right the first time is the goal.
 
 ## Code and docs
 - Preserve behavior unrelated to the change.
