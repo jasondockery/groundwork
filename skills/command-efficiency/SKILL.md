@@ -1,66 +1,88 @@
 ---
 name: command-efficiency
-description: Pick the cheapest command that preserves correctness, and know which git/shell/CI operations are expensive and how to make them cheap. Use before running or scripting git operations, repo-wide searches, CI checkouts, container builds, or any command over a large tree.
+description: Reason about what a command costs and pick the cheapest one that preserves correctness. Use before running or scripting git operations, repo-wide searches, CI checkouts, container builds, linters, or any command over a large tree, account, or dataset.
 ---
 
 # Command Efficiency
 
-The rule: **cheap by default, expensive only where correctness requires it, and never guess which is which.** A command's cost is an input you reason about, not ambient luck. The shallow-clone sitemap bug is the canonical failure: `git log` was correct locally and silently wrong under CI's cheap shallow checkout. Know the cost, declare what you need, use the cheapest option that satisfies it, and fail early when the environment cannot.
+The rule: **cheap by default, expensive only where correctness requires it, and never guess which is which.** A command's cost is an input you reason about, not ambient luck. Two failures anchor this skill: a `git log` that was correct locally but silently wrong under CI's shallow checkout, and a `find ~` that scanned an entire home directory when the target was known to be under `~/code`. The first is a wrong correctness contract; the second is a scope that was never narrowed.
 
-Groundwork already installs the efficient tools (`rg`, `fd`, `bat`, `dust`, `duf`, `eza`, `hyperfine`); the point is to reach for them and to configure the expensive tools correctly.
+Groundwork already installs the cheap tools (`rg`, `fd`, `bat`, `dust`, `duf`, `eza`, `hyperfine`); the skill is knowing *when* each is actually cheaper and configuring the expensive tools correctly.
 
-## Git history is an input, not ambient state
+## The cost model: five questions before an expensive command
 
-Any command whose answer depends on **history, tags, ancestry, merge bases, per-file dates, or previous SHAs** must declare that need and prove the checkout provides it. See the `cut-release` skill's green-main precondition and `scripts/generate-discovery` (it calls `assert_full_history()` and fails loudly in a shallow clone).
+Answer these instead of memorizing "command X good, Y bad" — the answer depends on scope and intent, not the command name.
 
-Checkout policy — cheapest that satisfies the contract:
+1. **Scope** — what is the narrowest directory, package, branch, namespace, account, or dataset the task needs? Establish the narrowest *known* scope, cap it (`--max-depth`, a path, a limit), and widen only after the scoped run fails. `find ~` failed this; `find ~/code -maxdepth 4` or a known path passes it.
+2. **Cardinality** — does this run once, or once per file / package / commit / row? Prefer one batched pass over a subprocess per item; process startup dominates at scale.
+3. **Data movement** — does it transfer blobs, all refs, all rows, all objects, or recursive remote data? Fetch only what is used.
+4. **Reuse** — can a cache, index, or single-pass aggregation avoid repeated work?
+5. **Correctness dependency** — what history, generated output, type information, remote state, or environment does correctness *actually* require? Declare it and prove the environment provides it; do not assume a full local clone reflects a shallow CI one.
 
-| Need | Use |
+## Git history is a declared input, not ambient state
+
+Anything whose answer depends on history, tags, ancestry, merge bases, per-file dates, or previous SHAs must declare that need and prove the checkout satisfies it. `scripts/generate-discovery` does this: it `assert`s full history and fails closed if the state cannot be established.
+
+Declare the history you need, then use the narrowest checkout that provides it:
+
+| Need | Checkout |
 | --- | --- |
-| No history (build, lint, format) | shallow default (`fetch-depth: 1`) — do nothing |
-| Commit history / per-file dates / merge-base / `git describe` | `fetch-depth: 0` |
-| History but not old file contents | `fetch-depth: 0` + `filter: blob:none` (blobless) |
-| Tags (version derivation) | `fetch-depth: 0` + `fetch-tags: true`, or an explicit tag fetch |
-| Whole-history secret scan | `fetch-depth: 0` |
+| Snapshot only (build, lint, format) | shallow default (`fetch-depth: 1`) |
+| This branch's history (per-file dates, its own `git log`) | `fetch-depth: 0` + `filter: blob:none` (history without old blobs) |
+| Compare against a PR base (`merge-base`, `git diff base...`) | enough history to reach the base; `fetch-depth: 0` is the simple guarantee |
+| Tags (version derivation, `git describe`) | `fetch-depth: 0` + `fetch-tags: true`, or an explicit tag fetch |
 
-Never blanket `fetch-depth: 0` on every job — that is wasteful. Never leave a history-sensitive job shallow — that is silently wrong.
+`fetch-depth: 0` fetches **all** branches and tags — a safe universal answer, not automatically the cheapest (a per-path lastmod needs only the checked-out branch's history). Use the narrowest that satisfies the need; reach for `fetch-depth: 0` when narrowing isn't worth the complexity. Never leave a history-sensitive job shallow — that is silently wrong, not merely slow.
 
 ## Expensive git operations and cheaper forms
 
 | Expensive | Why | Cheaper |
 | --- | --- | --- |
-| `git clone <big>` | full blobs + history | `--filter=blob:none` (blobless), `--filter=tree:0` (treeless), `--depth 1` (shallow, but breaks history ops), `--single-branch --no-tags` |
+| `git clone <big>` | full blobs + history | `--filter=blob:none` (blobless), `--filter=tree:0` (treeless), `--depth 1` (breaks history ops), `--single-branch --no-tags` |
 | `git log -p`, `git log --follow` | diffs every commit / rename detection | drop `-p`; add a pathspec `-- path`, `-n`, `--oneline`, `--since` |
-| `git blame -C -C -C` | aggressive copy detection | plain `git blame`, or `-L start,end` to scope lines |
-| `git status` in a huge tree | scans the whole worktree | `core.fsmonitor=true`, `core.untrackedCache=true`, `feature.manyFiles=true`; or `-uno` when untracked don't matter |
-| `git branch/tag --contains`, `git rev-list --count` | walk lots of history | write a commit-graph: `git commit-graph write --reachable` (or `git maintenance start` to automate) |
+| a `git log` per file | one process + one history query each | one traversal building a `path → date` map (`git log --name-only`, first hit per path) |
+| `git blame -C -C -C` | aggressive copy detection | plain `git blame`, or `-L start,end` |
+| `git status` in a huge tree | scans the worktree | `core.fsmonitor=true`, `core.untrackedCache=true`, `feature.manyFiles=true`; `-uno` when untracked don't matter |
+| `git branch/tag --contains`, `git rev-list --count` | walk lots of history | write a commit-graph: `git commit-graph write --reachable` (or `git maintenance start`) |
 | `git fetch` (all refs/tags) | pulls everything | `--no-tags`, `--depth`, `--filter=blob:none`, a single refspec |
-| `git grep` across history | reads many blobs | `rg` for the working tree; scope `git grep` to a rev/pathspec |
 
-## Beyond git: expensive commands and their efficient forms
+## Beyond git
 
-| Instead of | Use | Why |
+Cheaper *usually*, with the caveat that matters — scope and pruning decide cost more than the binary does.
+
+| Instead of | Consider | Why / caveat |
 | --- | --- | --- |
-| `grep -r pattern .` | `rg pattern` | parallel, skips `.git` and gitignored, far faster |
-| `find . -name '*.ts'` | `fd -e ts` | parallel, ignores junk dirs by default |
-| `cat file \| grep x` | `rg x file` | no useless `cat`, no extra process |
-| `du -sh *` on a big tree | `dust` / `duf` | sorted, quick, readable |
-| `ls -R` | `eza --tree` / `fd` | respects ignores, no wall of output |
-| `xargs cmd` | `xargs -0 -P"$(nproc)"` (with `-print0`/`rg -0`) | parallelism + safe null-delimited paths |
-| `curl url` | `curl -fsSL --compressed`, and cache the result | fail on error, follow redirects, don't re-download |
-| `npm install` | `pnpm install --frozen-lockfile` + a warm cache | faster, deterministic |
-| full test suite every run | affected/incremental (e.g. `turbo run --affected`) | scopes work to what changed — note this itself needs a merge-base, so full history |
-| `eslint .` cold, whole tree | `--cache --cache-location .eslintcache`; set flat-config `ignores` for `node_modules`/`dist`; lint affected packages; cache the task in Turbo/CI | re-lints only what changed; type-aware linting is the slow part (see below) |
-| `docker build` | BuildKit + order layers deps-before-source + `.dockerignore` + `--cache-from`/cache mounts | reuses layers instead of rebuilding |
-| `kubectl get --all-namespaces` / cloud `list` everything | server-side filters, selectors, pagination | don't pull the world to filter locally |
-| reading a whole file for one line | `head`/`tail`/`rg -m1` | stop early |
-| a subprocess per item in a loop | one batched invocation | process startup dominates at scale |
+| `grep -r pattern .` | `rg pattern` | parallel, skips `.git`/ignored — but scope the root; `rg ~` is still expensive |
+| `find . -name '*.ts'` | `fd -e ts`, or `find` with `-prune`/`-maxdepth` | `fd` has friendlier defaults and ignores; neither is cheap rooted too wide or unpruned |
+| `cat file \| grep x` | `rg x file` | drop the extra process |
+| `du -sh *` on a big tree | `dust` / `duf` | sorted, quick |
+| `ls -R` | `eza --tree` / `fd` | respects ignores |
+| `xargs cmd` | `xargs -0 -P"$(nproc)"` (with `-print0`/`rg -0`) | parallel + null-safe paths |
+| `curl url` | `curl -fsSL --compressed` | fail on error, follow redirects, compress transfer — this does **not** cache; add `--etag-save/--etag-compare` or a local cache separately |
+| swapping in a package manager | the repo's **declared** manager + frozen lockfile in CI (e.g. `pnpm install --frozen-lockfile`) | deterministic; don't switch managers a repo didn't choose |
+| full test/lint every run | affected/incremental (e.g. `turbo run --affected`) | needs a merge-base (full history) **and** a build graph that models shared config, toolchain, and generated inputs — affected is only as safe as that graph |
+| `docker build` | BuildKit + deps-before-source layers + `.dockerignore` + `--cache-from`/cache mounts | reuse layers |
+| list everything then filter (`kubectl`/cloud `list`) | server-side filters, selectors, pagination | don't pull the world to filter locally |
+| read a whole file for one line | `head`/`tail`/`rg -m1` | stop early |
+| a subprocess per item in a loop | one batched invocation | startup dominates at scale |
 
-Type-aware linting is the usual ESLint cost: rules that need type information (`typescript-eslint` with `parserOptions.project`) run the type-checker, so linting scales with project size. Prefer `projectService` over an explicit `project` glob, keep type-aware rules to the files that need them, and cache the lint task. In a monorepo, a shared ESLint config consumed by each package (the same extract-and-share model as the shared Renovate preset) keeps rules consistent and cacheable rather than re-derived per repo.
+## ESLint and typed linting
+
+- **Cache.** `--cache`. In CI or any restored worktree use `--cache-strategy content` — git does not preserve mtimes, so the default metadata strategy misses. The external cache key must include lockfile, ESLint version, config, Node version, and relevant `tsconfig`.
+- **Ignore build output.** Flat-config `ignores` for `node_modules`, `dist`, generated code — don't lint what you don't own.
+- **Typed linting is the cost,** not "ESLint": rules needing type info build TypeScript programs, so cost scales with project size. Prefer `projectService` over a broad `project` glob, keep `tsconfig` includes narrow, and avoid recursive `**/tsconfig.json` when explicit package paths work. Profile before disabling a correctness rule.
+- **Concurrency is situational.** `--concurrency auto` can help on an idle machine but hurts when Turbo already runs package tasks in parallel or a runner is CPU-constrained. Measure per topology; don't mandate it.
+- **Don't lint intentionally-invalid files** (tokenized templates) to force coverage — that is a validation hole. Render representative fixtures and lint those instead.
+
+## What to hard-fail, warn, or only teach
+
+- **Hard-fail** (objectively wrong or dangerous): a history-dependent generator in a shallow clone; a missing merge-base for an affected calculation; a tag-dependent release without tags; unrendered templates in a normal lint scope; a cache key missing a correctness-critical input; over-broad workflow permissions.
+- **Warn** (context-dependent): `eslint` without cache; `fetch-depth: 0` in a snapshot-only job; a git subprocess per file; `find`/`rg` rooted at `$HOME`; the full suite in an inner loop; `docker --no-cache`; broad cloud/k8s listing.
+- **Teach only** (not CI-enforceable — skills and habits): an agent typing `find ~`, reading a whole large file for one fact, reopening the same files, or searching before checking the working directory.
 
 ## Practice
 
-1. **Measure, don't guess.** `hyperfine 'old' 'new'` compares two commands; `time`, `GIT_TRACE=1`, and `TIMEFORMAT` expose real cost. A "slow" command is a hypothesis until measured.
-2. **Fail early when a cheap environment can't satisfy the contract.** If a script's correctness needs history/tags/network, preflight it (`git rev-parse --is-shallow-repository`) and exit with an actionable message rather than emitting silently-wrong output.
-3. **Don't trade correctness for speed.** Shallow clones, sampled scans, `--depth 1`, and skipped verification are cheap *and wrong* when the task needs the full picture. Cheapest-that-is-correct, not cheapest.
-4. **Don't assume local == CI.** A full local clone hides costs and contracts that a shallow CI checkout exposes. Run the same command in the environment that will run it.
+1. **Measure, don't guess.** `hyperfine 'old' 'new'`, `time`, `GIT_TRACE=1` expose real cost. "Slow" is a hypothesis until measured.
+2. **Declare and check the contract.** If correctness needs history/tags/network, preflight it (`git rev-parse --is-shallow-repository`) and fail closed with an actionable message rather than emitting silently-wrong output.
+3. **Cheapest that is correct, never cheapest.** Shallow clones, sampled scans, `--depth 1`, skipped verification are cheap *and wrong* when the task needs the full picture.
+4. **Local is not CI.** A full local clone hides contracts a shallow CI checkout exposes. Run the command in the environment that will run it.
