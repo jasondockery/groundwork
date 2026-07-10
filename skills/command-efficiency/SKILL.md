@@ -50,10 +50,13 @@ Never blanket `fetch-depth: 0` on every job — that is wasteful. Never leave a 
 | `curl url` | `curl -fsSL --compressed`, and cache the result | fail on error, follow redirects, don't re-download |
 | `npm install` | `pnpm install --frozen-lockfile` + a warm cache | faster, deterministic |
 | full test suite every run | affected/incremental (e.g. `turbo run --affected`) | scopes work to what changed — note this itself needs a merge-base, so full history |
+| `eslint .` cold, whole tree | `--cache --cache-location .eslintcache`; set flat-config `ignores` for `node_modules`/`dist`; lint affected packages; cache the task in Turbo/CI | re-lints only what changed; type-aware linting is the slow part (see below) |
 | `docker build` | BuildKit + order layers deps-before-source + `.dockerignore` + `--cache-from`/cache mounts | reuses layers instead of rebuilding |
 | `kubectl get --all-namespaces` / cloud `list` everything | server-side filters, selectors, pagination | don't pull the world to filter locally |
 | reading a whole file for one line | `head`/`tail`/`rg -m1` | stop early |
 | a subprocess per item in a loop | one batched invocation | process startup dominates at scale |
+
+Type-aware linting is the usual ESLint cost: rules that need type information (`typescript-eslint` with `parserOptions.project`) run the type-checker, so linting scales with project size. Prefer `projectService` over an explicit `project` glob, keep type-aware rules to the files that need them, and cache the lint task. In a monorepo, a shared ESLint config consumed by each package (the same extract-and-share model as the shared Renovate preset) keeps rules consistent and cacheable rather than re-derived per repo.
 
 ## Practice
 
