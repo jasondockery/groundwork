@@ -80,17 +80,22 @@
       <a href="dependencies.html">Dependencies</a>
     </nav>
     <nav class="nav-group">
-      <h4>AI tools</h4>
+      <h4>Directing agents</h4>
       <a href="agents.html" class="active">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-      <a href="ai-budget.html">Know your AI budget</a>
     </nav>
     <nav class="nav-group">
-      <h4>Tracks</h4>
+      <h4>Interest tracks</h4>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="web-dev.html">Web &amp; sites</a>
@@ -168,34 +173,7 @@
       <p>Keep it short enough that an agent can read it every time. If a section turns into a long procedure, move that procedure into a skill or a normal doc and link to it. If it is about Groundwork's long-term AI-native direction, put it in <code>AI_THESIS.md</code> instead.</p>
 
       <h2><span class="hash">#</span>When a skill is worth creating</h2>
-      <p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong. It is not a second rulebook.</p>
-      <p>In Groundwork, repo-local skills include <code>docs-alignment</code>, <code>chezmoi-change</code>, <code>macos-default-change</code>, and <code>validate-groundwork</code>. They cover the exact places where hidden coupling matters: keeping docs aimed at <code>AI_THESIS.md</code>, managed files, macOS defaults plus backup/restore, and release validation.</p>
-      <p>The litmus test for tool-specific skill files is simple: if an agent should follow the text, it belongs in <code>SKILL.md</code>. If a tool only uses it to label or register the skill, it can live beside the skill as metadata. Groundwork validates that any Codex <code>openai.yaml</code> file stays in the second category.</p>
-      <div class="drill">
-        <div class="num">1</div>
-        <div class="body">
-          <h3>Good skill</h3>
-          <p>"Create a verified PowerPoint deck from this template." It has steps, assets, validation, and a clear finish line.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">2</div>
-        <div class="body">
-          <h3>Bad skill</h3>
-          <p>"Always write clean code and run tests." That belongs in <code>AGENTS.md</code>.</p>
-        </div>
-      </div>
-      <div class="drill">
-        <div class="num">3</div>
-        <div class="body">
-          <h3>Good adapter</h3>
-          <p>"Claude Code: read <code>AGENTS.md</code>; use <code>@file</code> references when asking about a specific file." Tool behavior lives here, shared policy does not.</p>
-        </div>
-      </div>
-      <div class="callout warn">
-        <span class="label">Do not hide critical rules in skills</span>
-        <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
-      </div>
+      <p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong — and it is not a second rulebook: anything the agent must always obey belongs in <code>AGENTS.md</code>. The full treatment, with worked examples from this repo, lives on <a href="skills-playbooks.html">Skills &amp; playbooks</a>.</p>
 
       <h2 id="direct-one-agent-well-then-direct-many"><span class="hash">#</span>Direct one agent well, then direct many</h2>
       <p>Once you can hand a single agent a clean task and review the result, the next move is to stop being the only worker. In an orchestrated setup you become the <strong>orchestrator</strong>: one agent plans and delegates, and other agents (subagents, workers) each own a piece. This is not a new skill so much as three you already practice — decomposition, verification, and context economy — pointed at other agents. Learn to run one agent first; a beginner should not be commanding a fleet before they can direct a pair.</p>
@@ -230,11 +208,11 @@
       <table class="keytable">
         <tr><td><strong>Thesis</strong></td><td><code>AI_THESIS.md</code></td><td>Why the work exists and the direction no agent may drift from.</td></tr>
         <tr><td><strong>Goals</strong></td><td>The objective you set per task</td><td>What "done" means for this specific piece of work.</td></tr>
-        <tr><td><strong>Specs</strong></td><td>A checkable target — a failing test, a mock, acceptance criteria (see <a href="#give-agents-a-concrete-target">Give agents a concrete target</a>)</td><td>The precise contract each agent verifies its own output against.</td></tr>
-        <tr><td><strong>Playbooks</strong></td><td><code>skills/</code></td><td>The repeatable <em>how</em>, so every agent runs a procedure the same way.</td></tr>
+        <tr><td><strong>Specs</strong></td><td>A checkable target — a failing test, a mock, acceptance criteria (see <a href="specs.html">Specs &amp; targets</a>)</td><td>The precise contract each agent verifies its own output against.</td></tr>
+        <tr><td><strong>Playbooks</strong></td><td><code>skills/</code> (see <a href="skills-playbooks.html">Skills &amp; playbooks</a>)</td><td>The repeatable <em>how</em>, so every agent runs a procedure the same way.</td></tr>
       </table>
-      <p>Here is why this matters more as you add agents, not less. One agent working from a vague goal produces one plausible-but-wrong diff, and you catch it. Fan that same vagueness out to five agents and you get five diffs drifting in five directions — the exact 2026 failure mode the industry named <strong>drift</strong> and built <em>spec-driven development</em> to kill: confident code that quietly solves the wrong problem because nobody grounded it in a real spec. So the shared context is not paperwork you skip to move fast; scaling is precisely when it starts paying. A sharper spec makes delegation safe, a good playbook makes a worker reliable, and the thesis keeps a swarm from optimizing the wrong thing.</p>
-      <p>The durable workflow, tool-independent: write the spec first, derive a plan, break it into atomic tasks, then let one agent or ten build with that spec as their shared memory. Every major tool shipped a flavor of this in 2025–2026 (GitHub Spec Kit, AWS Kiro, and others), but do not adopt a vendor's ceremony — adopt the habit. Ground the work in something checkable before you hand it off, and the same contract that makes a single agent reliable is what lets you trust a team of them.</p>
+      <p>Why this matters more as you add agents, not less: vagueness that costs you one wrong diff with one agent costs you five diverging diffs with five. A sharper spec makes delegation safe, a good playbook makes a worker reliable, and the thesis keeps a swarm from optimizing the wrong thing. The spec habit — and a full worked example from request to shipped — lives on <a href="specs.html">Specs &amp; targets</a>.</p>
+      <p>The thesis layer deserves one concrete illustration, because it is the easiest to dismiss as paperwork. Groundwork&apos;s own thesis (<code>AI_THESIS.md</code>) states, among other things, that every tool page must answer how an agent uses the tool or how it helps a human direct and verify one — and that interface tools are choices, not purity tests. Those two sentences have quietly shaped hundreds of edits by many agents across this site: pages that drifted toward tooling-for-its-own-sake got caught, and nothing ships that talks down to a reader for their editor choice. That is what a thesis is for — not describing the product, but giving every future contributor, human or agent, the same test for "does this belong."</p>
 
       <h2><span class="hash">#</span>Know your AI budget</h2>
       <p>Every serious AI tool runs inside limits — a context window, plan or rate limits, sometimes a spend budget — and long work fails in confusing ways when you hit them blind. The habit and where each tool's gauge lives now have their own page: <a href="ai-budget.html">Know your AI budget</a>. The short version: check your tool's gauge before long work, start big work with room, and reset context deliberately when it's polluted.</p>
@@ -259,16 +237,6 @@
           <p>Run <code>claude --resume</code> (or <code>codex resume</code>) in a project you have worked in before, find an old session, and reopen it. Then ask yourself: could you have rebuilt the same context from the repo alone, without reading that transcript? If not, that is the gap. Go fix your project's instruction files so the next session does not need the old chat to know what is correct.</p>
         </div>
       </div>
-
-      <h2 id="give-agents-a-concrete-target"><span class="hash">#</span>Give agents a concrete target</h2>
-      <p>The single highest-leverage change in how you direct an agent: replace descriptions of what you want with an <strong>artifact the agent can check itself against</strong>.</p>
-      <ul>
-        <li><strong>A failing test</strong> — the gold standard for behavior. Write (or have the agent write) a test that fails for exactly the bug or missing feature, then ask for the code that makes it pass. That's the difference between "I think it's fixed" and "the test passes."</li>
-        <li><strong>A screenshot or mock</strong> — for UI work, an image of the desired result beats paragraphs. The agent can compare its output against it and self-correct across iterations.</li>
-        <li><strong>A desired diff shape</strong> — "touch only these two files and add a flag here" bounds the blast radius before work starts.</li>
-        <li><strong>A sample of the output</strong> — for generators, transformations, and reports, show one correct example.</li>
-      </ul>
-      <p>The principle underneath: an agent with a checkable target can verify its own work and iterate; an agent with only prose must guess what you meant and wait for you to notice. On real teams this habit hardens into machinery — a repo rule that every bug fix starts with a red test before any fix is written. You're learning the habit; a well-governed repo enforces it.</p>
 
       <h2><span class="hash">#</span>Daily agent practice</h2>
       <p>Practice with agents the same way you practice Vim or tmux: small loops, repeated often, with a human checking the result.</p>
@@ -308,7 +276,7 @@
 
       <div class="pagenav">
         <a href="dependencies.html"><span class="dir">← Prev</span>Dependencies</a>
-        <a href="claude.html"><span class="dir">Next →</span>Claude &amp; Claude Code</a>
+        <a href="specs.html"><span class="dir">Next →</span>Specs &amp; targets</a>
       </div>
       <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
     </div>

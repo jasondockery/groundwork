@@ -307,7 +307,7 @@ for page in docs/*.html; do
   grep -q 'localStorage.getItem("fg-theme")' "$page" || { echo "$page: missing early theme bootstrap" >&2; exit 1; }
   assert_not_contains 'data-theme="dark"' "$page" "$page: hardcoded dark theme causes light-theme flash"
   grep -q 'href="platforms.html"' "$page" || { echo "$page: missing Platforms sidebar link" >&2; exit 1; }
-  for group in "Start here" "Set up" "Foundations" "Daily workflow" "AI tools" "Tracks" "Mac desktop" "Reference"; do
+  for group in "Start here" "Set up" "Foundations" "Daily workflow" "Directing agents" "AI tools" "Interest tracks" "Mac desktop" "Reference"; do
     grep -q "<h4>$group</h4>" "$page" || { echo "$page: missing sidebar group: $group" >&2; exit 1; }
   done
   active_count="$(grep -c 'class="active"' "$page" || true)"
@@ -336,7 +336,7 @@ for page in sorted(pathlib.Path("docs").glob("*.html")):
 PY
 assert_no_matches "old docs title separator found" rg -n '(<title>[^<]*( — | -- | - )Groundwork|<(meta)[^>]+content="[^"]*( — | -- | - )Groundwork")' docs
 assert_no_matches "old macOS windows label found" rg -n "macOS windows" docs README.md
-assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows)</h4>' docs
+assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows|Tracks)</h4>' docs
 commands_page_text="$(
   sed -E 's/<[^>]+>/ /g; s/&lt;/</g; s/&gt;/>/g; s/&amp;/\\&/g; s/&quot;/\"/g; s/&#39;/'"'"'/g' docs/commands.html |
     tr '\n' ' ' |

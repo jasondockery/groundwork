@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A playbook is a written procedure for work that repeats; a skill is that playbook packaged so an agent can load and follow it on demand. This page shows when…">
+<title>Skills &amp; playbooks · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/skills-playbooks.html">
+<meta property="og:title" content="Skills &amp; playbooks · Groundwork">
+<meta property="og:description" content="A playbook is a written procedure for work that repeats; a skill is that playbook packaged so an agent can load and follow it on demand. This page shows when…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Skills &amp; playbooks · Groundwork">
+<meta name="twitter:description" content="A playbook is a written procedure for work that repeats; a skill is that playbook packaged so an agent can load and follow it on demand. This page shows when…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/skills-playbooks.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Directing agents</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html" class="active">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Interest tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+<p class="eyebrow">Directing agents</p>
+<h1>Write the procedure once; let every agent run it the same way.</h1>
+<p class="lead">A playbook is a written procedure for work that repeats; a skill is that playbook packaged so an agent can load and follow it on demand. This page shows when one is worth writing, what belongs inside, and what stays out.</p>
+
+<div class="trigger"><b>When you'll want this</b> You&apos;ve explained the same multi-step procedure to an agent (or a teammate) twice, and the second explanation differed from the first.</div>
+
+<h2><span class="hash">#</span>Playbooks: the repeatable how</h2>
+<p>A <strong>playbook</strong> is the written form of "how we do this here" for a recurring operation: cutting a release, validating before publishing, changing a managed config, responding to a failing deploy. It differs from a rule — a rule says what must always hold; a playbook says what steps to take, in what order, with what checks. Teams have kept playbooks (runbooks) for decades; what&apos;s new in AI-native work is that a playbook can now be <em>executed</em> by an agent, not just read by a person — which raises the bar for how precisely it&apos;s written.</p>
+
+<h2><span class="hash">#</span>Skills: playbooks an agent can load</h2>
+<p>A <strong>skill</strong> is the executable packaging: a folder with a <code>SKILL.md</code> entrypoint that an agent loads on demand when the task matches. Keep the source in one place — Groundwork keeps repo skills in <code>skills/</code> with <code>.claude/skills</code> and <code>.codex/skills</code> as symlinks — so every tool runs the same procedure.</p>
+
+<h2><span class="hash">#</span>When a skill is worth creating</h2>
+<p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong. It is not a second rulebook.</p>
+<p>In Groundwork, repo-local skills include <code>docs-alignment</code>, <code>chezmoi-change</code>, <code>macos-default-change</code>, and <code>validate-groundwork</code>. They cover the exact places where hidden coupling matters: keeping docs aimed at <code>AI_THESIS.md</code>, managed files, macOS defaults plus backup/restore, and release validation.</p>
+<p>The litmus test for tool-specific skill files is simple: if an agent should follow the text, it belongs in <code>SKILL.md</code>. If a tool only uses it to label or register the skill, it can live beside the skill as metadata. Groundwork validates that any Codex <code>openai.yaml</code> file stays in the second category.</p>
+<div class="drill">
+  <div class="num">1</div>
+  <div class="body">
+    <h3>Good skill</h3>
+    <p>"Create a verified PowerPoint deck from this template." It has steps, assets, validation, and a clear finish line.</p>
+  </div>
+</div>
+<div class="drill">
+  <div class="num">2</div>
+  <div class="body">
+    <h3>Bad skill</h3>
+    <p>"Always write clean code and run tests." That belongs in <code>AGENTS.md</code>.</p>
+  </div>
+</div>
+<div class="drill">
+  <div class="num">3</div>
+  <div class="body">
+    <h3>Good adapter</h3>
+    <p>"Claude Code: read <code>AGENTS.md</code>; use <code>@file</code> references when asking about a specific file." Tool behavior lives here, shared policy does not.</p>
+  </div>
+</div>
+<div class="callout warn">
+  <span class="label">Do not hide critical rules in skills</span>
+  <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
+</div>
+
+<h2><span class="hash">#</span>A real one from this repo</h2>
+<p>[REAL-EXAMPLE: to be drafted — walk one actual Groundwork skill (cut-release or docs-alignment) as a worked example of playbook anatomy: trigger, steps, checks, finish line.]</p>
+
+<h2><span class="hash">#</span>References</h2>
+<ul>
+  <li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Claude Code skills</a> — project skills, <code>SKILL.md</code>, and skill discovery paths.</li>
+  <li><a href="agents.html">AI agents &amp; rules</a> — the contract layer skills must never replace.</li>
+</ul>
+
+<div class="pagenav">
+  <a href="specs.html"><span class="dir">← Prev</span>Specs &amp; targets</a>
+  <a href="ai-budget.html"><span class="dir">Next →</span>Know your AI budget</a>
+</div>
+
+      <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

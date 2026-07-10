@@ -80,17 +80,22 @@
       <a href="dependencies.html">Dependencies</a>
     </nav>
     <nav class="nav-group">
-      <h4>AI tools</h4>
+      <h4>Directing agents</h4>
       <a href="agents.html">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-      <a href="ai-budget.html">Know your AI budget</a>
     </nav>
     <nav class="nav-group">
-      <h4>Tracks</h4>
+      <h4>Interest tracks</h4>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="web-dev.html">Web &amp; sites</a>
@@ -192,6 +197,10 @@
         <tr><td><strong>Prompt</strong></td><td>What you tell the AI to do, in plain English.</td></tr>
         <tr><td><strong>Context</strong></td><td>The files and information the agent can "see" while it works.</td></tr>
         <tr><td><strong><code>AGENTS.md</code></strong></td><td>The plain-text source of truth for project agent instructions. Tool-specific files such as <code>CLAUDE.md</code> should point to it unless they need a tool-only note. See <a href="new-project.html">Starting a project</a>.</td></tr>
+        <tr><td><strong>Spec</strong></td><td>A checkable statement of what "done and correct" means for a piece of work — from acceptance criteria to a failing test. See <a href="specs.html">Specs &amp; targets</a>.</td></tr>
+        <tr><td><strong>Playbook</strong></td><td>A written procedure for work that repeats: the steps, the order, the checks. See <a href="skills-playbooks.html">Skills &amp; playbooks</a>.</td></tr>
+        <tr><td><strong>Skill</strong></td><td>A playbook packaged so an agent can load and follow it on demand — a folder with a <code>SKILL.md</code> entrypoint. See <a href="skills-playbooks.html">Skills &amp; playbooks</a>.</td></tr>
+        <tr><td><strong>Thesis</strong></td><td>The project's written north star: why the work exists and the direction no contributor, human or agent, may drift from. See <a href="agents.html">AI agents &amp; rules</a>.</td></tr>
         <tr><td><strong>chezmoi</strong></td><td>The tool that lays this whole setup onto a machine or shell profile from one Git repo. See <a href="setup.html">Setup</a>.</td></tr>
         <tr><td><strong>Template</strong></td><td>A config file with blanks chezmoi fills in per machine (your name, email, work-or-not).</td></tr>
         <tr><td><strong>Bootstrap</strong></td><td>The one-command first run that installs everything on a fresh machine.</td></tr>
