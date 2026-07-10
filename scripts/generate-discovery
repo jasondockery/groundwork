@@ -60,40 +60,76 @@ def set_meta(text: str, pattern: str, replacement: str) -> str:
 
 
 def assert_full_history() -> None:
-    """Git history is an input here, not ambient state: sitemap lastmod dates
-    come from each page's `git log`. A shallow clone reports HEAD's date for
-    every file, silently producing wrong dates that pass locally and fail in
-    CI. Fail early and loudly instead. Unknown/old git (no --is-shallow) is
-    treated as not-shallow so this never blocks a normal full clone."""
-    shallow = subprocess.run(
+    """Git history is a declared input here, not ambient state: sitemap
+    lastmod dates are each page's newest commit date. A shallow clone can't
+    prove it holds the commit that last changed a page, so the dates would be
+    silently wrong. Fail closed: if the history state cannot even be
+    established, that is an error, not a pass. The declared contract is the
+    checked-out branch's complete history."""
+    result = subprocess.run(
         ["git", "rev-parse", "--is-shallow-repository"],
         cwd=ROOT, capture_output=True, text=True,
-    ).stdout.strip()
-    if shallow == "true":
+    )
+    if result.returncode != 0:
         sys.stderr.write(
-            "generate-discovery: shallow clone detected; sitemap lastmod "
-            "dates would be wrong (git log reports HEAD for every file). In "
-            "GitHub Actions set checkout fetch-depth: 0 (preferably with "
-            "filter: blob:none); locally run `git fetch --unshallow`.\n"
+            "generate-discovery: cannot determine git history state: "
+            f"{result.stderr.strip()}\n"
+        )
+        raise SystemExit(1)
+    state = result.stdout.strip()
+    if state not in ("true", "false"):
+        sys.stderr.write(
+            f"generate-discovery: unexpected shallow-state {state!r} "
+            "(expected 'true' or 'false')\n"
+        )
+        raise SystemExit(1)
+    if state == "true":
+        sys.stderr.write(
+            "generate-discovery: shallow clone; sitemap lastmod dates need "
+            "the checked-out branch's full history. In GitHub Actions set "
+            "checkout fetch-depth: 0 (add filter: blob:none to skip old "
+            "blobs); locally run `git fetch --unshallow`.\n"
         )
         raise SystemExit(1)
 
 
-def lastmod(path: pathlib.Path) -> str:
-    dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--", str(path)],
-        cwd=ROOT, capture_output=True, text=True,
-    ).stdout.strip()
-    if dirty:
-        out = subprocess.run(
-            ["date", "+%Y-%m-%d"], capture_output=True, text=True
-        ).stdout.strip()
-        return out
+def dirty_docs_paths() -> set[str]:
+    """Repo-relative docs paths with uncommitted changes, in one git call.
+    These get today's date; committed pages get their last commit date."""
     out = subprocess.run(
-        ["git", "log", "-1", "--format=%cs", "--", str(path)],
+        ["git", "status", "--porcelain", "--", "docs"],
         cwd=ROOT, capture_output=True, text=True,
-    ).stdout.strip()
-    return out or "1970-01-01"
+    ).stdout
+    paths: set[str] = set()
+    for line in out.splitlines():
+        if len(line) < 4:
+            continue
+        entry = line[3:]
+        if " -> " in entry:  # rename: the new path is what exists now
+            entry = entry.split(" -> ", 1)[1]
+        paths.add(entry.strip().strip('"'))
+    return paths
+
+
+def commit_date_map() -> dict[str, str]:
+    """Newest commit date per docs path in ONE history traversal, not a
+    `git log` per page. git log is newest-first, so a path's first appearance
+    is its latest change."""
+    out = subprocess.run(
+        ["git", "log", "--format=%cs", "--name-only", "--", "docs"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout
+    dates: dict[str, str] = {}
+    current = ""
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", line):
+            current = line
+        else:
+            dates.setdefault(line, current)
+    return dates
 
 
 def is_site_page(path: pathlib.Path) -> bool:
@@ -137,6 +173,18 @@ def main() -> int:
 
     url_of = lambda p: f"{BASE}/" if p.name == "index.html" else f"{BASE}/{p.name}"
 
+    dirty = dirty_docs_paths()
+    dates = commit_date_map()
+    today = subprocess.run(
+        ["date", "+%Y-%m-%d"], capture_output=True, text=True
+    ).stdout.strip()
+
+    def page_lastmod(page: pathlib.Path) -> str:
+        rel = f"docs/{page.name}"
+        if rel in dirty:
+            return today
+        return dates.get(rel) or "1970-01-01"
+
     sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     sitemap_lines.append(
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -144,7 +192,7 @@ def main() -> int:
     for page, _title, _desc in entries:
         sitemap_lines.append("  <url>")
         sitemap_lines.append(f"    <loc>{url_of(page)}</loc>")
-        sitemap_lines.append(f"    <lastmod>{lastmod(page)}</lastmod>")
+        sitemap_lines.append(f"    <lastmod>{page_lastmod(page)}</lastmod>")
         sitemap_lines.append("  </url>")
     sitemap_lines.append("</urlset>")
     sitemap = "\n".join(sitemap_lines) + "\n"
