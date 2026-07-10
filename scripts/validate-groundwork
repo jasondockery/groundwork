@@ -178,10 +178,17 @@ grep -qF 'mise activate zsh --shims' home/dot_zprofile.tmpl
 grep -qF 'experimental_use_profile = true' home/dot_codex/modify_private_config.toml
 grep -qF 'config.global.show_in_menu_bar = true;' home/dot_config/karabiner/modify_karabiner.json
 assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging" rg -n 'show_in_menu_bar[[:space:]]*=[[:space:]]*false|show_in_menu_bar"[[:space:]]*:[[:space:]]*false' home/dot_config/karabiner
-test -f home/dot_local/bin/executable_groundwork-karabiner-start
-test -x home/dot_local/bin/executable_groundwork-karabiner-start
-grep -qF 'groundwork-karabiner-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
-grep -qF 'groundwork-karabiner-start' home/dot_zshrc.tmpl
+test -f home/dot_local/bin/executable_groundwork-apps-start
+test -x home/dot_local/bin/executable_groundwork-apps-start
+grep -qF 'groundwork-apps-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
+grep -qF 'groundwork-apps-start' home/dot_zshrc.tmpl
+# Every always-on app stays in the relaunch guard; Homebrew quits them on
+# cask upgrades and never brings them back.
+for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
+  grep -qF "start_app \"$always_on_app\"" home/dot_local/bin/executable_groundwork-apps-start \
+    || { echo "groundwork-apps-start must relaunch $always_on_app" >&2; exit 1; }
+done
+grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl

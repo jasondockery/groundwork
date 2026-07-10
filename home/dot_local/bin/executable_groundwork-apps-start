@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ "$(uname -s)" == "Darwin" ]] || exit 0
+
+# Homebrew and brew bundle quit GUI apps while replacing their casks and do
+# not relaunch them. For always-on apps — the keyboard driver, the launcher,
+# the display manager, the menu-bar library — that silently removes
+# functionality until the user notices something stopped answering. Reopen
+# any that are installed but not running. Windowed apps with their own update
+# channels (password managers, editors, Docker) stay user-managed.
+started=""
+
+start_app() {
+  local app_name="$1" reason="$2"
+  [[ -d "/Applications/${app_name}.app" ]] || return 0
+  if pgrep -f "/${app_name}[.]app/" >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "${app_name} is installed but not running; opening it so ${reason}."
+  open -a "${app_name}" || true
+  started="${started} ${app_name}"
+}
+
+start_app "Karabiner-Elements" "keyboard rules and permission prompts are visible"
+start_app "Raycast" "the launcher hotkey keeps answering"
+start_app "BetterDisplay" "display presets and brightness controls stay available"
+start_app "Anybox" "the bookmark library and its shortcuts stay in the menu bar"
+
+case "$started" in
+  *Karabiner-Elements*)
+    # Karabiner documents this as the command-line restart path. It is
+    # best-effort: first-run permissions, driver approval, and Gatekeeper
+    # prompts still belong to the signed app and must be approved by the
+    # person at the keyboard.
+    launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.karabiner_console_user_server" >/dev/null 2>&1 || true
+    ;;
+esac
