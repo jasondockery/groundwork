@@ -182,7 +182,7 @@
       <table class="keytable">
         <tr><td><code>claude</code></td><td><strong>Claude Code</strong> — Anthropic's terminal agent and the primary one here. Reads project instructions, with <code>CLAUDE.md</code> acting as a thin adapter to <code>AGENTS.md</code> in this setup.</td></tr>
         <tr><td><code>codex</code></td><td><a href="codex.html"><strong>Codex</strong></a> &mdash; OpenAI&apos;s coding agent across CLI, app, IDE, and cloud workflows. Use it for repo-aware changes, reviews, and verified diffs.</td></tr>
-        <tr><td><code>grok</code></td><td><strong>Grok Build</strong> — xAI's terminal agent, with a plan-first mode. Needs a paid SuperGrok / X&nbsp;Premium+ subscription.</td></tr>
+        <tr><td><code>grok</code></td><td><strong>Grok Build</strong> — SpaceXAI's terminal agent, with a plan-first mode. Free trial, then a SuperGrok / X&nbsp;Premium+ plan or API credits; see <a href="grok.html">Grok &amp; Grok Build</a>.</td></tr>
         <tr><td><code>opencode</code></td><td><strong>OpenCode</strong> — open-source and model-agnostic; works with whichever model you point it at. Has a desktop app too.</td></tr>
         <tr><td><code>aider</code></td><td><strong>aider</strong> — a lightweight, git-aware AI pair programmer that commits as it goes.</td></tr>
       </table>
@@ -205,10 +205,12 @@
       <p>This is <a href="agentic-engineering.html">spec design and eval design</a> in miniature, and on real teams the habit hardens into repo machinery — for example, a rule that every bug fix starts with a red test before any fix is written. Groundwork teaches the habit; a well-governed repo enforces it.</p>
 
       <h2><span class="hash">#</span>The desktop AI apps</h2>
-      <p>Not everything needs the terminal. Two graphical apps are installed for chat and quick questions:</p>
+      <p>Not everything needs the terminal. These graphical apps are installed (on personal machines — work machines skip AI apps) for chat, quick questions, and supervising agents:</p>
       <table class="keytable">
+        <tr><td><a href="claude.html"><strong>Claude app</strong></a></td><td>Anthropic&apos;s desktop app: general chat plus a Code tab for running and reviewing Claude Code sessions, when juggling threads outgrows the terminal.</td></tr>
         <tr><td><a href="gpt.html"><strong>ChatGPT</strong></a></td><td>OpenAI&apos;s chat app for questions, tutoring, writing, images, and voice. Good for thinking out loud, drafting specs, and learning away from a codebase.</td></tr>
         <tr><td><a href="codex.html"><strong>Codex app</strong></a></td><td>A desktop home for OpenAI&apos;s coding agents: run several in parallel, watch their diffs, and manage long-running tasks.</td></tr>
+        <tr><td><strong>OpenCode Desktop</strong></td><td>The graphical companion to the OpenCode CLI, for the same run-and-review loop in a window.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Copy context for review</h2>

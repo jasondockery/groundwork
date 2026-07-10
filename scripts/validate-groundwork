@@ -307,12 +307,33 @@ for page in docs/*.html; do
   grep -q 'localStorage.getItem("fg-theme")' "$page" || { echo "$page: missing early theme bootstrap" >&2; exit 1; }
   assert_not_contains 'data-theme="dark"' "$page" "$page: hardcoded dark theme causes light-theme flash"
   grep -q 'href="platforms.html"' "$page" || { echo "$page: missing Platforms sidebar link" >&2; exit 1; }
-  for group in "Start here" "Set up" "Foundations" "Daily workflow" "Tracks" "Mac desktop" "Reference"; do
+  for group in "Start here" "Set up" "Foundations" "Daily workflow" "AI tools" "Tracks" "Mac desktop" "Reference"; do
     grep -q "<h4>$group</h4>" "$page" || { echo "$page: missing sidebar group: $group" >&2; exit 1; }
   done
   active_count="$(grep -c 'class="active"' "$page" || true)"
   [[ "$active_count" == "1" ]] || { echo "$page: expected one active sidebar link, found $active_count" >&2; exit 1; }
 done
+# Every page carries its own copy of the sidebar; with the active marker
+# stripped they must be identical, or link order and grouping silently drift
+# page by page. The og:site_name marker is the same site-page rule as
+# generate-discovery's is_site_page().
+python3 - <<'PY'
+import pathlib, re, sys
+aside_re = re.compile(r'<aside id="site-sidebar".*?</aside>', re.S)
+reference, reference_page = None, None
+for page in sorted(pathlib.Path("docs").glob("*.html")):
+    text = page.read_text()
+    if 'property="og:site_name" content="Groundwork"' not in text:
+        continue
+    m = aside_re.search(text)
+    if not m:
+        sys.exit(f"{page}: sidebar <aside> block not found")
+    nav = m.group(0).replace(' class="active"', "")
+    if reference is None:
+        reference, reference_page = nav, page
+    elif nav != reference:
+        sys.exit(f"{page}: sidebar differs from {reference_page}; every page must carry the identical sidebar (only the active marker may vary)")
+PY
 assert_no_matches "old docs title separator found" rg -n '(<title>[^<]*( — | -- | - )Groundwork|<(meta)[^>]+content="[^"]*( — | -- | - )Groundwork")' docs
 assert_no_matches "old macOS windows label found" rg -n "macOS windows" docs README.md
 assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows)</h4>' docs

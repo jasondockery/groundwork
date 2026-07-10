@@ -126,33 +126,66 @@
 <h2><span class="hash">#</span>Which Claude surface to use</h2>
 <table class="keytable">
   <tr><td><strong>Claude Code CLI</strong></td><td>The daily driver. Start it in a project folder, give it a task, approve narrowly, review the diff. Installed by Groundwork (the <code>claude-code@latest</code> cask).</td></tr>
-  <tr><td><strong>VS Code extension</strong></td><td>The same agent attached to a visible editor buffer. Groundwork installs it alongside VS Code for when you want the diff in a GUI.</td></tr>
-  <tr><td><strong>Claude app</strong></td><td>Anthropic&apos;s desktop and mobile app: chat, files, and supervising Claude Code sessions from a cockpit. Groundwork installs the desktop app on personal machines; reach for it when juggling threads outgrows the terminal.</td></tr>
-  <tr><td><strong>claude.ai web</strong></td><td>Chat, research, and cloud coding sessions from any browser, no install required.</td></tr>
+  <tr><td><strong>VS Code extension</strong></td><td>The same agent attached to a visible editor buffer: inline diffs, @-mentions, and plan review without leaving the file. Groundwork installs it alongside VS Code for when you want the diff in a GUI.</td></tr>
+  <tr><td><strong>JetBrains plugin</strong></td><td>The same agent inside IntelliJ IDEA, PyCharm, WebStorm, and other JetBrains IDEs, running in the IDE terminal. Not installed by Groundwork; add it from the JetBrains Marketplace if that&apos;s your editor.</td></tr>
+  <tr><td><strong>Claude desktop app</strong></td><td>Anthropic&apos;s desktop app: general chat plus a Code tab for running and reviewing Claude Code sessions side by side. Groundwork installs it on personal machines only — work machines skip AI apps; reach for it when juggling threads outgrows the terminal.</td></tr>
+  <tr><td><strong>claude.ai web</strong></td><td>Chat, research, and cloud Claude Code sessions (<a href="https://claude.ai/code" target="_blank" rel="noopener">claude.ai/code</a>) from any browser, no install required — useful for a long task on a repo you don&apos;t have checked out locally.</td></tr>
+  <tr><td><strong>Agent SDK</strong></td><td>For building your own agents on top of Claude Code&apos;s tools and orchestration, in Python or TypeScript. Skip this unless you&apos;re building an agent product rather than using one.</td></tr>
 </table>
+
+<div class="callout note">
+  <span class="label">Groundwork default</span>
+  <p>Use the CLI for daily repo work, an editor extension when you want Claude inside your editor (inline diffs in VS Code; the IDE terminal in JetBrains), and the desktop app or claude.ai web when a task benefits from parallel sessions or runs better off your laptop. Automated review on every pull request (GitHub Actions, GitLab CI/CD) is a separate, opt-in layer on top of the same agent — see <a href="agents.html">AI agents &amp; rules</a> for the shared contract every surface follows.</p>
+</div>
 
 <h2><span class="hash">#</span>Daily commands</h2>
 <table class="keytable">
   <tr><td><code>claude</code></td><td>Open the interactive session in the current project.</td></tr>
   <tr><td><code>claude "explain this repo"</code></td><td>Start with a one-shot prompt from the shell.</td></tr>
-  <tr><td><code>claude --continue</code></td><td>Reopen the most recent session for this directory; <code>--resume</code> opens a picker across all of them.</td></tr>
+  <tr><td><code>claude --continue</code></td><td>Reopen the most recent session for this directory; <code>--resume</code> (or <code>/resume</code>) opens a picker across all of them.</td></tr>
+  <tr><td><kbd>Shift</kbd><kbd>Tab</kbd> or <code>--permission-mode &lt;mode&gt;</code></td><td>Cycle or set how much Claude can do without asking: Manual (the default — Claude asks before each edit or command; nothing changes without your yes) &rarr; Accept edits &rarr; Plan (read-only research). Auto and Bypass permissions are opt-in: Bypass skips every approval prompt, so reserve it for a throwaway container or worktree — never a machine holding credentials or work you can&apos;t lose. Trade approval friction for autonomy on purpose, not by accident.</td></tr>
+  <tr><td><code>/plan &lt;description&gt;</code></td><td>Enter plan mode directly: Claude researches and proposes a plan without touching files, then asks how you want it to proceed.</td></tr>
   <tr><td><code>/context</code> &amp; <code>/usage</code></td><td>The two gauges: context-window usage and plan limits. Check both before long work — see <a href="ai-budget.html">Know your AI budget</a>.</td></tr>
   <tr><td><code>/compact &lt;focus&gt;</code></td><td>Summarize the session deliberately, telling the model what to keep.</td></tr>
+  <tr><td><code>/rewind</code></td><td>Roll the conversation and/or the code back to an earlier checkpoint when a session goes sideways.</td></tr>
+  <tr><td><code>/review [PR]</code></td><td>A fast, read-only, single-pass review of a GitHub pull request — findings only, no edits.</td></tr>
   <tr><td><code>/statusline</code></td><td>Put an always-on readout (model, context, whatever you script) at the bottom of every session.</td></tr>
-  <tr><td><code>/model</code></td><td>Pick the model for the session: heavier for design and review, lighter for mechanical work.</td></tr>
+  <tr><td><code>/model</code></td><td>Pick the model for the session — see &quot;Which model to pick&quot; below.</td></tr>
 </table>
+
+<div class="drill">
+  <div class="num">1</div>
+  <div class="body">
+    <h3>Try it now: work a real change in plan mode first</h3>
+    <p>In a project you know, run <code>claude</code> and press <kbd>Shift</kbd><kbd>Tab</kbd> until the status line shows plan mode (or start with <code>claude --permission-mode plan</code>). Ask for a real change. Read the plan before you approve it — that&apos;s where you catch a wrong assumption before Claude touches a file.</p>
+  </div>
+</div>
+
+<h2><span class="hash">#</span>Which model to pick</h2>
+<p><code>/model</code> switches the model for the current session and saves it as your default. The choice trades quality for speed and cost — see <a href="ai-budget.html">Know your AI budget</a> for the budget side of that tradeoff.</p>
+<table class="keytable">
+  <tr><td><strong>Claude Fable 5</strong></td><td>Anthropic&apos;s most capable model, tuned for long-running agents. Reach for it on the hardest design, architecture, or review work, or a task you expect to run unattended for a long stretch.</td></tr>
+  <tr><td><strong>Claude Opus 4.8</strong></td><td>Built for complex agentic coding and enterprise work — a strong default for anything you&apos;d call &quot;the hard part.&quot;</td></tr>
+  <tr><td><strong>Claude Sonnet 5</strong></td><td>The best combination of speed and intelligence, and Claude Code&apos;s default model. Good for most day-to-day work.</td></tr>
+  <tr><td><strong>Claude Haiku 4.5</strong></td><td>The fastest model with near-frontier intelligence. Use it for mechanical work: renames, boilerplate, formatting, quick lookups.</td></tr>
+</table>
+<p>Rule of thumb: spend a heavier model on decisions you&apos;d want a senior engineer&apos;s judgment on — design, security-sensitive changes, review — and let a lighter model burn through mechanical work where a wrong guess is cheap to catch and fix.</p>
 
 <h2><span class="hash">#</span>The contract is the same as every agent's</h2>
 <p>Claude Code reads this repo&apos;s <code>AGENTS.md</code> through a thin adapter, inspects before editing, and is expected to verify before claiming done — the shared contract <a href="agents.html">AI agents &amp; rules</a> defines for every tool. What differs per tool is the surface, not the discipline: inspect, plan, edit, verify, review, commit.</p>
 
 <h2><span class="hash">#</span>Good first prompts</h2>
 <div class="prompt-card"><span class="who">inspect</span>Read <code>AGENTS.md</code>, inspect this repo, and summarize the project structure and validation commands. Do not edit files yet.</div>
+<div class="prompt-card"><span class="who">plan first</span>Enter plan mode, read this codebase, and propose a plan for &lt;task&gt;. Do not start editing until I approve it.</div>
 <div class="prompt-card"><span class="who">small change</span>Make the smallest change needed to fix this issue. Show me the plan first, then run the relevant validation after editing.</div>
 <div class="prompt-card"><span class="who">review</span>Review my uncommitted changes for correctness, missing tests, docs drift, and risky assumptions. Do not modify files.</div>
 
 <h2><span class="hash">#</span>Official references</h2>
 <ul>
-  <li><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code docs</a> — current entry point for the CLI, extension, settings, and workflows.</li>
+  <li><a href="https://code.claude.com/docs/en/quickstart" target="_blank" rel="noopener">Claude Code quickstart</a> — start here if you have never run Claude Code: install it and walk through a first real task.</li>
+  <li><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code docs</a> — the full docs hub: every surface, workflow, and setting, once you&apos;re past the basics.</li>
+  <li><a href="https://code.claude.com/docs/en/cli-reference" target="_blank" rel="noopener">CLI reference</a> — every command and flag in one place, for scripting Claude Code or tuning a session precisely.</li>
+  <li><a href="https://code.claude.com/docs/en/permission-modes" target="_blank" rel="noopener">Permission modes</a> — the full detail behind Manual, Accept edits, Plan, Auto, and Bypass permissions, for tightening or loosening how much an agent can do unsupervised.</li>
   <li><a href="https://claude.com/download" target="_blank" rel="noopener">Claude app downloads</a> — the desktop and mobile apps.</li>
   <li><a href="agents.html">Groundwork agent rules</a> — how this repo keeps one shared agent contract across tools.</li>
 </ul>

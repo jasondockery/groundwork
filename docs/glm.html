@@ -124,33 +124,50 @@
 <div class="trigger"><b>When you'll want this</b> You want a capable model without a subscription, need work to stay on your own machine, or want to understand what "open weights" buys you as leverage.</div>
 
 <h2><span class="hash">#</span>What "open weights" means, and why you care</h2>
-<p>A frontier lab like Anthropic or OpenAI serves its models only through its own apps and APIs. An <strong>open-weights</strong> model publishes the model file itself — you can download it, run it on hardware you control, and no one can change the price, the behavior, or the terms underneath you. For an agentic engineer that is not ideology; it is leverage: the skill of pointing your tools at <em>any</em> model means no single vendor owns your workflow.</p>
+<p>A frontier lab like Anthropic or OpenAI serves its models only through its own apps and APIs. An <strong>open-weights</strong> model publishes the model file itself — you can download it and run it on hardware you control, and the copy you hold can&apos;t be re-priced or turned off underneath you. One precision that matters: "open weights" is a distribution fact, not a rights guarantee. What you may do with the model — commercial use, modification, redistribution — comes from each model&apos;s specific license, so read it the way you&apos;d read any dependency&apos;s (GLM&apos;s is MIT, one of the most permissive). For an agentic engineer this is not ideology; it is leverage: the skill of pointing your tools at <em>any</em> model means no single vendor owns your workflow.</p>
 
 <h2><span class="hash">#</span>Meet GLM</h2>
-<p>GLM is the flagship open-weights family from Z.ai, built for agentic engineering, and the standard-bearer for the category: GLM-5.2 (released mid-2026) leads open models on the coding and terminal benchmarks that matter for agent work while competing with closed frontier models. You can use it three ways, in rising order of ownership:</p>
+<p>GLM is the flagship open-weights family from <strong>Z.ai</strong> — formerly Zhipu AI, a Tsinghua University spinout that rebranded internationally in 2025 and listed on the Hong Kong Stock Exchange in January 2026 — and the standard-bearer for this category. GLM-5.2, released mid-2026, is a mixture-of-experts model: roughly 744 billion parameters in total, but only about 40 billion of them activate for any given token, which is what keeps a model this large affordable to serve at all. On Terminal-Bench 2.1 — a public test of how well a model works a real terminal — it scores 81.0, a few points behind Claude Opus 4.8 (85.0) and GPT-5.5 (84.0), the closed models Z.ai publishes comparisons against; on SWE-bench Pro, which measures fixing real bugs in real repositories, it scores 62.1, ahead of GPT-5.5 (58.6) though still behind Opus (69.2). That is the honest shape of it: GLM-5.2 leads every other open-weights model on the benchmarks that matter for agent work, and sits close enough to the closed frontier to be a real choice rather than a consolation prize. You can use it three ways, in rising order of ownership:</p>
 <table class="keytable">
-  <tr><td><strong>Hosted API &amp; coding plans</strong></td><td>Z.ai serves GLM through an API and subscription coding plans, priced well under the closed frontier labs. Several coding agents can be pointed at it as their backing model.</td></tr>
-  <tr><td><strong>Hosted by others</strong></td><td>Because the weights are open, third-party providers serve GLM too — you can pick a host on price, region, or privacy terms.</td></tr>
-  <tr><td><strong>Run it yourself</strong></td><td>Download the weights and run them on your own hardware. The full model needs serious memory; smaller variants and quantized builds run on a well-equipped Mac.</td></tr>
+  <tr><td><strong>Hosted API &amp; coding plans</strong></td><td>Z.ai serves GLM through an API and a subscription GLM Coding Plan (Lite, Pro, and Max tiers, priced from roughly $18 to $160 a month as of mid-2026) that plugs directly into coding agents including Claude Code, Cline, and OpenCode.</td></tr>
+  <tr><td><strong>Hosted by others</strong></td><td>The weights are MIT-licensed and published on Hugging Face under the <a href="https://huggingface.co/zai-org" target="_blank" rel="noopener">zai-org</a> organization, so third-party providers can serve GLM too — you can pick a host on price, region, or privacy terms.</td></tr>
+  <tr><td><strong>Run it yourself</strong></td><td>Download the weights and run them on your own hardware. The full 744-billion-parameter model needs serious multi-GPU infrastructure; a smaller variant such as GLM-4.7-Flash (30 billion parameters, 3 billion active) is the realistic option for a single well-equipped machine.</td></tr>
 </table>
+
+<h2><span class="hash">#</span>Point a coding agent at GLM</h2>
+<p>Using GLM as an agent&apos;s backing model doesn&apos;t mean switching tools — it means swapping the endpoint the tool already talks to. Z.ai documents this pattern for three agents directly: Claude Code, Cline, and OpenCode. For Claude Code, the GLM Coding Plan adds two settings to <code>~/.claude/settings.json</code>:</p>
+<table class="keytable">
+  <tr><td><code>ANTHROPIC_BASE_URL</code></td><td>Z.ai&apos;s Anthropic-compatible endpoint (<code>https://api.z.ai/api/anthropic</code>), so requests route to GLM instead of Claude.</td></tr>
+  <tr><td><code>ANTHROPIC_AUTH_TOKEN</code></td><td>A Z.ai API key, created from the Z.ai open platform.</td></tr>
+</table>
+<p>Everything else about the session — permissions, hooks, <code>AGENTS.md</code> — stays exactly as configured; only the model behind the conversation changes. That is the general shape of the open-model ecosystem, not just Z.ai&apos;s: most serving options speak an OpenAI- or Anthropic-compatible API, so an agent that lets you set a base URL and a key can usually be pointed at any model behind it, hosted or local.</p>
 
 <h2><span class="hash">#</span>Local models on this machine</h2>
 <p>Groundwork installs <strong>Ollama</strong>, a local model runtime that downloads and serves open models on your Mac at <code>localhost:11434</code>. It is the shortest path to a model that works with the network cable unplugged:</p>
 <table class="keytable">
   <tr><td><code>ollama run &lt;model&gt;</code></td><td>Download (first run) and chat with a model in the terminal.</td></tr>
-  <tr><td><code>ollama ps</code></td><td>Show what&apos;s loaded and how much memory it holds — the local equivalent of a usage gauge.</td></tr>
+  <tr><td><code>ollama ps</code></td><td>Show what&apos;s loaded, its size, and whether it&apos;s running on your machine or as a <code>:cloud</code> model — the local equivalent of a usage gauge.</td></tr>
   <tr><td><code>ollama ls</code></td><td>List the models you&apos;ve downloaded and what they cost in disk.</td></tr>
 </table>
+<p>GLM is in Ollama&apos;s library, but check which GLM before you pull anything multi-gigabyte. <code>glm-5.2</code> is listed only as a <code>glm-5.2:cloud</code> tag, meaning Ollama proxies the request to its own cloud infrastructure instead of running the full model on your Mac — it needs an ollama.com account and a network connection, the same tradeoff as any hosted model. The smaller <strong>GLM-4.7-Flash</strong> (30 billion parameters, 3 billion active) does download and run locally, at around 19&nbsp;GB for its smallest build — enough that it wants a Mac with generous unified memory, not an entry-level one.</p>
+<p>For a first local model that any Apple Silicon Mac can hold comfortably, reach for something smaller. Google&apos;s Gemma 3 1B is a fast, well-documented pick for getting the workflow under your fingers before you reach for anything GLM-sized.</p>
+
+<div class="drill"><div class="num">1</div><div class="body"><h3>Try it now: run a model with the network off</h3><p>Pull a small open model and ask it something, entirely on your own machine:</p>
+<div class="terminal"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">ollama</span></div><pre><code><span class="prompt">$ </span>ollama pull gemma3:1b
+<span class="prompt">$ </span>ollama run gemma3:1b "In one paragraph, explain what open model weights are."</code></pre></div>
+<p>The pull is under a gigabyte; the run loads the model and answers in seconds. Turn off Wi-Fi and run it again — it still works, because nothing left your Mac.</p></div></div>
+
 <p>The budget here isn&apos;t tokens or dollars — it&apos;s your machine&apos;s memory and patience. A model that fits comfortably answers fast; one that barely fits crawls and starves everything else. <a href="ai-budget.html">Know your AI budget</a> covers reading that gauge.</p>
 
 <h2><span class="hash">#</span>Honest tradeoffs</h2>
-<p>Local and open models are not a free replacement for the frontier: the closed leaders are still ahead on the hardest agentic work, and a model small enough to run comfortably on a laptop is well behind one served from a datacenter. The point is options — knowing what the open tier can do, what it costs to run, and when it&apos;s the right tool — so your choice of the frontier is a choice, not a dependency.</p>
+<p>Local and open models are not a free replacement for the frontier. Even GLM-5.2, the strongest open-weights model available, still trails Claude Opus 4.8 on Terminal-Bench 2.1 and SWE-bench Pro — it is close, not ahead. And a model small enough to run comfortably on a laptop, like the Gemma 3 1B in the drill above, is well behind either one; it is a tool for learning the workflow and handling small local tasks, not for agentic coding on a real codebase. The point is options — knowing what the open tier can do at each size, what it costs to run, and when it&apos;s the right tool — so your choice of the frontier is a choice, not a dependency.</p>
 
 <h2><span class="hash">#</span>References</h2>
 <ul>
-  <li><a href="https://z.ai" target="_blank" rel="noopener">Z.ai</a> — GLM&apos;s maker: models, API, and coding plans.</li>
-  <li><a href="https://huggingface.co" target="_blank" rel="noopener">Hugging Face</a> — where open-weights models (GLM included) are published and compared.</li>
-  <li><a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> — the local runtime Groundwork installs.</li>
+  <li><a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> — for a reader starting out: the local runtime Groundwork installs, and its <a href="https://ollama.com/library/gemma3" target="_blank" rel="noopener">Gemma 3 library page</a> for the drill above.</li>
+  <li><a href="https://z.ai" target="_blank" rel="noopener">Z.ai</a> — for a reader deciding whether to try GLM hosted: models, API, and the GLM Coding Plan.</li>
+  <li><a href="https://docs.z.ai/devpack/overview" target="_blank" rel="noopener">GLM Coding Plan docs</a> — for a reader ready to point an agent at it: tiers, quotas, and per-tool setup for Claude Code, Cline, and OpenCode.</li>
+  <li><a href="https://huggingface.co/zai-org" target="_blank" rel="noopener">zai-org on Hugging Face</a> — for a reader evaluating or self-hosting: every GLM release&apos;s weights, license, and model card, GLM-5.2 included.</li>
 </ul>
 
 <div class="pagenav">

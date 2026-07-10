@@ -129,18 +129,18 @@
 
 <h2><span class="hash">#</span>The three limits</h2>
 <table class="keytable">
-  <tr><td><strong>Context window</strong></td><td>How much the model can hold right now: your conversation, the files it read, the logs it dumped. When it fills, the tool compacts or forgets — quality sags before anything visibly breaks.</td></tr>
+  <tr><td><strong>Context window</strong></td><td>How much the model can hold right now: your conversation, the files it read, the logs it dumped. As it fills, the tool compacts or summarizes earlier material and has less room for new files and reasoning — the work degrades before anything visibly breaks.</td></tr>
   <tr><td><strong>Plan &amp; rate limits</strong></td><td>How much you can use per session, day, or week on your subscription. Hit one mid-task and the work pauses until the window resets, whether or not the diff was finished.</td></tr>
   <tr><td><strong>Spend budget</strong></td><td>For API keys and metered plans: actual money per token. Mostly invisible on flat subscriptions, decisive when you wire an agent to an API key.</td></tr>
 </table>
 
 <h2><span class="hash">#</span>The habit: gauge first, then work</h2>
-<p>Before starting anything you expect to take more than a few minutes, check your tool&apos;s own readout of both numbers — window and plan. It changes your decisions in concrete ways: start big work in a fresh session instead of one at 80% capacity, and don&apos;t open a multi-hour task minutes before your rate window resets.</p>
+<p>Before starting anything you expect to take more than a few minutes, check your tool&apos;s own readout of both numbers — window and plan. It changes your decisions in concrete ways: start big work in a fresh, well-briefed session instead of one that&apos;s nearly full, and don&apos;t open a multi-hour task minutes before your rate window resets.</p>
 <div class="drill">
   <div class="num">1</div>
   <div class="body">
     <h3>Try it now: read your gauges</h3>
-    <p>Open the tool you actually use. In Claude Code, run <code>/context</code> (window) then <code>/usage</code> (plan limits). In Codex CLI, run <code>/status</code>. Two numbers, five seconds. If either surprised you, this habit just paid for itself.</p>
+    <p>Open the tool you actually use. In Claude Code, run <code>/context</code> (window) then <code>/usage</code> (plan limits). In Codex CLI, run <code>/status</code> then <code>/usage</code>. Two numbers, five seconds. If either surprised you, this habit just paid for itself.</p>
   </div>
 </div>
 
@@ -148,9 +148,9 @@
 <p>Every maintained tool ships a first-party gauge; learn yours. The command names will change — the habit won&apos;t.</p>
 <table class="keytable">
   <tr><td><strong><a href="claude.html">Claude Code</a></strong></td><td><code>/context</code> shows window usage, <code>/usage</code> shows plan limits, and <code>/statusline</code> can put an always-on readout at the bottom of every session.</td></tr>
-  <tr><td><strong><a href="codex.html">Codex CLI</a></strong></td><td><code>/status</code> reports session, model, and usage state in one screen.</td></tr>
+  <tr><td><strong><a href="codex.html">Codex CLI</a></strong></td><td><code>/status</code> reports session config and remaining context capacity in one screen; <code>/usage</code> shows account usage.</td></tr>
   <tr><td><strong>Cursor</strong></td><td>The usage dashboard in settings tracks plan consumption; see <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>
-  <tr><td><strong><a href="grok.html">Grok Build</a></strong></td><td>Check its status view for session and plan state; the page covers what ships today.</td></tr>
+  <tr><td><strong><a href="grok.html">Grok Build</a></strong></td><td>Same names as Claude Code: <code>/context</code> for window usage, <code>/usage</code> for credit usage and billing.</td></tr>
   <tr><td><strong><a href="glm.html">Local &amp; open models</a></strong></td><td>A different budget entirely: memory and speed instead of tokens and dollars. See below.</td></tr>
 </table>
 
@@ -171,7 +171,7 @@
 </div>
 
 <h2><span class="hash">#</span>Local models: a different budget</h2>
-<p>Run an open-weights model on your own machine and the token meter disappears — but the budget doesn&apos;t. It becomes your Mac&apos;s memory (can the model fit?) and speed (tokens per second — can you stand the wait?). The gauge changes with it: <code>ollama ps</code> shows what&apos;s loaded and how much memory it holds, and <code>btop</code> shows what it&apos;s doing to the rest of your machine. Same habit, different dial. See <a href="glm.html">GLM &amp; open models</a> for the full picture.</p>
+<p>Run an open-weights model on your own machine and the token meter disappears — but the budget doesn&apos;t. It becomes your Mac&apos;s memory (can the model fit?) and speed (tokens per second — can you stand the wait?). The gauge changes with it: <code>ollama ps</code> shows which models are loaded, their size, and where they&apos;re running, and <code>btop</code> shows what that&apos;s doing to the rest of your machine. Same habit, different dial. See <a href="glm.html">GLM &amp; open models</a> for the full picture.</p>
 <p>Why this counts as fundamentals: you are the senior partner. Knowing the machine&apos;s limits before assigning it work is the same judgment you&apos;d apply to any teammate — token budgets are one half of that awareness, and your machine&apos;s own CPU and memory are the other.</p>
 
 <h2><span class="hash">#</span>Related pages</h2>

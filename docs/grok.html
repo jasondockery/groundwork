@@ -126,13 +126,13 @@
 <h2><span class="hash">#</span>Which Grok surface to use</h2>
 <table class="keytable">
   <tr><td><strong>Grok app &amp; X</strong></td><td>The assistant: chat, questions, and research in the Grok apps and inside X. The chatbot role <a href="gpt.html">GPT &amp; ChatGPT</a> describes — great at answering, can&apos;t see your project.</td></tr>
-  <tr><td><strong>Grok Build CLI</strong></td><td>The coding agent, in your terminal: an interactive TUI with plan mode, subagents, and worktree support, or headless in scripts. Beta, bundled with SuperGrok and X Premium+ plans.</td></tr>
-  <tr><td><strong>Grok Build in other apps</strong></td><td>Grok Build speaks the Agent Client Protocol (ACP), so editors and apps that support ACP can drive it. Grok 4.5 is also selectable directly in Cursor.</td></tr>
-  <tr><td><strong>API &amp; console</strong></td><td>Grok models by the token for your own tools and scripts, from the SpaceXAI console.</td></tr>
+  <tr><td><strong>Grok Build CLI</strong></td><td>The coding agent, in your terminal: an interactive TUI with plan mode, subagents that can run in parallel Git worktrees, or headless mode for scripts (<code>grok -p "..."</code>). Beta, bundled with the SuperGrok, SuperGrok Heavy, and X Premium+ plans.</td></tr>
+  <tr><td><strong>Grok Build in other apps</strong></td><td>Grok Build speaks the Agent Client Protocol (ACP), so editors and apps that support ACP can drive it. Grok 4.5 is also selectable directly as a model inside Cursor, on all Cursor plans.</td></tr>
+  <tr><td><strong>API &amp; console</strong></td><td>Grok models by the token for your own tools and scripts, from the SpaceXAI console. Not available in the EU at launch (July 2026); SpaceXAI targeted EU access for later that month.</td></tr>
 </table>
 
 <h2><span class="hash">#</span>The model underneath: Grok 4.5</h2>
-<p>On July 8, 2026, SpaceXAI released <strong>Grok 4.5</strong>, its first model built specifically for coding and agentic work, positioned as an Opus-class model at a markedly lower price ($2 per million input tokens, $6 per million output at launch). It powers Grok Build, is selectable in Cursor, and is available from the API console. The durable takeaway isn&apos;t the launch ranking — it&apos;s that the frontier now has another serious coding agent, and the evaluation loop below is how you decide if it earns a place in your rotation.</p>
+<p>On July 8, 2026, SpaceXAI released <strong>Grok 4.5</strong>, its first model built specifically for coding and agentic work, positioned as an Opus-class model at a markedly lower price ($2 per million input tokens, $6 per million output at launch; requests over 200K tokens of context bill at higher, tiered rates). It ships with a 500,000-token context window — smaller than the 1M window on Grok 4.3. On SpaceXAI&apos;s own SWE-Bench Pro results, Grok 4.5 resolves 64.7% of tasks while using roughly 16K output tokens per task on average, well below heavier models on the same benchmark — the token-efficiency story behind the low API price. It powers Grok Build, is selectable in Cursor, and is available from the API console. The durable takeaway isn&apos;t the launch ranking — it&apos;s that the frontier now has another serious coding agent, and the evaluation loop below is how you decide if it earns a place in your rotation.</p>
 
 <h2><span class="hash">#</span>Trying Grok Build</h2>
 <p>Groundwork installs the CLI on personal machines (the <code>grok-build</code> Homebrew cask, which puts the <code>grok</code> binary on your path), so trying it is one command in a project folder:</p>
@@ -142,16 +142,29 @@
 </div>
 <p>It reads <code>AGENTS.md</code> out of the box, along with your skills, hooks, and MCP servers — which is exactly why Groundwork keeps its agent contract in that tool-neutral file (see <a href="agents.html">AI agents &amp; rules</a>). Evaluating a new agent is the same loop as directing a familiar one: start it in a clean repo, ask for inspection before edits, approve narrowly, and judge it by the diff it leaves. If you can run that loop with <a href="claude.html">Claude Code</a> or <a href="codex.html">Codex</a>, you can run it here — that transferability is the point.</p>
 
+<h2><span class="hash">#</span>Daily commands</h2>
+<table class="keytable">
+  <tr><td><code>grok</code></td><td>Open the interactive TUI in the current project.</td></tr>
+  <tr><td><code>grok -p "explain this repo"</code></td><td>Run headlessly with a single prompt, for scripts, bots, or CI.</td></tr>
+  <tr><td><code>grok inspect</code></td><td>Show what Grok discovered in the project: config sources, instructions, skills, plugins, hooks, and MCP servers.</td></tr>
+  <tr><td><code>grok --resume &lt;session-id&gt;</code> / <code>grok -c</code></td><td>Reopen a specific past session, or continue the most recent one.</td></tr>
+  <tr><td><code>/plan &lt;description&gt;</code></td><td>Enter plan mode: draft an approach without editing files, then review it before any code changes.</td></tr>
+  <tr><td><code>/model &lt;name&gt;</code></td><td>Switch the active model mid-session.</td></tr>
+  <tr><td><code>/context</code> &amp; <code>/usage</code></td><td>The two gauges: context-window usage and credit usage. Check both before long work — see <a href="ai-budget.html">Know your AI budget</a>.</td></tr>
+  <tr><td><code>/compact</code></td><td>Compact the conversation history to free up the context window.</td></tr>
+</table>
+
 <div class="callout note">
   <span class="label">The binary is installed; the plan is yours</span>
-  <p>Using Grok Build requires a SuperGrok or X Premium+ subscription (or API credits) — Groundwork installs the tool, not the account. Work machines skip it along with the rest of the personal AI apps; see <a href="platforms.html">Platforms</a>.</p>
+  <p>Groundwork installs the tool, not the account: SpaceXAI has offered a free trial, and ongoing use runs on a SuperGrok or X Premium+ subscription or API credits — check the <a href="https://x.ai/cli" target="_blank" rel="noopener">Grok Build page</a> for what access costs today. Work machines skip it along with the rest of the personal AI apps; see <a href="platforms.html">Platforms</a>.</p>
 </div>
 
 <h2><span class="hash">#</span>Official references</h2>
 <ul>
-  <li><a href="https://x.ai/news/grok-4-5" target="_blank" rel="noopener">Introducing Grok 4.5</a> — the launch announcement.</li>
-  <li><a href="https://x.ai/cli" target="_blank" rel="noopener">Grok Build beta</a> — the coding agent&apos;s home page and install.</li>
-  <li><a href="https://docs.x.ai/build/overview" target="_blank" rel="noopener">Grok Build docs</a> — CLI, ACP, config, and permissions reference.</li>
+  <li><a href="https://x.ai/news/grok-4-5" target="_blank" rel="noopener">Introducing Grok 4.5</a> — for anyone deciding whether the model is worth evaluating at all: the launch announcement, pricing, and positioning.</li>
+  <li><a href="https://x.ai/cli" target="_blank" rel="noopener">Grok Build beta</a> — for a reader ready to install: the coding agent&apos;s home page, the plans it ships in, and the install script.</li>
+  <li><a href="https://docs.x.ai/build/overview" target="_blank" rel="noopener">Grok Build docs</a> — for daily use: CLI, ACP, config, and permissions reference.</li>
+  <li><a href="https://docs.x.ai/build/modes-and-commands" target="_blank" rel="noopener">Modes &amp; commands</a> — for the full command surface: every slash command, plan mode, and session management in one page.</li>
 </ul>
 
 <div class="pagenav">
