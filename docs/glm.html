@@ -143,19 +143,19 @@
 <p>Everything else about the session — permissions, hooks, <code>AGENTS.md</code> — stays exactly as configured; only the model behind the conversation changes. That is the general shape of the open-model ecosystem, not just Z.ai&apos;s: most serving options speak an OpenAI- or Anthropic-compatible API, so an agent that lets you set a base URL and a key can usually be pointed at any model behind it, hosted or local.</p>
 
 <h2><span class="hash">#</span>Local models on this machine</h2>
-<p>Groundwork installs <strong>Ollama</strong>, a local model runtime that downloads and serves open models on your Mac at <code>localhost:11434</code>. It is the shortest path to a model that works with the network cable unplugged:</p>
+<p>Groundwork installs <strong>Ollama</strong>, a local model runtime that downloads and serves open models on your machine at <code>localhost:11434</code>. It is the shortest path to a model that works with the network cable unplugged:</p>
 <table class="keytable">
   <tr><td><code>ollama run &lt;model&gt;</code></td><td>Download (first run) and chat with a model in the terminal.</td></tr>
   <tr><td><code>ollama ps</code></td><td>Show what&apos;s loaded, its size, and whether it&apos;s running on your machine or as a <code>:cloud</code> model — the local equivalent of a usage gauge.</td></tr>
   <tr><td><code>ollama ls</code></td><td>List the models you&apos;ve downloaded and what they cost in disk.</td></tr>
 </table>
-<p>GLM is in Ollama&apos;s library, but check which GLM before you pull anything multi-gigabyte. <code>glm-5.2</code> is listed only as a <code>glm-5.2:cloud</code> tag, meaning Ollama proxies the request to its own cloud infrastructure instead of running the full model on your Mac — it needs an ollama.com account and a network connection, the same tradeoff as any hosted model. The smaller <strong>GLM-4.7-Flash</strong> (30 billion parameters, 3 billion active) does download and run locally, at around 19&nbsp;GB for its smallest build — enough that it wants a Mac with generous unified memory, not an entry-level one.</p>
-<p>For a first local model that any Apple Silicon Mac can hold comfortably, reach for something smaller. Google&apos;s Gemma 3 1B is a fast, well-documented pick for getting the workflow under your fingers before you reach for anything GLM-sized.</p>
+<p>GLM is in Ollama&apos;s library, but check which GLM before you pull anything multi-gigabyte. <code>glm-5.2</code> is listed only as a <code>glm-5.2:cloud</code> tag, meaning Ollama proxies the request to its own cloud infrastructure instead of running the full model on your machine — it needs an ollama.com account and a network connection, the same tradeoff as any hosted model. The smaller <strong>GLM-4.7-Flash</strong> (30 billion parameters, 3 billion active) does download and run locally, at around 19&nbsp;GB for its smallest build — enough that it wants a machine with generous memory, not an entry-level one.</p>
+<p>For a first local model that any modern machine can hold comfortably, reach for something smaller. Google&apos;s Gemma 3 1B is a fast, well-documented pick for getting the workflow under your fingers before you reach for anything GLM-sized.</p>
 
 <div class="drill"><div class="num">1</div><div class="body"><h3>Try it now: run a model with the network off</h3><p>Pull a small open model and ask it something, entirely on your own machine:</p>
 <div class="terminal"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">ollama</span></div><pre><code><span class="prompt">$ </span>ollama pull gemma3:1b
 <span class="prompt">$ </span>ollama run gemma3:1b "In one paragraph, explain what open model weights are."</code></pre></div>
-<p>The pull is under a gigabyte; the run loads the model and answers in seconds. Turn off Wi-Fi and run it again — it still works, because nothing left your Mac.</p></div></div>
+<p>The pull is under a gigabyte; the run loads the model and answers in seconds. Turn off Wi-Fi and run it again — it still works, because nothing left your machine.</p></div></div>
 
 <p>The budget here isn&apos;t tokens or dollars — it&apos;s your machine&apos;s memory and patience. A model that fits comfortably answers fast; one that barely fits crawls and starves everything else. <a href="ai-budget.html">Know your AI budget</a> covers reading that gauge.</p>
 
