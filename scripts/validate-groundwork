@@ -155,7 +155,7 @@ bash -n bootstrap-mac.sh
 
 check "helper script syntax"
 shellcheck_files=(bootstrap-mac.sh)
-for script in docker/*.sh home/dot_local/bin/executable_* home/dot_config/karabiner/modify_karabiner.json scripts/*; do
+for script in docker/*.sh home/dot_local/bin/executable_* home/dot_codex/modify_private_config.toml home/dot_config/karabiner/modify_karabiner.json scripts/*; do
   [[ -f "$script" ]] || continue
   [[ "$script" == *.tmpl ]] && continue
   if head -n 1 "$script" | grep -q 'bash'; then
@@ -172,6 +172,10 @@ test "$(cat .chezmoiroot)" = "home"
 grep -q '^2\.70\.0$' .chezmoiversion
 test -f home/.chezmoi.toml.tmpl
 test ! -f .chezmoi.toml.tmpl
+test -f home/dot_zprofile.tmpl
+test -x home/dot_codex/modify_private_config.toml
+grep -qF 'mise activate zsh --shims' home/dot_zprofile.tmpl
+grep -qF 'experimental_use_profile = true' home/dot_codex/modify_private_config.toml
 grep -qF 'config.global.show_in_menu_bar = true;' home/dot_config/karabiner/modify_karabiner.json
 assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging" rg -n 'show_in_menu_bar[[:space:]]*=[[:space:]]*false|show_in_menu_bar"[[:space:]]*:[[:space:]]*false' home/dot_config/karabiner
 test -f home/dot_local/bin/executable_groundwork-karabiner-start
@@ -387,7 +391,9 @@ for os in darwin linux; do
 
     check "rendered zsh ($case_name)"
     render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
+    render "$os" "$headless" "amd64" home/dot_zprofile.tmpl "$out_dir/$case_name/zprofile"
     zsh -n "$out_dir/$case_name/zshrc"
+    zsh -n "$out_dir/$case_name/zprofile"
 
     check "rendered tmux ($case_name)"
     render "$os" "$headless" "amd64" home/dot_config/tmux/tmux.conf.tmpl "$out_dir/$case_name/tmux.conf"
@@ -474,6 +480,29 @@ grep -q "AI-Native Groundwork" "$out_dir/CLAUDE.md"
 grep -q "AI-Native Groundwork" "$out_dir/AGENTS.md"
 grep -q "Claude Code Notes" "$out_dir/CLAUDE.md"
 grep -q "Codex Notes" "$out_dir/AGENTS.md"
+
+check "Codex shell profile config merge"
+codex_config_fixture="$out_dir/codex-config.toml"
+codex_config_once="$out_dir/codex-config-once.toml"
+codex_config_twice="$out_dir/codex-config-twice.toml"
+cat >"$codex_config_fixture" <<'EOF'
+model = "gpt-example"
+
+[shell_environment_policy]
+experimental_use_profile = false
+inherit = "core"
+
+[features]
+memories = true
+EOF
+home/dot_codex/modify_private_config.toml <"$codex_config_fixture" >"$codex_config_once"
+home/dot_codex/modify_private_config.toml <"$codex_config_once" >"$codex_config_twice"
+cmp -s "$codex_config_once" "$codex_config_twice" || fail "Codex config merge must be idempotent"
+grep -q '^model = "gpt-example"$' "$codex_config_once"
+grep -q '^\[features\]$' "$codex_config_once"
+grep -q '^inherit = "core"$' "$codex_config_once"
+test "$(grep -c '^\[shell_environment_policy\]$' "$codex_config_once")" = 1
+test "$(grep -c '^experimental_use_profile = true$' "$codex_config_once")" = 1
 
 check "docs links"
 for page in docs/*.html; do

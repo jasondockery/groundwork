@@ -75,8 +75,10 @@ while IFS= read -r path; do
   backup_file "$path"
 done <<EOF
 $HOME/.zshrc
+$HOME/.zprofile
 $HOME/.zsh_plugins.txt
 $HOME/.gitconfig
+$HOME/.codex/config.toml
 $HOME/.config/ghostty/config
 $HOME/.config/tmux/tmux.conf
 $HOME/.config/starship.toml

@@ -1,0 +1,17 @@
+# Login shells and non-interactive tool runners do not read ~/.zshrc. Put
+# mise's shims on PATH here so Codex, IDEs, and scripts resolve the tool
+# version declared by the current repository instead of a global Homebrew
+# binary. Interactive shells replace this with mise's full hook in ~/.zshrc.
+for _brew in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -x "$_brew" ]] && eval "$("$_brew" shellenv)" && break
+done
+unset _brew
+
+export PATH="$HOME/.local/bin:$PATH"
+typeset -gU path PATH
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate zsh --shims)"
+fi
+
+[[ -f "$HOME/.zprofile.local" ]] && source "$HOME/.zprofile.local"
