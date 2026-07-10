@@ -50,6 +50,11 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+          # Full history: the discovery-artifacts check regenerates sitemap
+          # lastmod dates from each page's last git commit. A shallow clone
+          # reports HEAD's date for every file, so the regenerated sitemap
+          # never matches the committed one and the check fails only in CI.
+          fetch-depth: 0
 
       # chezmoi floats latest here, matching the old brew behavior; the repo's
       # .chezmoiversion pin is asserted by the validation script itself.
