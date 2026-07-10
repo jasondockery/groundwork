@@ -165,7 +165,25 @@
 </div>
 
 <h2><span class="hash">#</span>A real one from this repo</h2>
-<p>[REAL-EXAMPLE: to be drafted — walk one actual Groundwork skill (cut-release or docs-alignment) as a worked example of playbook anatomy: trigger, steps, checks, finish line.]</p>
+<p>Groundwork ships to users through Git tags and GitHub Releases, not through whatever happens to sit on <code>main</code>. That split — <code>main</code> as the rolling edge, tags as the known-good refs people actually pin and pull — is exactly the kind of procedure a person explains once, forgets a step of the second time, and an agent should instead run the same way every time. The <code>cut-release</code> skill (<code>skills/cut-release/SKILL.md</code>) is that procedure written down.</p>
+<p><strong>Trigger.</strong> The skill states its own condition for when to run, not a schedule: <code>"Run this when the change is release-affecting: it alters what a fresh bootstrap or chezmoi update / update-all delivers... Do not cut a release for internal automation, CI plumbing, or dependency bumps that change nothing a user consumes…"</code> A trigger phrased as a check the reader can answer, not a vague "when appropriate," is what makes a playbook usable by an agent.</p>
+<p><strong>Preconditions.</strong> Before any tagging happens, three things must all hold, and each is a command, not a feeling:</p>
+<table class="keytable">
+  <tr><td>Green main</td><td><code>gh run list --branch main --workflow CI --limit 1</code> — "If red, fix CI first — a red main means nothing can ship."</td></tr>
+  <tr><td>Clean tree</td><td><code>git status -sb</code> shows no divergence, confirmed against <code>origin/main</code> after a fetch.</td></tr>
+  <tr><td>Local validation</td><td><code>scripts/validate-groundwork</code> passes on the machine cutting the release.</td></tr>
+</table>
+<p><strong>Steps, in order.</strong> Choose the version by reading the previous tag and bumping per SemVer (major for user action required, minor for additive tools or docs, patch for fixes only); write release notes for the actual users, in plain language; then tag and release together against the checked SHA, not just <code>HEAD</code>: <code>gh release create vX.Y.Z --target &lt;green-sha&gt; --title "vX.Y.Z" --notes-file -</code>.</p>
+<p><strong>Verify.</strong> The skill ends with checks anyone — human or agent — can run to confirm the release actually landed: <code>gh release view vX.Y.Z</code> shows the intended notes, <code>git tag --sort=-v:refname | head -1</code> is the new tag, and that tag's SHA has green CI.</p>
+<p>This repo is running proof, not a hypothetical. Pick any release in <code>gh release list</code> — <code>v1.3.0</code>, cut July 2026, is one — and <code>gh release view</code> shows the shape the skill demands: user-facing notes, a tag pointing at a specific green commit rather than whichever was newest. That one happens to have been cut by an agent that loaded this skill and followed it — which is the point: the procedure reads the same to whoever runs it.</p>
+<p>What makes this a good playbook is visible in the anatomy itself: every precondition is checkable with a single command instead of a judgment call, the steps have a fixed order that does not depend on who is running them, a verify section closes the loop instead of trusting that the steps worked, and the whole document reads the same way to a person skimming it before a release and to an agent loading it on demand. Nothing here says "usually" or "typically" — it says what to run and what the output should look like.</p>
+<div class="drill">
+  <div class="num">4</div>
+  <div class="body">
+    <h3>Try it now</h3>
+    <p>Pick a procedure you have explained to an agent, or to a teammate, more than once — restarting a stuck service, rotating a credential, publishing a build. Write the smallest possible playbook for it: one line for the trigger (when to run this), a numbered list for the steps, one line per precondition that is checkable by command rather than by feeling, and a verify section that confirms the result. Save it as <code>SKILL.md</code> in a skill folder in your practice repo, the same shape as <code>skills/cut-release/</code> in this one.</p>
+  </div>
+</div>
 
 <h2><span class="hash">#</span>References</h2>
 <ul>

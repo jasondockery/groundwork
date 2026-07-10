@@ -142,7 +142,72 @@
 <p>The principle underneath: an agent with a checkable target can verify its own work and iterate; an agent with only prose must guess what you meant and wait for you to notice. On real teams this habit hardens into machinery — a repo rule that every bug fix starts with a red test before any fix is written. You&apos;re learning the habit; a well-governed repo enforces it.</p>
 
 <h2><span class="hash">#</span>Worked example: request to shipped</h2>
-<p>[WORKED-EXAMPLE: to be drafted — one small real feature walked end to end with actual artifacts: the request as a person would say it, the spec it becomes, the plan, the failing test, the diff, the verification, the commit.]</p>
+<p>One small function, walked end to end, on the project you already scaffolded with <code>new-project</code> (see <a href="new-project.html">Starting a project</a>). Every command and test below runs exactly as written.</p>
+
+<h3>The request</h3>
+<div class="prompt-card"><span class="who">you, in the terminal</span>I want a little function that turns any note title into a safe filename — no spaces, no punctuation, all lowercase.</div>
+
+<h3>The spec: acceptance criteria</h3>
+<ul>
+  <li>Every letter in the output is lowercase.</li>
+  <li>Any run of whitespace or punctuation becomes a single hyphen.</li>
+  <li>The result never starts or ends with a hyphen.</li>
+  <li>The result never contains two hyphens in a row.</li>
+  <li>A title that is already lowercase letters, digits, and hyphens comes back unchanged.</li>
+</ul>
+
+<h3>The plan</h3>
+<ol>
+  <li>Write a failing test that covers the punctuation edge case, not just the easy case.</li>
+  <li>Implement <code>slugify()</code> as a single regex pass: lowercase, collapse every non-alphanumeric run to one hyphen, strip the ends.</li>
+  <li>Run the test until it&apos;s green.</li>
+  <li>Commit, with the message naming the behavior, not the file touched.</li>
+</ol>
+
+<h3>The failing test</h3>
+<p>Before any implementation exists, this test names the exact behavior that&apos;s missing:</p>
+<div class="terminal">
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">tests/test_slugify.py</span></div>
+  <pre><code>from slugify import slugify
+
+def test_strips_punctuation_and_collapses_runs():
+    assert slugify("Neural Networks &amp; Attention!!") == "neural-networks-attention"
+
+def test_collapses_whitespace_runs():
+    assert slugify("  Multiple   Spaces  ") == "multiple-spaces"
+
+def test_clean_title_comes_back_unchanged():
+    assert slugify("neural-networks-2") == "neural-networks-2"</code></pre>
+</div>
+<div class="terminal">
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">red</span></div>
+  <pre><code><span class="prompt">$ </span>pytest tests/test_slugify.py -q
+<span class="comment"># ModuleNotFoundError: No module named 'slugify' — nothing to import yet</span></code></pre>
+</div>
+
+<h3>Build until it&apos;s green</h3>
+<p>The agent writes <code>slugify()</code> and reruns the test after every change, not once at the end, until it passes for the reason the spec names rather than by accident:</p>
+<div class="terminal">
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">green</span></div>
+  <pre><code><span class="prompt">$ </span>pytest tests/test_slugify.py -q
+<span class="comment"># 3 passed in 0.01s</span></code></pre>
+</div>
+
+<h3>Delivered</h3>
+<div class="terminal">
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commit</span></div>
+  <pre><code><span class="prompt">$ </span>git add slugify.py tests/test_slugify.py
+<span class="prompt">$ </span>git commit -m "feat: add slugify() for safe note filenames"</code></pre>
+</div>
+<p>"Done" isn&apos;t a feeling here — it&apos;s traceable: five criteria above, three tests that exercise all five, one green run, and a commit message that names the behavior the tests prove.</p>
+
+<div class="drill">
+  <div class="num">1</div>
+  <div class="body">
+    <h3>Try it now: run the same arc</h3>
+    <p>Pick one small, real behavior in a project you already have — the one from <code>new-project</code> works well. Write the acceptance criteria as a short list before you ask an agent to touch any code. Then ask for a failing test first, and only once it&apos;s red, ask for the code that turns it green.</p>
+  </div>
+</div>
 
 <h2><span class="hash">#</span>Why this scales</h2>
 <p>One agent working from a vague goal produces one plausible-but-wrong diff, and you catch it. Fan that same vagueness out to five agents and you get five diffs drifting in five directions — the failure mode the industry named <strong>drift</strong> and built <em>spec-driven development</em> to kill: confident code that quietly solves the wrong problem because nobody grounded it in a real spec. A sharper spec makes delegation safe, and the same contract that makes a single agent reliable is what lets you trust a team of them — see <a href="agents.html">AI agents &amp; rules</a> for the orchestration side.</p>
