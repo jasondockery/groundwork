@@ -15,6 +15,7 @@ Modes: --write (default) rewrites artifacts; --check exits 1 if a rewrite
 would change anything (wired into scripts/validate-groundwork).
 """
 
+import datetime
 import html
 import pathlib
 import re
@@ -59,6 +60,22 @@ def set_meta(text: str, pattern: str, replacement: str) -> str:
     return re.sub(pattern, replacement, text, count=1)
 
 
+def run_git(*args: str) -> str:
+    """Run git and fail closed. Any nonzero exit stops generation instead of
+    letting incomplete history silently produce a valid-looking but false
+    sitemap — the same fail-open trap the shallow-clone check closes."""
+    result = subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(
+            f"generate-discovery: git {' '.join(args)} failed: "
+            f"{result.stderr.strip() or 'unknown error'}\n"
+        )
+        raise SystemExit(1)
+    return result.stdout
+
+
 def assert_full_history() -> None:
     """Git history is a declared input here, not ambient state: sitemap
     lastmod dates are each page's newest commit date. A shallow clone can't
@@ -94,40 +111,45 @@ def assert_full_history() -> None:
 
 
 def dirty_docs_paths() -> set[str]:
-    """Repo-relative docs paths with uncommitted changes, in one git call.
-    These get today's date; committed pages get their last commit date."""
-    out = subprocess.run(
-        ["git", "status", "--porcelain", "--", "docs"],
-        cwd=ROOT, capture_output=True, text=True,
-    ).stdout
+    """Docs paths with uncommitted changes (modified, added, renamed, or
+    untracked). These get today's date; committed pages get their last commit
+    date. `-z` gives unambiguous NUL-delimited records, so filenames with
+    spaces, quotes, or unicode can't corrupt parsing."""
+    out = run_git("status", "--porcelain=v1", "-z", "--", "docs")
+    fields = out.split("\0")
     paths: set[str] = set()
-    for line in out.splitlines():
-        if len(line) < 4:
+    i = 0
+    while i < len(fields):
+        record = fields[i]
+        if not record:
+            i += 1
             continue
-        entry = line[3:]
-        if " -> " in entry:  # rename: the new path is what exists now
-            entry = entry.split(" -> ", 1)[1]
-        paths.add(entry.strip().strip('"'))
+        status, path = record[:2], record[3:]
+        paths.add(path)
+        # A rename/copy record is followed by its source path in the next
+        # NUL field; the destination path (above) is what exists now.
+        if "R" in status or "C" in status:
+            i += 1
+        i += 1
     return paths
 
 
 def commit_date_map() -> dict[str, str]:
-    """Newest commit date per docs path in ONE history traversal, not a
-    `git log` per page. git log is newest-first, so a path's first appearance
-    is its latest change."""
-    out = subprocess.run(
-        ["git", "log", "--format=%cs", "--name-only", "--", "docs"],
-        cwd=ROOT, capture_output=True, text=True,
-    ).stdout
+    """Newest commit date per docs path in ONE history traversal (not a
+    `git log` per page). A NUL prefix marks date lines so a date-shaped
+    filename cannot be misread as a date; quotePath=false keeps unicode paths
+    literal. git log is newest-first, so a path's first appearance is its
+    latest change."""
+    out = run_git(
+        "-c", "core.quotePath=false",
+        "log", "--format=%x00%cs", "--name-only", "--", "docs",
+    )
     dates: dict[str, str] = {}
     current = ""
     for line in out.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", line):
-            current = line
-        else:
+        if line.startswith("\0"):
+            current = line[1:].strip()
+        elif line:
             dates.setdefault(line, current)
     return dates
 
@@ -175,15 +197,22 @@ def main() -> int:
 
     dirty = dirty_docs_paths()
     dates = commit_date_map()
-    today = subprocess.run(
-        ["date", "+%Y-%m-%d"], capture_output=True, text=True
-    ).stdout.strip()
+    today = datetime.date.today().isoformat()
 
     def page_lastmod(page: pathlib.Path) -> str:
         rel = f"docs/{page.name}"
         if rel in dirty:
             return today
-        return dates.get(rel) or "1970-01-01"
+        date = dates.get(rel)
+        if not date:
+            # Committed but absent from the history map: an invariant failure
+            # (incomplete history), not a page to stamp with a placeholder.
+            sys.stderr.write(
+                f"generate-discovery: {rel} is tracked but has no commit "
+                "date; refusing to emit a placeholder lastmod.\n"
+            )
+            raise SystemExit(1)
+        return date
 
     sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     sitemap_lines.append(

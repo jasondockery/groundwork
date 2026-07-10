@@ -532,6 +532,28 @@ assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|M
 check "discovery artifacts current (descriptions, sitemap, llms.txt)"
 scripts/generate-discovery --check
 
+check "discovery generator fails closed on a shallow clone"
+# The regression: a shallow checkout made git log report HEAD's date for every
+# page. The generator must now refuse rather than emit silently-wrong dates.
+# file:// forces the transport that honors --depth (a plain path hardlink-clones
+# and ignores it). Test the working-tree generator, not the committed copy.
+shallow_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-shallow.XXXXXX")"
+git clone --quiet --depth 1 "file://$PWD/.git" "$shallow_dir/repo"
+cp scripts/generate-discovery "$shallow_dir/repo/scripts/generate-discovery"
+if (cd "$shallow_dir/repo" && python3 scripts/generate-discovery --check) \
+    >/dev/null 2>"$shallow_dir/err"; then
+  echo "generate-discovery did not fail closed in a shallow clone" >&2
+  rm -rf "$shallow_dir"
+  exit 1
+fi
+if ! grep -qi shallow "$shallow_dir/err"; then
+  echo "generate-discovery failed in a shallow clone but not with the shallow message" >&2
+  cat "$shallow_dir/err" >&2
+  rm -rf "$shallow_dir"
+  exit 1
+fi
+rm -rf "$shallow_dir"
+
 check "whitespace"
 git diff --check
 
