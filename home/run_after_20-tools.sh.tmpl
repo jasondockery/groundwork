@@ -85,12 +85,3 @@ mkdir -p "$groundwork_state_dir"
 if [[ ! -e "$groundwork_state_dir/last-update-all" ]]; then
   touch "$groundwork_state_dir/last-update-all"
 fi
-
-{{ if and (not .work) (not .headless) -}}
-# Grok Build (xAI CLI) — personal machines only. Requires a SuperGrok / X Premium+ subscription.
-# This vendor installer is intentionally best-effort and not part of the
-# reproducible headless path; pin/checksum it before making it required.
-if ! command -v grok >/dev/null 2>&1; then
-  curl -fsSL https://x.ai/cli/install.sh | bash || true
-fi
-{{- end }}

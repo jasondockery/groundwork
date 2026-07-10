@@ -258,7 +258,8 @@ grep -qF "\"\$tmux_plugin_dir/tpm/bin/install_plugins\" || true" home/run_after_
 grep -qF 'enable-atuin-ai' home/dot_zshrc.tmpl
 grep -qF -- '--disable-ai' home/dot_zshrc.tmpl
 grep -qF "files copied to \$dest, but git commit failed" home/dot_zshrc.tmpl
-grep -qF 'reproducible headless path; pin/checksum it before making it required.' home/run_after_20-tools.sh.tmpl
+assert_no_matches "vendor curl installers belong in the Brewfile, not run_after scripts" rg -n 'install\.sh \| bash' home/run_after_20-tools.sh.tmpl
+grep -qF 'grok-build' home/dot_config/homebrew/Brewfile.tmpl
 grep -qF 'https://deb.gierens.de stable main' docker/install-headless-tools.sh
 assert_no_matches "eza apt repo must use HTTPS" rg -n 'http://deb\.gierens\.de' docker
 

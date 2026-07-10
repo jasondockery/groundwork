@@ -179,7 +179,8 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 - [ ] **Default browser** — run `defaultbrowser` to list installed browsers, then `defaultbrowser zen`, and approve the macOS confirmation; keep Chrome for testing. See `docs/apps.html`.
 - [ ] **Zen sync** — sign in with Firefox Sync for bookmarks/history/logins/open tabs; recreate Spaces per machine. See `docs/apps.html`.
 - [ ] **Browser extensions** — run `browser-extensions` to list the managed add-ons, or `browser-extensions --browser zen --tier core --open` to open the core Zen set. See `docs/apps.html`.
-- [ ] **Codex desktop app** (optional) — download from OpenAI or run `codex app`. (The Brewfile installs the Codex CLI, not the app.)
+- [ ] **Codex desktop app** — installed by the Brewfile alongside the CLI; open it (or run `codex app`) and sign in once. See `docs/codex.html`.
+- [ ] **Grok Build** (optional to use) — the CLI is installed by the Brewfile, but using it needs a SuperGrok / X Premium+ subscription; run `grok` in a project to sign in. See `docs/grok.html`.
 - [ ] **Learning tracks** — the browser/Three.js FPS track starts at `docs/game-dev.html` and needs no Unity install. If you enabled `game_dev`, open Unity Hub, install the latest Unity 6 LTS editor, add the WebGL module, then follow `docs/game-dev-unity.html`. The web, app, and image/video tracks live at `docs/web-dev.html`, `docs/app-dev.html`, and `docs/gen-media.html`.
 - [ ] **Work Mac only** — start the Docker daemon: `colima start`.
 
@@ -187,7 +188,7 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 
 One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 
-- **Off work:** Claude Code, Codex, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop. (Chrome, Zen, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
+- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop. (Chrome, Zen, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
 - **On work:** Docker becomes Colima + the Docker CLI (license-free). Confirm your employer permits the AI tools before enabling them there.
 
 ## Daily use

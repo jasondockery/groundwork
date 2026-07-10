@@ -103,9 +103,11 @@ cask "docker-desktop"
 {{ if not $work -}}
 # Personal machines only: AI agents + editors + personal apps
 cask "claude-code@latest"    # Claude Code CLI: faster-moving latest channel, not the stable cask
+cask "claude"                # Claude desktop app (chat, files, supervise Claude Code sessions)
 cask "codex"                 # Codex CLI
 cask "codex-app"             # Codex desktop app (manage coding agents)
 cask "chatgpt"               # OpenAI ChatGPT desktop app
+cask "grok-build"            # Grok Build CLI (SpaceXAI coding agent; installs the `grok` binary)
 brew "opencode"              # OpenCode CLI
 cask "visual-studio-code"    # hosts the anthropic.claude-code extension (vscode-extensions.txt)
 cask "cursor"
