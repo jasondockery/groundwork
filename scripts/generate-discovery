@@ -34,6 +34,11 @@ SUMMARY = (
 )
 MAX_DESC = 158
 
+# Docs pages are simple single-segment .html filenames. The commit-date parse
+# reads git-log output line-based, which is only unambiguous if the names we
+# look up contain no newlines or surprises; main() enforces this.
+SAFE_PAGE_NAME = re.compile(r"[A-Za-z0-9._-]+\.html")
+
 LEAD_RE = re.compile(r'<p class="lead">(.*?)</p>', re.S)
 FIRST_P_RE = re.compile(r'<div class="content">.*?<p[^>]*>(.*?)</p>', re.S)
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.S)
@@ -137,9 +142,12 @@ def dirty_docs_paths() -> set[str]:
 def commit_date_map() -> dict[str, str]:
     """Newest commit date per docs path in ONE history traversal (not a
     `git log` per page). A NUL prefix marks date lines so a date-shaped
-    filename cannot be misread as a date; quotePath=false keeps unicode paths
-    literal. git log is newest-first, so a path's first appearance is its
-    latest change."""
+    filename cannot be misread as a date. Paths are read line-based; that is
+    safe here because the names we actually look up are validated simple
+    `*.html` filenames (SAFE_PAGE_NAME, enforced in main) — a newline in some
+    historical path could only add an unused map key, never mislabel a queried
+    page. git log is newest-first, so a path's first appearance is its latest
+    change."""
     out = run_git(
         "-c", "core.quotePath=false",
         "log", "--format=%x00%cs", "--name-only", "--", "docs",
@@ -165,6 +173,14 @@ def main() -> int:
     check = "--check" in sys.argv
     assert_full_history()
     pages = sorted(p for p in DOCS.glob("*.html") if is_site_page(p))
+    for page in pages:
+        if not SAFE_PAGE_NAME.fullmatch(page.name):
+            sys.stderr.write(
+                f"generate-discovery: unsafe page filename {page.name!r}; "
+                "docs pages must be simple [A-Za-z0-9._-].html names so the "
+                "git-log lastmod parse stays unambiguous.\n"
+            )
+            raise SystemExit(1)
     changed: list[str] = []
     entries = []
 

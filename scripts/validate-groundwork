@@ -554,6 +554,39 @@ if ! grep -qi shallow "$shallow_dir/err"; then
 fi
 rm -rf "$shallow_dir"
 
+check "discovery generator lastmod: committed date vs today for dirty/untracked"
+# Black-box the two date paths in a throwaway repo: a clean committed page keeps
+# its actual commit date; a dirty or untracked page gets today. Pages carry the
+# description the generator would compute, so it stays idempotent (no rewrite
+# that would otherwise dirty the committed page).
+datefx_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-datefx.XXXXXX")"
+write_fixture_page() {
+  printf '%s' '<html><head><meta name="description" content="Lead."><meta property="og:site_name" content="Groundwork"><title>T</title></head><body><div class="content"><p class="lead">Lead.</p></div></body></html>' > "$1"
+}
+if ! (
+  cd "$datefx_dir" || exit 1
+  git init -q
+  git config user.email t@example.com
+  git config user.name tester
+  mkdir -p docs scripts
+  cp "$repo/scripts/generate-discovery" scripts/generate-discovery
+  write_fixture_page docs/a.html
+  export GIT_AUTHOR_DATE="2020-01-01T00:00:00" GIT_COMMITTER_DATE="2020-01-01T00:00:00"
+  git add -A
+  git commit -qm init
+  unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+  write_fixture_page docs/b.html   # untracked
+  python3 scripts/generate-discovery >/dev/null
+  grep -q "<lastmod>2020-01-01</lastmod>" docs/sitemap.xml || {
+    echo "committed clean page did not keep its commit date" >&2; exit 1; }
+  grep -q "<lastmod>$(date +%Y-%m-%d)</lastmod>" docs/sitemap.xml || {
+    echo "untracked page did not get today's date" >&2; exit 1; }
+); then
+  rm -rf "$datefx_dir"
+  exit 1
+fi
+rm -rf "$datefx_dir"
+
 check "whitespace"
 git diff --check
 
