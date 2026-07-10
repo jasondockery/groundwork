@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Every AI tool runs inside limits: a context window, plan or rate limits, and sometimes a spend budget. This page teaches one durable habit — check your tool&#x27;s…">
+<title>Know your AI budget · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/ai-budget.html">
+<meta property="og:title" content="Know your AI budget · Groundwork">
+<meta property="og:description" content="Every AI tool runs inside limits: a context window, plan or rate limits, and sometimes a spend budget. This page teaches one durable habit — check your tool&#x27;s…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Know your AI budget · Groundwork">
+<meta name="twitter:description" content="Every AI tool runs inside limits: a context window, plan or rate limits, and sometimes a spend budget. This page teaches one durable habit — check your tool&#x27;s…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/ai-budget.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+      <a href="ai-budget.html" class="active">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+<p class="eyebrow">Fundamental skill</p>
+<h1>Check the gauge before you hand over the work.</h1>
+<p class="lead">Every AI tool runs inside limits: a context window, plan or rate limits, and sometimes a spend budget. This page teaches one durable habit — check your tool&apos;s own gauge before long work — and shows where that gauge lives in each tool Groundwork covers.</p>
+
+<div class="trigger"><b>When you'll want this</b> Your agent's answers got worse mid-session, a tool stopped at the worst moment, or you're about to start hours of work and want it to finish.</div>
+
+<h2><span class="hash">#</span>How this failure actually feels</h2>
+<p>Three hours into a build session, the agent that was sharp all morning starts to slip. It re-suggests an approach you both abandoned an hour ago. It forgets a constraint you stated twice. Then, mid-edit, it stops and tells you to come back in two hours. Nothing crashed, and no error named the problem — the tool just got worse, then quit.</p>
+<p>That session hit two different limits blind: the <strong>context window</strong> filled with dead ends until the plan fell out of it, and then a <strong>rate limit</strong> ended the day. Both were visible on a gauge the whole time. This page is about reading that gauge the way you'd check fuel before a road trip — a five-second habit that decides whether long work finishes.</p>
+
+<h2><span class="hash">#</span>The three limits</h2>
+<table class="keytable">
+  <tr><td><strong>Context window</strong></td><td>How much the model can hold right now: your conversation, the files it read, the logs it dumped. When it fills, the tool compacts or forgets — quality sags before anything visibly breaks.</td></tr>
+  <tr><td><strong>Plan &amp; rate limits</strong></td><td>How much you can use per session, day, or week on your subscription. Hit one mid-task and the work pauses until the window resets, whether or not the diff was finished.</td></tr>
+  <tr><td><strong>Spend budget</strong></td><td>For API keys and metered plans: actual money per token. Mostly invisible on flat subscriptions, decisive when you wire an agent to an API key.</td></tr>
+</table>
+
+<h2><span class="hash">#</span>The habit: gauge first, then work</h2>
+<p>Before starting anything you expect to take more than a few minutes, check your tool&apos;s own readout of both numbers — window and plan. It changes your decisions in concrete ways: start big work in a fresh session instead of one at 80% capacity, and don&apos;t open a multi-hour task minutes before your rate window resets.</p>
+<div class="drill">
+  <div class="num">1</div>
+  <div class="body">
+    <h3>Try it now: read your gauges</h3>
+    <p>Open the tool you actually use. In Claude Code, run <code>/context</code> (window) then <code>/usage</code> (plan limits). In Codex CLI, run <code>/status</code>. Two numbers, five seconds. If either surprised you, this habit just paid for itself.</p>
+  </div>
+</div>
+
+<h2><span class="hash">#</span>Where the gauge lives, tool by tool</h2>
+<p>Every maintained tool ships a first-party gauge; learn yours. The command names will change — the habit won&apos;t.</p>
+<table class="keytable">
+  <tr><td><strong><a href="claude.html">Claude Code</a></strong></td><td><code>/context</code> shows window usage, <code>/usage</code> shows plan limits, and <code>/statusline</code> can put an always-on readout at the bottom of every session.</td></tr>
+  <tr><td><strong><a href="codex.html">Codex CLI</a></strong></td><td><code>/status</code> reports session, model, and usage state in one screen.</td></tr>
+  <tr><td><strong>Cursor</strong></td><td>The usage dashboard in settings tracks plan consumption; see <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>
+  <tr><td><strong><a href="grok.html">Grok Build</a></strong></td><td>Check its status view for session and plan state; the page covers what ships today.</td></tr>
+  <tr><td><strong><a href="glm.html">Local &amp; open models</a></strong></td><td>A different budget entirely: memory and speed instead of tokens and dollars. See below.</td></tr>
+</table>
+
+<h2><span class="hash">#</span>Reset on pollution</h2>
+<p>Wrong turns, giant log dumps, and abandoned approaches don&apos;t leave the window when you move on — they sit there and keep steering the model. That&apos;s why the agent re-suggests the dead end: it&apos;s still reading it. Clearing, compacting, or restarting with a clean summary is a skill, not a defeat.</p>
+<p>The default move when a session fills mid-task is not to compact and limp along: start a fresh session and re-onboard it from repo state — the plan you wrote down, the commits, the notes in <code>AGENTS.md</code> — the same way you&apos;d brief a teammate. Compact deliberately, with focus instructions, only when the in-session reasoning itself is what you need to keep. <a href="agents.html">AI agents &amp; rules</a> covers this handoff pattern in depth.</p>
+<div class="drill">
+  <div class="num">2</div>
+  <div class="body">
+    <h3>Try it now: reset deliberately</h3>
+    <p>Next time a session goes down a wrong path, don&apos;t just change the subject. In Claude Code, run <code>/compact focus on the working approach, drop the failed attempts</code> — or start a fresh session and point it at your plan file. Compare how the next answer reads.</p>
+  </div>
+</div>
+
+<div class="callout warn">
+  <span class="label">Prefer first-party gauges over third-party parsers</span>
+  <p>Community tools that parse a vendor&apos;s local log files break every time the format changes. Fine as personal experiments; don&apos;t build habits — or team process — on them. The gauges above are the vendor&apos;s own and move with the product.</p>
+</div>
+
+<h2><span class="hash">#</span>Local models: a different budget</h2>
+<p>Run an open-weights model on your own machine and the token meter disappears — but the budget doesn&apos;t. It becomes your Mac&apos;s memory (can the model fit?) and speed (tokens per second — can you stand the wait?). The gauge changes with it: <code>ollama ps</code> shows what&apos;s loaded and how much memory it holds, and <code>btop</code> shows what it&apos;s doing to the rest of your machine. Same habit, different dial. See <a href="glm.html">GLM &amp; open models</a> for the full picture.</p>
+<p>Why this counts as fundamentals: you are the senior partner. Knowing the machine&apos;s limits before assigning it work is the same judgment you&apos;d apply to any teammate — token budgets are one half of that awareness, and your machine&apos;s own CPU and memory are the other.</p>
+
+<h2><span class="hash">#</span>Related pages</h2>
+<ul>
+  <li><a href="agents.html">AI agents &amp; rules</a> — sessions, handoffs, and the repo as the memory that outlives any context window.</li>
+  <li><a href="editors-ai.html">Editors &amp; AI</a> — the tools this habit applies to, and what agents cost your machine itself.</li>
+</ul>
+
+<div class="pagenav">
+  <a href="grok.html"><span class="dir">← Prev</span>Grok &amp; Grok Build</a>
+  <a href="workflow.html"><span class="dir">Next →</span>Everyday workflow</a>
+</div>
+
+      <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

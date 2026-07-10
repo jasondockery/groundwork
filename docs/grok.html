@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Grok is SpaceXAI&#x27;s assistant, and Grok Build is its terminal coding agent, powered by Grok 4.5 — a model pitched directly at frontier coding work. Groundwork…">
+<title>Grok &amp; Grok Build · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/grok.html">
+<meta property="og:title" content="Grok &amp; Grok Build · Groundwork">
+<meta property="og:description" content="Grok is SpaceXAI&#x27;s assistant, and Grok Build is its terminal coding agent, powered by Grok 4.5 — a model pitched directly at frontier coding work. Groundwork…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Grok &amp; Grok Build · Groundwork">
+<meta name="twitter:description" content="Grok is SpaceXAI&#x27;s assistant, and Grok Build is its terminal coding agent, powered by Grok 4.5 — a model pitched directly at frontier coding work. Groundwork…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/grok.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html" class="active">Grok &amp; Grok Build</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+<p class="eyebrow">SpaceXAI coding agent</p>
+<h1>Grok is the assistant; Grok Build is the agent.</h1>
+<p class="lead">Grok is SpaceXAI&apos;s assistant, and Grok Build is its terminal coding agent, powered by Grok 4.5 — a model pitched directly at frontier coding work. Groundwork installs the Grok Build CLI on personal machines; this page is the map.</p>
+
+<div class="trigger"><b>When you'll want this</b> You want to evaluate another frontier coding agent against the ones you already run, or your team or plan already includes Grok.</div>
+
+<h2><span class="hash">#</span>Which Grok surface to use</h2>
+<table class="keytable">
+  <tr><td><strong>Grok app &amp; X</strong></td><td>The assistant: chat, questions, and research in the Grok apps and inside X. The chatbot role <a href="gpt.html">GPT &amp; ChatGPT</a> describes — great at answering, can&apos;t see your project.</td></tr>
+  <tr><td><strong>Grok Build CLI</strong></td><td>The coding agent, in your terminal: an interactive TUI with plan mode, subagents, and worktree support, or headless in scripts. Beta, bundled with SuperGrok and X Premium+ plans.</td></tr>
+  <tr><td><strong>Grok Build in other apps</strong></td><td>Grok Build speaks the Agent Client Protocol (ACP), so editors and apps that support ACP can drive it. Grok 4.5 is also selectable directly in Cursor.</td></tr>
+  <tr><td><strong>API &amp; console</strong></td><td>Grok models by the token for your own tools and scripts, from the SpaceXAI console.</td></tr>
+</table>
+
+<h2><span class="hash">#</span>The model underneath: Grok 4.5</h2>
+<p>On July 8, 2026, SpaceXAI released <strong>Grok 4.5</strong>, its first model built specifically for coding and agentic work, positioned as an Opus-class model at a markedly lower price ($2 per million input tokens, $6 per million output at launch). It powers Grok Build, is selectable in Cursor, and is available from the API console. The durable takeaway isn&apos;t the launch ranking — it&apos;s that the frontier now has another serious coding agent, and the evaluation loop below is how you decide if it earns a place in your rotation.</p>
+
+<h2><span class="hash">#</span>Trying Grok Build</h2>
+<p>Groundwork installs the CLI on personal machines (the <code>grok-build</code> Homebrew cask, which puts the <code>grok</code> binary on your path), so trying it is one command in a project folder:</p>
+<div class="terminal">
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">grok</span></div>
+  <pre><code><span class="prompt">$ </span>grok</code></pre>
+</div>
+<p>It reads <code>AGENTS.md</code> out of the box, along with your skills, hooks, and MCP servers — which is exactly why Groundwork keeps its agent contract in that tool-neutral file (see <a href="agents.html">AI agents &amp; rules</a>). Evaluating a new agent is the same loop as directing a familiar one: start it in a clean repo, ask for inspection before edits, approve narrowly, and judge it by the diff it leaves. If you can run that loop with <a href="claude.html">Claude Code</a> or <a href="codex.html">Codex</a>, you can run it here — that transferability is the point.</p>
+
+<div class="callout note">
+  <span class="label">The binary is installed; the plan is yours</span>
+  <p>Using Grok Build requires a SuperGrok or X Premium+ subscription (or API credits) — Groundwork installs the tool, not the account. Work machines skip it along with the rest of the personal AI apps; see <a href="platforms.html">Platforms</a>.</p>
+</div>
+
+<h2><span class="hash">#</span>Official references</h2>
+<ul>
+  <li><a href="https://x.ai/news/grok-4-5" target="_blank" rel="noopener">Introducing Grok 4.5</a> — the launch announcement.</li>
+  <li><a href="https://x.ai/cli" target="_blank" rel="noopener">Grok Build beta</a> — the coding agent&apos;s home page and install.</li>
+  <li><a href="https://docs.x.ai/build/overview" target="_blank" rel="noopener">Grok Build docs</a> — CLI, ACP, config, and permissions reference.</li>
+</ul>
+
+<div class="pagenav">
+  <a href="glm.html"><span class="dir">← Prev</span>GLM &amp; open models</a>
+  <a href="ai-budget.html"><span class="dir">Next →</span>Know your AI budget</a>
+</div>
+
+      <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

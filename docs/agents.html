@@ -77,10 +77,17 @@
       <a href="workflow.html">Everyday workflow</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
-      <a href="agents.html" class="active">AI agents &amp; rules</a>
       <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="agents.html" class="active">AI agents &amp; rules</a>
+      <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+      <a href="ai-budget.html">Know your AI budget</a>
     </nav>
     <nav class="nav-group">
       <h4>Tracks</h4>
@@ -230,17 +237,7 @@
       <p>The durable workflow, tool-independent: write the spec first, derive a plan, break it into atomic tasks, then let one agent or ten build with that spec as their shared memory. Every major tool shipped a flavor of this in 2025–2026 (GitHub Spec Kit, AWS Kiro, and others), but do not adopt a vendor's ceremony — adopt the habit. Ground the work in something checkable before you hand it off, and the same contract that makes a single agent reliable is what lets you trust a team of them.</p>
 
       <h2><span class="hash">#</span>Know your AI budget</h2>
-      <p>Every serious AI tool runs inside limits: a <strong>context window</strong> (how much the model can hold right now), <strong>plan or rate limits</strong> (how much you can use per session or week), and sometimes a <strong>spend budget</strong>. Long work fails in confusing ways when you hit these blind — the tool doesn't crash, it just gets worse or stops mid-task.</p>
-      <p>The durable habit: <strong>before starting long work, check your tool's own gauge — and reset context deliberately when it's polluted.</strong></p>
-      <ul>
-        <li><strong>Find the first-party gauge.</strong> Every maintained tool ships one; learn yours. Today that means <code>/context</code> and <code>/usage</code> in Claude Code, <code>/status</code> in Codex CLI, the usage dashboard in Cursor — the commands will change, the habit won't.</li>
-        <li><strong>Start big work with room.</strong> A session at 80% context produces worse results than a fresh one with the right files loaded. Starting a multi-hour task minutes before a rate window resets wastes the window.</li>
-        <li><strong>Reset on pollution.</strong> Wrong turns, giant log dumps, and abandoned approaches stay in the window and keep steering the model. Clearing, compacting, or restarting with a clean summary is a skill, not a defeat.</li>
-      </ul>
-      <div class="callout warn">
-        <span class="label">Prefer first-party gauges over third-party parsers</span>
-        <p>Community tools that parse a vendor's local log files break every time the format changes. Fine as personal experiments; don't build habits — or team process — on them.</p>
-      </div>
+      <p>Every serious AI tool runs inside limits — a context window, plan or rate limits, sometimes a spend budget — and long work fails in confusing ways when you hit them blind. The habit and where each tool's gauge lives now have their own page: <a href="ai-budget.html">Know your AI budget</a>. The short version: check your tool's gauge before long work, start big work with room, and reset context deliberately when it's polluted.</p>
 
       <h2><span class="hash">#</span>Sessions: pick up, hand off, clean up</h2>
       <p>Three days into the browser FPS track, the terminal window running your agent session closes by accident, or the laptop sleeps overnight, or you simply hit a rate limit before finishing for the day. The next session you open has no memory of the last one: no chat history, no sense of what you decided or why. If the work survives that gap anyway, it is because the state was never really in the conversation. It was in the repo: the plan you wrote down, the commits with real messages, the notes in <code>AGENTS.md</code> about what is verified and what is next. A <strong>session</strong> is the live back-and-forth with the model; it is compute, not memory. The repo is the memory.</p>
@@ -310,8 +307,8 @@
       </ul>
 
       <div class="pagenav">
-        <a href="knowledge.html"><span class="dir">Previous</span>Knowledge base</a>
-        <a href="dependencies.html"><span class="dir">Next →</span>Dependencies</a>
+        <a href="dependencies.html"><span class="dir">← Prev</span>Dependencies</a>
+        <a href="claude.html"><span class="dir">Next →</span>Claude &amp; Claude Code</a>
       </div>
       <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
     </div>

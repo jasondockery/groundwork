@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="GLM is the leading open-weights model family for coding and agentic work, and it stands here for a whole category: models whose weights you can download, run…">
+<title>GLM &amp; open models · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/glm.html">
+<meta property="og:title" content="GLM &amp; open models · Groundwork">
+<meta property="og:description" content="GLM is the leading open-weights model family for coding and agentic work, and it stands here for a whole category: models whose weights you can download, run…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GLM &amp; open models · Groundwork">
+<meta name="twitter:description" content="GLM is the leading open-weights model family for coding and agentic work, and it stands here for a whole category: models whose weights you can download, run…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/glm.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html" class="active">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+<p class="eyebrow">Open-weights models</p>
+<h1>Open models are the option you own.</h1>
+<p class="lead">GLM is the leading open-weights model family for coding and agentic work, and it stands here for a whole category: models whose weights you can download, run locally, or point any agent at. Knowing how to use one keeps every vendor honest.</p>
+
+<div class="trigger"><b>When you'll want this</b> You want a capable model without a subscription, need work to stay on your own machine, or want to understand what "open weights" buys you as leverage.</div>
+
+<h2><span class="hash">#</span>What "open weights" means, and why you care</h2>
+<p>A frontier lab like Anthropic or OpenAI serves its models only through its own apps and APIs. An <strong>open-weights</strong> model publishes the model file itself — you can download it, run it on hardware you control, and no one can change the price, the behavior, or the terms underneath you. For an agentic engineer that is not ideology; it is leverage: the skill of pointing your tools at <em>any</em> model means no single vendor owns your workflow.</p>
+
+<h2><span class="hash">#</span>Meet GLM</h2>
+<p>GLM is the flagship open-weights family from Z.ai, built for agentic engineering, and the standard-bearer for the category: GLM-5.2 (released mid-2026) leads open models on the coding and terminal benchmarks that matter for agent work while competing with closed frontier models. You can use it three ways, in rising order of ownership:</p>
+<table class="keytable">
+  <tr><td><strong>Hosted API &amp; coding plans</strong></td><td>Z.ai serves GLM through an API and subscription coding plans, priced well under the closed frontier labs. Several coding agents can be pointed at it as their backing model.</td></tr>
+  <tr><td><strong>Hosted by others</strong></td><td>Because the weights are open, third-party providers serve GLM too — you can pick a host on price, region, or privacy terms.</td></tr>
+  <tr><td><strong>Run it yourself</strong></td><td>Download the weights and run them on your own hardware. The full model needs serious memory; smaller variants and quantized builds run on a well-equipped Mac.</td></tr>
+</table>
+
+<h2><span class="hash">#</span>Local models on this machine</h2>
+<p>Groundwork installs <strong>Ollama</strong>, a local model runtime that downloads and serves open models on your Mac at <code>localhost:11434</code>. It is the shortest path to a model that works with the network cable unplugged:</p>
+<table class="keytable">
+  <tr><td><code>ollama run &lt;model&gt;</code></td><td>Download (first run) and chat with a model in the terminal.</td></tr>
+  <tr><td><code>ollama ps</code></td><td>Show what&apos;s loaded and how much memory it holds — the local equivalent of a usage gauge.</td></tr>
+  <tr><td><code>ollama ls</code></td><td>List the models you&apos;ve downloaded and what they cost in disk.</td></tr>
+</table>
+<p>The budget here isn&apos;t tokens or dollars — it&apos;s your machine&apos;s memory and patience. A model that fits comfortably answers fast; one that barely fits crawls and starves everything else. <a href="ai-budget.html">Know your AI budget</a> covers reading that gauge.</p>
+
+<h2><span class="hash">#</span>Honest tradeoffs</h2>
+<p>Local and open models are not a free replacement for the frontier: the closed leaders are still ahead on the hardest agentic work, and a model small enough to run comfortably on a laptop is well behind one served from a datacenter. The point is options — knowing what the open tier can do, what it costs to run, and when it&apos;s the right tool — so your choice of the frontier is a choice, not a dependency.</p>
+
+<h2><span class="hash">#</span>References</h2>
+<ul>
+  <li><a href="https://z.ai" target="_blank" rel="noopener">Z.ai</a> — GLM&apos;s maker: models, API, and coding plans.</li>
+  <li><a href="https://huggingface.co" target="_blank" rel="noopener">Hugging Face</a> — where open-weights models (GLM included) are published and compared.</li>
+  <li><a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> — the local runtime Groundwork installs.</li>
+</ul>
+
+<div class="pagenav">
+  <a href="gpt.html"><span class="dir">← Prev</span>GPT &amp; ChatGPT</a>
+  <a href="grok.html"><span class="dir">Next →</span>Grok &amp; Grok Build</a>
+</div>
+
+      <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

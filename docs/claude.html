@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Codex is OpenAI&#x27;s coding agent across the terminal, desktop app, IDE, and hosted workflows. In Groundwork, it sits beside Claude Code as another capable agent…">
-<title>Codex UI &amp; CLI · Groundwork</title>
+<meta name="description" content="Claude Code is Anthropic&#x27;s coding agent for the terminal, editor, and desktop, and it is the default agent Groundwork installs. This page maps its surfaces…">
+<title>Claude &amp; Claude Code · Groundwork</title>
 <meta property="og:site_name" content="Groundwork">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://jasondockery.github.io/groundwork/codex.html">
-<meta property="og:title" content="Codex UI &amp; CLI · Groundwork">
-<meta property="og:description" content="Codex is OpenAI&#x27;s coding agent across the terminal, desktop app, IDE, and hosted workflows. In Groundwork, it sits beside Claude Code as another capable agent…">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/claude.html">
+<meta property="og:title" content="Claude &amp; Claude Code · Groundwork">
+<meta property="og:description" content="Claude Code is Anthropic&#x27;s coding agent for the terminal, editor, and desktop, and it is the default agent Groundwork installs. This page maps its surfaces…">
 <meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Codex UI &amp; CLI · Groundwork">
-<meta name="twitter:description" content="Codex is OpenAI&#x27;s coding agent across the terminal, desktop app, IDE, and hosted workflows. In Groundwork, it sits beside Claude Code as another capable agent…">
+<meta name="twitter:title" content="Claude &amp; Claude Code · Groundwork">
+<meta name="twitter:description" content="Claude Code is Anthropic&#x27;s coding agent for the terminal, editor, and desktop, and it is the default agent Groundwork installs. This page maps its surfaces…">
 <meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
-<link rel="canonical" href="https://jasondockery.github.io/groundwork/codex.html">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/claude.html">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <script>
 (function () {
@@ -82,8 +82,8 @@
     <nav class="nav-group">
       <h4>AI tools</h4>
       <a href="agents.html">AI agents &amp; rules</a>
-      <a href="claude.html">Claude &amp; Claude Code</a>
-      <a href="codex.html" class="active">Codex UI &amp; CLI</a>
+      <a href="claude.html" class="active">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
@@ -117,44 +117,33 @@
 
   <main id="main" class="main">
     <div class="content">
-<p class="eyebrow">OpenAI coding agent</p>
-<h1>Use Codex when the work needs a repo, a diff, and verification.</h1>
-<p class="lead">Codex is OpenAI&apos;s coding agent across the terminal, desktop app, IDE, and hosted workflows. In Groundwork, it sits beside Claude Code as another capable agent that should read <code>AGENTS.md</code>, inspect before editing, show its work, and leave you with a diff you understand.</p>
+<p class="eyebrow">Anthropic coding agent</p>
+<h1>Claude Code is the agent this whole setup assumes you have.</h1>
+<p class="lead">Claude Code is Anthropic&apos;s coding agent for the terminal, editor, and desktop, and it is the default agent Groundwork installs. This page maps its surfaces, the daily commands, and the gauges that keep long sessions healthy.</p>
 
-<div class="trigger"><b>When you'll want this</b> You want an OpenAI agent to read a project, make code or docs changes, run checks, and help you review the result.</div>
+<div class="trigger"><b>When you'll want this</b> You want an agent that reads your project, plans before editing, runs its own checks, and leaves you a diff you can defend.</div>
 
-<h2><span class="hash">#</span>Which Codex surface to use</h2>
+<h2><span class="hash">#</span>Which Claude surface to use</h2>
 <table class="keytable">
-  <tr><td><strong>Codex CLI</strong></td><td>Best when you are already in a terminal or tmux pane. Start it in the project folder, give it a task, approve commands, review the diff, and commit with Git.</td></tr>
-  <tr><td><strong>Codex app</strong></td><td>Best for juggling threads, screenshots, longer planning, reviews, and multiple pieces of work in parallel. It is the comfortable cockpit; the CLI is the fast lane.</td></tr>
-  <tr><td><strong>IDE extension</strong></td><td>Best when you want the agent attached to a visible editor buffer and your normal VS Code-style workflow.</td></tr>
-  <tr><td><strong>Cloud / web tasks</strong></td><td>Best for offloading work that can run away from your laptop, then applying or reviewing the resulting diff locally.</td></tr>
+  <tr><td><strong>Claude Code CLI</strong></td><td>The daily driver. Start it in a project folder, give it a task, approve narrowly, review the diff. Installed by Groundwork (the <code>claude-code@latest</code> cask).</td></tr>
+  <tr><td><strong>VS Code extension</strong></td><td>The same agent attached to a visible editor buffer. Groundwork installs it alongside VS Code for when you want the diff in a GUI.</td></tr>
+  <tr><td><strong>Claude app</strong></td><td>Anthropic&apos;s desktop and mobile app: chat, files, and supervising Claude Code sessions from a cockpit. Groundwork installs the desktop app on personal machines; reach for it when juggling threads outgrows the terminal.</td></tr>
+  <tr><td><strong>claude.ai web</strong></td><td>Chat, research, and cloud coding sessions from any browser, no install required.</td></tr>
 </table>
-
-<div class="callout note">
-  <span class="label">Groundwork default</span>
-  <p>Use the CLI for daily repo work and the app when the work benefits from multiple threads, visual context, or longer-running supervision. Either way, the contract is the same: inspect, plan, edit, verify, review, commit.</p>
-</div>
 
 <h2><span class="hash">#</span>Daily commands</h2>
 <table class="keytable">
-  <tr><td><code>codex</code></td><td>Open the interactive terminal UI in the current project.</td></tr>
-  <tr><td><code>codex "explain this repo"</code></td><td>Start with a one-shot prompt from the shell.</td></tr>
-  <tr><td><code>codex resume</code></td><td>Reopen a previous local Codex session.</td></tr>
-  <tr><td><code>codex app</code></td><td>Open the Codex desktop app from the terminal.</td></tr>
-  <tr><td><code>codex exec "..."</code></td><td>Run Codex non-interactively for scripted or repeatable tasks.</td></tr>
-  <tr><td><code>/review</code></td><td>In the CLI, ask Codex to review a diff, a commit, or uncommitted changes without editing them.</td></tr>
-  <tr><td><code>/permissions</code></td><td>Change the current approval/sandbox posture inside a Codex session.</td></tr>
+  <tr><td><code>claude</code></td><td>Open the interactive session in the current project.</td></tr>
+  <tr><td><code>claude "explain this repo"</code></td><td>Start with a one-shot prompt from the shell.</td></tr>
+  <tr><td><code>claude --continue</code></td><td>Reopen the most recent session for this directory; <code>--resume</code> opens a picker across all of them.</td></tr>
+  <tr><td><code>/context</code> &amp; <code>/usage</code></td><td>The two gauges: context-window usage and plan limits. Check both before long work — see <a href="ai-budget.html">Know your AI budget</a>.</td></tr>
+  <tr><td><code>/compact &lt;focus&gt;</code></td><td>Summarize the session deliberately, telling the model what to keep.</td></tr>
+  <tr><td><code>/statusline</code></td><td>Put an always-on readout (model, context, whatever you script) at the bottom of every session.</td></tr>
+  <tr><td><code>/model</code></td><td>Pick the model for the session: heavier for design and review, lighter for mechanical work.</td></tr>
 </table>
 
-<h2><span class="hash">#</span>The safe loop</h2>
-<div class="stages">
-  <div class="stage"><div class="n">1</div><div class="body"><div class="t">Start in a clean project</div><div class="d">Run <code>git status</code>. Commit or stash unrelated work before handing the agent a larger task.</div></div></div>
-  <div class="stage"><div class="n">2</div><div class="body"><div class="t">Ask for inspection first</div><div class="d">Use prompts like: <em>Inspect the repo and tell me the plan before editing files.</em></div></div></div>
-  <div class="stage"><div class="n">3</div><div class="body"><div class="t">Approve narrowly</div><div class="d">Let it read freely. Be more deliberate with writes, network calls, and commands outside the workspace.</div></div></div>
-  <div class="stage"><div class="n">4</div><div class="body"><div class="t">Read the diff</div><div class="d">The diff is where you learn and where you catch drift. Ask Codex to explain anything that is not obvious.</div></div></div>
-  <div class="stage"><div class="n">5</div><div class="body"><div class="t">Verify and commit</div><div class="d">Run the relevant check, then commit with a message that says what changed and why.</div></div></div>
-</div>
+<h2><span class="hash">#</span>The contract is the same as every agent's</h2>
+<p>Claude Code reads this repo&apos;s <code>AGENTS.md</code> through a thin adapter, inspects before editing, and is expected to verify before claiming done — the shared contract <a href="agents.html">AI agents &amp; rules</a> defines for every tool. What differs per tool is the surface, not the discipline: inspect, plan, edit, verify, review, commit.</p>
 
 <h2><span class="hash">#</span>Good first prompts</h2>
 <div class="prompt-card"><span class="who">inspect</span>Read <code>AGENTS.md</code>, inspect this repo, and summarize the project structure and validation commands. Do not edit files yet.</div>
@@ -163,14 +152,14 @@
 
 <h2><span class="hash">#</span>Official references</h2>
 <ul>
-  <li><a href="https://developers.openai.com/codex" target="_blank" rel="noopener">OpenAI Codex docs</a> — current entry point for Codex surfaces and workflows.</li>
-  <li><a href="https://developers.openai.com/codex/codex-manual.md" target="_blank" rel="noopener">Codex manual</a> — detailed reference for CLI, app, config, skills, plugins, MCP, and permissions.</li>
+  <li><a href="https://code.claude.com/docs" target="_blank" rel="noopener">Claude Code docs</a> — current entry point for the CLI, extension, settings, and workflows.</li>
+  <li><a href="https://claude.com/download" target="_blank" rel="noopener">Claude app downloads</a> — the desktop and mobile apps.</li>
   <li><a href="agents.html">Groundwork agent rules</a> — how this repo keeps one shared agent contract across tools.</li>
 </ul>
 
 <div class="pagenav">
-  <a href="claude.html"><span class="dir">← Prev</span>Claude &amp; Claude Code</a>
-  <a href="gpt.html"><span class="dir">Next →</span>GPT &amp; ChatGPT</a>
+  <a href="agents.html"><span class="dir">← Prev</span>AI agents &amp; rules</a>
+  <a href="codex.html"><span class="dir">Next →</span>Codex UI &amp; CLI</a>
 </div>
 
       <footer class="site">Built to be rebuilt. <a href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener">Open source</a>, no tracking, works offline. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
