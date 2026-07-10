@@ -555,10 +555,10 @@ fi
 rm -rf "$shallow_dir"
 
 check "discovery generator lastmod: committed date vs today for dirty/untracked"
-# Black-box the two date paths in a throwaway repo: a clean committed page keeps
-# its actual commit date; a dirty or untracked page gets today. Pages carry the
-# description the generator would compute, so it stays idempotent (no rewrite
-# that would otherwise dirty the committed page).
+# Black-box all three date paths in a throwaway repo: a clean committed page
+# keeps its actual commit date, while dirty and untracked pages get today.
+# Pages carry the description the generator would compute, so it stays
+# idempotent (no metadata rewrite that would otherwise dirty a committed page).
 datefx_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-datefx.XXXXXX")"
 write_fixture_page() {
   printf '%s' '<html><head><meta name="description" content="Lead."><meta property="og:site_name" content="Groundwork"><title>T</title></head><body><div class="content"><p class="lead">Lead.</p></div></body></html>' > "$1"
@@ -571,16 +571,36 @@ if ! (
   mkdir -p docs scripts
   cp "$repo/scripts/generate-discovery" scripts/generate-discovery
   write_fixture_page docs/a.html
+  write_fixture_page docs/b.html
   export GIT_AUTHOR_DATE="2020-01-01T00:00:00" GIT_COMMITTER_DATE="2020-01-01T00:00:00"
   git add -A
   git commit -qm init
   unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
-  write_fixture_page docs/b.html   # untracked
+  printf '\n' >> docs/b.html       # tracked and dirty
+  write_fixture_page docs/c.html   # untracked
   python3 scripts/generate-discovery >/dev/null
-  grep -q "<lastmod>2020-01-01</lastmod>" docs/sitemap.xml || {
-    echo "committed clean page did not keep its commit date" >&2; exit 1; }
-  grep -q "<lastmod>$(date +%Y-%m-%d)</lastmod>" docs/sitemap.xml || {
-    echo "untracked page did not get today's date" >&2; exit 1; }
+  python3 - <<'PY'
+import datetime
+import xml.etree.ElementTree as ET
+
+namespace = {"sitemap": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+entries = [
+    (
+        element.findtext("sitemap:loc", namespaces=namespace),
+        element.findtext("sitemap:lastmod", namespaces=namespace),
+    )
+    for element in ET.parse("docs/sitemap.xml").getroot().findall("sitemap:url", namespace)
+]
+actual = dict(entries)
+today = datetime.date.today().isoformat()
+expected = {
+    "https://jasondockery.github.io/groundwork/a.html": "2020-01-01",
+    "https://jasondockery.github.io/groundwork/b.html": today,
+    "https://jasondockery.github.io/groundwork/c.html": today,
+}
+if len(entries) != len(actual) or actual != expected:
+    raise SystemExit(f"unexpected sitemap lastmod mapping: {actual!r}; expected {expected!r}")
+PY
 ); then
   rm -rf "$datefx_dir"
   exit 1
