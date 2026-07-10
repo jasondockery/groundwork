@@ -142,70 +142,118 @@
 <p>The principle underneath: an agent with a checkable target can verify its own work and iterate; an agent with only prose must guess what you meant and wait for you to notice. On real teams this habit hardens into machinery — a repo rule that every bug fix starts with a red test before any fix is written. You&apos;re learning the habit; a well-governed repo enforces it.</p>
 
 <h2><span class="hash">#</span>Worked example: request to shipped</h2>
-<p>One small function, walked end to end, on the project you already scaffolded with <code>new-project</code> (see <a href="new-project.html">Starting a project</a>). Every command and test below runs exactly as written.</p>
+<p>Not every request starts as code. This one starts in a planning meeting, from someone who has never written a line of code and never will — and it turns into the same kind of checkable spec, plan, failing test, and green run as any engineering-born request. The arc is identical whether the idea came from a stakeholder, a support ticket, or your own backlog.</p>
 
 <h3>The request</h3>
-<div class="prompt-card"><span class="who">you, in the terminal</span>I want a little function that turns any note title into a safe filename — no spaces, no punctuation, all lowercase.</div>
+<div class="prompt-card"><span class="who">stakeholder, in a planning meeting</span>Legal says we need users to accept the terms and conditions, and we need proof they did. Can we get that in soon?</div>
 
-<h3>The spec: acceptance criteria</h3>
+<h3>Someone turns the idea into a spec</h3>
+<p>The request can come from anywhere: a stakeholder in a meeting, a line in a support ticket, an offhand comment from an executive. Somebody still has to turn it into a spec before an agent or a human touches code. In a company with a product team, that&apos;s usually a product owner or a tech lead; working solo, that&apos;s you, wearing the same hat for five minutes. Either way the artifact is the same — acceptance criteria, a data model, edge cases — and the rest of this walkthrough shows how to build it.</p>
+
+<h3>The clarifying questions</h3>
+<p>This is the highest-leverage step in the whole arc: a few sharp questions before any spec gets written, because a vague request answered with a guess costs far more than a vague request answered with a question.</p>
 <ul>
-  <li>Every letter in the output is lowercase.</li>
-  <li>Any run of whitespace or punctuation becomes a single hyphen.</li>
-  <li>The result never starts or ends with a hyphen.</li>
-  <li>The result never contains two hyphens in a row.</li>
-  <li>A title that is already lowercase letters, digits, and hyphens comes back unchanged.</li>
+  <li><strong>Does this apply to existing users, or only new signups?</strong> — "Everyone. We can&apos;t have existing users sitting on an old agreement."</li>
+  <li><strong>What happens when the terms change — does a user have to accept again?</strong> — "Yes, every version needs its own acceptance. That&apos;s the whole point."</li>
+  <li><strong>Can a user decline, and if so, what happens?</strong> — "They just can&apos;t continue using the product until they accept. We don&apos;t need a fancy decline flow yet."</li>
+  <li><strong>Is the acceptance record ever edited or deleted?</strong> — "No — if we ever touch it, it stops being proof. It has to stay exactly as recorded."</li>
+</ul>
+<p>Those four answers are the spec, mostly still in the stakeholder&apos;s own words. Writing them down is what turns "we need proof" into something an agent can build against.</p>
+
+<h3>The spec</h3>
+<p><strong>Outcome:</strong> every user is blocked from using the product until they have accepted the current version of the terms, and each acceptance is permanently recorded.</p>
+<p><strong>Non-goals:</strong> writing or approving the legal text itself; building a richer flow for users who decline beyond blocking access.</p>
+
+<h4>Acceptance criteria</h4>
+<ul>
+  <li>A user who has not accepted the current terms version is blocked from using the product.</li>
+  <li>Accepting records the user, the exact terms version, and a timestamp in UTC (Coordinated Universal Time, the single time zone servers should agree on).</li>
+  <li>The timestamp is set by the server at the moment of acceptance, never supplied by the client.</li>
+  <li>Publishing a new terms version requires every user, including ones who already accepted an older version, to accept again.</li>
+  <li>A user who declines remains blocked from the product; no other action is taken.</li>
+  <li>Acceptance records are never updated or deleted — every acceptance writes a new record.</li>
+  <li>A user&apos;s acceptance history is the full, ordered list of every record they&apos;ve ever produced.</li>
+</ul>
+
+<h4>Data model</h4>
+<p>Each acceptance is one record with these properties:</p>
+<table class="keytable">
+  <tr><td><code>user_id</code> &nbsp;&middot;&nbsp; string &nbsp;&middot;&nbsp; required</td><td>Identifies the accepting user.</td></tr>
+  <tr><td><code>terms_version</code> &nbsp;&middot;&nbsp; string &nbsp;&middot;&nbsp; required</td><td>Must match a published terms version; never blank.</td></tr>
+  <tr><td><code>accepted_at</code> &nbsp;&middot;&nbsp; datetime &nbsp;&middot;&nbsp; required</td><td>UTC, set server-side at the moment of acceptance &mdash; never accepted from the client.</td></tr>
+  <tr><td>the record itself</td><td>Append-only: no update or delete operation exists for it, by design.</td></tr>
+</table>
+
+<h4>Edge cases</h4>
+<ul>
+  <li>A user accepts twice in a row (double-click, retry) — both writes succeed; two records with the same version is not an error.</li>
+  <li>The terms version bumps while a user is mid-session — their next protected action is blocked until they accept the new version.</li>
+  <li>A client-supplied timestamp arrives with the request — it&apos;s ignored; the server clock is the only source of <code>accepted_at</code>.</li>
 </ul>
 
 <h3>The plan</h3>
 <ol>
-  <li>Write a failing test that covers the punctuation edge case, not just the easy case.</li>
-  <li>Implement <code>slugify()</code> as a single regex pass: lowercase, collapse every non-alphanumeric run to one hyphen, strip the ends.</li>
-  <li>Run the test until it&apos;s green.</li>
-  <li>Commit, with the message naming the behavior, not the file touched.</li>
+  <li>Write failing tests for the criteria that carry the most legal weight first: a rejected blank version, a server-stamped UTC timestamp, and append-only behavior.</li>
+  <li>Implement a <code>TermsLedger</code> with a <code>record_acceptance()</code> method that writes one immutable record per call.</li>
+  <li>Wire the blocking check into the entry point every user passes through, comparing their latest accepted version to the published one.</li>
+  <li>Run the tests until green, then commit.</li>
 </ol>
 
 <h3>The failing test</h3>
-<p>Before any implementation exists, this test names the exact behavior that&apos;s missing:</p>
+<p>Before <code>TermsLedger</code> exists, this test names three of the criteria above — a rejected blank version, a UTC server timestamp, and one new record per acceptance:</p>
 <div class="terminal">
-  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">tests/test_slugify.py</span></div>
-  <pre><code>from slugify import slugify
+  <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">tests/test_terms_ledger.py</span></div>
+  <pre><code>from datetime import timezone
 
-def test_strips_punctuation_and_collapses_runs():
-    assert slugify("Neural Networks &amp; Attention!!") == "neural-networks-attention"
+import pytest
+from terms_ledger import TermsLedger
 
-def test_collapses_whitespace_runs():
-    assert slugify("  Multiple   Spaces  ") == "multiple-spaces"
 
-def test_clean_title_comes_back_unchanged():
-    assert slugify("neural-networks-2") == "neural-networks-2"</code></pre>
+def test_rejects_blank_terms_version():
+    ledger = TermsLedger()
+    with pytest.raises(ValueError):
+        ledger.record_acceptance("user-1", "")
+
+
+def test_stamps_utc_server_time():
+    ledger = TermsLedger()
+    record = ledger.record_acceptance("user-1", "2026-06-01")
+    assert record.accepted_at.tzinfo == timezone.utc
+
+
+def test_appending_twice_yields_two_records():
+    ledger = TermsLedger()
+    ledger.record_acceptance("user-1", "2026-06-01")
+    ledger.record_acceptance("user-1", "2026-07-01")
+    assert len(ledger.records_for("user-1")) == 2</code></pre>
 </div>
 <div class="terminal">
   <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">red</span></div>
-  <pre><code><span class="prompt">$ </span>pytest tests/test_slugify.py -q
-<span class="comment"># ModuleNotFoundError: No module named 'slugify' — nothing to import yet</span></code></pre>
+  <pre><code><span class="prompt">$ </span>pytest tests/test_terms_ledger.py -q
+<span class="comment"># ModuleNotFoundError: No module named 'terms_ledger' — nothing to import yet</span></code></pre>
 </div>
 
 <h3>Build until it&apos;s green</h3>
-<p>The agent writes <code>slugify()</code> and reruns the test after every change, not once at the end, until it passes for the reason the spec names rather than by accident:</p>
+<p>The agent writes <code>TermsLedger</code> and reruns the tests after every change until they pass for the reason the spec names rather than by accident:</p>
 <div class="terminal">
   <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">green</span></div>
-  <pre><code><span class="prompt">$ </span>pytest tests/test_slugify.py -q
+  <pre><code><span class="prompt">$ </span>pytest tests/test_terms_ledger.py -q
 <span class="comment"># 3 passed in 0.01s</span></code></pre>
 </div>
 
 <h3>Delivered</h3>
 <div class="terminal">
   <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commit</span></div>
-  <pre><code><span class="prompt">$ </span>git add slugify.py tests/test_slugify.py
-<span class="prompt">$ </span>git commit -m "feat: add slugify() for safe note filenames"</code></pre>
+  <pre><code><span class="prompt">$ </span>git add terms_ledger.py tests/test_terms_ledger.py
+<span class="prompt">$ </span>git commit -m "feat: add TermsLedger for versioned terms acceptance"</code></pre>
 </div>
-<p>"Done" isn&apos;t a feeling here — it&apos;s traceable: five criteria above, three tests that exercise all five, one green run, and a commit message that names the behavior the tests prove.</p>
+<p>The stakeholder who asked for "proof they accepted" never sees a line of code, but every claim in that ask is traceable: seven criteria above, tests that exercise the highest-risk three, one green run, and a commit message naming the behavior the tests prove.</p>
 
 <div class="drill">
   <div class="num">1</div>
   <div class="body">
-    <h3>Try it now: run the same arc</h3>
-    <p>Pick one small, real behavior in a project you already have — the one from <code>new-project</code> works well. Write the acceptance criteria as a short list before you ask an agent to touch any code. Then ask for a failing test first, and only once it&apos;s red, ask for the code that turns it green.</p>
+    <h3>Try it now: run the same arc on a real request</h3>
+    <p>Pick one request sitting in your own inbox or backlog, phrased the way a non-engineer phrased it — a support ticket, a stakeholder ask, a line in a meeting note. Before any code, write the clarifying questions you&apos;d actually ask, then the spec: acceptance criteria, a data model if the request touches stored data, and the edge cases that would embarrass you if nobody thought of them.</p>
   </div>
 </div>
 
@@ -215,7 +263,8 @@ def test_clean_title_comes_back_unchanged():
 
 <h2><span class="hash">#</span>References</h2>
 <ul>
-  <li><a href="https://developer.microsoft.com/blog/spec-driven-development-ai-native-engineering" target="_blank" rel="noopener">Spec-driven development</a> — the spec-first approach that grounds agents in a checkable contract before they build.</li>
+  <li><a href="https://addyosmani.com/blog/good-spec/" target="_blank" rel="noopener">How to write a good spec</a> — for anyone writing their first specs: a practical, example-driven walkthrough of what makes a spec an agent can actually build from.</li>
+  <li><a href="https://blog.allegro.tech/2026/06/spec-driven-development-best-practices.html" target="_blank" rel="noopener">Spec-driven development best practices</a> — a working engineering team on the spec-first approach that grounds agents in a checkable contract before they build.</li>
   <li><a href="agents.html">AI agents &amp; rules</a> — the shared context layer specs belong to.</li>
 </ul>
 
