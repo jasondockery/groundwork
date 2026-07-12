@@ -24,6 +24,13 @@ fi
 # --verbose streams each download and install; the default prints one
 # "Fetching ..." line and then nothing for a multi-gigabyte fetch, which
 # reads as a hang and invites a Ctrl+C that only delays the install.
+# Downloads still run in parallel and the fetch phase can be quiet for
+# stretches, so say so up front, and let Homebrew print a heartbeat dot
+# (at most one per minute) whenever it would otherwise be silent.
+echo "Groundwork: fetching Homebrew packages — a fresh install downloads"
+echo "several gigabytes in parallel and can look quiet for minutes at a"
+echo "time. It has not hung; interrupting only delays it (it resumes)."
+export HOMEBREW_VERBOSE_USING_DOTS=1
 brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile"
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
