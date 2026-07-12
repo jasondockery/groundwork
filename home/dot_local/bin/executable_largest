@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Find the largest files and folders, then show safe cleanup guidance.
+
+Usage:
+  largest [options] [path]
+
+Examples:
+  largest                  # top 50 entries under the current folder
+  largest ~                # top 50 entries in your home folder
+  largest --files /        # largest files on the startup filesystem
+  largest --folders -n 25 /Users
+
+Options:
+  -f, --files       show files only
+  -d, --folders     show folders only
+  -n, --number N    show N entries (default: 50)
+      --no-advice   omit the cleanup guide
+  -h, --help        show this help
+
+The scan stays on one filesystem. On macOS, grant your terminal Full Disk
+Access for a more complete root-drive scan. On Linux, permission errors may
+require rerunning the same command with sudo.
+
+More help:
+  groundwork-help largest
+  https://jasondockery.github.io/groundwork/shell.html
+EOF
+}
+
+cleanup_advice() {
+  printf '\nCleanup guide: match each result to its owner before removing it:\n'
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    cat <<'EOF'
+  Apps (.app)       Vendor uninstaller first; then `brew uninstall --cask NAME`
+                    for Homebrew apps, or AppCleaner for a plain dragged-in app.
+EOF
+  else
+    cat <<'EOF'
+  Applications      Use the distro package manager or vendor uninstaller that
+                    owns the install; do not delete application files by hand.
+EOF
+  fi
+  cat <<'EOF'
+  Project output    node_modules, .venv, target, dist, build, and coverage are
+                    usually reproducible; confirm with the repo, then rebuild.
+  Package caches    Use the owning tool: `brew cleanup`, `pnpm store prune`, etc.
+                    Inspect first; shared caches make the next install slower.
+  Containers        Run `docker system df`; prune from Docker only after checking
+                    stopped containers, images, build cache, and volumes.
+  Xcode data        Remove runtimes in Xcode Settings and unavailable simulators
+                    with `xcrun simctl delete unavailable`; DerivedData rebuilds.
+  Archives/media    Review .dmg/.pkg/.zip and large video/audio files; Trash or
+                    move personal originals to deliberate archive storage.
+  Photos/cloud      Delete through Photos or the sync provider so its database,
+                    cloud state, and recently-deleted recovery stay consistent.
+  Logs/caches       Prefer the app's cleanup or retention controls. Do not bulk
+                    delete ~/Library, /var, or another app's data by size alone.
+  System/APFS       Use macOS System Settings > General > Storage or the Linux
+                    package/log tools. Never manually delete protected OS data.
+
+Size finds candidates, not permission to delete them. Back up irreplaceable data.
+EOF
+}
+
+mode=""
+number=50
+show_advice=true
+path=""
+
+while (($#)); do
+  case "$1" in
+    -f|--files)
+      [[ "$mode" != "folders" ]] || { echo "largest: --files and --folders cannot be combined" >&2; exit 2; }
+      mode="files"
+      ;;
+    -d|--folders)
+      [[ "$mode" != "files" ]] || { echo "largest: --files and --folders cannot be combined" >&2; exit 2; }
+      mode="folders"
+      ;;
+    -n|--number)
+      shift
+      [[ $# -gt 0 ]] || { echo "largest: --number needs a value" >&2; exit 2; }
+      number="$1"
+      [[ "$number" =~ ^[1-9][0-9]*$ ]] || { echo "largest: --number must be a positive integer" >&2; exit 2; }
+      ;;
+    --no-advice)
+      show_advice=false
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      if (($#)); then
+        [[ -z "$path" && $# -eq 1 ]] || { echo "largest: provide one path" >&2; exit 2; }
+        path="$1"
+        shift
+      fi
+      break
+      ;;
+    -*)
+      echo "largest: unknown option: $1" >&2
+      echo "Run 'largest --help' for usage." >&2
+      exit 2
+      ;;
+    *)
+      [[ -z "$path" ]] || { echo "largest: provide one path" >&2; exit 2; }
+      path="$1"
+      ;;
+  esac
+  shift
+done
+
+path="${path:-.}"
+[[ -e "$path" ]] || { echo "largest: path does not exist: $path" >&2; exit 2; }
+command -v dust >/dev/null 2>&1 || {
+  echo "largest: dust is required; install or reapply Groundwork first" >&2
+  exit 1
+}
+
+dust_args=(-x -r -n "$number")
+case "$mode" in
+  files) dust_args+=(-F) ;;
+  folders) dust_args+=(-D) ;;
+esac
+
+dust "${dust_args[@]}" -- "$path"
+
+if [[ "$show_advice" == true ]]; then
+  cleanup_advice
+fi

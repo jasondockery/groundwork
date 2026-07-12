@@ -322,6 +322,16 @@ font-family = JetBrainsMono Nerd Font</code></pre>
         <tr><td><strong>WhatsApp</strong></td><td>Personal messaging</td></tr>
       </table>
 
+      <h2 id="uninstalling-apps"><span class="hash">#</span>Uninstalling apps without leaving a mess</h2>
+      <p>Groundwork installs AppCleaner on personal Macs, but it is the fallback, not the universal first step. The installer that owns an app usually knows more about its login items, extensions, privileged helpers, and shared data than a generic cleaner can infer.</p>
+      <ol>
+        <li><strong>Vendor uninstaller first.</strong> If the app includes an uninstall command or removal app, use it.</li>
+        <li><strong>Homebrew next.</strong> For an app managed by the Brewfile, run <code>brew uninstall --cask NAME</code>. Add <code>--zap</code> only after inspecting the cask because zap can remove preferences, caches, and shared resources.</li>
+        <li><strong>AppCleaner for a plain app.</strong> Drag an app that was installed from a DMG or ZIP into AppCleaner, review every related path it proposes, then remove the checked items.</li>
+        <li><strong>Personal files stay a separate decision.</strong> Projects, documents, media libraries, cloud files, and exported data are not app leftovers. Archive or delete those deliberately.</li>
+      </ol>
+      <p>Use <code>largest ~</code> before and after cleanup when you want evidence that the space changed. Apple’s Storage settings remain the safest overview for user files and system recommendations.</p>
+
       <h2><span class="hash">#</span>First-time setup</h2>
       <div class="drill">
         <div class="num">1</div>
@@ -363,6 +373,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
       <ul>
         <li><a href="https://zen-browser.app" target="_blank" rel="noopener">Zen</a> &middot; <a href="https://manual.raycast.com" target="_blank" rel="noopener">Raycast manual</a> &middot; <a href="macos.html">macOS desktop</a></li>
         <li><a href="https://anybox.app" target="_blank" rel="noopener">Anybox</a> &middot; <a href="https://betterdisplay.pro/" target="_blank" rel="noopener">BetterDisplay</a> &middot; <a href="https://help.obsidian.md" target="_blank" rel="noopener">Obsidian help</a></li>
+        <li><a href="https://support.apple.com/en-us/102610" target="_blank" rel="noopener">Apple: uninstall apps</a> &middot; <a href="https://support.apple.com/guide/mac-help/optimize-storage-space-syspf5a64aa6/mac" target="_blank" rel="noopener">Apple: optimize storage</a> &middot; <a href="https://docs.brew.sh/Cask-Cookbook#stanza-zap" target="_blank" rel="noopener">Homebrew cask zap</a> &middot; <a href="https://freemacsoft.net/appcleaner/" target="_blank" rel="noopener">AppCleaner</a></li>
       </ul>
 
       <div class="pagenav">

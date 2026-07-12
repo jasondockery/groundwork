@@ -188,7 +188,7 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 
 One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 
-- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop. (Chrome, Zen, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
+- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop, and AppCleaner. (Chrome, Zen, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
 - **On work:** Docker becomes Colima + the Docker CLI (license-free). Confirm your employer permits the AI tools before enabling them there.
 
 ## Daily use
@@ -196,6 +196,7 @@ One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 ```bash
 groundwork-help                     # show Groundwork commands, aliases, keys, and helper scripts
 groundwork-help update              # filter the command catalog
+largest ~                           # find large files/folders, then show cleanup guidance
 scripts/validate-groundwork         # validate/lint the repo before commit/release
 browser-extensions --open       # open vetted browser add-ons for Zen/Chrome/Dia
 raycast-extensions --open       # open recommended Raycast Store entries
@@ -252,6 +253,7 @@ home/
     homebrew/Brewfile.tmpl             # everything Homebrew installs
   dot_local/bin/executable_new-project # per-repo AGENTS.md + .agents/ scaffolder
   dot_local/bin/executable_groundwork-help # installed command catalog helper
+  dot_local/bin/executable_largest    # guided largest-file/folder scanner over dust
   dot_local/bin/executable_raycast-extensions.tmpl
                                       # Raycast Store extension checklist helper
   dot_local/share/groundwork/commands.tsv  # source for groundwork-help

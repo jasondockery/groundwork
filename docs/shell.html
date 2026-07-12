@@ -293,6 +293,32 @@
       </div>
       <p>Image, PDF, and video previews render inline in Ghostty, which speaks the Kitty graphics protocol. Yazi already uses the <code>fd</code>, <code>rg</code>, <code>fzf</code>, and <code>bat</code> that Groundwork installs; for richer previews of more formats you can optionally add <code>poppler</code> (PDF) and <code>ffmpeg</code> (video thumbnails).</p>
 
+      <h3 id="largest">largest: find space, then clean by owner</h3>
+      <p><code>largest</code> wraps <code>dust</code> in a command that is easier to remember. It shows the biggest entries first, stays on one filesystem, and follows the scan with a cleanup guide. Start in the narrowest useful folder: scanning a project is cheaper and easier to reason about than scanning the whole drive.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">largest</span></div>
+        <pre><code><span class="prompt">$ </span>largest                 <span class="comment"># current folder, top 50</span>
+<span class="prompt">$ </span>largest ~               <span class="comment"># home folder</span>
+<span class="prompt">$ </span>largest --files /       <span class="comment"># files on the startup filesystem</span>
+<span class="prompt">$ </span>largest --folders -n 25 /Users
+<span class="prompt">$ </span>largest --help</code></pre>
+      </div>
+      <p>On macOS, a root scan can only see protected locations when the terminal app has Full Disk Access in System Settings. On Linux, rerun with <code>sudo</code> only when the permission errors hide a location you actually need to inspect. Neither changes what is safe to delete.</p>
+      <table class="keytable">
+        <tr><td><strong>Apps</strong></td><td>Use the vendor uninstaller when one exists. For a Homebrew app use <code>brew uninstall --cask NAME</code>; use AppCleaner for a plain dragged-in app. Treat <code>--zap</code> as an explicit deeper cleanup because it can remove shared preferences and caches.</td></tr>
+        <tr><td><strong>Project output</strong></td><td>Folders such as <code>node_modules</code>, <code>.venv</code>, <code>target</code>, <code>dist</code>, <code>build</code>, and <code>coverage</code> are often reproducible. Confirm with the repo before removing them, then let its package/build tool recreate them.</td></tr>
+        <tr><td><strong>Package caches</strong></td><td>Use the owner, such as <code>brew cleanup</code> or <code>pnpm store prune</code>. Shared caches are not corruption; removing them trades space now for downloads later.</td></tr>
+        <tr><td><strong>Containers</strong></td><td>Run <code>docker system df</code> first. Clean stopped containers, images, build cache, and volumes deliberately in Docker Desktop or with the matching Docker prune command.</td></tr>
+        <tr><td><strong>Xcode</strong></td><td>Remove runtimes in Xcode Settings, delete unavailable simulators with <code>xcrun simctl delete unavailable</code>, and remember that DerivedData can be rebuilt.</td></tr>
+        <tr><td><strong>Archives and media</strong></td><td>Review old <code>.dmg</code>, <code>.pkg</code>, <code>.zip</code>, video, and audio files. Trash replaceable downloads; move irreplaceable originals to deliberate archive storage.</td></tr>
+        <tr><td><strong>Photos and cloud files</strong></td><td>Delete through Photos or the sync provider so its database, cloud state, and recently-deleted recovery stay consistent.</td></tr>
+        <tr><td><strong>Logs, caches, and system data</strong></td><td>Prefer the owning app's retention controls or macOS System Settings → General → Storage. Do not bulk-delete <code>~/Library</code>, <code>/var</code>, APFS snapshots, or protected OS data just because it is large.</td></tr>
+      </table>
+      <div class="callout warn">
+        <span class="label">Size is a lead, not permission</span>
+        <p>A large file may be the only copy of something important. Inspect it, identify the owner, check backups, and use Trash when practical so recovery remains possible.</p>
+      </div>
+
       <h3>copy-context — sharing exact files with another AI tool</h3>
       <p>When a chat app or outside reviewer cannot see your repo, copy a small, explicit bundle instead of pasting random snippets. <code>copy-context</code> takes files or folders, expands folders through <code>rg --files</code> when available, and puts path-labeled contents on the clipboard. It works the same way inside tmux because it is just a shell command.</p>
       <div class="terminal">

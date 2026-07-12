@@ -140,6 +140,7 @@
       <h2><span class="hash">#</span>Why not package.json?</h2>
       <p>A <code>package.json</code> would be valid, and this setup does install Node and pnpm for JavaScript projects. But Groundwork itself is not a JavaScript package; it is a macOS/chezmoi project whose first-run path has to work before Node exists. The most useful commands should also work from any folder after setup, so the primary interface is a normal shell command installed to <code>~/.local/bin</code>: <code>groundwork-help</code>.</p>
       <p>Repo-maintenance commands live as shell scripts under <code>scripts/</code>; for example, CI and humans both run <code>scripts/validate-groundwork</code>. That validator includes ShellCheck linting for checked-in and rendered shell scripts, so agent edits get the same shell review locally and in GitHub Actions. If a future workflow genuinely needs Node libraries, adding a tiny <code>package.json</code> with pnpm scripts as wrappers would be fine. It just should not be the only way a beginner discovers or runs Groundwork commands.</p>
+      <p>A separate hand-written man page would duplicate the same command contract in a third place. Groundwork follows the modern CLI layers instead: every substantial helper owns complete <code>-h</code>/<code>--help</code> output, <code>groundwork-help</code> provides searchable offline discovery across helpers, and this site teaches the larger workflow. If Groundwork later grows into a stable multi-command suite, its man pages should be generated from that command definition rather than maintained separately.</p>
 
       <h2><span class="hash">#</span>Daily Groundwork commands</h2>
       <table class="keytable">
@@ -218,6 +219,9 @@
         <tr><td><code>rga text</code></td><td>Search hidden and gitignored files too, while still skipping <code>.git</code> internals.</td></tr>
         <tr><td><code>rgf [text]</code></td><td>Fuzzy-pick ripgrep results, preview with <code>bat</code>, and open the selected line in the editor.</td></tr>
         <tr><td><code>y</code></td><td>Open Yazi, a visual file browser with inline preview; quit to land the shell in whatever folder you were browsing.</td></tr>
+        <tr><td><code>largest [path]</code></td><td>Show the 50 largest files and folders under a path, then print a cleanup guide that routes each kind of result to its owning tool.</td></tr>
+        <tr><td><code>largest --files /</code></td><td>Show only files on the startup filesystem. A complete macOS scan requires Full Disk Access for the terminal.</td></tr>
+        <tr><td><code>largest --folders ~</code></td><td>Show only folders under your home folder. Add <code>-n N</code> to change the result count.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>tmux commands</h2>

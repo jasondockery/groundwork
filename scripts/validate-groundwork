@@ -167,6 +167,37 @@ done
 check "shellcheck"
 run_shellcheck "${shellcheck_files[@]}"
 
+check "largest helper"
+test -x home/dot_local/bin/executable_largest
+largest_fixture="$out_dir/largest-fixture"
+largest_bin="$out_dir/largest-bin"
+mkdir -p "$largest_fixture" "$largest_bin"
+cat >"$largest_bin/dust" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$DUST_ARGS_FILE"
+SH
+chmod +x "$largest_bin/dust"
+DUST_ARGS_FILE="$out_dir/dust-args" PATH="$largest_bin:$PATH" \
+  home/dot_local/bin/executable_largest --files -n 7 "$largest_fixture" >"$out_dir/largest-output"
+cat >"$out_dir/expected-dust-args" <<EOF
+-x
+-r
+-n
+7
+-F
+--
+$largest_fixture
+EOF
+diff -u "$out_dir/expected-dust-args" "$out_dir/dust-args"
+grep -qF 'Cleanup guide: match each result to its owner' "$out_dir/largest-output"
+grep -qF 'groundwork-help largest' < <(home/dot_local/bin/executable_largest --help)
+DUST_ARGS_FILE="$out_dir/dust-args" PATH="$largest_bin:$PATH" \
+  home/dot_local/bin/executable_largest --no-advice "$largest_fixture" >"$out_dir/largest-no-advice"
+assert_not_contains 'Cleanup guide' "$out_dir/largest-no-advice" "largest --no-advice printed cleanup guidance"
+if home/dot_local/bin/executable_largest --files --folders "$largest_fixture" >/dev/null 2>&1; then
+  fail "largest accepted mutually exclusive --files and --folders"
+fi
+
 check "chezmoi root"
 test "$(cat .chezmoiroot)" = "home"
 grep -q '^2\.70\.0$' .chezmoiversion
@@ -482,12 +513,14 @@ assert_not_contains '^\.config/karabiner/\*\*' "$out_dir/darwin-work/chezmoiigno
 grep -q '^cask "karabiner-elements"$' "$out_dir/darwin-work/Brewfile"
 grep -q '^brew "colima"$' "$out_dir/darwin-work/Brewfile"
 assert_not_contains '^cask "docker-desktop"$' "$out_dir/darwin-work/Brewfile" "Docker Desktop leaked into work macOS"
+assert_not_contains '^cask "appcleaner"' "$out_dir/darwin-work/Brewfile" "AppCleaner leaked into work macOS"
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-work/Brewfile" "Xcode leaked into default work macOS"
 
 check "rendered Xcode macOS profile"
 mkdir -p "$out_dir/darwin-no-xcode" "$out_dir/darwin-xcode" "$out_dir/darwin-legacy-no-xcode"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-no-xcode/Brewfile" false false
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-no-xcode/Brewfile" "Xcode leaked into default personal macOS"
+grep -q '^cask "appcleaner"' "$out_dir/darwin-no-xcode/Brewfile"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-xcode/Brewfile" false true
 grep -q '^mas "Xcode", id: 497799835' "$out_dir/darwin-xcode/Brewfile"
 render_without_xcode_key darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-legacy-no-xcode/Brewfile" false
