@@ -21,7 +21,10 @@ if grep -q '^cask "claude-code@latest"' "$HOME/.config/homebrew/Brewfile" \
   brew uninstall --cask claude-code
 fi
 
-brew bundle --file="$HOME/.config/homebrew/Brewfile"
+# --verbose streams each download and install; the default prints one
+# "Fetching ..." line and then nothing for a multi-gigabyte fetch, which
+# reads as a hang and invites a Ctrl+C that only delays the install.
+brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile"
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 # Homebrew may quit always-on apps (Karabiner, Raycast, BetterDisplay,

@@ -14,7 +14,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 tmux_plugin_dir="$HOME/.config/tmux/plugins"
 tmux_conf="$HOME/.config/tmux/tmux.conf"
-if [[ ! -d "$tmux_plugin_dir/tpm" ]]; then
+# An interrupted clone (Ctrl+C, power loss) can leave a partial tpm dir
+# that passes a bare -d check while its installer is missing; treat a tpm
+# without an executable installer as absent and re-clone it.
+if [[ ! -x "$tmux_plugin_dir/tpm/bin/install_plugins" ]]; then
+  rm -rf "$tmux_plugin_dir/tpm"
   mkdir -p "$tmux_plugin_dir"
   git clone --depth 1 https://github.com/tmux-plugins/tpm "$tmux_plugin_dir/tpm" || true
 fi

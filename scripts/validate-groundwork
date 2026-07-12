@@ -189,6 +189,12 @@ for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
     || { echo "groundwork-apps-start must relaunch $always_on_app" >&2; exit 1; }
 done
 grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
+# Interrupt-hardening stays in place: update-all self-heals a changed config
+# template, and brew bundle streams progress so long fetches don't read as
+# hangs and invite a Ctrl+C.
+grep -qF 'chezmoi update --init' home/dot_zshrc.tmpl
+grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl
+grep -qF 'tpm/bin/install_plugins" ]]' home/run_after_20-tools.sh.tmpl
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl

@@ -203,7 +203,9 @@ y() {
 # Freshen everything intentionally: pull+apply Groundwork, then upgrade Homebrew, mise-managed tools, and AI tools.
 update-all() {
   emulate -L zsh
-  chezmoi update || return
+  # --init regenerates the config when .chezmoi.toml.tmpl changed; all
+  # prompts are *Once, so existing answers are reused without asking again.
+  chezmoi update --init || return
   if command -v brew >/dev/null 2>&1; then
     brew update || return
     # --greedy-latest, not --greedy: refresh version:latest casks (e.g. the AI
