@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Read-only machine health report for a Groundwork setup.
+
+Usage:
+  groundwork-doctor [options]
+
+Options:
+  --docker      run only the Docker section
+  -h, --help    show this help
+
+Sections (all run by default):
+  Docker        daemon reachability, engine hygiene (log rotation, image
+                store), disk usage, and leftover containers, images, and
+                volumes — each finding paired with the owner-scoped cleanup
+                command, never a blanket prune.
+
+The doctor only reports. It never installs, deletes, prunes, or changes
+settings; every fix stays your decision.
+
+More help:
+  groundwork-help doctor
+  https://jasondockery.github.io/groundwork/platforms.html
+EOF
+}
+
+heading() { printf '\n== %s ==\n' "$1"; }
+ok()      { printf '  ok    %s\n' "$1"; }
+warn()    { printf '  warn  %s\n' "$1"; }
+note()    { printf '  note  %s\n' "$1"; }
+
+count_lines() {
+  sed '/^$/d' | wc -l | tr -d ' '
+}
+
+docker_section() {
+  heading "Docker"
+
+  if ! command -v docker >/dev/null 2>&1; then
+    note "docker CLI not installed; skipping. Personal Mac: Docker Desktop. Work Mac: Colima + Docker CLI (both ship with Groundwork)."
+    return 0
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    note "Docker daemon not reachable; skipping Docker checks. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun groundwork-doctor."
+    return 0
+  fi
+  ok "Docker daemon is reachable"
+
+  local driver log_driver settings_hint=false
+  log_driver="$(docker info --format '{{.LoggingDriver}}' 2>/dev/null || echo unknown)"
+  if [[ "$log_driver" == "local" ]]; then
+    ok "container logs rotate automatically (log-driver: local)"
+  else
+    warn "log-driver is '$log_driver'; the default json-file never rotates, so a chatty container grows its log forever. Set \"log-driver\": \"local\" in the engine settings."
+    settings_hint=true
+  fi
+
+  driver="$(docker info --format '{{.Driver}}' 2>/dev/null || echo unknown)"
+  if [[ "$driver" == "overlayfs" ]]; then
+    ok "containerd image store is enabled (multi-platform builds work locally)"
+  else
+    note "storage driver is '$driver'; the containerd image store (shows as 'overlayfs') is what multi-platform builds expect. Older installs may still have it off."
+    settings_hint=true
+  fi
+
+  printf '\n  Disk usage (docker system df):\n'
+  docker system df 2>/dev/null | sed 's/^/    /' || note "could not read docker system df"
+
+  local stopped dangling_images dangling_volumes
+  stopped="$(docker ps -aq --filter status=exited 2>/dev/null | count_lines || echo 0)"
+  dangling_images="$(docker images -q --filter dangling=true 2>/dev/null | count_lines || echo 0)"
+  dangling_volumes="$(docker volume ls -q --filter dangling=true 2>/dev/null | count_lines || echo 0)"
+
+  printf '\n  Leftovers:\n'
+  printf '    stopped containers: %s\n' "$stopped"
+  printf '    dangling images:    %s\n' "$dangling_images"
+  printf '    dangling volumes:   %s\n' "$dangling_volumes"
+
+  if [[ "$stopped" != 0 || "$dangling_images" != 0 || "$dangling_volumes" != 0 ]]; then
+    cat <<'EOF'
+
+  Cleanup guidance (review first; the doctor never deletes):
+    Prefer the owning repo's clean commands — well-run projects ship
+    repo-scoped cleanup that targets only their own labeled resources.
+    To inspect what's behind the counts:
+      docker ps -a --filter status=exited
+      docker images --filter dangling=true
+      docker volume ls --filter dangling=true
+    A dangling volume can still be the only copy of a database. Check the
+    volume name and owner before removing anything, and avoid blanket
+    'docker system prune' — it reaches into every project's state at once.
+EOF
+  fi
+
+  if [[ "$settings_hint" == true ]]; then
+    note "engine settings live in Docker Desktop -> Settings -> Docker Engine (work Macs: the managed Colima template already sets them). See the Platforms page for the exact JSON."
+  fi
+}
+
+section=""
+
+while (($#)); do
+  case "$1" in
+    --docker) section="docker" ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "groundwork-doctor: unknown option: $1" >&2
+      echo "Run 'groundwork-doctor --help' for usage." >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+echo "groundwork-doctor: read-only report; nothing is changed or deleted."
+
+case "$section" in
+  ""|docker) docker_section ;;
+esac

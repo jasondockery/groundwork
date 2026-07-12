@@ -198,6 +198,44 @@ if home/dot_local/bin/executable_largest --files --folders "$largest_fixture" >/
   fail "largest accepted mutually exclusive --files and --folders"
 fi
 
+check "groundwork-doctor helper"
+test -x home/dot_local/bin/executable_groundwork-doctor
+doctor_bin="$out_dir/doctor-bin"
+mkdir -p "$doctor_bin"
+cat >"$doctor_bin/docker" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  "info") exit 0 ;;
+  "info --format {{.LoggingDriver}}") echo "json-file" ;;
+  "info --format {{.Driver}}") echo "overlayfs" ;;
+  "system df") echo "TYPE TOTAL ACTIVE SIZE RECLAIMABLE" ;;
+  "ps -aq --filter status=exited") echo "abc123" ;;
+  "images -q --filter dangling=true") : ;;
+  "volume ls -q --filter dangling=true") printf 'vol1\nvol2\n' ;;
+  *) exit 0 ;;
+esac
+SH
+chmod +x "$doctor_bin/docker"
+PATH="$doctor_bin:$PATH" home/dot_local/bin/executable_groundwork-doctor >"$out_dir/doctor-output"
+grep -qF 'read-only report; nothing is changed or deleted' "$out_dir/doctor-output"
+grep -qF "log-driver is 'json-file'" "$out_dir/doctor-output"
+grep -qF 'containerd image store is enabled' "$out_dir/doctor-output"
+grep -qF 'stopped containers: 1' "$out_dir/doctor-output"
+grep -qF 'dangling volumes:   2' "$out_dir/doctor-output"
+grep -qF "avoid blanket" "$out_dir/doctor-output"
+grep -qF 'groundwork-help doctor' < <(home/dot_local/bin/executable_groundwork-doctor --help)
+cat >"$doctor_bin/docker" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+chmod +x "$doctor_bin/docker"
+PATH="$doctor_bin:$PATH" home/dot_local/bin/executable_groundwork-doctor >"$out_dir/doctor-down"
+grep -qF 'Docker daemon not reachable' "$out_dir/doctor-down"
+assert_not_contains 'Disk usage' "$out_dir/doctor-down" "doctor probed a down docker daemon"
+if home/dot_local/bin/executable_groundwork-doctor --bogus >/dev/null 2>&1; then
+  fail "groundwork-doctor accepted an unknown option"
+fi
+
 check "chezmoi root"
 test "$(cat .chezmoiroot)" = "home"
 grep -q '^2\.70\.0$' .chezmoiversion

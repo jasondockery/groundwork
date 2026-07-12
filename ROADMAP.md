@@ -62,6 +62,10 @@ after the work is verified, never aspirationally.
 
 ## Setup and machine health
 
+- [x] `groundwork-doctor` — command shipped 2026-07-12 with its first module,
+      Docker machine health (daemon reachability, log rotation, containerd
+      image store, `docker system df`, leftover containers/images/volumes
+      with owner-scoped cleanup guidance; read-only throughout).
 - [ ] `groundwork-doctor` — competing-app detection (designed 2026-07-12):
       a read-only report of functional conflicts between what Groundwork
       installs and what else is on the machine. Detect and inform, never
