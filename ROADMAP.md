@@ -60,6 +60,32 @@ after the work is verified, never aspirationally.
       startup commands (2026-07-04). Follow-up lesson page teaching the
       pattern: repos own commands, your tools own the layout.
 
+## Setup and machine health
+
+- [ ] `groundwork-doctor` — competing-app detection (designed 2026-07-12):
+      a read-only report of functional conflicts between what Groundwork
+      installs and what else is on the machine. Detect and inform, never
+      act: the thesis makes tools choices, not purity tests, so the doctor
+      never uninstalls, disables, or nags about alternatives — it only
+      surfaces collisions the user hasn't discovered yet, each with what
+      breaks, the choice, and a docs link. Categories and examples:
+      version managers (mise vs nvm/pyenv/asdf/volta shim fights — a real
+      one: pyenv upgrading alongside mise on an owner machine, silently),
+      launcher hotkey (Spotlight still owning Cmd-Space beside Raycast),
+      keyboard remappers (Karabiner vs BetterTouchTool/Hammerspoon ghost
+      keystrokes), SSH agents (multiple claimants to SSH_AUTH_SOCK),
+      window managers (Rectangle/Magnet/AeroSpace/yabai hotkey overlap),
+      shell frameworks (oh-my-zsh remnants double-sourcing beside
+      antidote/starship). Runs on demand and once at bootstrap end;
+      update-all mentions it only when it finds something — never on
+      every apply, or it becomes noise people learn to ignore. Ships
+      with a troubleshooting-page section; the existing per-page conflict
+      prose (apps.html Spotlight fix, shell.html nvm/pyenv note) links to
+      it. Release-affecting when it lands. Sibling note: Roost's doctor
+      covers repo/machine checks for its monorepos; this one covers the
+      personal machine — same detect-and-inform posture, no shared code
+      required.
+
 ## Roost integration points (optional on-ramps, not dependencies)
 
 These unlock as the Roost roadmap advances (see roost
