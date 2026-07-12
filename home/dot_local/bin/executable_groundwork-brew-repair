@@ -42,7 +42,11 @@ case "$answer" in
   y|Y|yes|YES)
     while IFS= read -r cmd; do
       echo "Groundwork: running: $cmd"
-      $cmd
+      if ! $cmd; then
+        echo "Groundwork: '$cmd' failed — often a transient network error."
+        echo "Nothing is half-applied; re-run chezmoi apply to try the whole sequence again."
+        exit 1
+      fi
     done <<<"$commands"
     echo "Groundwork: repair finished; retrying."
     ;;
