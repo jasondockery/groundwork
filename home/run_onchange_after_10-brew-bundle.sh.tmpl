@@ -31,7 +31,12 @@ echo "Groundwork: fetching Homebrew packages — a fresh install downloads"
 echo "several gigabytes in parallel and can look quiet for minutes at a"
 echo "time. It has not hung; interrupting only delays it (it resumes)."
 export HOMEBREW_VERBOSE_USING_DOTS=1
-brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile"
+# One failed package must not skip the recovery steps below (a dead cask
+# should never leave the launcher or keyboard driver down), but the script
+# still exits non-zero afterwards so chezmoi retries the bundle on the next
+# apply instead of recording it as done.
+bundle_status=0
+brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" || bundle_status=$?
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 # Homebrew may quit always-on apps (Karabiner, Raycast, BetterDisplay,
@@ -40,3 +45,10 @@ brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile"
 # services do not silently disappear.
 "$HOME/.local/bin/groundwork-apps-start" || true
 {{- end }}
+
+if [[ "$bundle_status" -ne 0 ]]; then
+  echo "Groundwork: brew bundle failed for at least one package — scroll up for its 'failed' line."
+  echo "Everything that installed is fine and stays installed; the next chezmoi apply retries only what's missing."
+  echo "To retry just the packages now: brew bundle --file=\"\$HOME/.config/homebrew/Brewfile\""
+  exit "$bundle_status"
+fi
