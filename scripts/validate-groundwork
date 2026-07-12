@@ -195,6 +195,12 @@ grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
 grep -qF 'chezmoi update --init' home/dot_zshrc.tmpl
 grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl
 grep -qF 'tpm/bin/install_plugins" ]]' home/run_after_20-tools.sh.tmpl
+test -x home/dot_local/bin/executable_groundwork-brew-repair
+grep -qF 'groundwork-brew-repair' home/run_onchange_after_10-brew-bundle.sh.tmpl
+# The repair helper must keep its consent gates: a strict whitelist on the
+# commands Homebrew suggests, and a prompt before running them.
+grep -qF 'Run these now? [y/N]' home/dot_local/bin/executable_groundwork-brew-repair
+grep -qF '=~ ^brew' home/dot_local/bin/executable_groundwork-brew-repair
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl

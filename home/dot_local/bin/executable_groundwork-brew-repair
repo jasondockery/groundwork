@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# When Homebrew hits a known-broken state (e.g. a circular formula
+# dependency), it prints its own remediation block:
+#   Please run the following commands and try again:
+#     brew update
+#     brew uninstall --ignore-dependencies --force libtiff webp
+#     brew install libtiff webp
+# Given a log containing that block, offer to run exactly those commands —
+# nothing invented, shown in full, only with a person at the terminal saying
+# yes. Exit 0 only after the remediation ran cleanly, so the caller knows a
+# retry is worth it.
+
+log="${1:-}"
+[[ -n "$log" && -r "$log" ]] || exit 1
+
+grep -qF "Please run the following commands and try again:" "$log" || exit 1
+
+# Take the suggested commands after the marker, and accept only plain brew
+# invocations whose flags and formula names match Homebrew's own naming
+# rules. Anything else in the block means we do not understand the
+# suggestion, so we stay hands-off.
+commands="$(awk '/Please run the following commands and try again:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print} found && !/^[[:space:]]*brew /{exit}' "$log")"
+[[ -n "$commands" ]] || exit 1
+while IFS= read -r cmd; do
+  [[ "$cmd" =~ ^brew[\ ]([a-z-]+)([\ ]--[a-z-]+)*([\ ][A-Za-z0-9@._+-]+)*$ ]] || exit 1
+done <<<"$commands"
+
+if [[ ! -t 0 ]]; then
+  echo "Groundwork: Homebrew suggested a repair, but no interactive terminal is attached."
+  echo "Run these yourself, then re-run chezmoi apply:"
+  printf '%s\n' "$commands" | awk '{print "  " $0}'
+  exit 1
+fi
+
+echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
+printf '%s\n' "$commands" | awk '{print "  " $0}'
+printf 'Run these now? [y/N] '
+read -r answer || answer=""
+case "$answer" in
+  y|Y|yes|YES)
+    while IFS= read -r cmd; do
+      echo "Groundwork: running: $cmd"
+      $cmd
+    done <<<"$commands"
+    echo "Groundwork: repair finished; retrying."
+    ;;
+  *)
+    echo "Groundwork: skipped. Run the commands above yourself, then re-run chezmoi apply."
+    exit 1
+    ;;
+esac

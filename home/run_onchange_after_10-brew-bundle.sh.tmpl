@@ -34,9 +34,19 @@ export HOMEBREW_VERBOSE_USING_DOTS=1
 # One failed package must not skip the recovery steps below (a dead cask
 # should never leave the launcher or keyboard driver down), but the script
 # still exits non-zero afterwards so chezmoi retries the bundle on the next
-# apply instead of recording it as done.
+# apply instead of recording it as done. Output is teed to a log so that
+# when Homebrew prints its own remediation block (circular formula
+# dependencies and similar known-broken states), groundwork-brew-repair can
+# offer to run exactly those commands and the bundle retries once.
+bundle_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-bundle.XXXXXX")"
+trap 'rm -f -- "$bundle_log"' EXIT
 bundle_status=0
-brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" || bundle_status=$?
+brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 | tee "$bundle_log" || bundle_status=$?
+if [[ "$bundle_status" -ne 0 ]] \
+  && "$HOME/.local/bin/groundwork-brew-repair" "$bundle_log"; then
+  bundle_status=0
+  brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" || bundle_status=$?
+fi
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 # Homebrew may quit always-on apps (Karabiner, Raycast, BetterDisplay,
