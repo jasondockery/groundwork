@@ -31,8 +31,8 @@ release_json() {
 # Download the first release asset matching pattern, then verify it against the
 # release's published checksum asset when one exists: a sidecar <name>.sha256
 # (atuin) or a checksums*.txt list (lazygit, sesh). Upstreams that publish no
-# checksums (zoxide, delta today) install unverified; the roadmap tracks raising
-# this lane to GitHub artifact attestation verification.
+# checksums (zoxide, delta, dust today) install unverified; the roadmap tracks
+# raising this lane to GitHub artifact attestation verification.
 download_release_asset() {
   local repo="$1" pattern="$2" dest="$3"
   local response url name sum_url expected
@@ -161,6 +161,21 @@ install_eza() {
   rm -rf /var/lib/apt/lists/*
 }
 
+install_dust() (
+  local tmp dust_bin
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  download_release_asset bootandy/dust "dust-v.*-${musl_arch}-unknown-linux-musl\\.tar\\.gz$" "$tmp/dust.tar.gz"
+  tar -xzf "$tmp/dust.tar.gz" -C "$tmp"
+  dust_bin="$(find "$tmp" -type f -name dust -perm /111 -print -quit)"
+  if [[ -z "$dust_bin" ]]; then
+    echo "dust binary not found in release archive" >&2
+    return 1
+  fi
+  install -m 0755 "$dust_bin" /usr/local/bin/dust
+  dust --version >/dev/null
+)
+
 install_sesh() (
   local tmp
   tmp="$(mktemp -d)"
@@ -180,4 +195,5 @@ install_antidote
 install_lazygit
 install_delta
 install_eza
+install_dust
 install_sesh
