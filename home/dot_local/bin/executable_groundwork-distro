@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Report the Linux distribution Groundwork is running on, one stable word
+# on stdout: ubuntu, debian, fedora, arch, opensuse, or unknown. Platform
+# and distribution are separate dimensions: groundwork-platform answers
+# "darwin, linux, wsl2?", this answers "which Linux?". Ubuntu LTS is the
+# primary tested path (native and WSL2); Debian stable is supported; other
+# mainstream distributions are best effort until their coverage lands.
+# Only bootstrap prerequisites should branch on this — shared Unix behavior
+# must stay shared.
+os_release_file="${GROUNDWORK_OS_RELEASE_FILE:-/etc/os-release}"
+
+if [[ ! -r "$os_release_file" ]]; then
+  echo unknown
+  exit 0
+fi
+
+ID=""
+# shellcheck source=/dev/null
+. "$os_release_file"
+
+case "${ID:-}" in
+  ubuntu) echo ubuntu ;;
+  debian) echo debian ;;
+  fedora) echo fedora ;;
+  arch) echo arch ;;
+  opensuse* | sles) echo opensuse ;;
+  *) echo unknown ;;
+esac

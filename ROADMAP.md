@@ -64,10 +64,15 @@ after the work is verified, never aspirationally.
 
 - [ ] WSL2 release receipt: emulated WSL fixtures in the validator prove
       detection logic, not real WSL behavior. Each significant WSL-affecting
-      change should get a small smoke pass on a real WSL2 Ubuntu: install,
-      `chezmoi update`, `update-all` (including an interrupt), `code .`, a
-      repo under `~/code`, and a repo under `/mnt/c` rejected by
+      change should get a small smoke pass on a real WSL2 Ubuntu LTS:
+      install, `chezmoi update`, `update-all` (including an interrupt),
+      `code .`, a repo under `~/code`, and a repo under `/mnt/c` rejected by
       `new-project`.
+- [ ] Distro CI coverage: Ubuntu LTS is the primary tested Linux path
+      today. Add Debian stable and Fedora stable container jobs that run
+      the bootstrap and validator so those distributions move from
+      best-effort to supported with receipts; `groundwork-distro` is the
+      detection seam for any bootstrap-prerequisite differences.
 - [ ] `groundwork-doctor` — stale distro metadata module on Linux/WSL2:
       `update-all` deliberately never runs `apt`/`dnf`/`pacman` (the OS
       belongs to the distro, not Groundwork); the doctor can detect stale

@@ -3,10 +3,11 @@ set -euo pipefail
 
 target="${1:-.}"
 
-# On WSL2, repositories belong in the Linux filesystem (~/code), never on a
-# Windows-mounted drive: /mnt/* bind mounts are slow and never deliver file
-# change events, which silently breaks watchers and hot reload.
-if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == "wsl" ]]; then
+# On WSL, repositories belong in the Linux filesystem (~/code), not on a
+# Windows-mounted drive: /mnt/* bind mounts have substantially worse
+# filesystem performance and unreliable or degraded watcher behavior for
+# Linux development tools.
+if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == wsl* ]]; then
   resolved="$target"
   [[ "$resolved" == /* ]] || resolved="$PWD/$target"
   case "$resolved" in

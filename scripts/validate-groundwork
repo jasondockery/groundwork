@@ -407,7 +407,7 @@ update_all_temps=("${update_all_stamp}.tmp."*)
 grep -qF 'managed separately by your distribution' "$update_all_fixture/success-output"
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
-  FAKE_PLATFORM=wsl "$update_all_fixture/rendered-runner" \
+  FAKE_PLATFORM=wsl2 "$update_all_fixture/rendered-runner" \
   >"$update_all_fixture/wsl-success-output" 2>&1
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 grep -qF 'managed separately on the host' "$update_all_fixture/wsl-success-output"
@@ -444,8 +444,9 @@ HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migr
 test ! -s "$out_dir/update-all-fresh-notice"
 
 check "platform support contract"
-# groundwork-platform reports exactly darwin/linux/wsl/unsupported, with WSL
-# detected via the interop variable or the kernel release string.
+# groundwork-platform reports exactly darwin/linux/wsl2/wsl1/unsupported: the
+# kernel release string distinguishes WSL2 from WSL1, and the interop variable
+# is a WSL2 fallback signal.
 test -x home/dot_local/bin/executable_groundwork-platform
 platform_fixture="$out_dir/platform-fixture"
 mkdir -p "$platform_fixture/bin"
@@ -455,7 +456,8 @@ echo "$FAKE_UNAME"
 SH
 chmod +x "$platform_fixture/bin/uname"
 printf '6.8.0-generic\n' >"$platform_fixture/osrelease-generic"
-printf '5.15.167.4-microsoft-standard-WSL2\n' >"$platform_fixture/osrelease-wsl"
+printf '5.15.167.4-microsoft-standard-WSL2\n' >"$platform_fixture/osrelease-wsl2"
+printf '4.4.0-19041-Microsoft\n' >"$platform_fixture/osrelease-wsl1"
 platform_cmd=(env -u WSL_INTEROP PATH="$platform_fixture/bin:/usr/bin:/bin")
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Darwin home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "darwin" ]] || fail "groundwork-platform reported '$platform_result' for Darwin"
@@ -463,13 +465,33 @@ platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
   GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "linux" ]] || fail "groundwork-platform reported '$platform_result' for generic Linux"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
-  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl" home/dot_local/bin/executable_groundwork-platform)"
-[[ "$platform_result" == "wsl" ]] || fail "groundwork-platform missed the microsoft kernel release"
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl2" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl2" ]] || fail "groundwork-platform missed the WSL2 kernel release"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl1" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl1" ]] || fail "groundwork-platform must report unsupported WSL1 distinctly, got '$platform_result'"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux WSL_INTEROP=/run/WSL/1_interop \
   GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
-[[ "$platform_result" == "wsl" ]] || fail "groundwork-platform missed the WSL interop variable"
+[[ "$platform_result" == "wsl2" ]] || fail "groundwork-platform missed the WSL interop variable"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=MINGW64_NT-10.0 home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "unsupported" ]] || fail "groundwork-platform must report Git Bash/native Windows as unsupported"
+
+# groundwork-distro reports the distribution from /etc/os-release; platform and
+# distro are separate dimensions, and only bootstrap prerequisites may branch
+# on the distro.
+test -x home/dot_local/bin/executable_groundwork-distro
+for distro_case in 'ubuntu:ubuntu' 'debian:debian' 'fedora:fedora' 'arch:arch' 'opensuse-leap:opensuse' 'gentoo:unknown'; do
+  distro_id="${distro_case%%:*}"
+  distro_expected="${distro_case#*:}"
+  printf 'ID=%s\nNAME="Fixture"\n' "$distro_id" >"$platform_fixture/os-release"
+  distro_result="$(GROUNDWORK_OS_RELEASE_FILE="$platform_fixture/os-release" \
+    /bin/bash home/dot_local/bin/executable_groundwork-distro)"
+  [[ "$distro_result" == "$distro_expected" ]] \
+    || fail "groundwork-distro reported '$distro_result' for ID=$distro_id (expected $distro_expected)"
+done
+distro_result="$(GROUNDWORK_OS_RELEASE_FILE="$platform_fixture/missing-os-release" \
+  /bin/bash home/dot_local/bin/executable_groundwork-distro)"
+[[ "$distro_result" == "unknown" ]] || fail "groundwork-distro must report unknown without /etc/os-release"
 
 # Native Windows fails closed at the entry point with WSL2 guidance instead of
 # rendering a partial configuration.
@@ -481,11 +503,30 @@ fi
 grep -qF 'requires macOS, Linux, or WSL2' "$out_dir/windows-init"
 grep -qF 'install WSL2 with Ubuntu' "$out_dir/windows-init"
 
+# WSL1 fails closed at the entry point with conversion instructions; a WSL2
+# kernel renders past the guard.
+if chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+  --override-data '{"chezmoi":{"os":"linux","arch":"amd64","kernel":{"osrelease":"4.4.0-19041-Microsoft"}}}' \
+  execute-template --init < home/.chezmoi.toml.tmpl >"$out_dir/wsl1-init" 2>&1; then
+  fail "chezmoi config template rendered on WSL1 instead of failing closed"
+fi
+grep -qF 'supports WSL2, not WSL1' "$out_dir/wsl1-init"
+grep -qF 'wsl --set-version' "$out_dir/wsl1-init"
+chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+  --override-data '{"chezmoi":{"os":"linux","arch":"amd64","kernel":{"osrelease":"5.15.167.4-microsoft-standard-WSL2"}}}' \
+  execute-template --init \
+  --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
+  --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
+  --promptChoice password_manager=none \
+  < home/.chezmoi.toml.tmpl >"$out_dir/wsl2-init" 2>&1 \
+  || fail "chezmoi config template must render on a WSL2 kernel"
+grep -qF 'sourceDir' "$out_dir/wsl2-init"
+
 # On WSL2, new-project refuses Windows-mounted drives; repositories belong in
 # the WSL Linux filesystem.
 cat >"$platform_fixture/bin/groundwork-platform" <<'SH'
 #!/usr/bin/env bash
-echo wsl
+echo wsl2
 SH
 chmod +x "$platform_fixture/bin/groundwork-platform"
 set +e

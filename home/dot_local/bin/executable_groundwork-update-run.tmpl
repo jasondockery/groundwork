@@ -43,8 +43,11 @@ fi
 # and never mutates the operating system it runs inside — no distro package
 # upgrades on Linux, no Windows-host updates from WSL2.
 case "$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)" in
-  wsl)
-    echo "Groundwork updated the WSL development environment. Windows applications and Windows Update are managed separately on the host."
+  wsl2)
+    echo "Groundwork updated the WSL2 development environment. Windows applications and Windows Update are managed separately on the host."
+    ;;
+  wsl1)
+    echo "Groundwork detected WSL1, which it does not support. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
     ;;
   linux)
     echo "Groundwork updated its managed developer tools. Operating-system packages (apt, dnf, pacman) are managed separately by your distribution."

@@ -256,7 +256,8 @@ home/
   dot_local/bin/executable_groundwork-help # installed command catalog helper
   dot_local/bin/executable_update-all  # stable launcher: sync Groundwork, exec fresh runner
   dot_local/bin/executable_groundwork-update-run.tmpl # post-sync update stages (brew, mise, AI tools)
-  dot_local/bin/executable_groundwork-platform # reports darwin / linux / wsl / unsupported
+  dot_local/bin/executable_groundwork-platform # reports darwin / linux / wsl2 / wsl1 / unsupported
+  dot_local/bin/executable_groundwork-distro # reports ubuntu / debian / fedora / arch / opensuse / unknown
   dot_local/bin/executable_largest    # guided largest-file/folder scanner over dust
   dot_local/bin/executable_groundwork-doctor # read-only machine health report
   dot_local/bin/executable_raycast-extensions.tmpl
