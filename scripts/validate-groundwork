@@ -251,20 +251,34 @@ if PATH="$no_brew_bin" /bin/bash home/dot_local/bin/executable_groundwork-brew-u
 fi
 grep -qF 'Homebrew is not on PATH' "$out_dir/brew-missing"
 
-check "rendered update-all transaction"
+check "update-all launcher handoff and runner transaction"
 update_all_fixture="$out_dir/update-all-fixture"
 update_all_home="$update_all_fixture/home"
-update_all_bin="$update_all_fixture/bin"
-mkdir -p "$update_all_home/.local/bin" "$update_all_home/.local/state/groundwork" "$update_all_bin"
-render linux false amd64 home/dot_zshrc.tmpl "$update_all_fixture/zshrc"
-awk '/^update-all\(\) \{/{copy=1} copy{print} copy && /^}$/{exit}' \
-  "$update_all_fixture/zshrc" >"$update_all_fixture/update-all.zsh"
-grep -q '^update-all() {' "$update_all_fixture/update-all.zsh"
+update_all_bin="$update_all_home/.local/bin"
+mkdir -p "$update_all_bin" "$update_all_home/.local/state/groundwork"
+# The launcher under test is deliberately an "old" copy outside $HOME/.local/bin,
+# proving a stale process still hands off to whatever the sync just installed.
+cp home/dot_local/bin/executable_update-all "$update_all_fixture/old-launcher"
+render linux false amd64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  "$update_all_fixture/rendered-runner"
+chmod +x "$update_all_fixture/old-launcher" "$update_all_fixture/rendered-runner"
 
 cat >"$update_all_bin/chezmoi" <<'SH'
 #!/usr/bin/env bash
 printf 'chezmoi %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
-exit "${CHEZMOI_STATUS:-0}"
+[[ "${CHEZMOI_STATUS:-0}" == "0" ]] || exit "$CHEZMOI_STATUS"
+if [[ "${CHEZMOI_INSTALL_RUNNER:-0}" == "1" ]]; then
+  cp "$FRESH_RUNNER" "$HOME/.local/bin/groundwork-update-run"
+  chmod +x "$HOME/.local/bin/groundwork-update-run"
+fi
+SH
+cat >"$update_all_fixture/fresh-runner" <<'SH'
+#!/usr/bin/env bash
+printf 'fresh runner\n' >>"$GROUNDWORK_TEST_LOG"
+for arg in "$@"; do
+  printf 'arg=%s\n' "$arg" >>"$GROUNDWORK_TEST_LOG"
+done
+exit "${FRESH_RUNNER_STATUS:-0}"
 SH
 cat >"$update_all_home/.local/bin/groundwork-brew-update" <<'SH'
 #!/usr/bin/env bash
@@ -288,33 +302,90 @@ printf 'mise %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 exit "${MISE_STATUS:-0}"
 SH
 chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
-  "$update_all_home/.local/bin/groundwork-brew-update"
+  "$update_all_bin/groundwork-brew-update" "$update_all_fixture/fresh-runner"
 
 update_all_log="$update_all_fixture/commands.log"
 update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
-update_all_path="$update_all_bin:/usr/bin:/bin"
+update_all_path="/usr/bin:/bin"
 
-# Failed metadata refresh stops before every package/runtime stage and does not
-# create the success timestamp promised by the shell reminder.
+# An old launcher process syncs once, then hands the same invocation to the
+# runner the sync just installed, with arguments and exit status intact.
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
-  BREW_UPDATE_STATUS=1 /bin/zsh -f -c 'source "$1"; update-all' zsh \
-  "$update_all_fixture/update-all.zsh" >"$update_all_fixture/failure-output" 2>&1
+  CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+  FRESH_RUNNER_STATUS=42 "$update_all_fixture/old-launcher" alpha "two words" \
+  >"$update_all_fixture/handoff-output" 2>&1
 update_all_status=$?
 set -e
-[[ "$update_all_status" -ne 0 ]] || fail "update-all continued after its metadata refresh failed"
-diff -u <(printf 'chezmoi update --init\nbrew-update\n') "$update_all_log"
+[[ "$update_all_status" -eq 42 ]] || fail "update-all did not preserve the freshly installed runner's exit status"
+cat >"$update_all_fixture/expected-handoff" <<'EOF'
+chezmoi update --init
+fresh runner
+arg=alpha
+arg=two words
+EOF
+diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+# Synchronization failure prevents the handoff and every package/runtime stage.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  CHEZMOI_STATUS=1 "$update_all_fixture/old-launcher" \
+  >"$update_all_fixture/sync-failure-output" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all continued after chezmoi update failed"
+diff -u <(printf 'chezmoi update --init\n') "$update_all_log"
+
+# A successful sync that does not deliver the runner fails loudly instead of
+# continuing through stale logic.
+rm -f "$update_all_bin/groundwork-update-run"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  "$update_all_fixture/old-launcher" >"$update_all_fixture/missing-output" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all continued without the freshly installed runner"
+grep -qF 'update runner is missing or not executable' "$update_all_fixture/missing-output"
+diff -u <(printf 'chezmoi update --init\n') "$update_all_log"
+
+# The remaining transactions exercise the rendered runner directly, exactly as
+# the launcher execs it. Failed metadata refresh stops before every
+# package/runtime stage and does not create the success timestamp.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  BREW_UPDATE_STATUS=1 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/failure-output" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all runner continued after its metadata refresh failed"
+diff -u <(printf 'brew-update\n') "$update_all_log"
 test ! -e "$update_all_stamp"
 
+# Ctrl-C and termination statuses from a managed stage propagate unchanged.
+for interrupt_status in 130 143; do
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    BREW_UPDATE_STATUS="$interrupt_status" "$update_all_fixture/rendered-runner" \
+    >/dev/null 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq "$interrupt_status" ]] \
+    || fail "update-all runner changed stage status $interrupt_status to $update_all_status"
+  diff -u <(printf 'brew-update\n') "$update_all_log"
+  test ! -e "$update_all_stamp"
+done
+
 # A complete success runs in order against the approved metadata snapshot and
-# only then writes the timestamp.
+# only then atomically writes a UTC timestamp.
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
-  /bin/zsh -f -c 'source "$1"; update-all' zsh "$update_all_fixture/update-all.zsh" \
-  >"$update_all_fixture/success-output" 2>&1
+  "$update_all_fixture/rendered-runner" >"$update_all_fixture/success-output" 2>&1
 cat >"$update_all_fixture/expected-success" <<'EOF'
-chezmoi update --init
 brew-update
 brew upgrade --greedy-latest no-auto-update=1 no-auto-casks=1
 brew autoremove
@@ -323,7 +394,9 @@ mise upgrade
 EOF
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 test -f "$update_all_stamp"
-test ! -s "$update_all_stamp"
+grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$update_all_stamp"
+update_all_temps=("${update_all_stamp}.tmp."*)
+(( ${#update_all_temps[@]} == 0 )) || fail "update-all runner left a temporary timestamp behind"
 
 # A later mise failure leaves the previous timestamp untouched, proving it
 # represents the whole transaction rather than Homebrew alone.
@@ -331,13 +404,30 @@ printf 'previous-success\n' >"$update_all_stamp"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
-  MISE_STATUS=1 /bin/zsh -f -c 'source "$1"; update-all' zsh \
-  "$update_all_fixture/update-all.zsh" >"$update_all_fixture/mise-failure-output" 2>&1
+  MISE_STATUS=1 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/mise-failure-output" 2>&1
 update_all_status=$?
 set -e
-[[ "$update_all_status" -ne 0 ]] || fail "update-all recorded success after mise upgrade failed"
+[[ "$update_all_status" -ne 0 ]] || fail "update-all runner recorded success after mise upgrade failed"
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 grep -qxF 'previous-success' "$update_all_stamp"
+
+check "update-all migration notice"
+migration_home="$out_dir/update-all-migration-home"
+mkdir -p "$migration_home"
+cat >"$migration_home/.zshrc" <<'EOF'
+update-all() {
+  echo old
+}
+EOF
+HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migration.sh \
+  >"$out_dir/update-all-migration-notice"
+grep -qF 'moved update-all from an in-memory shell function' "$out_dir/update-all-migration-notice"
+grep -qF "Run \`exec zsh\` once" "$out_dir/update-all-migration-notice"
+printf '# fresh install has no old function\n' >"$migration_home/.zshrc"
+HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migration.sh \
+  >"$out_dir/update-all-fresh-notice"
+test ! -s "$out_dir/update-all-fresh-notice"
 
 check "largest helper"
 test -x home/dot_local/bin/executable_largest
@@ -422,7 +512,7 @@ assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging
 test -f home/dot_local/bin/executable_groundwork-apps-start
 test -x home/dot_local/bin/executable_groundwork-apps-start
 grep -qF 'groundwork-apps-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
-grep -qF 'groundwork-apps-start' home/dot_zshrc.tmpl
+grep -qF 'groundwork-apps-start' home/dot_local/bin/executable_groundwork-update-run.tmpl
 # Every always-on app stays in the relaunch guard; Homebrew quits them on
 # cask upgrades and never brings them back.
 for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
@@ -430,11 +520,21 @@ for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
     || { echo "groundwork-apps-start must relaunch $always_on_app" >&2; exit 1; }
 done
 grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
-# Interrupt-hardening stays in place: update-all self-heals a changed config
-# template, and brew bundle streams progress so long fetches don't read as
-# hangs and invite a Ctrl+C.
-grep -qF 'chezmoi update --init' home/dot_zshrc.tmpl
-grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\" || return" home/dot_zshrc.tmpl
+# update-all is a stable disk-backed launcher that syncs and then execs the
+# freshly applied runner; .zshrc must never regain a substantive in-memory
+# implementation, and the launcher must never regain update stages.
+test -x home/dot_local/bin/executable_update-all
+test -x home/dot_local/bin/executable_groundwork-update-run.tmpl
+grep -qF 'chezmoi update --init' home/dot_local/bin/executable_update-all
+grep -qF "exec \"\$runner\" \"\$@\"" home/dot_local/bin/executable_update-all
+assert_no_matches "update stages leaked into the stable update-all launcher" \
+  rg -n 'brew upgrade|mise upgrade|groundwork-brew-update' home/dot_local/bin/executable_update-all
+grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\"" home/dot_local/bin/executable_groundwork-update-run.tmpl
+assert_no_matches "substantive update-all shell function returned" rg -n '^update-all\(\) \{' home/dot_zshrc.tmpl
+grep -qF $'daily\tupdate-all\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+test -f home/run_once_before_07-update-all-command-migration.sh
+# Brew bundle streams progress so long fetches do not read as hangs and invite
+# a Ctrl+C.
 grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl
 grep -qF 'tpm/bin/install_plugins" ]]' home/run_after_20-tools.sh.tmpl
 test -x home/dot_local/bin/executable_groundwork-brew-repair
@@ -741,22 +841,23 @@ check "rendered beta channel profile"
 mkdir -p "$out_dir/darwin-beta" "$out_dir/darwin-nobeta" "$out_dir/darwin-beta-noxcode"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-beta/Brewfile" false true true
 grep -q '^brew "xcodes"' "$out_dir/darwin-beta/Brewfile"
-render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-beta/zshrc" false true true
-grep -q "beta channel on" "$out_dir/darwin-beta/zshrc"
+render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl "$out_dir/darwin-beta/update-run" false true true
+grep -q "beta channel on" "$out_dir/darwin-beta/update-run"
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-nobeta/Brewfile" false true false
 assert_not_contains '^brew "xcodes"' "$out_dir/darwin-nobeta/Brewfile" "xcodes leaked without the beta channel"
-render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-nobeta/zshrc" false true false
-assert_not_contains "beta channel on" "$out_dir/darwin-nobeta/zshrc" "beta reminder leaked into update-all without the beta channel"
+render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl "$out_dir/darwin-nobeta/update-run" false true false
+assert_not_contains "beta channel on" "$out_dir/darwin-nobeta/update-run" "beta reminder leaked into update-all without the beta channel"
 # beta is only meaningful with Xcode: xcode=false + beta=true must normalize to
 # no xcodes and no reminder, matching the prompt that only offers beta under Xcode.
 render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwin-beta-noxcode/Brewfile" false false true
 assert_not_contains '^brew "xcodes"' "$out_dir/darwin-beta-noxcode/Brewfile" "xcodes installed with beta but no Xcode"
-render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-beta-noxcode/zshrc" false false true
-assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/zshrc" "beta reminder shown with beta but no Xcode"
+render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl "$out_dir/darwin-beta-noxcode/update-run" false false true
+assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/update-run" "beta reminder shown with beta but no Xcode"
 # Lock the update-all Homebrew command so it cannot revert to bare --greedy,
 # which re-downloads and re-quarantines self-updating casks (repeated Gatekeeper prompts).
-grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest' "$out_dir/darwin-beta/zshrc"
-assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/zshrc" "update-all reverted to --greedy (re-quarantines self-updating casks)"
+grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1' "$out_dir/darwin-beta/update-run"
+grep -q 'brew upgrade --greedy-latest' "$out_dir/darwin-beta/update-run"
+assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/update-run" "update-all reverted to --greedy (re-quarantines self-updating casks)"
 
 check "rendered agent adapters"
 render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"

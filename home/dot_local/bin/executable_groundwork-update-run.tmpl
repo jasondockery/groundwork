@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The post-sync half of update-all. The update-all launcher runs
+# `chezmoi update --init` and then execs this freshly applied file, so every
+# stage below runs the implementation the sync just installed. Stages guard on
+# `command -v`, so the same file works on macOS, Linux, and WSL2 whether or not
+# a given manager is installed. Run update-all, not this file, for a refresh
+# that includes the sync.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if command -v brew >/dev/null 2>&1; then
+  "$HOME/.local/bin/groundwork-brew-update"
+  # Use the metadata snapshot that just refreshed. A user-customized Homebrew
+  # auto-update interval must not start a second, unwrapped update here.
+  # --greedy-latest, not --greedy: refresh version:latest casks (the AI CLIs)
+  # while leaving auto-updating GUI apps to their own update channels, so they
+  # are not re-downloaded and re-quarantined behind fresh Gatekeeper prompts.
+  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
+    brew upgrade --greedy-latest
+  # Remove formulae that were only ever dependencies and are no longer
+  # needed — this clears deprecated leftovers (a versioned icu4c, an old
+  # python) that otherwise warn on every upgrade forever.
+  brew autoremove
+  brew cleanup
+  {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
+  "$HOME/.local/bin/groundwork-apps-start" || true
+  {{- end }}
+fi
+
+if command -v mise >/dev/null 2>&1; then
+  mise upgrade
+fi
+
+{{- if and (hasKey . "xcode") .xcode (hasKey . "beta") .beta }}
+# Beta channel is opt-in and only meaningful with Xcode. update-all never
+# downloads betas because they require the developer's Apple Account.
+if command -v xcodes >/dev/null 2>&1; then
+  echo 'Groundwork: beta channel on. Xcode betas: `xcodes list` to see them, `xcodes install "<version>"` to add one, and `xcodes select` to switch.'
+fi
+{{- end }}
+
+# The reminder timestamp represents the complete transaction. Write a real UTC
+# timestamp through an atomic rename so a failed or interrupted stage preserves
+# the previous successful value.
+timestamp="$HOME/.local/state/groundwork/last-update-all"
+mkdir -p "$(dirname "$timestamp")"
+temporary="${timestamp}.tmp.$$"
+trap 'rm -f -- "$temporary"' EXIT
+date -u '+%Y-%m-%dT%H:%M:%SZ' >"$temporary"
+mv -f -- "$temporary" "$timestamp"
+trap - EXIT
+
+echo "Groundwork tools refreshed. The shell reminder will stay quiet until the next stale window."
