@@ -167,6 +167,178 @@ done
 check "shellcheck"
 run_shellcheck "${shellcheck_files[@]}"
 
+check "Homebrew update retry helper"
+test -x home/dot_local/bin/executable_groundwork-brew-update
+brew_retry_bin="$out_dir/brew-retry-bin"
+mkdir -p "$brew_retry_bin"
+cat >"$brew_retry_bin/brew" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$BREW_COMMANDS_FILE"
+count=0
+[[ ! -f "$BREW_ATTEMPTS_FILE" ]] || count="$(<"$BREW_ATTEMPTS_FILE")"
+count=$((count + 1))
+printf '%s\n' "$count" >"$BREW_ATTEMPTS_FILE"
+echo "fake brew update attempt $count"
+[[ -z "${BREW_FORCE_STATUS:-}" ]] || exit "$BREW_FORCE_STATUS"
+[[ "$count" -ge "${BREW_SUCCEED_ON:-3}" ]]
+SH
+cat >"$brew_retry_bin/sleep" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >>"$BREW_SLEEPS_FILE"
+SH
+chmod +x "$brew_retry_bin/brew" "$brew_retry_bin/sleep"
+
+# First-attempt success performs one update and no sleep.
+BREW_SUCCEED_ON=1 BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
+  BREW_COMMANDS_FILE="$out_dir/brew-commands" BREW_SLEEPS_FILE="$out_dir/brew-sleeps" \
+  PATH="$brew_retry_bin:$PATH" home/dot_local/bin/executable_groundwork-brew-update >/dev/null 2>&1
+grep -qxF '1' "$out_dir/brew-attempts"
+diff -u <(printf 'update\n') "$out_dir/brew-commands"
+test ! -e "$out_dir/brew-sleeps"
+
+# Second-attempt success sleeps once; third-attempt success uses both delays.
+rm -f "$out_dir/brew-attempts" "$out_dir/brew-commands"
+BREW_SUCCEED_ON=2 BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
+  BREW_COMMANDS_FILE="$out_dir/brew-commands" BREW_SLEEPS_FILE="$out_dir/brew-sleeps" \
+  PATH="$brew_retry_bin:$PATH" home/dot_local/bin/executable_groundwork-brew-update >/dev/null 2>&1
+grep -qxF '2' "$out_dir/brew-attempts"
+diff -u <(printf 'update\nupdate\n') "$out_dir/brew-commands"
+diff -u <(printf '3\n') "$out_dir/brew-sleeps"
+
+rm -f "$out_dir/brew-attempts" "$out_dir/brew-commands" "$out_dir/brew-sleeps"
+BREW_SUCCEED_ON=3 BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
+  BREW_COMMANDS_FILE="$out_dir/brew-commands" BREW_SLEEPS_FILE="$out_dir/brew-sleeps" \
+  PATH="$brew_retry_bin:$PATH" home/dot_local/bin/executable_groundwork-brew-update \
+  >"$out_dir/brew-retry-output" 2>&1
+grep -qxF '3' "$out_dir/brew-attempts"
+diff -u <(printf 'update\nupdate\nupdate\n') "$out_dir/brew-commands"
+diff -u <(printf '3\n6\n') "$out_dir/brew-sleeps"
+
+# Persistent failures stop after three exact `brew update` commands.
+rm -f "$out_dir/brew-attempts" "$out_dir/brew-commands" "$out_dir/brew-sleeps"
+if BREW_SUCCEED_ON=99 BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
+  BREW_COMMANDS_FILE="$out_dir/brew-commands" BREW_SLEEPS_FILE="$out_dir/brew-sleeps" \
+  PATH="$brew_retry_bin:$PATH" home/dot_local/bin/executable_groundwork-brew-update \
+  >"$out_dir/brew-retry-failure" 2>&1; then
+  fail "groundwork-brew-update succeeded after three failed attempts"
+fi
+grep -qxF '3' "$out_dir/brew-attempts"
+diff -u <(printf 'update\nupdate\nupdate\n') "$out_dir/brew-commands"
+grep -qF 'stopped before package upgrades' "$out_dir/brew-retry-failure"
+
+# Ctrl-C/termination statuses are authoritative: one attempt, no retry sleep.
+for interrupt_status in 130 143; do
+  rm -f "$out_dir/brew-attempts" "$out_dir/brew-commands" "$out_dir/brew-sleeps"
+  set +e
+  BREW_FORCE_STATUS="$interrupt_status" BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
+    BREW_COMMANDS_FILE="$out_dir/brew-commands" BREW_SLEEPS_FILE="$out_dir/brew-sleeps" \
+    PATH="$brew_retry_bin:$PATH" home/dot_local/bin/executable_groundwork-brew-update >/dev/null 2>&1
+  helper_status=$?
+  set -e
+  [[ "$helper_status" -eq "$interrupt_status" ]] \
+    || fail "groundwork-brew-update changed interrupt status $interrupt_status to $helper_status"
+  grep -qxF '1' "$out_dir/brew-attempts"
+  diff -u <(printf 'update\n') "$out_dir/brew-commands"
+  test ! -e "$out_dir/brew-sleeps"
+done
+
+# A missing brew command fails immediately with the documented error.
+no_brew_bin="$out_dir/no-brew-bin"
+mkdir -p "$no_brew_bin"
+if PATH="$no_brew_bin" /bin/bash home/dot_local/bin/executable_groundwork-brew-update \
+  >"$out_dir/brew-missing" 2>&1; then
+  fail "groundwork-brew-update succeeded without brew on PATH"
+fi
+grep -qF 'Homebrew is not on PATH' "$out_dir/brew-missing"
+
+check "rendered update-all transaction"
+update_all_fixture="$out_dir/update-all-fixture"
+update_all_home="$update_all_fixture/home"
+update_all_bin="$update_all_fixture/bin"
+mkdir -p "$update_all_home/.local/bin" "$update_all_home/.local/state/groundwork" "$update_all_bin"
+render linux false amd64 home/dot_zshrc.tmpl "$update_all_fixture/zshrc"
+awk '/^update-all\(\) \{/{copy=1} copy{print} copy && /^}$/{exit}' \
+  "$update_all_fixture/zshrc" >"$update_all_fixture/update-all.zsh"
+grep -q '^update-all() {' "$update_all_fixture/update-all.zsh"
+
+cat >"$update_all_bin/chezmoi" <<'SH'
+#!/usr/bin/env bash
+printf 'chezmoi %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+exit "${CHEZMOI_STATUS:-0}"
+SH
+cat >"$update_all_home/.local/bin/groundwork-brew-update" <<'SH'
+#!/usr/bin/env bash
+printf 'brew-update\n' >>"$GROUNDWORK_TEST_LOG"
+exit "${BREW_UPDATE_STATUS:-0}"
+SH
+cat >"$update_all_bin/brew" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "upgrade" ]]; then
+  [[ "${HOMEBREW_NO_AUTO_UPDATE:-}" == "1" ]] || exit 90
+  [[ "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-}" == "1" ]] || exit 91
+  printf 'brew %s no-auto-update=1 no-auto-casks=1\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+else
+  printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+fi
+exit "${BREW_STAGE_STATUS:-0}"
+SH
+cat >"$update_all_bin/mise" <<'SH'
+#!/usr/bin/env bash
+printf 'mise %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+exit "${MISE_STATUS:-0}"
+SH
+chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
+  "$update_all_home/.local/bin/groundwork-brew-update"
+
+update_all_log="$update_all_fixture/commands.log"
+update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
+update_all_path="$update_all_bin:/usr/bin:/bin"
+
+# Failed metadata refresh stops before every package/runtime stage and does not
+# create the success timestamp promised by the shell reminder.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  BREW_UPDATE_STATUS=1 /bin/zsh -f -c 'source "$1"; update-all' zsh \
+  "$update_all_fixture/update-all.zsh" >"$update_all_fixture/failure-output" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all continued after its metadata refresh failed"
+diff -u <(printf 'chezmoi update --init\nbrew-update\n') "$update_all_log"
+test ! -e "$update_all_stamp"
+
+# A complete success runs in order against the approved metadata snapshot and
+# only then writes the timestamp.
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  /bin/zsh -f -c 'source "$1"; update-all' zsh "$update_all_fixture/update-all.zsh" \
+  >"$update_all_fixture/success-output" 2>&1
+cat >"$update_all_fixture/expected-success" <<'EOF'
+chezmoi update --init
+brew-update
+brew upgrade --greedy-latest no-auto-update=1 no-auto-casks=1
+brew autoremove
+brew cleanup
+mise upgrade
+EOF
+diff -u "$update_all_fixture/expected-success" "$update_all_log"
+test -f "$update_all_stamp"
+test ! -s "$update_all_stamp"
+
+# A later mise failure leaves the previous timestamp untouched, proving it
+# represents the whole transaction rather than Homebrew alone.
+printf 'previous-success\n' >"$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  MISE_STATUS=1 /bin/zsh -f -c 'source "$1"; update-all' zsh \
+  "$update_all_fixture/update-all.zsh" >"$update_all_fixture/mise-failure-output" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all recorded success after mise upgrade failed"
+diff -u "$update_all_fixture/expected-success" "$update_all_log"
+grep -qxF 'previous-success' "$update_all_stamp"
+
 check "largest helper"
 test -x home/dot_local/bin/executable_largest
 largest_fixture="$out_dir/largest-fixture"
@@ -262,6 +434,7 @@ grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
 # template, and brew bundle streams progress so long fetches don't read as
 # hangs and invite a Ctrl+C.
 grep -qF 'chezmoi update --init' home/dot_zshrc.tmpl
+grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\" || return" home/dot_zshrc.tmpl
 grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl
 grep -qF 'tpm/bin/install_plugins" ]]' home/run_after_20-tools.sh.tmpl
 test -x home/dot_local/bin/executable_groundwork-brew-repair
@@ -582,7 +755,7 @@ render darwin false arm64 home/dot_zshrc.tmpl "$out_dir/darwin-beta-noxcode/zshr
 assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/zshrc" "beta reminder shown with beta but no Xcode"
 # Lock the update-all Homebrew command so it cannot revert to bare --greedy,
 # which re-downloads and re-quarantines self-updating casks (repeated Gatekeeper prompts).
-grep -q 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest' "$out_dir/darwin-beta/zshrc"
+grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 brew upgrade --greedy-latest' "$out_dir/darwin-beta/zshrc"
 assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/zshrc" "update-all reverted to --greedy (re-quarantines self-updating casks)"
 
 check "rendered agent adapters"

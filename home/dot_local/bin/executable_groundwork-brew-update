@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+command -v brew >/dev/null 2>&1 || {
+  echo "Groundwork: Homebrew is not on PATH." >&2
+  exit 1
+}
+
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for attempt in 1 2 3; do
+  status=0
+  brew update || status=$?
+
+  case "$status" in
+    0) exit 0 ;;
+    130|143) exit "$status" ;;
+  esac
+
+  if [[ "$attempt" -lt 3 ]]; then
+    delay=$((attempt * 3))
+    echo "Groundwork: brew update failed; retrying in ${delay}s (attempt $((attempt + 1))/3)." >&2
+    sleep "$delay"
+  fi
+done
+
+cat >&2 <<'EOF'
+Groundwork: brew update failed after 3 attempts.
+Homebrew metadata was not refreshed, so Groundwork stopped before package upgrades.
+This may be a temporary network or API problem, or a local Homebrew/tap issue.
+Review the errors above, check the connection, and run `update-all` again.
+Groundwork configuration changes already applied are left in place.
+EOF
+exit 1
