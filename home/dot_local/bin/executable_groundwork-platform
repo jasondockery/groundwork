@@ -2,13 +2,19 @@
 set -euo pipefail
 
 # Report the platform Groundwork is running on, one word on stdout:
-# darwin, linux, wsl2, wsl1, or unsupported. Groundwork supports Linux
-# directly; WSL2 is one supported way to run that Linux environment on a
-# Windows-owned machine. WSL1 is reported separately because it is not a
-# supported environment: its filesystem and syscall behavior differ from
-# real Linux. The kernel release string is checked first (WSL2 kernels
-# carry a WSL2 marker, WSL1 kernels say Microsoft without it); the interop
-# variable is a WSL2 fallback signal.
+# darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported. Groundwork
+# supports Linux directly; WSL2 is one supported way to run that Linux
+# environment on a Windows-owned machine. WSL1 is reported separately
+# because it is not a supported environment: its filesystem and syscall
+# behavior differ from real Linux.
+#
+# Kernel release naming: default WSL2 kernels carry "microsoft-standard",
+# and newer releases often also carry a "WSL2" suffix; WSL1 kernels say
+# "Microsoft" without either. A WSL environment variable without a
+# recognizable kernel string (for example a custom WSL2 kernel) is
+# reported as wsl-unknown so callers fail closed and ask the host:
+# from PowerShell, `wsl --list --verbose` reports each distribution's
+# actual WSL version.
 osrelease_file="${GROUNDWORK_OSRELEASE_FILE:-/proc/sys/kernel/osrelease}"
 
 case "$(uname -s)" in
@@ -18,12 +24,12 @@ case "$(uname -s)" in
   Linux)
     osrelease="$(cat "$osrelease_file" 2>/dev/null || true)"
     shopt -s nocasematch
-    if [[ "$osrelease" == *wsl2* ]]; then
+    if [[ "$osrelease" == *microsoft-standard* || "$osrelease" == *wsl2* ]]; then
       echo wsl2
     elif [[ "$osrelease" == *microsoft* ]]; then
       echo wsl1
-    elif [[ -n "${WSL_INTEROP:-}" ]]; then
-      echo wsl2
+    elif [[ -n "${WSL_DISTRO_NAME:-}" || -n "${WSL_INTEROP:-}" ]]; then
+      echo wsl-unknown
     else
       echo linux
     fi

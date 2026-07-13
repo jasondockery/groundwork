@@ -357,8 +357,31 @@ grep -qF 'update runner is missing or not executable' "$update_all_fixture/missi
 diff -u <(printf 'chezmoi update --init\n') "$update_all_log"
 
 # The remaining transactions exercise the rendered runner directly, exactly as
-# the launcher execs it. Failed metadata refresh stops before every
-# package/runtime stage and does not create the success timestamp.
+# the launcher execs it. Unsupported platforms fail closed before ANY stage:
+# no Homebrew, no mise, no timestamp — a warning after mutation is not
+# fail-closed.
+for unsupported_platform in wsl1 wsl-unknown freebsd; do
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    FAKE_PLATFORM="$unsupported_platform" "$update_all_fixture/rendered-runner" \
+    >"$update_all_fixture/unsupported-$unsupported_platform" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "update-all runner proceeded on unsupported platform $unsupported_platform"
+  test ! -s "$update_all_log" \
+    || fail "update-all runner mutated tools on unsupported platform $unsupported_platform"
+  test ! -e "$update_all_stamp" \
+    || fail "update-all runner wrote the timestamp on unsupported platform $unsupported_platform"
+done
+grep -qF 'WSL1 is unsupported' "$update_all_fixture/unsupported-wsl1" \
+  || fail "the WSL1 refusal must explain itself"
+grep -qF 'wsl --list --verbose' "$update_all_fixture/unsupported-wsl-unknown" \
+  || fail "the ambiguous-WSL refusal must point at wsl --list --verbose"
+
+# Failed metadata refresh stops before every package/runtime stage and does
+# not create the success timestamp.
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -444,9 +467,11 @@ HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migr
 test ! -s "$out_dir/update-all-fresh-notice"
 
 check "platform support contract"
-# groundwork-platform reports exactly darwin/linux/wsl2/wsl1/unsupported: the
-# kernel release string distinguishes WSL2 from WSL1, and the interop variable
-# is a WSL2 fallback signal.
+# groundwork-platform reports exactly darwin/linux/wsl2/wsl1/wsl-unknown/
+# unsupported. Default WSL2 kernels carry microsoft-standard (older ones
+# without any WSL2 suffix); WSL1 kernels say Microsoft without either; a WSL
+# environment variable with an unrecognizable kernel is ambiguous and must
+# come back wsl-unknown, never silently wsl2.
 test -x home/dot_local/bin/executable_groundwork-platform
 platform_fixture="$out_dir/platform-fixture"
 mkdir -p "$platform_fixture/bin"
@@ -457,8 +482,9 @@ SH
 chmod +x "$platform_fixture/bin/uname"
 printf '6.8.0-generic\n' >"$platform_fixture/osrelease-generic"
 printf '5.15.167.4-microsoft-standard-WSL2\n' >"$platform_fixture/osrelease-wsl2"
+printf '4.19.104-microsoft-standard\n' >"$platform_fixture/osrelease-wsl2-old"
 printf '4.4.0-19041-Microsoft\n' >"$platform_fixture/osrelease-wsl1"
-platform_cmd=(env -u WSL_INTEROP PATH="$platform_fixture/bin:/usr/bin:/bin")
+platform_cmd=(env -u WSL_INTEROP -u WSL_DISTRO_NAME PATH="$platform_fixture/bin:/usr/bin:/bin")
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Darwin home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "darwin" ]] || fail "groundwork-platform reported '$platform_result' for Darwin"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
@@ -466,21 +492,31 @@ platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
 [[ "$platform_result" == "linux" ]] || fail "groundwork-platform reported '$platform_result' for generic Linux"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
   GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl2" home/dot_local/bin/executable_groundwork-platform)"
-[[ "$platform_result" == "wsl2" ]] || fail "groundwork-platform missed the WSL2 kernel release"
+[[ "$platform_result" == "wsl2" ]] || fail "groundwork-platform missed the WSL2-suffixed kernel release"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl2-old" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl2" ]] \
+  || fail "groundwork-platform misclassified an older microsoft-standard WSL2 kernel as '$platform_result'"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
   GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl1" home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "wsl1" ]] || fail "groundwork-platform must report unsupported WSL1 distinctly, got '$platform_result'"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux WSL_INTEROP=/run/WSL/1_interop \
   GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
-[[ "$platform_result" == "wsl2" ]] || fail "groundwork-platform missed the WSL interop variable"
+[[ "$platform_result" == "wsl-unknown" ]] \
+  || fail "an interop variable without a recognizable kernel must be wsl-unknown, got '$platform_result'"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux WSL_DISTRO_NAME=Ubuntu \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl-unknown" ]] \
+  || fail "WSL_DISTRO_NAME without a recognizable kernel must be wsl-unknown, got '$platform_result'"
 platform_result="$("${platform_cmd[@]}" FAKE_UNAME=MINGW64_NT-10.0 home/dot_local/bin/executable_groundwork-platform)"
 [[ "$platform_result" == "unsupported" ]] || fail "groundwork-platform must report Git Bash/native Windows as unsupported"
 
-# groundwork-distro reports the distribution from /etc/os-release; platform and
-# distro are separate dimensions, and only bootstrap prerequisites may branch
-# on the distro.
+# groundwork-distro reports the distribution ID verbatim (a derivative is
+# itself, not its parent) and --family reports the bootstrap-prerequisite
+# family from ID/ID_LIKE; platform and distro are separate dimensions, and
+# only bootstrap prerequisites may branch on the family.
 test -x home/dot_local/bin/executable_groundwork-distro
-for distro_case in 'ubuntu:ubuntu' 'debian:debian' 'fedora:fedora' 'arch:arch' 'opensuse-leap:opensuse' 'gentoo:unknown'; do
+for distro_case in 'ubuntu:ubuntu' 'debian:debian' 'linuxmint:linuxmint' 'gentoo:gentoo'; do
   distro_id="${distro_case%%:*}"
   distro_expected="${distro_case#*:}"
   printf 'ID=%s\nNAME="Fixture"\n' "$distro_id" >"$platform_fixture/os-release"
@@ -489,9 +525,24 @@ for distro_case in 'ubuntu:ubuntu' 'debian:debian' 'fedora:fedora' 'arch:arch' '
   [[ "$distro_result" == "$distro_expected" ]] \
     || fail "groundwork-distro reported '$distro_result' for ID=$distro_id (expected $distro_expected)"
 done
-distro_result="$(GROUNDWORK_OS_RELEASE_FILE="$platform_fixture/missing-os-release" \
-  /bin/bash home/dot_local/bin/executable_groundwork-distro)"
-[[ "$distro_result" == "unknown" ]] || fail "groundwork-distro must report unknown without /etc/os-release"
+for family_case in 'ubuntu::debian' 'debian::debian' 'linuxmint:ubuntu debian:debian' \
+  'pop:ubuntu debian:debian' 'fedora::fedora' 'centos:rhel fedora:fedora' 'arch::arch' \
+  'manjaro:arch:arch' 'opensuse-leap:suse opensuse:opensuse' 'gentoo::unknown'; do
+  IFS=':' read -r family_id family_like family_expected <<<"$family_case"
+  {
+    printf 'ID=%s\n' "$family_id"
+    [[ -n "$family_like" ]] && printf 'ID_LIKE="%s"\n' "$family_like"
+  } >"$platform_fixture/os-release"
+  distro_result="$(GROUNDWORK_OS_RELEASE_FILE="$platform_fixture/os-release" \
+    /bin/bash home/dot_local/bin/executable_groundwork-distro --family)"
+  [[ "$distro_result" == "$family_expected" ]] \
+    || fail "groundwork-distro --family reported '$distro_result' for ID=$family_id ID_LIKE='$family_like' (expected $family_expected)"
+done
+for distro_mode in '' '--family'; do
+  distro_result="$(GROUNDWORK_OS_RELEASE_FILE="$platform_fixture/missing-os-release" \
+    /bin/bash home/dot_local/bin/executable_groundwork-distro $distro_mode)"
+  [[ "$distro_result" == "unknown" ]] || fail "groundwork-distro $distro_mode must report unknown without /etc/os-release"
+done
 
 # Native Windows fails closed at the entry point with WSL2 guidance instead of
 # rendering a partial configuration.
@@ -521,6 +572,17 @@ chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
   < home/.chezmoi.toml.tmpl >"$out_dir/wsl2-init" 2>&1 \
   || fail "chezmoi config template must render on a WSL2 kernel"
 grep -qF 'sourceDir' "$out_dir/wsl2-init"
+# Older WSL2 kernels carry microsoft-standard without any WSL2 suffix and are
+# valid WSL2 installations; they must render, not fail as WSL1.
+chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+  --override-data '{"chezmoi":{"os":"linux","arch":"amd64","kernel":{"osrelease":"4.19.104-microsoft-standard"}}}' \
+  execute-template --init \
+  --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
+  --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
+  --promptChoice password_manager=none \
+  < home/.chezmoi.toml.tmpl >"$out_dir/wsl2-old-init" 2>&1 \
+  || fail "chezmoi config template must render on an older microsoft-standard WSL2 kernel"
+grep -qF 'sourceDir' "$out_dir/wsl2-old-init"
 
 # On WSL2, new-project refuses Windows-mounted drives; repositories belong in
 # the WSL Linux filesystem.
@@ -537,6 +599,22 @@ set -e
 [[ "$mnt_status" -ne 0 ]] || fail "new-project accepted a repository on a Windows-mounted drive under WSL"
 grep -qF 'Windows-mounted drive' "$out_dir/new-project-mnt"
 test ! -e /mnt/c/demo
+# A relative path that traverses to the mount is canonicalized and rejected
+# too — the guard is not purely lexical on the argument.
+groundwork_repo_root="$PWD"
+set +e
+(cd /usr/bin && PATH="$platform_fixture/bin:/usr/bin:/bin" \
+  /bin/bash "$groundwork_repo_root/home/dot_local/bin/executable_new-project" ../../mnt/c/demo) \
+  >"$out_dir/new-project-mnt-relative" 2>&1
+mnt_status=$?
+set -e
+[[ "$mnt_status" -ne 0 ]] || fail "new-project accepted a relative path traversing into /mnt under WSL"
+grep -qF 'Windows-mounted drive' "$out_dir/new-project-mnt-relative"
+# A normal Linux-filesystem project still scaffolds under WSL.
+PATH="$platform_fixture/bin:/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project \
+  "$platform_fixture/wsl-ok-project" >"$out_dir/new-project-wsl-ok" 2>&1 \
+  || fail "new-project refused a Linux-filesystem path under WSL"
+test -f "$platform_fixture/wsl-ok-project/AGENTS.md"
 
 # The Linux/WSL2 runner never carries the macOS cask policy; casks are a
 # macOS concern (the darwin render is asserted in the beta channel profile).

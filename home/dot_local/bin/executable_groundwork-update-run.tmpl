@@ -9,6 +9,26 @@ set -euo pipefail
 # that includes the sync.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# Fail closed before any stage can mutate tools or the timestamp: the support
+# contract is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable
+# WSL environment.
+platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
+case "$platform" in
+  darwin | linux | wsl2) ;;
+  wsl1)
+    echo "Groundwork requires WSL2; WSL1 is unsupported. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
+    exit 1
+    ;;
+  wsl-unknown)
+    echo "Groundwork detected WSL but could not verify WSL2. From PowerShell, run \`wsl --list --verbose\`; convert with \`wsl --set-version <DistributionName> 2\` if needed." >&2
+    exit 1
+    ;;
+  *)
+    echo "Groundwork does not support this platform: $platform" >&2
+    exit 1
+    ;;
+esac
+
 if command -v brew >/dev/null 2>&1; then
   "$HOME/.local/bin/groundwork-brew-update"
   # Use the metadata snapshot that just refreshed. A user-customized Homebrew
@@ -42,12 +62,9 @@ fi
 # Ownership boundary: Groundwork updates the developer environment it manages
 # and never mutates the operating system it runs inside — no distro package
 # upgrades on Linux, no Windows-host updates from WSL2.
-case "$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)" in
+case "$platform" in
   wsl2)
     echo "Groundwork updated the WSL2 development environment. Windows applications and Windows Update are managed separately on the host."
-    ;;
-  wsl1)
-    echo "Groundwork detected WSL1, which it does not support. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
     ;;
   linux)
     echo "Groundwork updated its managed developer tools. Operating-system packages (apt, dnf, pacman) are managed separately by your distribution."

@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Report the Linux distribution Groundwork is running on, one stable word
-# on stdout: ubuntu, debian, fedora, arch, opensuse, or unknown. Platform
-# and distribution are separate dimensions: groundwork-platform answers
-# "darwin, linux, wsl2?", this answers "which Linux?". Ubuntu LTS is the
-# primary tested path (native and WSL2); Debian stable is supported; other
-# mainstream distributions are best effort until their coverage lands.
-# Only bootstrap prerequisites should branch on this — shared Unix behavior
-# must stay shared.
+# Report the Linux distribution Groundwork is running on, from
+# /etc/os-release. Platform and distribution are separate dimensions:
+# groundwork-platform answers "darwin, linux, or wsl2"; this answers
+# "which Linux".
+#
+#   groundwork-distro           the distribution ID verbatim (ubuntu,
+#                               debian, fedora, linuxmint, ...), or
+#                               unknown when unavailable
+#   groundwork-distro --family  the bootstrap-prerequisite family from
+#                               ID/ID_LIKE: debian, fedora, arch,
+#                               opensuse, or unknown
+#
+# Ubuntu LTS is the primary tested path (native and WSL2). Only bootstrap
+# prerequisites should branch on the family — shared Unix behavior must
+# stay shared, and a derivative reports its own ID rather than pretending
+# to be its parent.
 os_release_file="${GROUNDWORK_OS_RELEASE_FILE:-/etc/os-release}"
+mode="${1:-id}"
 
 if [[ ! -r "$os_release_file" ]]; then
   echo unknown
@@ -17,14 +26,35 @@ if [[ ! -r "$os_release_file" ]]; then
 fi
 
 ID=""
+ID_LIKE=""
 # shellcheck source=/dev/null
 . "$os_release_file"
 
-case "${ID:-}" in
-  ubuntu) echo ubuntu ;;
-  debian) echo debian ;;
-  fedora) echo fedora ;;
-  arch) echo arch ;;
-  opensuse* | sles) echo opensuse ;;
-  *) echo unknown ;;
-esac
+if [[ "$mode" != "--family" ]]; then
+  id="$(echo "${ID:-unknown}" | tr '[:upper:]' '[:lower:]')"
+  echo "${id:-unknown}"
+  exit 0
+fi
+
+# The distribution's own ID counts first, then each ID_LIKE ancestor.
+for token in ${ID:-} ${ID_LIKE:-}; do
+  case "$token" in
+    debian | ubuntu)
+      echo debian
+      exit 0
+      ;;
+    fedora | rhel | centos)
+      echo fedora
+      exit 0
+      ;;
+    arch)
+      echo arch
+      exit 0
+      ;;
+    opensuse* | suse | sles)
+      echo opensuse
+      exit 0
+      ;;
+  esac
+done
+echo unknown

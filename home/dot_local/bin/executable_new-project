@@ -6,10 +6,20 @@ target="${1:-.}"
 # On WSL, repositories belong in the Linux filesystem (~/code), not on a
 # Windows-mounted drive: /mnt/* bind mounts have substantially worse
 # filesystem performance and unreliable or degraded watcher behavior for
-# Linux development tools.
+# Linux development tools. Canonicalize before checking so `..` segments and
+# symlinks in existing path components cannot dodge the guard (the default
+# /mnt automount root; a mount-type check for custom roots is on the roadmap).
 if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == wsl* ]]; then
-  resolved="$target"
-  [[ "$resolved" == /* ]] || resolved="$PWD/$target"
+  probe="$target"
+  [[ "$probe" == /* ]] || probe="$PWD/$target"
+  suffix=""
+  while [[ ! -d "$probe" && "$probe" != "/" ]]; do
+    suffix="/$(basename "$probe")$suffix"
+    probe="$(dirname "$probe")"
+  done
+  base="$(cd -P "$probe" 2>/dev/null && pwd || echo "$probe")"
+  [[ "$base" == "/" ]] && base=""
+  resolved="$base$suffix"
   case "$resolved" in
     /mnt/[A-Za-z]/*|/mnt/[A-Za-z])
       echo "new-project: $resolved is on a Windows-mounted drive, which Groundwork does not support for repositories." >&2

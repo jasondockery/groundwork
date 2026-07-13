@@ -1,9 +1,12 @@
 {{- if eq .chezmoi.os "windows" -}}
 {{- fail "Groundwork's terminal environment requires macOS, Linux, or WSL2. On Windows, install WSL2 with Ubuntu and run Groundwork inside WSL; native PowerShell/CMD is not part of the Groundwork v1 support contract. See https://jasondockery.github.io/groundwork/platforms.html" -}}
 {{- end -}}
+{{- /* Default WSL2 kernels carry "microsoft-standard" (newer ones also a
+"WSL2" suffix); WSL1 kernels say "Microsoft" without either. Ambiguous WSL
+(custom kernels) is gated at runtime by groundwork-platform. */ -}}
 {{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi "kernel") -}}
 {{- $osrelease := lower (toString (get .chezmoi.kernel "osrelease")) -}}
-{{- if and (contains "microsoft" $osrelease) (not (contains "wsl2" $osrelease)) -}}
+{{- if and (contains "microsoft" $osrelease) (not (contains "microsoft-standard" $osrelease)) (not (contains "wsl2" $osrelease)) -}}
 {{- fail "Groundwork supports WSL2, not WSL1: WSL1 filesystem and syscall behavior differ from real Linux. From PowerShell, check with `wsl --list --verbose` and convert with `wsl --set-version <DistributionName> 2`, then rerun setup." -}}
 {{- end -}}
 {{- end -}}

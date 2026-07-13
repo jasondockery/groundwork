@@ -67,12 +67,37 @@ after the work is verified, never aspirationally.
       change should get a small smoke pass on a real WSL2 Ubuntu LTS:
       install, `chezmoi update`, `update-all` (including an interrupt),
       `code .`, a repo under `~/code`, and a repo under `/mnt/c` rejected by
-      `new-project`.
+      `new-project`. Also verify on the real machine: the exact
+      `/proc/sys/kernel/osrelease` string classifies as `wsl2` (including
+      older `microsoft-standard` kernels without a `WSL2` suffix), a custom
+      kernel lands in `wsl-unknown` and `update-all` fails closed before
+      touching Homebrew/mise/timestamp, and the actual filesystem type
+      reported by `findmnt -T /mnt/c` (expected `drvfs` or `9p`) for the
+      mount-guard task below.
+- [ ] Mount-backed Windows-drive guard in `new-project` (WSL): the current
+      guard canonicalizes `..`/symlinks in existing components and matches
+      the default `/mnt/<drive>` automount root lexically. Harden it to
+      inspect the actual mount: resolve the nearest existing parent of the
+      target, then use `findmnt -T <path> -n -o FSTYPE` (fall back to
+      `/proc/self/mountinfo` when findmnt is absent) and reject Windows-backed
+      filesystems (`drvfs`, `9p` — confirm exact names on the real WSL2
+      receipt first; do not bind names untested). This also covers custom
+      automount roots from `/etc/wsl.conf` (`automount.root`, e.g. `/c`)
+      and symlinks that point into a Windows mount. Add validator fixtures:
+      a fake `findmnt` returning `drvfs`/`9p`/`ext4`, a symlink into the
+      rejected mount, and a custom-root path; keep the existing lexical
+      tests as the no-findmnt fallback proof.
 - [ ] Distro CI coverage: Ubuntu LTS is the primary tested Linux path
-      today. Add Debian stable and Fedora stable container jobs that run
-      the bootstrap and validator so those distributions move from
-      best-effort to supported with receipts; `groundwork-distro` is the
-      detection seam for any bootstrap-prerequisite differences.
+      today; Debian stable and Fedora stable are documented as targeted,
+      not supported, until this lands. Add container jobs (`debian:stable`,
+      `fedora:latest` pinned to the current stable) that install the
+      bootstrap prerequisites, run `chezmoi init`/`apply` headless with the
+      docker profile answers, and run `scripts/validate-groundwork`.
+      `groundwork-distro --family` is the seam for any prerequisite
+      differences (apt vs dnf bootstrap hints only — never OS upgrades).
+      When a distro's job is green, promote its wording in AGENTS.md and
+      docs/platforms.html from "targeted" to "supported"; that promotion is
+      part of this task, not a separate cleanup.
 - [ ] `groundwork-doctor` — stale distro metadata module on Linux/WSL2:
       `update-all` deliberately never runs `apt`/`dnf`/`pacman` (the OS
       belongs to the distro, not Groundwork); the doctor can detect stale
