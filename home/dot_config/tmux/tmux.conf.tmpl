@@ -16,6 +16,10 @@ set -g allow-passthrough on
 bind -T copy-mode-vi v send -X begin-selection
 bind -T copy-mode-vi C-v send -X rectangle-toggle
 bind -T copy-mode-vi y send -X copy-selection-and-cancel
+# Copy the last command + its output (prompt line included, so the pasted
+# text carries the repo path for AI agents). Terminal-native "select last
+# output" can't see inside tmux panes; this is the tmux-owned equivalent.
+bind Y run-shell 'tmux-copy-last "#{pane_id}"'
 
 unbind C-b
 set -g prefix C-a

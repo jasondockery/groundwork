@@ -35,17 +35,23 @@ report_and_cleanup() {
   local cr=$'\r' nl=$'\n'
   local reason="${fail_reason:-see the failing check output in the job log}"
   # Annotation messages must be single-line: escape literal % first, then
-  # collapse newlines/carriage returns.
+  # collapse newlines/carriage returns. Titles additionally escape the
+  # property delimiters (:, ,) per the Actions toolkit rules.
   reason="${reason//%/%25}"
   reason="${reason//"$cr"/ }"
   reason="${reason//"$nl"/ }"
+  local title="${current_check//%/%25}"
+  title="${title//"$cr"/ }"
+  title="${title//"$nl"/ }"
+  title="${title//:/%3A}"
+  title="${title//,/%2C}"
   local passed="$checks_started"
   if [[ "$status" -ne 0 && "$checks_started" -gt 0 ]]; then
     passed=$((checks_started - 1))
   fi
   if [[ "$status" -ne 0 && "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    printf '::error title=validate-groundwork: %s failed::%s. Reproduce locally: scripts/validate-groundwork\n' \
-      "$current_check" "$reason" || true
+    printf '::error title=validate-groundwork %s failed::%s. Reproduce locally: scripts/validate-groundwork\n' \
+      "$title" "$reason" || true
   fi
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     {
@@ -451,6 +457,7 @@ grep -qxF 'previous-success' "$update_all_stamp"
 
 check "update-all migration notice"
 migration_home="$out_dir/update-all-migration-home"
+migration_flag="$migration_home/.local/state/groundwork/update-all-migration-pending"
 mkdir -p "$migration_home"
 cat >"$migration_home/.zshrc" <<'EOF'
 update-all() {
@@ -461,10 +468,23 @@ HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migr
   >"$out_dir/update-all-migration-notice"
 grep -qF 'moved update-all from an in-memory shell function' "$out_dir/update-all-migration-notice"
 grep -qF "Run \`exec zsh\` once" "$out_dir/update-all-migration-notice"
+test -f "$migration_flag"
+# The end-of-apply reminder repeats the one required action after Homebrew
+# output has scrolled the first notice away, then clears the flag so it
+# never repeats.
+HOME="$migration_home" /bin/bash home/run_once_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-reminder"
+grep -qF 'one step left' "$out_dir/update-all-migration-reminder"
+grep -qF 'exec zsh' "$out_dir/update-all-migration-reminder"
+test ! -e "$migration_flag"
+HOME="$migration_home" /bin/bash home/run_once_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-reminder-repeat"
+test ! -s "$out_dir/update-all-migration-reminder-repeat"
 printf '# fresh install has no old function\n' >"$migration_home/.zshrc"
 HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migration.sh \
   >"$out_dir/update-all-fresh-notice"
 test ! -s "$out_dir/update-all-fresh-notice"
+test ! -e "$migration_flag"
 
 check "platform support contract"
 # groundwork-platform reports exactly darwin/linux/wsl2/wsl1/wsl-unknown/
@@ -624,6 +644,60 @@ assert_not_contains 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS' "$update_all_fixtur
 assert_not_contains 'greedy' "$update_all_fixture/rendered-runner" \
   "cask --greedy-latest leaked into the Linux update runner"
 
+check "tmux-copy-last helper"
+copylast_fixture="$out_dir/copylast-fixture"
+mkdir -p "$copylast_fixture/bin"
+cat >"$copylast_fixture/pane.txt" <<'EOF'
+ 󰀵  …/groundwork ❯ echo hello
+hello
+ 󰀵  …/groundwork ❯ ls
+file-a
+file-b
+
+ 󰀵  …/groundwork
+❯
+EOF
+cat >"$copylast_fixture/bin/tmux" <<SH
+#!/usr/bin/env bash
+case "\$1" in
+  capture-pane) cat "$copylast_fixture/pane.txt" ;;
+  load-buffer) cat >"$copylast_fixture/buffer.txt" ;;
+  display-message) printf '%s\n' "\$2" ;;
+esac
+SH
+chmod +x "$copylast_fixture/bin/tmux"
+# The idle two-line prompt at the bottom has no command, so the last real
+# command block (ls + its output, trailing blank trimmed) is what lands in
+# the buffer, prompt line included for repo context.
+TMUX=fixture PATH="$copylast_fixture/bin:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_tmux-copy-last >"$out_dir/copylast-msg" 2>&1
+cat >"$copylast_fixture/expected.txt" <<'EOF'
+ 󰀵  …/groundwork ❯ ls
+file-a
+file-b
+EOF
+diff -u "$copylast_fixture/expected.txt" "$copylast_fixture/buffer.txt"
+grep -qF '3 lines' "$out_dir/copylast-msg"
+# Typed as a command, the helper's own invocation is skipped so it still
+# copies the previous real command.
+cat >"$copylast_fixture/pane.txt" <<'EOF'
+ 󰀵  …/groundwork ❯ ls
+file-a
+file-b
+ 󰀵  …/groundwork ❯ tmux-copy-last
+ 󰀵  …/groundwork
+❯
+EOF
+TMUX=fixture PATH="$copylast_fixture/bin:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_tmux-copy-last >/dev/null 2>&1
+diff -u "$copylast_fixture/expected.txt" "$copylast_fixture/buffer.txt"
+# Outside tmux it refuses instead of guessing.
+if TMUX='' PATH="$copylast_fixture/bin:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_tmux-copy-last >"$out_dir/copylast-notmux" 2>&1; then
+  fail "tmux-copy-last ran outside tmux"
+fi
+grep -qF 'not inside tmux' "$out_dir/copylast-notmux"
+
 check "largest helper"
 test -x home/dot_local/bin/executable_largest
 largest_fixture="$out_dir/largest-fixture"
@@ -728,6 +802,12 @@ grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\"" home/dot_local/bin/execu
 assert_no_matches "substantive update-all shell function returned" rg -n '^update-all\(\) \{' home/dot_zshrc.tmpl
 grep -qF $'daily\tupdate-all\tcommand\t' home/dot_local/share/groundwork/commands.tsv
 test -f home/run_once_before_07-update-all-command-migration.sh
+test -f home/run_once_after_98-update-all-migration-reminder.sh
+# The copy-last workflow stays wired end to end: helper, tmux binding, and a
+# discoverable catalog entry.
+test -x home/dot_local/bin/executable_tmux-copy-last
+grep -qF "bind Y run-shell 'tmux-copy-last" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF $'tmux\tCtrl+a then Shift+Y\tkey\t' home/dot_local/share/groundwork/commands.tsv
 # Brew bundle streams progress so long fetches do not read as hangs and invite
 # a Ctrl+C.
 grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl

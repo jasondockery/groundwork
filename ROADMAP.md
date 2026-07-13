@@ -98,6 +98,18 @@ after the work is verified, never aspirationally.
       When a distro's job is green, promote its wording in AGENTS.md and
       docs/platforms.html from "targeted" to "supported"; that promotion is
       part of this task, not a separate cleanup.
+- [ ] `groundwork-doctor` — untrusted Homebrew taps module: newer Homebrew
+      requires tap trust and silently ignores formulae, casks, and commands
+      from untrusted taps, so an untrusted tap means a tool that quietly
+      stops updating (seen 2026-07-13 on the work machine with
+      `anomalyco/tap` and a leftover `opencode-ai/tap`). Detect and inform,
+      never auto-trust: list installed taps and their trust state, name the
+      installed formulae/casks that came from each, and print the exact
+      scoped commands (`brew trust --formula <tap>/<formula>`, or
+      `brew untap <tap>` for leftovers whose tools now live in
+      homebrew/core, like opencode). Groundwork's own Brewfile uses only
+      core/cask, so any untrusted tap is user-added or leftover — the
+      doctor reports; the owner decides.
 - [ ] `groundwork-doctor` — stale distro metadata module on Linux/WSL2:
       `update-all` deliberately never runs `apt`/`dnf`/`pacman` (the OS
       belongs to the distro, not Groundwork); the doctor can detect stale

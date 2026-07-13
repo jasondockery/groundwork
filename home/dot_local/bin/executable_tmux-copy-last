@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Copy the last completed command and its output from a tmux pane to the
+# system clipboard (and tmux paste buffer). Bound to prefix+Y; also works
+# typed as a command. The copied block starts at the prompt line, which
+# Groundwork's starship prompt stamps with the OS badge and repo-relative
+# path on purpose: pasted output then tells an AI agent where it ran.
+#
+# Prompt lines are recognized by the OS badge glyphs from starship.toml
+# [os.symbols]; blocks whose command is empty (the idle prompt) or that
+# invoked this helper itself are skipped, so you always get the previous
+# real command. If the prompt has been customized away from the badges,
+# fall back to tmux copy-mode (prefix+[).
+if [[ -z "${TMUX:-}" ]]; then
+  echo "tmux-copy-last: not inside tmux. Use your terminal's selection instead." >&2
+  exit 1
+fi
+
+pane="${1:-}"
+badges='󰀵 󰌽 󰕈 󰣇 󰣚 󰣛 󰍲  󱄛  '
+
+# shellcheck disable=SC2086 # ${pane:+-t "$pane"} intentionally expands to two words
+block="$(tmux capture-pane -p -J -S - ${pane:+-t "$pane"} | awk -v badges="$badges" '
+  function is_prompt(s,   i) {
+    for (i = 1; i <= nb; i++) if (index(s, B[i])) return 1
+    return 0
+  }
+  BEGIN { nb = split(badges, B, " ") }
+  {
+    line[NR] = $0
+    if (is_prompt($0)) marker[++nm] = NR
+  }
+  END {
+    if (nm == 0) exit 3
+    for (m = nm; m >= 1; m--) {
+      start = marker[m]
+      finish = (m < nm) ? marker[m + 1] - 1 : NR
+      # The command follows the prompt character, on the marker line for a
+      # single-line prompt or on the following line for a two-line prompt.
+      cmd = ""
+      for (j = start; j <= finish && j <= start + 1; j++) {
+        pos = index(line[j], "❯")
+        if (pos) { cmd = substr(line[j], pos + length("❯")); break }
+      }
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", cmd)
+      if (cmd == "" || index(cmd, "tmux-copy-last")) continue
+      while (finish > start && line[finish] ~ /^[[:space:]]*$/) finish--
+      for (j = start; j <= finish; j++) print line[j]
+      exit 0
+    }
+    exit 3
+  }
+')" || {
+  echo "tmux-copy-last: no completed command found in this pane's history (is the Groundwork prompt active?). Use copy-mode: prefix+[." >&2
+  exit 1
+}
+
+printf '%s\n' "$block" | tmux load-buffer -w -
+lines=$(printf '%s\n' "$block" | wc -l | tr -d ' ')
+tmux display-message "copied last command + output ($lines lines)"

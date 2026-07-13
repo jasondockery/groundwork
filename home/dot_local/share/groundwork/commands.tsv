@@ -2,6 +2,7 @@
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
+tmux	Ctrl+a then Shift+Y	key	Copy the last command and its output to the clipboard; the included prompt line tells an agent where it ran.
 daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
 daily	chezmoi apply	command	Apply the source repo to your home directory.
 daily	chezmoi update	command	Git pull the Groundwork repo and apply it; syncs config, not already-installed tool upgrades.
