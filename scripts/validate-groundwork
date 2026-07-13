@@ -288,13 +288,17 @@ SH
 cat >"$update_all_bin/brew" <<'SH'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "upgrade" ]]; then
-  [[ "${HOMEBREW_NO_AUTO_UPDATE:-}" == "1" ]] || exit 90
-  [[ "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-}" == "1" ]] || exit 91
-  printf 'brew %s no-auto-update=1 no-auto-casks=1\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+  printf 'brew %s auto=%s casks=%s\n' "$*" \
+    "${HOMEBREW_NO_AUTO_UPDATE:-unset}" \
+    "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" >>"$GROUNDWORK_TEST_LOG"
 else
   printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 fi
 exit "${BREW_STAGE_STATUS:-0}"
+SH
+cat >"$update_all_bin/groundwork-platform" <<'SH'
+#!/usr/bin/env bash
+echo "${FAKE_PLATFORM:-linux}"
 SH
 cat >"$update_all_bin/mise" <<'SH'
 #!/usr/bin/env bash
@@ -302,7 +306,8 @@ printf 'mise %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 exit "${MISE_STATUS:-0}"
 SH
 chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
-  "$update_all_bin/groundwork-brew-update" "$update_all_fixture/fresh-runner"
+  "$update_all_bin/groundwork-brew-update" "$update_all_bin/groundwork-platform" \
+  "$update_all_fixture/fresh-runner"
 
 update_all_log="$update_all_fixture/commands.log"
 update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
@@ -381,13 +386,15 @@ for interrupt_status in 130 143; do
 done
 
 # A complete success runs in order against the approved metadata snapshot and
-# only then atomically writes a UTC timestamp.
+# only then atomically writes a UTC timestamp. The Linux render must not carry
+# the macOS cask policy, and it reports the OS-ownership boundary: distro
+# packages on Linux, the Windows host on WSL2, are never Groundwork's to touch.
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
   "$update_all_fixture/rendered-runner" >"$update_all_fixture/success-output" 2>&1
 cat >"$update_all_fixture/expected-success" <<'EOF'
 brew-update
-brew upgrade --greedy-latest no-auto-update=1 no-auto-casks=1
+brew upgrade auto=1 casks=unset
 brew autoremove
 brew cleanup
 mise upgrade
@@ -397,6 +404,13 @@ test -f "$update_all_stamp"
 grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$update_all_stamp"
 update_all_temps=("${update_all_stamp}.tmp."*)
 (( ${#update_all_temps[@]} == 0 )) || fail "update-all runner left a temporary timestamp behind"
+grep -qF 'managed separately by your distribution' "$update_all_fixture/success-output"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  FAKE_PLATFORM=wsl "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/wsl-success-output" 2>&1
+diff -u "$update_all_fixture/expected-success" "$update_all_log"
+grep -qF 'managed separately on the host' "$update_all_fixture/wsl-success-output"
 
 # A later mise failure leaves the previous timestamp untouched, proving it
 # represents the whole transaction rather than Homebrew alone.
@@ -428,6 +442,68 @@ printf '# fresh install has no old function\n' >"$migration_home/.zshrc"
 HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migration.sh \
   >"$out_dir/update-all-fresh-notice"
 test ! -s "$out_dir/update-all-fresh-notice"
+
+check "platform support contract"
+# groundwork-platform reports exactly darwin/linux/wsl/unsupported, with WSL
+# detected via the interop variable or the kernel release string.
+test -x home/dot_local/bin/executable_groundwork-platform
+platform_fixture="$out_dir/platform-fixture"
+mkdir -p "$platform_fixture/bin"
+cat >"$platform_fixture/bin/uname" <<'SH'
+#!/usr/bin/env bash
+echo "$FAKE_UNAME"
+SH
+chmod +x "$platform_fixture/bin/uname"
+printf '6.8.0-generic\n' >"$platform_fixture/osrelease-generic"
+printf '5.15.167.4-microsoft-standard-WSL2\n' >"$platform_fixture/osrelease-wsl"
+platform_cmd=(env -u WSL_INTEROP PATH="$platform_fixture/bin:/usr/bin:/bin")
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Darwin home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "darwin" ]] || fail "groundwork-platform reported '$platform_result' for Darwin"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "linux" ]] || fail "groundwork-platform reported '$platform_result' for generic Linux"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-wsl" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl" ]] || fail "groundwork-platform missed the microsoft kernel release"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=Linux WSL_INTEROP=/run/WSL/1_interop \
+  GROUNDWORK_OSRELEASE_FILE="$platform_fixture/osrelease-generic" home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "wsl" ]] || fail "groundwork-platform missed the WSL interop variable"
+platform_result="$("${platform_cmd[@]}" FAKE_UNAME=MINGW64_NT-10.0 home/dot_local/bin/executable_groundwork-platform)"
+[[ "$platform_result" == "unsupported" ]] || fail "groundwork-platform must report Git Bash/native Windows as unsupported"
+
+# Native Windows fails closed at the entry point with WSL2 guidance instead of
+# rendering a partial configuration.
+if chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+  --override-data '{"chezmoi":{"os":"windows","arch":"amd64"}}' \
+  execute-template --init < home/.chezmoi.toml.tmpl >"$out_dir/windows-init" 2>&1; then
+  fail "chezmoi config template rendered on native Windows instead of failing closed"
+fi
+grep -qF 'requires macOS, Linux, or WSL2' "$out_dir/windows-init"
+grep -qF 'install WSL2 with Ubuntu' "$out_dir/windows-init"
+
+# On WSL2, new-project refuses Windows-mounted drives; repositories belong in
+# the WSL Linux filesystem.
+cat >"$platform_fixture/bin/groundwork-platform" <<'SH'
+#!/usr/bin/env bash
+echo wsl
+SH
+chmod +x "$platform_fixture/bin/groundwork-platform"
+set +e
+PATH="$platform_fixture/bin:/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project /mnt/c/demo \
+  >"$out_dir/new-project-mnt" 2>&1
+mnt_status=$?
+set -e
+[[ "$mnt_status" -ne 0 ]] || fail "new-project accepted a repository on a Windows-mounted drive under WSL"
+grep -qF 'Windows-mounted drive' "$out_dir/new-project-mnt"
+test ! -e /mnt/c/demo
+
+# The Linux/WSL2 runner never carries the macOS cask policy; casks are a
+# macOS concern (the darwin render is asserted in the beta channel profile).
+grep -qF 'HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade' "$update_all_fixture/rendered-runner"
+assert_not_contains 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS' "$update_all_fixture/rendered-runner" \
+  "macOS cask upgrade policy leaked into the Linux update runner"
+assert_not_contains 'greedy' "$update_all_fixture/rendered-runner" \
+  "cask --greedy-latest leaked into the Linux update runner"
 
 check "largest helper"
 test -x home/dot_local/bin/executable_largest

@@ -1,3 +1,6 @@
+{{- if eq .chezmoi.os "windows" -}}
+{{- fail "Groundwork's terminal environment requires macOS, Linux, or WSL2. On Windows, install WSL2 with Ubuntu and run Groundwork inside WSL; native PowerShell/CMD is not part of the Groundwork v1 support contract. See https://jasondockery.github.io/groundwork/platforms.html" -}}
+{{- end -}}
 {{- $work := promptBoolOnce . "work" "Is this a work machine? [y/N]" false -}}
 {{- $headless := false -}}
 {{- if eq .chezmoi.os "darwin" -}}

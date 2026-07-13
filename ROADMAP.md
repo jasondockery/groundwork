@@ -62,6 +62,17 @@ after the work is verified, never aspirationally.
 
 ## Setup and machine health
 
+- [ ] WSL2 release receipt: emulated WSL fixtures in the validator prove
+      detection logic, not real WSL behavior. Each significant WSL-affecting
+      change should get a small smoke pass on a real WSL2 Ubuntu: install,
+      `chezmoi update`, `update-all` (including an interrupt), `code .`, a
+      repo under `~/code`, and a repo under `/mnt/c` rejected by
+      `new-project`.
+- [ ] `groundwork-doctor` — stale distro metadata module on Linux/WSL2:
+      `update-all` deliberately never runs `apt`/`dnf`/`pacman` (the OS
+      belongs to the distro, not Groundwork); the doctor can detect stale
+      package metadata and print the exact recommended command without
+      executing it.
 - [x] `groundwork-doctor` — command shipped 2026-07-12 with its first module,
       Docker machine health (daemon reachability, log rotation, containerd
       image store, `docker system df`, leftover containers/images/volumes

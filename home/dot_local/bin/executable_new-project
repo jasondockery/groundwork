@@ -2,6 +2,22 @@
 set -euo pipefail
 
 target="${1:-.}"
+
+# On WSL2, repositories belong in the Linux filesystem (~/code), never on a
+# Windows-mounted drive: /mnt/* bind mounts are slow and never deliver file
+# change events, which silently breaks watchers and hot reload.
+if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == "wsl" ]]; then
+  resolved="$target"
+  [[ "$resolved" == /* ]] || resolved="$PWD/$target"
+  case "$resolved" in
+    /mnt/[A-Za-z]/*|/mnt/[A-Za-z])
+      echo "new-project: $resolved is on a Windows-mounted drive, which Groundwork does not support for repositories." >&2
+      echo "Create the project inside the WSL Linux filesystem instead, like ~/code/<name>." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 mkdir -p "$target"
 cd "$target"
 

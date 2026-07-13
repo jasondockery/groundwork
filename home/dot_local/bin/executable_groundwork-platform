@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Report the platform Groundwork is running on, one word on stdout:
+# darwin, linux, wsl, or unsupported. Groundwork's support contract is
+# macOS, native Linux, and Windows through WSL2; anything else is
+# unsupported rather than partially working. WSL detection follows the
+# usual signals: the interop socket variable or "microsoft" in the kernel
+# release string.
+osrelease="${GROUNDWORK_OSRELEASE_FILE:-/proc/sys/kernel/osrelease}"
+
+case "$(uname -s)" in
+  Darwin)
+    echo darwin
+    ;;
+  Linux)
+    if [[ -n "${WSL_INTEROP:-}" ]] || grep -qi microsoft "$osrelease" 2>/dev/null; then
+      echo wsl
+    else
+      echo linux
+    fi
+    ;;
+  *)
+    echo unsupported
+    ;;
+esac
