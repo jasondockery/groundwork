@@ -13,6 +13,36 @@ command -v chezmoi >/dev/null 2>&1 || {
   exit 1
 }
 
+# Gate the platform BEFORE syncing: `chezmoi update` runs the install hooks
+# (Homebrew bootstrap, brew bundle, every run_ script), so an unsupported
+# platform must be refused here, not after the machine has been mutated. The
+# runner re-checks, which covers a direct runner invocation.
+platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
+case "$platform" in
+  darwin | linux | wsl2) ;;
+  wsl1)
+    echo "Groundwork requires WSL2; WSL1 is unsupported. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
+    exit 1
+    ;;
+  wsl-unknown)
+    echo "Groundwork detected WSL but could not verify WSL2. From PowerShell, run \`wsl --list --verbose\`; convert with \`wsl --set-version <DistributionName> 2\` if needed." >&2
+    exit 1
+    ;;
+  unknown)
+    # Do NOT suggest a bare `chezmoi apply` here: that runs the very install
+    # hooks this gate exists to withhold until the platform is known. Restore
+    # just the detector.
+    echo "Groundwork: the platform helper is missing or failed: $HOME/.local/bin/groundwork-platform" >&2
+    echo "Restore it from the source you already have (this cannot fetch an upstream fix):" >&2
+    echo "  chezmoi apply --exclude=scripts ~/.local/bin/groundwork-platform" >&2
+    exit 1
+    ;;
+  *)
+    echo "Groundwork does not support this platform: $platform" >&2
+    exit 1
+    ;;
+esac
+
 # --init regenerates the config when .chezmoi.toml.tmpl changed; all prompts
 # are *Once, so existing answers are reused without asking again.
 chezmoi update --init

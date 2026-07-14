@@ -2,11 +2,19 @@
 set -euo pipefail
 
 # The pre-apply notice about the update-all migration scrolls away behind
-# the Homebrew output that follows it. This runs at the end of the apply,
-# so the one action the user must take is the last thing on screen.
+# the Homebrew output that follows it. This runs at the end of every apply
+# and repeats the one required action while the flag exists, so an
+# interrupted or noninteractive apply still reminds on the next run. The
+# flag is removed only after the reminder was actually shown.
 flag="$HOME/.local/state/groundwork/update-all-migration-pending"
 [[ -f "$flag" ]] || exit 0
-rm -f -- "$flag"
+
+# Only a human at a terminal can act on this, and only a shown reminder counts
+# as delivered: a noninteractive or piped apply leaves the flag pending so the
+# next interactive run still says it. (The seam lets the validator drive both.)
+if [[ ! -t 1 && "${GROUNDWORK_REMINDER_ASSUME_TTY:-0}" != "1" ]]; then
+  exit 0
+fi
 
 if [[ -t 1 ]]; then
   printf '\033[1;33m'
@@ -26,3 +34,5 @@ EOF
 if [[ -t 1 ]]; then
   printf '\033[0m'
 fi
+
+rm -f -- "$flag"

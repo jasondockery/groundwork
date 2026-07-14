@@ -3,16 +3,29 @@ set -euo pipefail
 
 target="${1:-.}"
 
-# On WSL, repositories belong in the Linux filesystem (~/code), not on a
-# Windows-mounted drive: /mnt/* bind mounts have substantially worse
-# filesystem performance and unreliable or degraded watcher behavior for
-# Linux development tools. Canonicalize before checking so `..` segments and
-# symlinks in existing path components cannot dodge the guard (the default
-# /mnt automount root; a mount-type check for custom roots is on the roadmap).
-if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == wsl* ]]; then
-  probe="$target"
+# Platform gate, fail-closed: a missing, broken, or unsupported platform must
+# stop the scaffold BEFORE any directory is created, never fall through as if
+# the machine were fine.
+platform_helper="$HOME/.local/bin/groundwork-platform"
+if [[ ! -x "$platform_helper" ]]; then
+  echo "new-project: the Groundwork platform helper is missing: $platform_helper" >&2
+  echo "Restore it with: chezmoi apply --exclude=scripts ~/.local/bin/groundwork-platform" >&2
+  exit 1
+fi
+if ! platform="$("$platform_helper")" || [[ -z "$platform" ]]; then
+  echo "new-project: platform detection failed; refusing to scaffold." >&2
+  exit 1
+fi
+
+# On WSL2, repositories belong in the Linux filesystem (~/code), not on a
+# Windows-mounted drive: /mnt/* bind mounts have substantially worse filesystem
+# performance and unreliable or degraded watcher behavior for Linux tools.
+# Canonicalize first so `..` segments and symlinks in existing path components
+# cannot dodge the guard (this covers the default /mnt automount root; a
+# mount-type check for custom roots is on the roadmap).
+reject_windows_mount() {
+  local probe="$target" suffix="" base resolved
   [[ "$probe" == /* ]] || probe="$PWD/$target"
-  suffix=""
   while [[ ! -d "$probe" && "$probe" != "/" ]]; do
     suffix="/$(basename "$probe")$suffix"
     probe="$(dirname "$probe")"
@@ -21,13 +34,32 @@ if [[ "$(groundwork-platform 2>/dev/null || echo unknown)" == wsl* ]]; then
   [[ "$base" == "/" ]] && base=""
   resolved="$base$suffix"
   case "$resolved" in
-    /mnt/[A-Za-z]/*|/mnt/[A-Za-z])
+    /mnt/[A-Za-z]/* | /mnt/[A-Za-z])
       echo "new-project: $resolved is on a Windows-mounted drive, which Groundwork does not support for repositories." >&2
       echo "Create the project inside the WSL Linux filesystem instead, like ~/code/<name>." >&2
       exit 1
       ;;
   esac
-fi
+}
+
+case "$platform" in
+  darwin | linux) ;;
+  wsl2) reject_windows_mount ;;
+  wsl1)
+    echo "new-project: Groundwork requires WSL2; WSL1 is unsupported." >&2
+    echo "From PowerShell: \`wsl --list --verbose\`, then \`wsl --set-version <DistributionName> 2\`." >&2
+    exit 1
+    ;;
+  wsl-unknown)
+    echo "new-project: detected WSL but could not verify WSL2; refusing to scaffold." >&2
+    echo "From PowerShell, run \`wsl --list --verbose\` to check the version." >&2
+    exit 1
+    ;;
+  *)
+    echo "new-project: unsupported platform: $platform" >&2
+    exit 1
+    ;;
+esac
 
 mkdir -p "$target"
 cd "$target"

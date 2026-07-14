@@ -12,6 +12,12 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Fail closed before any stage can mutate tools or the timestamp: the support
 # contract is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable
 # WSL environment.
+if [[ ! -x "$HOME/.local/bin/groundwork-platform" ]]; then
+  echo "Groundwork: the platform helper is missing: $HOME/.local/bin/groundwork-platform" >&2
+  echo "Restore it from the source you already have (this cannot fetch an upstream fix):" >&2
+  echo "  chezmoi apply --exclude=scripts ~/.local/bin/groundwork-platform" >&2
+  exit 1
+fi
 platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
 case "$platform" in
   darwin | linux | wsl2) ;;
@@ -34,11 +40,21 @@ if command -v brew >/dev/null 2>&1; then
   # Use the metadata snapshot that just refreshed. A user-customized Homebrew
   # auto-update interval must not start a second, unwrapped update here.
   {{- if eq .chezmoi.os "darwin" }}
-  # --greedy-latest, not --greedy: refresh version:latest casks (the AI CLIs)
-  # while leaving auto-updating GUI apps to their own update channels, so they
-  # are not re-downloaded and re-quarantined behind fresh Gatekeeper prompts.
+  # --require-sha: refuse to upgrade a cask that ships no checksum. Every cask
+  # Groundwork installs is versioned and checksummed today (the AI CLIs
+  # included — `claude-code@latest` is a faster release CHANNEL, not Homebrew's
+  # `version :latest`), so this costs nothing now and fails loudly if an
+  # unverified artifact ever enters the upgrade set. A checksum failure must
+  # stop here; never retry without the flag, which would turn a policy refusal
+  # into a silent bypass.
+  #
+  # No --greedy-latest: it only adds `version :latest` casks, and Groundwork
+  # installs none — it was a no-op justified by a wrong comment.
+  # NO_UPGRADE_AUTO_UPDATES_CASKS still leaves self-updating GUI apps to their
+  # own channels, so they are not re-downloaded and re-quarantined behind fresh
+  # Gatekeeper prompts.
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-    brew upgrade --greedy-latest
+    brew upgrade --require-sha
   {{- else }}
   # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades formulae only.
   HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade
@@ -54,7 +70,27 @@ if command -v brew >/dev/null 2>&1; then
 fi
 
 if command -v mise >/dev/null 2>&1; then
-  mise upgrade
+  # The same 5-day floor the renovate-config preset applies to repo
+  # dependencies, now applied to the machine: don't adopt a release the world
+  # has not had time to notice was poisoned. It filters only fuzzy versions
+  # (`lts`, `latest`); an explicitly pinned version is exempt, which is the
+  # escape hatch for a security fix that must land immediately.
+  if ! mise upgrade --help 2>/dev/null | grep -q -- '--minimum-release-age'; then
+    # Fail closed. A policy that steps aside whenever it cannot be enforced is
+    # not a control. The escape hatch for an urgent release already exists and
+    # is narrow: pin that one runtime to an exact version, which the floor
+    # exempts by design — no need for a second hatch that ungates everything.
+    cat >&2 <<'EOF'
+Groundwork: this mise cannot enforce the 5-day release floor
+(--minimum-release-age is missing), so runtime upgrades were skipped.
+
+  Upgrade mise, then run update-all again:  brew upgrade mise
+  Urgent security release? Pin that exact runtime version; pinned versions
+  bypass the floor by design.
+EOF
+    exit 1
+  fi
+  mise upgrade --minimum-release-age 5d
 fi
 
 {{- if ne .chezmoi.os "darwin" }}
