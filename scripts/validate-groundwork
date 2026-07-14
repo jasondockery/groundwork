@@ -972,6 +972,65 @@ for chrome_profile in 'false false' 'true false' 'false true'; do
     "google-chrome is in the Brewfile (work=$chrome_work) — it ships no checksum and would fail the --require-sha bundle"
 done
 
+check "runtime release-age reporting"
+# A cooldown filters what you ACQUIRE; it never rolls back what is already
+# installed. Nothing else surfaces a runtime adopted inside the floor, so this
+# check must actually fire — and it must read the release date from the tool's
+# backend, NOT from mise's upgrade warning, which only appears when mise's
+# version cache happens to be cold (a check that passes by luck is not a check).
+grep -qF 'GROUNDWORK_RELEASE_FLOOR' home/dot_local/bin/executable_groundwork-doctor
+assert_no_matches "the runtime age check must not depend on mise's cache-dependent upgrade warning" \
+  rg -n 'minimum_release_age' home/dot_local/bin/executable_groundwork-doctor
+# The doctor's floor and the floor update-all enforces must agree.
+grep -qF -- '--minimum-release-age 5d' home/dot_local/bin/executable_groundwork-update-run.tmpl
+grep -qF 'GROUNDWORK_RELEASE_FLOOR:-5d' home/dot_local/bin/executable_groundwork-doctor \
+  || fail "groundwork-doctor's release floor must match the 5d floor update-all enforces"
+
+runtime_fixture="$out_dir/runtime-fixture"
+mkdir -p "$runtime_fixture/bin"
+cat >"$runtime_fixture/bin/mise" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "upgrade" && "$2" == "--help" ]]; then
+  echo "      --minimum-release-age <MINIMUM_RELEASE_AGE>"
+  exit 0
+fi
+if [[ "$1" == "ls" ]]; then
+  printf '%s\n' "$GROUNDWORK_TEST_MISE_JSON"
+fi
+SH
+chmod +x "$runtime_fixture/bin/mise"
+# A version released two days ago must be flagged, with the remedy named.
+runtime_recent="$(jq -rn '(now - (2 * 86400)) | todateiso8601')"
+cat >"$runtime_fixture/bin/curl" <<SH
+#!/usr/bin/env bash
+printf '{"time":{"9.9.9":"%s"}}\n' "$runtime_recent"
+SH
+chmod +x "$runtime_fixture/bin/curl"
+PATH="$runtime_fixture/bin:$PATH" \
+  GROUNDWORK_TEST_MISE_JSON='{"pnpm":[{"version":"9.9.9","active":true}]}' \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --runtimes \
+  >"$out_dir/doctor-runtimes-young" 2>&1
+grep -qF 'younger than the 5d release floor' "$out_dir/doctor-runtimes-young" \
+  || fail "the doctor did not flag a runtime adopted inside the release floor"
+grep -qF 'mise use -g pnpm@' "$out_dir/doctor-runtimes-young" \
+  || fail "the doctor must name the command that pins a vetted version"
+grep -qF 'never rolls back what you already have' "$out_dir/doctor-runtimes-young" \
+  || fail "the doctor must explain WHY the floor did not fix this by itself"
+# A version past the floor must NOT be flagged.
+runtime_old="$(jq -rn '(now - (30 * 86400)) | todateiso8601')"
+cat >"$runtime_fixture/bin/curl" <<SH
+#!/usr/bin/env bash
+printf '{"time":{"9.9.9":"%s"}}\n' "$runtime_old"
+SH
+chmod +x "$runtime_fixture/bin/curl"
+PATH="$runtime_fixture/bin:$PATH" \
+  GROUNDWORK_TEST_MISE_JSON='{"pnpm":[{"version":"9.9.9","active":true}]}' \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --runtimes \
+  >"$out_dir/doctor-runtimes-old" 2>&1
+assert_not_contains 'younger than' "$out_dir/doctor-runtimes-old" \
+  "the doctor flagged a runtime that is past the release floor"
+grep -qF 'past the 5d floor' "$out_dir/doctor-runtimes-old"
+
 check "shell runtime ownership"
 # Groundwork owns the interactive zsh runtime: Homebrew installs it, update-all
 # upgrades it, and adoption is an explicit step that never touches the OS shell.
@@ -1555,8 +1614,10 @@ SH
       /bin/bash home/dot_local/bin/executable_tmux-copy-last "$1"
   }
   copylast_wait() { # poll until the scenario pane finished rendering
+    # 30s, not 5: the 6,000-line scenario can take a while to render on a loaded
+    # machine or a CI runner, and a required lane must not fail by timing.
     local pane="$1" sentinel="$2"
-    for _ in $(seq 1 50); do
+    for _ in $(seq 1 300); do
       if tmux -L "$copylast_socket" capture-pane -p -S - -t "$pane" | grep -qF "$sentinel"; then
         return 0
       fi

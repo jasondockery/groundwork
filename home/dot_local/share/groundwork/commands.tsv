@@ -11,9 +11,10 @@ daily	chezmoi update	command	Git pull the Groundwork repo and apply it; syncs co
 daily	chezmoi edit <file>	command	Edit a managed dotfile at its source instead of editing the generated home file.
 daily	chezmoi cd	command	Open a shell in the Groundwork source repo.
 daily	groundwork-restore	command	Restore the first-run backup of managed files and macOS defaults.
-daily	groundwork-doctor	command	Read-only machine health report. Checks the shell runtime (managed zsh installed, registered, adopted, running here) and Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers/images/volumes with owner-scoped cleanup guidance.
+daily	groundwork-doctor	command	Read-only machine health report. Checks the shell runtime (managed zsh installed, registered, adopted, running here), runtime release age, and Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers/images/volumes with owner-scoped cleanup guidance.
 daily	groundwork-doctor --docker	command	Run only the Docker section of the health report.
 daily	groundwork-doctor --shell	command	Run only the shell runtime section: managed zsh installed, registered, selected as login shell, and running here.
+daily	groundwork-doctor --runtimes	command	Flag any mise-managed runtime adopted inside the 5-day release floor. A cooldown filters what you acquire; it never rolls back what you already have.
 shell	groundwork-shell-adopt	command	Make Groundwork's Homebrew zsh your login shell (records your current shell first, registers the new one in /etc/shells, runs chsh, verifies the account record). Your previous shell stays untouched as the recovery path.
 shell	groundwork-shell-adopt --status	command	Report the shell runtime state (managed zsh, account login shell, $SHELL, recorded previous shell) and change nothing.
 shell	groundwork-shell-adopt --revert	command	Restore the login shell you had before adopting. Works even when Homebrew is unavailable.

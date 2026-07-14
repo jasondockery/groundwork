@@ -10,6 +10,7 @@ Usage:
 
 Options:
   --shell       run only the shell runtime section
+  --runtimes    run only the runtime release-age section
   --docker      run only the Docker section
   -h, --help    show this help
 
@@ -19,6 +20,10 @@ Sections (all run by default):
                 login shell, and actually running in this terminal — plus that
                 the shell you had before adopting still exists, so --revert has
                 somewhere to go.
+  Runtime age   whether any mise-managed runtime was adopted inside the release
+                floor update-all enforces. A cooldown filters what you acquire;
+                it never rolls back what is already installed, so a version taken
+                before the floor existed stays until something says so.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftover containers, images, and
                 volumes — each finding paired with the owner-scoped cleanup
@@ -103,6 +108,102 @@ EOF
 
   if [[ "$settings_hint" == true ]]; then
     note "engine settings live in Docker Desktop -> Settings -> Docker Engine (work Macs: the managed Colima template already sets them). See the Platforms page for the exact JSON."
+  fi
+}
+
+
+# The release floor Groundwork enforces in update-all. Keep this in step with
+# groundwork-update-run; the validator asserts they agree.
+GROUNDWORK_RELEASE_FLOOR="${GROUNDWORK_RELEASE_FLOOR:-5d}"
+
+runtimes_section() {
+  heading "Runtime release age"
+
+  if ! command -v mise >/dev/null 2>&1; then
+    note "mise is not installed; skipping runtime checks."
+    return 0
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    note "jq is not installed; skipping runtime release-age checks."
+    return 0
+  fi
+  if ! mise upgrade --help 2>/dev/null | grep -q -- '--minimum-release-age'; then
+    warn "this mise cannot enforce a release floor (--minimum-release-age is missing) — update-all skips runtime upgrades entirely until it can. Upgrade mise: brew upgrade mise"
+    return 0
+  fi
+
+  # A cooldown only filters what you ACQUIRE. It never retires a version already
+  # on disk, so a runtime taken before the floor existed — or during a window
+  # when it was not enforced — stays put and silently violates the policy.
+  # Nothing else surfaces that, which is why this section exists.
+  #
+  # The release date is read from the tool's own backend, NOT from mise's
+  # upgrade warning: that warning only appears when mise's remote-version cache
+  # happens to be cold, so a check built on it would pass or fail by luck.
+  local floor_days
+  floor_days="${GROUNDWORK_RELEASE_FLOOR%d}"
+  [[ "$floor_days" =~ ^[0-9]+$ ]] || floor_days=5
+
+  local tools_json
+  tools_json="$(mise ls --current --json 2>/dev/null || true)"
+  if [[ -z "$tools_json" ]]; then
+    note "mise reported no active tools."
+    return 0
+  fi
+
+  local flagged=0 checked=0
+  local tool version released age_days
+  while IFS=$'\t' read -r tool version; do
+    [[ -n "$tool" && -n "$version" ]] || continue
+    released=""
+    case "$tool" in
+      node)
+        released="$(curl -fsS --max-time 10 https://nodejs.org/dist/index.json 2>/dev/null \
+          | jq -r --arg v "v$version" '.[] | select(.version == $v) | .date' 2>/dev/null | head -n 1)"
+        ;;
+      pnpm | npm:*)
+        local pkg="${tool#npm:}"
+        released="$(curl -fsS --max-time 10 "https://registry.npmjs.org/$pkg" 2>/dev/null \
+          | jq -r --arg v "$version" '.time[$v] // empty' 2>/dev/null | head -n 1)"
+        ;;
+    esac
+
+    if [[ -z "$released" ]]; then
+      # Say so plainly rather than implying a clean bill of health.
+      note "$tool $version: release date unavailable (no date source for this backend, or offline) — age not verified."
+      continue
+    fi
+
+    # Both real formats must parse: nodejs.org gives a bare date, npm gives an
+    # ISO timestamp with fractional seconds. fromdateiso8601 accepts neither
+    # as-is.
+    age_days="$(jq -rn --arg d "$released" '
+      ($d
+        | if test("T") then . else . + "T00:00:00Z" end
+        | sub("\\.[0-9]+"; "")
+        | if test("Z$") then . else . + "Z" end
+        | fromdateiso8601) as $t
+      | ((now - $t) / 86400 | floor)' 2>/dev/null || true)"
+    if ! [[ "$age_days" =~ ^-?[0-9]+$ ]]; then
+      note "$tool $version: could not parse its release date ($released) — age not verified."
+      continue
+    fi
+    checked=$((checked + 1))
+
+    if ((age_days < floor_days)); then
+      warn "$tool $version is only ${age_days}d old — younger than the ${floor_days}d release floor update-all enforces."
+      note "  It was adopted before the floor applied. A cooldown filters what you acquire; it never rolls back what you already have."
+      note "  Pin a vetted version now:   mise use -g $tool@<older-version>   (mise ls-remote $tool lists them)"
+      note "  Or wait it out: in $((floor_days - age_days))d this version clears the floor and update-all keeps it."
+      flagged=$((flagged + 1))
+    else
+      ok "$tool $version is ${age_days}d old — past the ${floor_days}d floor"
+    fi
+  done < <(printf '%s' "$tools_json" \
+    | jq -r 'to_entries[] | .key as $t | .value[] | select(.active) | "\($t)\t\(.version)"' 2>/dev/null || true)
+
+  if ((checked == 0 && flagged == 0)); then
+    note "no runtime release dates could be verified (offline, or no date source for these backends)."
   fi
 }
 
@@ -241,6 +342,7 @@ while (($#)); do
   case "$1" in
     --docker) section="docker" ;;
     --shell) section="shell" ;;
+    --runtimes) section="runtimes" ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "groundwork-doctor: unknown option: $1" >&2
@@ -256,8 +358,10 @@ echo "groundwork-doctor: read-only report; nothing is changed or deleted."
 case "$section" in
   "")
     shell_section
+    runtimes_section
     docker_section
     ;;
   shell) shell_section ;;
+  runtimes) runtimes_section ;;
   docker) docker_section ;;
 esac

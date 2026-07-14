@@ -201,6 +201,7 @@
         <tr><td><code>groundwork-restore</code></td><td>Restore the first-run backup of managed files and macOS defaults. Does not uninstall apps or undo Homebrew upgrades.</td></tr>
         <tr><td><code>groundwork-doctor</code></td><td>Read-only machine health report. It covers the shell runtime (managed zsh installed, registered, selected as your login shell, and actually running here) and Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers, images, and volumes, each with owner-scoped cleanup guidance. It never deletes or changes anything.</td></tr>
         <tr><td><code>groundwork-doctor --shell</code></td><td>Run only the shell runtime section: managed zsh installed, registered, selected as login shell, and running here.</td></tr>
+        <tr><td><code>groundwork-doctor --runtimes</code></td><td>Flag any mise-managed runtime that was adopted <em>inside</em> the five-day release floor. This closes a real gap: a cooldown only filters what you <em>acquire</em> — it never retires a version already on disk, so anything installed before the floor existed stays until something says so. It reads the release date from the tool's own backend rather than from mise's upgrade warning, which only appears when mise's version cache happens to be cold.</td></tr>
         <tr><td><code>groundwork-doctor --docker</code></td><td>Run only the Docker section of the health report.</td></tr>
       </table>
 
