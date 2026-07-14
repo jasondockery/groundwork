@@ -1381,6 +1381,17 @@ if ((tmux_suite_ok == 0)); then
 else
   copylast_socket="groundwork-validate-$$"
   copylast_dir="$out_dir/copylast"
+  # CI runners leave LANG unset. Without a UTF-8 locale tmux can mangle multibyte
+  # pane content before the helper ever sees it, which would make the multibyte
+  # test assert the runner's locale instead of our truncation. Pick one if the
+  # machine has it.
+  copylast_locale=""
+  for candidate_locale in en_US.UTF-8 C.UTF-8; do
+    if locale -a 2>/dev/null | grep -qix "$candidate_locale"; then
+      copylast_locale="$candidate_locale"
+      break
+    fi
+  done
   mkdir -p "$copylast_dir/bin"
   printf 'set -g history-limit 20000\nset -g escape-time 0\n' >"$copylast_dir/tmux.conf"
   # The helper calls plain `tmux`; this PATH shim pins every call to the
@@ -1479,7 +1490,9 @@ SH
 badge 󰀵 in output text
 READY-A
 EOF
-  tmux -L "$copylast_socket" -f "$copylast_dir/tmux.conf" new-session -d -x 200 -y 50 \
+  # shellcheck disable=SC2097,SC2098
+  LC_ALL="${copylast_locale:-${LC_ALL:-}}" LANG="${copylast_locale:-${LANG:-}}" \
+    tmux -L "$copylast_socket" -f "$copylast_dir/tmux.conf" new-session -d -x 200 -y 50 \
     -c "$copylast_dir" "$copylast_dir/scenario-completed.sh"
   # The last completed command is selected even though the newest block is an
   # idle prompt; hostile prompt-looking text and OS badge glyphs inside the
@@ -1597,8 +1610,17 @@ SH
   utf8_bytes="$(wc -c <"$copylast_dir/buffer-utf8" | tr -d ' ')"
   ((utf8_bytes <= 4096)) \
     || fail "tmux-copy-last blew the byte cap on multibyte content ($utf8_bytes bytes) — is it counting characters?"
-  iconv -f UTF-8 -t UTF-8 "$copylast_dir/buffer-utf8" >/dev/null 2>&1 \
-    || fail "tmux-copy-last split a multibyte character at the truncation boundary"
+  # Judge the helper, not the environment: if tmux itself could not render the
+  # multibyte pane (no UTF-8 locale on this machine), there is no valid input to
+  # preserve. When the capture IS valid, our output must be too — that is the
+  # truncation-boundary contract.
+  tmux -L "$copylast_socket" capture-pane -p -S - -t "$utf8_pane" >"$copylast_dir/utf8-capture"
+  if iconv -f UTF-8 -t UTF-8 "$copylast_dir/utf8-capture" >/dev/null 2>&1; then
+    iconv -f UTF-8 -t UTF-8 "$copylast_dir/buffer-utf8" >/dev/null 2>&1 \
+      || fail "tmux-copy-last split a multibyte character at the truncation boundary"
+  else
+    echo "  (this machine has no UTF-8 locale, so tmux could not render the multibyte pane; the byte cap is still asserted)"
+  fi
   head -n 1 "$copylast_dir/buffer-utf8" | grep -qF '🚀' \
     || fail "the context header lost the multibyte working directory"
   # The header stays one line even when the path carries control characters.
