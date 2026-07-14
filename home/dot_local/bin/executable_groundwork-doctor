@@ -9,10 +9,16 @@ Usage:
   groundwork-doctor [options]
 
 Options:
+  --shell       run only the shell runtime section
   --docker      run only the Docker section
   -h, --help    show this help
 
 Sections (all run by default):
+  Shell runtime whether Groundwork's managed zsh is installed and owned by
+                Homebrew, registered in /etc/shells, selected as your account's
+                login shell, and actually running in this terminal — plus that
+                the shell you had before adopting still exists, so --revert has
+                somewhere to go.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftover containers, images, and
                 volumes — each finding paired with the owner-scoped cleanup
@@ -100,11 +106,141 @@ EOF
   fi
 }
 
+shell_section() {
+  heading "Shell runtime"
+
+  # The shared probe is sourced HERE, not at file scope: a diagnostic must not
+  # lose its unrelated Docker checks because one component is missing. See
+  # lib/shell-runtime.sh — it never executes the candidate zsh, because ownership
+  # is proven from Homebrew metadata and the filesystem first.
+  local lib="${GROUNDWORK_SHELL_LIB:-$HOME/.local/share/groundwork/lib/shell-runtime.sh}"
+  if [[ ! -r "$lib" ]]; then
+    warn "Groundwork's shell-runtime probe is missing: $lib"
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
+    return 0
+  fi
+  # shellcheck source=/dev/null
+  . "$lib"
+
+  # A diagnostic must survive a damaged machine: nothing below returns early, so
+  # a broken Homebrew is reported rather than suppressing unrelated facts.
+  gw_shell_probe
+
+  case "$GW_LOGIN_STATE" in
+    ok) note "login shell (account): $GW_LOGIN_SHELL" ;;
+    *) warn "login shell (account): UNREADABLE — restore the account lookup (directory service / getent / /etc/passwd); Groundwork will not change a shell it cannot verify." ;;
+  esac
+  note "\$SHELL (session value): ${GW_SESSION_SHELL:-unset}"
+  case "$GW_PARENT_STATE" in
+    path) note "invoking process: $GW_PARENT_EXE" ;;
+    name-only) note "invoking process: $GW_PARENT_EXE (executable path could not be verified)" ;;
+    *) note "invoking process: unknown" ;;
+  esac
+
+  # --- Homebrew and OWNERSHIP: no green "managed" claim before it is proven ---
+  case "$GW_BREW_STATE" in
+    missing)
+      warn "Homebrew is not on PATH, so Groundwork's managed zsh cannot be checked or upgraded."
+      note "Recovery does not need Homebrew: groundwork-shell-adopt --revert"
+      ;;
+    broken)
+      warn "'brew --prefix' failed or returned nothing — the Homebrew installation looks damaged. Try 'brew doctor'."
+      note "Recovery does not need Homebrew: groundwork-shell-adopt --revert"
+      ;;
+  esac
+  case "$GW_OWNERSHIP" in
+    owned)
+      ok "managed zsh: Homebrew owns it — $GW_MANAGED_ZSH ($(gw_managed_zsh_version)) -> $GW_RESOLVED_ZSH"
+      ;;
+    unowned)
+      # Neutral language, and NOT executed: path equality is not ownership, and
+      # this is exactly the binary a diagnostic must not run to identify.
+      warn "zsh candidate at $GW_MANAGED_ZSH does NOT resolve into Homebrew's zsh formula (resolves to ${GW_RESOLVED_ZSH:-unknown}) — ownership is not established. Reinstall with 'brew reinstall zsh'."
+      ;;
+    absent)
+      warn "managed zsh absent: $GW_MANAGED_ZSH — run 'chezmoi apply' (installs the Brewfile) or 'brew install zsh'."
+      ;;
+  esac
+
+  # --- registration ---
+  if [[ "$GW_OWNERSHIP" != "unknown" ]]; then
+    case "$GW_SHELLS_STATE" in
+      registered) note "registered in $GW_SHELLS_FILE" ;;
+      not-registered) warn "not in $GW_SHELLS_FILE — chsh will refuse it. Run 'groundwork-shell-adopt'." ;;
+      *) warn "$GW_SHELLS_FILE is unreadable, so registration is UNKNOWN (not the same as unregistered)." ;;
+    esac
+  fi
+
+  # --- login shell, gated on ownership: pointing at the expected path is not
+  # the same as that path being a verified Homebrew zsh. ---
+  if [[ -n "$GW_MANAGED_ZSH" && "$GW_LOGIN_SHELL" == "$GW_MANAGED_ZSH" ]]; then
+    if [[ "$GW_OWNERSHIP" == "owned" ]]; then
+      ok "login shell is the managed zsh"
+    else
+      warn "login shell points at $GW_MANAGED_ZSH, but that path is not currently a verified Homebrew zsh — your login shell is an unverified binary."
+    fi
+  elif [[ -n "$GW_LOGIN_SHELL" && ! -x "$GW_LOGIN_SHELL" ]]; then
+    warn "login shell points at a missing binary: $GW_LOGIN_SHELL — run 'groundwork-shell-adopt', or 'groundwork-shell-adopt --revert' to restore your previous shell."
+  elif [[ "$GW_LOGIN_STATE" == "ok" && "$GW_OWNERSHIP" != "unknown" ]]; then
+    warn "login shell is $GW_LOGIN_SHELL, not the managed zsh — run 'groundwork-shell-adopt' to adopt it."
+  fi
+
+  # --- is THIS terminal running it? (a login-shell change only affects new
+  # terminals — the thing everyone trips over). Also gated on ownership. ---
+  if [[ "$GW_OWNERSHIP" == "owned" && "$GW_LOGIN_SHELL" == "$GW_MANAGED_ZSH" && -n "$GW_PARENT_EXE" ]]; then
+    local parent_canonical
+    parent_canonical="$(gw_canonical_path "$GW_PARENT_EXE" 2>/dev/null || printf '%s' "$GW_PARENT_EXE")"
+    if [[ "$GW_PARENT_EXE" == "$GW_MANAGED_ZSH" || "$parent_canonical" == "$GW_RESOLVED_ZSH" ]]; then
+      ok "this terminal is running the managed zsh"
+    elif [[ "$GW_PARENT_STATE" == "path" ]]; then
+      note "this terminal is running $GW_PARENT_EXE, not the managed zsh; new terminals use it (or run: exec \"$GW_MANAGED_ZSH\" -l)."
+    else
+      note "this terminal reports '$GW_PARENT_EXE', but its executable path could not be verified; new terminals use the managed zsh."
+    fi
+  fi
+
+  # --- recovery path: what --revert would restore ---
+  case "$GW_PREV_STATE" in
+    recorded) ok "recovery shell intact: $GW_PREV_SHELL" ;;
+    missing-binary) warn "the recorded previous shell is missing: $GW_PREV_SHELL — pick one explicitly with 'groundwork-shell-adopt --revert-to <shell>'." ;;
+    *)
+      if [[ -n "$GW_MANAGED_ZSH" && "$GW_LOGIN_SHELL" == "$GW_MANAGED_ZSH" ]]; then
+        warn "no previous login shell recorded, so --revert has nothing to restore; use 'groundwork-shell-adopt --revert-to <shell>'."
+      fi
+      ;;
+  esac
+
+  # --- config and plugin manager: knowable with or without Homebrew ---
+  if [[ -r "$HOME/.zshrc" ]]; then
+    ok "Groundwork zsh config present: $HOME/.zshrc"
+  else
+    warn "$HOME/.zshrc is missing — run 'chezmoi apply'."
+  fi
+  # antidote is sourced, not a PATH binary. Include the Linuxbrew prefix and the
+  # non-Homebrew fallback so a broken brew does not hide a working plugin layer.
+  local antidote_found="" candidate
+  for candidate in "${GW_BREW_PREFIX:+$GW_BREW_PREFIX/share/antidote/antidote.zsh}" \
+    /opt/homebrew/share/antidote/antidote.zsh \
+    /usr/local/share/antidote/antidote.zsh \
+    /home/linuxbrew/.linuxbrew/share/antidote/antidote.zsh \
+    "$HOME/.local/share/antidote/antidote.zsh"; do
+    [[ -n "$candidate" && -f "$candidate" ]] || continue
+    antidote_found="$candidate"
+    break
+  done
+  if [[ -n "$antidote_found" ]]; then
+    ok "plugin manager available: antidote ($antidote_found)"
+  else
+    warn "antidote (plugin manager) not found — run 'chezmoi apply' to install the Brewfile."
+  fi
+}
+
 section=""
 
 while (($#)); do
   case "$1" in
     --docker) section="docker" ;;
+    --shell) section="shell" ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "groundwork-doctor: unknown option: $1" >&2
@@ -118,5 +254,10 @@ done
 echo "groundwork-doctor: read-only report; nothing is changed or deleted."
 
 case "$section" in
-  ""|docker) docker_section ;;
+  "")
+    shell_section
+    docker_section
+    ;;
+  shell) shell_section ;;
+  docker) docker_section ;;
 esac

@@ -1,0 +1,412 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Make Groundwork's Homebrew-managed zsh the login shell.
+#
+# Groundwork owns the interactive shell runtime — the binary, its config,
+# plugins, completions, prompt integration, updates, and diagnostics — so the
+# environment behaves the same on macOS, Linux, and WSL2 and `update-all`
+# actually keeps it current. The operating system's own shell is never
+# touched: it stays as the recovery path.
+#
+# This is a deliberate, visible step rather than something an apply does behind
+# your back, because it changes your account's login-shell record and needs
+# sudo to register the shell in /etc/shells. It never re-execs the shell you
+# are sitting in.
+#
+# Recovery is the priority: --status and --revert never require Homebrew,
+# because the incident they exist for is Homebrew being broken or gone.
+
+usage() {
+  cat <<'EOF'
+Make Groundwork's Homebrew zsh your login shell.
+
+Usage:
+  groundwork-shell-adopt [options]
+
+Options:
+  --status         report the shell runtime state and exit; change nothing
+  --revert         restore the login shell you had before adopting
+  --revert-to PATH restore a specific shell (when no previous one was recorded)
+  -h, --help       show this help
+
+What it changes:
+  - records your current login shell, so --revert restores that exact shell
+  - registers the managed zsh in /etc/shells (needs sudo, idempotent)
+  - sets your account's login shell to it (chsh)
+
+What it never does:
+  - modify or remove your operating system's shell
+  - replace the shell process you are currently sitting in
+
+--status and --revert work even when Homebrew is unavailable.
+
+More help:
+  groundwork-doctor --shell
+  groundwork-help shell
+EOF
+}
+
+mode=""
+chosen_option=""
+revert_target=""
+set_mode() {
+  # Track the OPTION the user typed, not just the resulting mode: --revert and
+  # --revert-to both mean "revert", so keying on the mode would silently accept
+  # `--revert --revert-to X` while the help says they are exclusive.
+  if [[ -n "$chosen_option" && "$chosen_option" != "$2" ]]; then
+    echo "groundwork-shell-adopt: $chosen_option and $2 are mutually exclusive." >&2
+    exit 2
+  fi
+  chosen_option="$2"
+  mode="$1"
+}
+while (($#)); do
+  case "$1" in
+    --status) set_mode status --status ;;
+    --revert) set_mode revert --revert ;;
+    --revert-to)
+      set_mode revert --revert-to
+      [[ -z "$revert_target" ]] || {
+        echo "groundwork-shell-adopt: --revert-to given more than once." >&2
+        exit 2
+      }
+      shift
+      [[ $# -gt 0 ]] || {
+        echo "groundwork-shell-adopt: --revert-to needs a shell path" >&2
+        exit 2
+      }
+      revert_target="$1"
+      # An absolute path with no control characters: this value ends up in the
+      # account record and in chsh's argument.
+      # Reject EVERY control character. NOT grep: it splits input on newlines,
+      # so an embedded newline is a record separator and never matches — the
+      # exact byte most worth rejecting slips straight through.
+      if [[ "$revert_target" != /* ]] \
+        || [[ "$revert_target" =~ [[:cntrl:]] ]]; then
+        echo "groundwork-shell-adopt: --revert-to needs an absolute path with no control characters." >&2
+        exit 2
+      fi
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "groundwork-shell-adopt: unknown option: $1" >&2
+      echo "Run 'groundwork-shell-adopt --help' for usage." >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+mode="${mode:-adopt}"
+
+# One shared, read-only probe — see lib/shell-runtime.sh. Three private copies
+# of "what is the login shell / is this really Homebrew's zsh" had already
+# drifted into security-relevant differences.
+shell_lib="${GROUNDWORK_SHELL_LIB:-$HOME/.local/share/groundwork/lib/shell-runtime.sh}"
+if [[ ! -r "$shell_lib" ]]; then
+  echo "groundwork-shell-adopt: the shell-runtime probe is missing: $shell_lib" >&2
+  echo "Restore it (this runs no install hooks):" >&2
+  echo "  chezmoi apply --exclude=scripts ~/.local/share/groundwork" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$shell_lib"
+
+# Tests point these at fixtures; real runs use the system paths.
+shells_file="${GROUNDWORK_SHELLS_FILE:-/etc/shells}"
+state_dir="${GROUNDWORK_STATE_DIR:-$HOME/.local/state/groundwork}"
+# The shell the user had before Groundwork first changed it. Recorded once, so
+# --revert restores what they actually had (which on Linux is often bash, not
+# zsh) instead of a guessed platform default.
+previous_file="$state_dir/previous-login-shell"
+
+recorded_previous() {
+  [[ -r "$previous_file" ]] || return 1
+  local recorded
+  recorded="$(head -n 1 "$previous_file" 2>/dev/null || true)"
+  [[ -n "$recorded" && "$recorded" == /* && -x "$recorded" ]] || return 1
+  printf '%s\n' "$recorded"
+}
+
+record_previous() {
+  # Written once, before the account changes, and never overwritten: the value
+  # must stay whatever the user had before Groundwork first touched it. Failing
+  # to record is fatal for adoption — see the caller — because an unrecorded
+  # previous shell means --revert has nothing to restore.
+  local shell_path="$1"
+  [[ -n "$shell_path" && "$shell_path" == /* && -f "$shell_path" && -x "$shell_path" ]] || return 1
+  [[ "$shell_path" != "$managed_zsh" ]] || return 0
+  [[ ! -s "$previous_file" ]] || return 0
+  mkdir -p "$state_dir"
+  local tmp old_umask
+  old_umask="$(umask)"
+  umask 077
+  if ! tmp="$(mktemp "$state_dir/previous-login-shell.XXXXXX")"; then
+    umask "$old_umask"
+    return 1
+  fi
+  if ! printf '%s\n' "$shell_path" >"$tmp" || ! mv -f -- "$tmp" "$previous_file"; then
+    rm -f -- "$tmp"
+    umask "$old_umask"
+    return 1
+  fi
+  umask "$old_umask"
+}
+
+gw_shell_probe
+managed_zsh="$GW_MANAGED_ZSH"
+current_shell="$GW_LOGIN_SHELL"
+
+# An unreadable account record means different things per mode: status can still
+# report everything else, but neither revert nor adopt may touch the login shell
+# without knowing what it currently is.
+if [[ -z "$current_shell" ]]; then
+  case "$mode" in
+    revert | adopt)
+      # No --revert-to suggestion here: it routes through this same branch, and
+      # it would be pointless anyway — every shell change is verified against
+      # the account record afterwards, which is exactly what is unreadable. A
+      # mutation we cannot verify is one we must not make.
+      cat >&2 <<'EOF'
+groundwork-shell-adopt: could not read your account's current login shell.
+No account change was attempted.
+
+Groundwork verifies every login-shell change against the account record, so it
+will not touch the shell while that record is unreadable — --revert-to included.
+Restore the account lookup (directory service / getent / /etc/passwd), then retry.
+EOF
+      exit 1
+      ;;
+  esac
+fi
+
+report() {
+  echo "Shell runtime"
+  # A candidate binary is NEVER executed to ask its version until Homebrew is
+  # proven to own it. Running an unverified binary is exactly what a replaced
+  # one wants, and this command's whole job is to diagnose that case.
+  case "$GW_OWNERSHIP" in
+    owned)
+      printf '  managed zsh:      %s (%s)\n' "$GW_MANAGED_ZSH" "$(gw_managed_zsh_version)"
+      ;;
+    unowned)
+      printf '  managed zsh:      %s — NOT Homebrew'"'"'s zsh (resolves to %s)\n' \
+        "$GW_MANAGED_ZSH" "${GW_RESOLVED_ZSH:-unknown}"
+      ;;
+    absent)
+      printf '  managed zsh:      %s — not installed\n' "$GW_MANAGED_ZSH"
+      ;;
+    *)
+      printf '  managed zsh:      unavailable (Homebrew %s)\n' "$GW_BREW_STATE"
+      ;;
+  esac
+  printf '  login shell:      %s\n' "${current_shell:-unknown (account record unreadable)}"
+  # shellcheck disable=SC2016 # literal label, not an expansion
+  printf '  %s (session):    %s\n' '$SHELL' "${GW_SESSION_SHELL:-unset}"
+  case "$GW_PREV_STATE" in
+    recorded) printf '  previous shell:   %s\n' "$GW_PREV_SHELL" ;;
+    missing-binary) printf '  previous shell:   %s — MISSING\n' "$GW_PREV_SHELL" ;;
+    *) printf '  previous shell:   none recorded\n' ;;
+  esac
+  # "unreadable" is a different recovery state from "not registered"; collapsing
+  # them into "no" would send someone chasing the wrong fix.
+  case "$GW_SHELLS_STATE" in
+    registered) printf '  registered in:    yes\n' ;;
+    not-registered) printf '  registered in:    no\n' ;;
+    *) printf '  registered in:    unknown (%s unreadable)\n' "$GW_SHELLS_FILE" ;;
+  esac
+}
+
+if [[ "$mode" == "status" ]]; then
+  report
+  echo
+  # Every positive statement is gated on PROVEN ownership. Path equality is not
+  # ownership: a replaced binary at the expected path would otherwise be told
+  # "Groundwork's zsh is your login shell" right under a line saying it is not
+  # Homebrew's zsh.
+  if [[ "$GW_OWNERSHIP" == "owned" && "$current_shell" == "$managed_zsh" ]]; then
+    echo "Groundwork's verified Homebrew zsh is your login shell."
+  elif [[ -n "$managed_zsh" && "$current_shell" == "$managed_zsh" ]]; then
+    echo "Your login shell points at Groundwork's expected path, but that binary is NOT a verified Homebrew zsh."
+    echo "Reinstall it before trusting it: brew reinstall zsh"
+  elif [[ -z "$managed_zsh" ]]; then
+    echo "Homebrew is unavailable, so the managed zsh cannot be resolved. Recovery still works: groundwork-shell-adopt --revert"
+  elif [[ "$GW_OWNERSHIP" == "absent" ]]; then
+    echo "Install the managed zsh before adopting it: brew install zsh"
+  elif [[ "$GW_OWNERSHIP" == "unowned" ]]; then
+    echo "The zsh at $managed_zsh is not Homebrew's; reinstall it before adopting: brew reinstall zsh"
+  else
+    echo "Run groundwork-shell-adopt to make the managed zsh your login shell."
+  fi
+  exit 0
+fi
+
+if [[ "$mode" == "revert" ]]; then
+  # Recovery must work with Homebrew absent, broken, or the managed zsh gone —
+  # that is the whole point of the escape hatch.
+  target="$revert_target"
+  if [[ -z "$target" ]]; then
+    target="$(recorded_previous || true)"
+  fi
+  if [[ -z "$target" ]]; then
+    echo "groundwork-shell-adopt: no previous login shell was recorded, so there is nothing to restore." >&2
+    # List only shells this system actually offers — never a guessed platform
+    # default like /bin/zsh, which is not a Linux answer.
+    echo "Choose one of the shells registered on this system:" >&2
+    if [[ -r "$shells_file" ]]; then
+      while read -r candidate; do
+        [[ "$candidate" == /* && -x "$candidate" && "$candidate" != "${managed_zsh:-}" ]] || continue
+        echo "  groundwork-shell-adopt --revert-to $candidate" >&2
+      done <"$shells_file"
+    else
+      echo "  (none found: $shells_file is unreadable)" >&2
+    fi
+    exit 1
+  fi
+  if [[ ! -f "$target" || ! -x "$target" ]]; then
+    echo "groundwork-shell-adopt: $target is not a regular executable file; nothing was changed." >&2
+    exit 1
+  fi
+  # chsh refuses a shell that is not registered, so catch it here with an
+  # explanation rather than letting chsh fail cryptically. An unreadable shells
+  # file means the requirement cannot be checked — fail closed rather than
+  # skipping the check and calling chsh anyway.
+  if [[ ! -r "$shells_file" ]]; then
+    echo "groundwork-shell-adopt: cannot verify $target because $shells_file is unreadable; nothing was changed." >&2
+    exit 1
+  fi
+  if ! grep -Fxq "$target" "$shells_file"; then
+    echo "groundwork-shell-adopt: $target is not listed in $shells_file, so chsh will refuse it; nothing was changed." >&2
+    printf 'Register it first (needs sudo):  echo %s | sudo tee -a %s\n' "$target" "$shells_file" >&2
+    exit 1
+  fi
+  if [[ "$current_shell" == "$target" ]]; then
+    echo "Login shell is already $target"
+    exit 0
+  fi
+  echo "Restoring your previous login shell: $target"
+  chsh -s "$target" || {
+    echo "groundwork-shell-adopt: chsh failed; the login shell is still $current_shell." >&2
+    exit 1
+  }
+  # Verify the account record rather than trusting chsh's exit status.
+  gw_shell_probe
+  restored="$GW_LOGIN_SHELL"
+  if [[ "$restored" != "$target" ]]; then
+    echo "groundwork-shell-adopt: chsh reported success but the login shell is still $restored." >&2
+    exit 1
+  fi
+  echo "Done. New terminals use $target; this terminal keeps its current process."
+  echo "  switch this terminal now:  exec \"$target\" -l"
+  exit 0
+fi
+
+# --- adopt ---
+if [[ -z "$managed_zsh" ]]; then
+  echo "groundwork-shell-adopt: Homebrew is not available, so there is no managed zsh to adopt." >&2
+  echo "Install Homebrew and run 'chezmoi apply'. Your current shell is unaffected." >&2
+  exit 1
+fi
+if [[ ! -x "$managed_zsh" ]]; then
+  echo "groundwork-shell-adopt: the managed zsh is not installed at $managed_zsh" >&2
+  echo "Run \`brew install zsh\` (or \`chezmoi apply\` to install the whole Brewfile), then try again." >&2
+  exit 1
+fi
+if [[ "$GW_OWNERSHIP" != "owned" ]]; then
+  echo "groundwork-shell-adopt: $managed_zsh is not Homebrew's zsh formula." >&2
+  echo "Adopting it would hand your login shell to a binary Groundwork cannot keep updated." >&2
+  echo "Run \`brew install zsh\` so the managed path resolves into Homebrew's formula, then try again." >&2
+  exit 1
+fi
+
+registration_changed=0
+ensure_registered() {
+  # chsh only accepts a shell listed in the shells file. Idempotent, and
+  # repaired even when the shell is already adopted.
+  if grep -Fxq "$managed_zsh" "$shells_file" 2>/dev/null; then
+    return 0
+  fi
+  echo "Registering $managed_zsh in $shells_file (needs sudo)."
+  printf '%s\n' "$managed_zsh" | sudo tee -a "$shells_file" >/dev/null
+  grep -Fxq "$managed_zsh" "$shells_file" || {
+    echo "groundwork-shell-adopt: failed to register the shell; the login shell was not changed." >&2
+    exit 1
+  }
+  registration_changed=1
+}
+
+if [[ "$current_shell" == "$managed_zsh" ]]; then
+  # Already adopted — but the registration can still be missing (a system
+  # update can rewrite the shells file), which would break a future chsh.
+  ensure_registered
+  if ((registration_changed)); then
+    echo "Login shell was already Groundwork's zsh; repaired its $shells_file registration."
+  else
+    echo "Login shell is already Groundwork's zsh: $managed_zsh"
+  fi
+  report
+  exit 0
+fi
+
+echo "Adopting Groundwork's zsh as your login shell."
+report
+echo
+
+# The recovery invariant: never change the login shell unless a usable rollback
+# is durably recorded first. Anything less can strand someone with no way back.
+if [[ "$current_shell" != /* || ! -f "$current_shell" || ! -x "$current_shell" ]]; then
+  echo "groundwork-shell-adopt: cannot determine your current executable login shell (got '${current_shell:-empty}')." >&2
+  echo "Refusing to adopt: without a recorded shell to return to, --revert would have nothing to restore." >&2
+  exit 1
+fi
+if ! record_previous "$current_shell"; then
+  echo "groundwork-shell-adopt: could not record your previous login shell in $state_dir." >&2
+  echo "Refusing to adopt: the rollback path must exist before the login shell changes." >&2
+  exit 1
+fi
+if ! recorded_previous >/dev/null; then
+  echo "groundwork-shell-adopt: recorded the previous login shell but could not read it back." >&2
+  echo "Refusing to adopt: the rollback path must be verifiable before the login shell changes." >&2
+  exit 1
+fi
+
+ensure_registered
+
+if ! chsh -s "$managed_zsh"; then
+  echo "groundwork-shell-adopt: chsh failed; your login shell is still $current_shell." >&2
+  if ((registration_changed)); then
+    echo "The shell was registered in $shells_file (that change stands); nothing else was modified." >&2
+  else
+    echo "Nothing was modified." >&2
+  fi
+  echo "Your current terminal is unaffected." >&2
+  exit 1
+fi
+
+# Verify the account record actually changed rather than trusting chsh's status.
+gw_shell_probe
+updated_shell="$GW_LOGIN_SHELL"
+if [[ "$updated_shell" != "$managed_zsh" ]]; then
+  echo "groundwork-shell-adopt: chsh reported success but the login shell is still $updated_shell." >&2
+  if ((registration_changed)); then
+    echo "The shell was registered in $shells_file (that change stands); the account record was not updated." >&2
+  fi
+  echo "Your current terminal is unaffected." >&2
+  exit 1
+fi
+
+previous="$(recorded_previous || echo "$current_shell")"
+cat <<EOF
+
+Login shell is now Groundwork's zsh: $managed_zsh
+New terminals use it automatically; this terminal keeps its current process.
+
+  switch this terminal now:  exec "$managed_zsh" -l
+  check anytime:             groundwork-doctor --shell
+  undo:                      groundwork-shell-adopt --revert   (back to $previous)
+
+Your previous shell ($previous) was not modified and remains your recovery path.
+EOF
