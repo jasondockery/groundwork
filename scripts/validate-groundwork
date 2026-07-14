@@ -29,22 +29,35 @@ fail() {
   exit 1
 }
 
+# Annotation messages must be single-line: escape literal % first, then
+# collapse newlines/carriage returns. Titles additionally escape the
+# property delimiters (:, ,) per the Actions toolkit rules. Kept as
+# functions so the escaping itself is testable against hostile input.
+annotation_escape_message() {
+  local cr=$'\r' nl=$'\n' s="$1"
+  s="${s//%/%25}"
+  s="${s//"$cr"/ }"
+  s="${s//"$nl"/ }"
+  printf '%s' "$s"
+}
+
+annotation_escape_title() {
+  local s
+  s="$(annotation_escape_message "$1")"
+  s="${s//:/%3A}"
+  s="${s//,/%2C}"
+  printf '%s' "$s"
+}
+
 report_and_cleanup() {
   local status=$?
   rm -rf "$out_dir"
-  local cr=$'\r' nl=$'\n'
-  local reason="${fail_reason:-see the failing check output in the job log}"
-  # Annotation messages must be single-line: escape literal % first, then
-  # collapse newlines/carriage returns. Titles additionally escape the
-  # property delimiters (:, ,) per the Actions toolkit rules.
-  reason="${reason//%/%25}"
-  reason="${reason//"$cr"/ }"
-  reason="${reason//"$nl"/ }"
-  local title="${current_check//%/%25}"
-  title="${title//"$cr"/ }"
-  title="${title//"$nl"/ }"
-  title="${title//:/%3A}"
-  title="${title//,/%2C}"
+  if [[ -n "${copylast_socket:-}" ]]; then
+    tmux -L "$copylast_socket" kill-server 2>/dev/null || true
+  fi
+  local reason title
+  reason="$(annotation_escape_message "${fail_reason:-see the failing check output in the job log}")"
+  title="$(annotation_escape_title "$current_check")"
   local passed="$checks_started"
   if [[ "$status" -ne 0 && "$checks_started" -gt 0 ]]; then
     passed=$((checks_started - 1))
@@ -308,6 +321,10 @@ echo "${FAKE_PLATFORM:-linux}"
 SH
 cat >"$update_all_bin/mise" <<'SH'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "upgrade" && "${2:-}" == "--help" ]]; then
+  [[ "${MISE_HAS_RELEASE_AGE:-1}" == "1" ]] && echo "      --minimum-release-age <MINIMUM_RELEASE_AGE>"
+  exit 0
+fi
 printf 'mise %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 exit "${MISE_STATUS:-0}"
 SH
@@ -337,6 +354,26 @@ arg=alpha
 arg=two words
 EOF
 diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+# The launcher gates the platform BEFORE syncing: chezmoi update runs the
+# install hooks (Homebrew bootstrap, brew bundle, every run_ script), so an
+# unsupported platform must never reach it. A gate that only lives in the
+# runner fires after the machine has already been mutated.
+for launcher_platform in wsl1 wsl-unknown freebsd; do
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    FAKE_PLATFORM="$launcher_platform" "$update_all_fixture/old-launcher" \
+    >"$update_all_fixture/launcher-$launcher_platform" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "update-all launcher proceeded on unsupported platform $launcher_platform"
+  test ! -s "$update_all_log" \
+    || fail "update-all launcher ran chezmoi update on unsupported platform $launcher_platform"
+done
+grep -qF 'WSL1 is unsupported' "$update_all_fixture/launcher-wsl1"
+grep -qF 'wsl --list --verbose' "$update_all_fixture/launcher-wsl-unknown"
 
 # Synchronization failure prevents the handoff and every package/runtime stage.
 : >"$update_all_log"
@@ -426,7 +463,7 @@ brew-update
 brew upgrade auto=1 casks=unset
 brew autoremove
 brew cleanup
-mise upgrade
+mise upgrade --minimum-release-age 5d
 EOF
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 test -f "$update_all_stamp"
@@ -455,6 +492,83 @@ set -e
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 grep -qxF 'previous-success' "$update_all_stamp"
 
+# The machine-side 5-day floor: mise must be age-gated in the normal path, the
+# same policy the renovate-config preset applies to repo dependencies. An older
+# mise without the flag still upgrades, but must say so rather than pretend.
+grep -qF 'mise upgrade --minimum-release-age 5d' "$update_all_fixture/expected-success" \
+  || fail "update-all must apply the 5-day release floor to mise upgrades"
+# A mise that cannot enforce the floor must FAIL CLOSED: the runtime stage is
+# skipped, the run exits nonzero, and no success timestamp is written. Do NOT
+# "restore" an ungated fallback here — a policy that steps aside whenever it
+# cannot be enforced is not a policy.
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  MISE_HAS_RELEASE_AGE=0 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/mise-old" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "update-all succeeded on a mise that cannot enforce the 5-day release floor"
+assert_not_contains '^mise upgrade$' "$update_all_log" \
+  "update-all ran an UNGATED mise upgrade when the release floor was unavailable"
+grep -qF 'cannot enforce the 5-day release floor' "$update_all_fixture/mise-old"
+grep -qF 'brew upgrade mise' "$update_all_fixture/mise-old" \
+  || fail "the mise floor refusal must say how to fix it"
+test ! -e "$update_all_stamp" \
+  || fail "update-all recorded success although the release floor was skipped"
+rm -f "$update_all_stamp"
+
+# macOS is the primary platform, so run the transaction against the darwin
+# render too — not just grep it. The cask policy and the app relaunch only
+# exist in that branch.
+render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  "$update_all_fixture/darwin-runner"
+chmod +x "$update_all_fixture/darwin-runner"
+cat >"$update_all_bin/groundwork-apps-start" <<'SH'
+#!/usr/bin/env bash
+printf 'apps-start\n' >>"$GROUNDWORK_TEST_LOG"
+exit "${APPS_START_STATUS:-0}"
+SH
+chmod +x "$update_all_bin/groundwork-apps-start"
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+  >"$update_all_fixture/darwin-success" 2>&1
+cat >"$update_all_fixture/expected-darwin" <<'EOF'
+brew-update
+brew upgrade --require-sha auto=1 casks=1
+brew autoremove
+brew cleanup
+apps-start
+mise upgrade --minimum-release-age 5d
+EOF
+diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
+test -f "$update_all_stamp"
+# A failed app relaunch must not fail the refresh (it is best-effort), and a
+# failed Homebrew stage must still stop everything after it.
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  FAKE_PLATFORM=darwin APPS_START_STATUS=1 "$update_all_fixture/darwin-runner" \
+  >"$update_all_fixture/darwin-apps-fail" 2>&1 \
+  || fail "a failed app relaunch must not fail update-all (it is best-effort)"
+diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
+test -f "$update_all_stamp"
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  FAKE_PLATFORM=darwin BREW_UPDATE_STATUS=1 "$update_all_fixture/darwin-runner" \
+  >"$update_all_fixture/darwin-brew-fail" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "the darwin runner continued after its metadata refresh failed"
+diff -u <(printf 'brew-update\n') "$update_all_log"
+test ! -e "$update_all_stamp"
+
 check "update-all migration notice"
 migration_home="$out_dir/update-all-migration-home"
 migration_flag="$migration_home/.local/state/groundwork/update-all-migration-pending"
@@ -472,12 +586,23 @@ test -f "$migration_flag"
 # The end-of-apply reminder repeats the one required action after Homebrew
 # output has scrolled the first notice away, then clears the flag so it
 # never repeats.
-HOME="$migration_home" /bin/bash home/run_once_after_98-update-all-migration-reminder.sh \
+# A noninteractive apply (piped/CI) cannot deliver the reminder to anyone, so
+# it must print nothing and leave the flag pending for the next interactive run.
+HOME="$migration_home" /bin/bash home/run_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-noninteractive"
+test ! -s "$out_dir/update-all-migration-noninteractive" \
+  || fail "the migration reminder printed to a non-terminal"
+test -f "$migration_flag" \
+  || fail "a noninteractive apply consumed the migration reminder"
+# Interactive: shown, then the flag is cleared so it never repeats.
+HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 \
+  /bin/bash home/run_after_98-update-all-migration-reminder.sh \
   >"$out_dir/update-all-migration-reminder"
 grep -qF 'one step left' "$out_dir/update-all-migration-reminder"
 grep -qF 'exec zsh' "$out_dir/update-all-migration-reminder"
 test ! -e "$migration_flag"
-HOME="$migration_home" /bin/bash home/run_once_after_98-update-all-migration-reminder.sh \
+HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 \
+  /bin/bash home/run_after_98-update-all-migration-reminder.sh \
   >"$out_dir/update-all-migration-reminder-repeat"
 test ! -s "$out_dir/update-all-migration-reminder-repeat"
 printf '# fresh install has no old function\n' >"$migration_home/.zshrc"
@@ -606,13 +731,17 @@ grep -qF 'sourceDir' "$out_dir/wsl2-old-init"
 
 # On WSL2, new-project refuses Windows-mounted drives; repositories belong in
 # the WSL Linux filesystem.
-cat >"$platform_fixture/bin/groundwork-platform" <<'SH'
+# new-project resolves the helper absolutely (a stripped PATH must not make the
+# guard fail open), so the fixture supplies it through HOME.
+wsl_home="$out_dir/wsl-home"
+mkdir -p "$wsl_home/.local/bin"
+cat >"$wsl_home/.local/bin/groundwork-platform" <<'SH'
 #!/usr/bin/env bash
 echo wsl2
 SH
-chmod +x "$platform_fixture/bin/groundwork-platform"
+chmod +x "$wsl_home/.local/bin/groundwork-platform"
 set +e
-PATH="$platform_fixture/bin:/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project /mnt/c/demo \
+HOME="$wsl_home" PATH="/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project /mnt/c/demo \
   >"$out_dir/new-project-mnt" 2>&1
 mnt_status=$?
 set -e
@@ -623,7 +752,7 @@ test ! -e /mnt/c/demo
 # too — the guard is not purely lexical on the argument.
 groundwork_repo_root="$PWD"
 set +e
-(cd /usr/bin && PATH="$platform_fixture/bin:/usr/bin:/bin" \
+(cd /usr/bin && HOME="$wsl_home" PATH="/usr/bin:/bin" \
   /bin/bash "$groundwork_repo_root/home/dot_local/bin/executable_new-project" ../../mnt/c/demo) \
   >"$out_dir/new-project-mnt-relative" 2>&1
 mnt_status=$?
@@ -631,72 +760,1040 @@ set -e
 [[ "$mnt_status" -ne 0 ]] || fail "new-project accepted a relative path traversing into /mnt under WSL"
 grep -qF 'Windows-mounted drive' "$out_dir/new-project-mnt-relative"
 # A normal Linux-filesystem project still scaffolds under WSL.
-PATH="$platform_fixture/bin:/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project \
-  "$platform_fixture/wsl-ok-project" >"$out_dir/new-project-wsl-ok" 2>&1 \
+HOME="$wsl_home" PATH="/usr/bin:/bin" /bin/bash home/dot_local/bin/executable_new-project \
+  "$wsl_home/wsl-ok-project" >"$out_dir/new-project-wsl-ok" 2>&1 \
   || fail "new-project refused a Linux-filesystem path under WSL"
-test -f "$platform_fixture/wsl-ok-project/AGENTS.md"
+test -f "$wsl_home/wsl-ok-project/AGENTS.md"
 
 # The Linux/WSL2 runner never carries the macOS cask policy; casks are a
 # macOS concern (the darwin render is asserted in the beta channel profile).
 grep -qF 'HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade' "$update_all_fixture/rendered-runner"
 assert_not_contains 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS' "$update_all_fixture/rendered-runner" \
   "macOS cask upgrade policy leaked into the Linux update runner"
-assert_not_contains 'greedy' "$update_all_fixture/rendered-runner" \
-  "cask --greedy-latest leaked into the Linux update runner"
+assert_not_contains '^[^#]*brew upgrade[^#]*--greedy' "$update_all_fixture/rendered-runner" \
+  "a --greedy cask flag leaked into the Linux update runner"
 
-check "tmux-copy-last helper"
-copylast_fixture="$out_dir/copylast-fixture"
-mkdir -p "$copylast_fixture/bin"
-cat >"$copylast_fixture/pane.txt" <<'EOF'
- 󰀵  …/groundwork ❯ echo hello
-hello
- 󰀵  …/groundwork ❯ ls
-file-a
-file-b
+check "setup prompt wording"
+# chezmoi renders its own hint under every prompt ("> bool, default false") and
+# appends its own "?" to the prompt text. So a hand-written [y/N] duplicates the
+# type hint, and trailing punctuation renders as "??" or ".?".
+assert_no_matches "setup prompts must not hand-write [y/N]; chezmoi already shows 'bool, default <x>'" \
+  rg -n '\[y/N\]|\[Y/n\]' home/.chezmoi.toml.tmpl
+prompt_texts="$(rg -o 'prompt(Bool|String|Choice)Once \. "[^"]+" "[^"]+"' home/.chezmoi.toml.tmpl \
+  | sed -E 's/.*" "([^"]+)"$/\1/')"
+while IFS= read -r prompt_text; do
+  [[ -n "$prompt_text" ]] || continue
+  case "$prompt_text" in
+    *[.?!])
+      fail "setup prompt must not end with punctuation (chezmoi appends its own '?', giving '??' or '.?'): $prompt_text"
+      ;;
+  esac
+done <<<"$prompt_texts"
 
- 󰀵  …/groundwork
-❯
-EOF
-cat >"$copylast_fixture/bin/tmux" <<SH
+# Regex over the template proves the source, not the UI. Drive a real
+# `chezmoi init` in a real terminal and assert the rendered prompt: chezmoi
+# appends its own "?" and its own "> bool, default false" hint, so a stray
+# "[y/N]" or trailing punctuation shows up as "[y/N]?" / "??" only here.
+if command -v tmux >/dev/null 2>&1; then
+  prompt_socket="groundwork-prompt-$$"
+  prompt_dir="$out_dir/prompt-render"
+  mkdir -p "$prompt_dir/home" "$prompt_dir/src"
+  cp home/.chezmoi.toml.tmpl "$prompt_dir/src/.chezmoi.toml.tmpl"
+  tmux -L "$prompt_socket" new-session -d -x 120 -y 24 -c "$prompt_dir" /bin/sh
+  tmux -L "$prompt_socket" send-keys \
+    "HOME=$prompt_dir/home chezmoi init --source $prompt_dir/src" Enter
+  prompt_rendered=""
+  for _ in $(seq 1 50); do
+    prompt_rendered="$(tmux -L "$prompt_socket" capture-pane -p 2>/dev/null || true)"
+    grep -qF 'bool, default' <<<"$prompt_rendered" && break
+    sleep 0.2
+  done
+  tmux -L "$prompt_socket" kill-server 2>/dev/null || true
+  grep -qF 'bool, default' <<<"$prompt_rendered" \
+    || fail "chezmoi init never rendered a prompt (cannot verify the setup UI)"
+  grep -qF 'Is this a work machine?' <<<"$prompt_rendered" \
+    || fail "the first setup prompt did not render as expected"
+  if grep -qE '\?\?|\.\?|\[y/N\]|\[Y/n\]' <<<"$prompt_rendered"; then
+    printf '%s\n' "$prompt_rendered" >&2
+    fail "the rendered setup prompt has doubled punctuation or a hand-written [y/N] (chezmoi adds its own '?' and 'bool, default <x>' hint)"
+  fi
+fi
+
+check "Homebrew cask policy (rendered installer behavior)"
+# The NETWORK audit (scripts/audit-brew-casks) owns upstream cask metadata.
+# THIS owns Groundwork's own installer behavior, offline and deterministically —
+# a substring grep for "install_chrome" would pass on a comment.
+chrome_off="$out_dir/brew-bundle-chrome-off"
+chrome_on="$out_dir/brew-bundle-chrome-on"
+render_chrome() {
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "{${base_data},\"work\":false,\"headless\":false,\"xcode\":false,\"beta\":false,\"install_chrome\":$1,\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\"}}" \
+    execute-template <home/run_onchange_after_10-brew-bundle.sh.tmpl >"$2"
+}
+render_chrome false "$chrome_off"
+render_chrome true "$chrome_on"
+/bin/bash -n "$chrome_on"
+# Consent: no approval, no unchecked install. Anywhere.
+assert_not_contains 'brew install --cask google-chrome' "$chrome_off" \
+  "google-chrome is installed without the setup consent that gates it"
+# Approved: exactly one install, and the safe lane's checksum policy is applied.
+[[ "$(grep -c 'brew install --cask google-chrome' "$chrome_on")" -eq 1 ]] \
+  || fail "the approved Chrome path must contain exactly one install command"
+grep -qF "HOMEBREW_CASK_OPTS=\"\$safe_cask_opts\"" "$chrome_on" \
+  || fail "brew bundle must run under the --require-sha cask policy"
+grep -qF -- '--require-sha' "$chrome_on"
+# The user's own cask options are preserved, never replaced.
+grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_on" \
+  || fail "the user's HOMEBREW_CASK_OPTS must be preserved, not overwritten"
+grep -qF "HOMEBREW_CASK_OPTS=\"\$user_cask_opts\" brew install --cask google-chrome" "$chrome_on" \
+  || fail "the Chrome exception must run under the USER's cask options"
+# Ordering: a failed safe lane must never reach the unsafe exception lane.
+chrome_exit_line="$(grep -n "exit \"\$bundle_status\"" "$chrome_on" | head -n 1 | cut -d: -f1)"
+chrome_install_line="$(grep -n 'brew install --cask google-chrome' "$chrome_on" | head -n 1 | cut -d: -f1)"
+((chrome_exit_line < chrome_install_line)) \
+  || fail "google-chrome is installed BEFORE the bundle-failure exit — a failed safe lane must not trigger the unsafe lane"
+# A conflicting user policy is a real failure, not a silent skip that never retries.
+grep -qF 'exit 1' "$chrome_on"
+grep -qF 'this apply is incomplete' "$chrome_on" \
+  || fail "a user --require-sha policy vs install_chrome=true must fail explicitly, not disappear"
+# Chrome must never be in the Brewfile itself: it would fail the --require-sha
+# bundle, and admitting it would hand every new machine an unverified artifact.
+for chrome_profile in 'false false' 'true false' 'false true'; do
+  read -r chrome_work chrome_game <<<"$chrome_profile"
+  render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl \
+    "$out_dir/brewfile-chrome-$chrome_work-$chrome_game" "$chrome_work"
+  assert_not_contains '^cask "google-chrome"' "$out_dir/brewfile-chrome-$chrome_work-$chrome_game" \
+    "google-chrome is in the Brewfile (work=$chrome_work) — it ships no checksum and would fail the --require-sha bundle"
+done
+
+check "shell runtime ownership"
+# Groundwork owns the interactive zsh runtime: Homebrew installs it, update-all
+# upgrades it, and adoption is an explicit step that never touches the OS shell.
+grep -qF 'brew "zsh"' home/dot_config/homebrew/Brewfile.tmpl
+test -x home/dot_local/bin/executable_groundwork-shell-adopt
+# Never hard-code a Homebrew prefix: it differs on Apple Silicon, Intel, and
+# Linuxbrew. Resolve it with brew --prefix.
+# Fact-gathering lives in ONE shared read-only library. Three private copies had
+# already drifted into security-relevant differences (one executed the candidate
+# zsh before proving Homebrew owned it; another consumed its one-shot state
+# without checking ownership at all), so the duplication is guarded against.
+shell_lib=home/dot_local/share/groundwork/lib/shell-runtime.sh
+test -f "$shell_lib"
+for shell_consumer in home/dot_local/bin/executable_groundwork-shell-adopt \
+  home/dot_local/bin/executable_groundwork-doctor \
+  home/run_after_99-shell-adopt-notice.sh; do
+  grep -qF 'lib/shell-runtime.sh' "$shell_consumer" \
+    || fail "$shell_consumer must use the shared shell-runtime probe, not its own copy"
+  assert_no_matches "shell-runtime facts must come from the shared probe, not a private reimplementation ($shell_consumer)" \
+    rg -n 'dscl \. -read|brew --prefix zsh' "$shell_consumer"
+done
+grep -qF 'brew --prefix' "$shell_lib"
+# The probe must never run the candidate binary to identify it — that is exactly
+# what a replaced binary wants. Only gw_managed_zsh_version (gated on proven
+# ownership) may execute it.
+grep -qF 'gw_managed_zsh_version' "$shell_lib"
+grep -qF 'GW_OWNERSHIP' "$shell_lib"
+assert_no_matches "Homebrew prefix must be resolved, not hard-coded (Intel and Linuxbrew differ)" \
+  rg -n '/opt/homebrew|/home/linuxbrew' home/dot_local/bin/executable_groundwork-shell-adopt "$shell_lib"
+assert_no_matches "Groundwork must never modify or remove the OS fallback shell" \
+  rg -n 'rm .*(/bin/zsh|/bin/sh)|mv .*/bin/zsh' home/dot_local/bin/executable_groundwork-shell-adopt
+# An installer must never re-exec the shell the user is sitting in.
+assert_no_matches "shell adoption must not exec over the user's running shell" \
+  rg -n '^[[:space:]]*exec[[:space:]]+[$"/]' home/dot_local/bin/executable_groundwork-shell-adopt
+
+adopt_fixture="$out_dir/shell-adopt"
+mkdir -p "$adopt_fixture/bin" "$adopt_fixture/brew-prefix/bin" "$adopt_fixture/state" \
+  "$adopt_fixture/nobrew-bin"
+# Fake managed zsh, OS fallback, and the account-record + chsh + sudo surface.
+# The managed path is a SYMLINK into the Cellar, exactly as Homebrew installs it:
+# adoption must prove the stable path resolves into Homebrew's zsh formula, not
+# merely that something executable sits there.
+mkdir -p "$adopt_fixture/brew-prefix/Cellar/zsh/5.9.2/bin"
+printf '#!/bin/sh\necho "zsh 5.9.2 (fixture)"\n' >"$adopt_fixture/brew-prefix/Cellar/zsh/5.9.2/bin/zsh"
+chmod +x "$adopt_fixture/brew-prefix/Cellar/zsh/5.9.2/bin/zsh"
+ln -sf "$adopt_fixture/brew-prefix/Cellar/zsh/5.9.2/bin/zsh" "$adopt_fixture/brew-prefix/bin/zsh"
+# A stray, non-Homebrew binary at the same stable path — must NOT be adopted.
+printf '#!/bin/sh\necho "zsh 9.9 (impostor)"\n' >"$adopt_fixture/impostor-zsh"
+printf '#!/bin/sh\necho "zsh 5.9 (os-fixture)"\n' >"$adopt_fixture/os-zsh"
+chmod +x "$adopt_fixture/impostor-zsh" "$adopt_fixture/os-zsh"
+cat >"$adopt_fixture/bin/brew" <<SH
 #!/usr/bin/env bash
-case "\$1" in
-  capture-pane) cat "$copylast_fixture/pane.txt" ;;
-  load-buffer) cat >"$copylast_fixture/buffer.txt" ;;
-  display-message) printf '%s\n' "\$2" ;;
+# Models Homebrew's ownership surface: --prefix, --prefix zsh, list --versions.
+case "\${1:-}" in
+  --prefix)
+    if [[ "\${2:-}" == "zsh" ]]; then
+      [[ "\${BREW_OWNS_ZSH:-1}" == "1" ]] || exit 1
+      echo "$adopt_fixture/brew-prefix/Cellar/zsh/5.9.2"
+    else
+      echo "$adopt_fixture/brew-prefix"
+    fi
+    ;;
+  list)
+    [[ "\${BREW_OWNS_ZSH:-1}" == "1" ]] || exit 1
+    echo "zsh 5.9.2"
+    ;;
 esac
 SH
-chmod +x "$copylast_fixture/bin/tmux"
-# The idle two-line prompt at the bottom has no command, so the last real
-# command block (ls + its output, trailing blank trimmed) is what lands in
-# the buffer, prompt line included for repo context.
-TMUX=fixture PATH="$copylast_fixture/bin:/usr/bin:/bin" \
-  /bin/bash home/dot_local/bin/executable_tmux-copy-last >"$out_dir/copylast-msg" 2>&1
-cat >"$copylast_fixture/expected.txt" <<'EOF'
- 󰀵  …/groundwork ❯ ls
-file-a
-file-b
-EOF
-diff -u "$copylast_fixture/expected.txt" "$copylast_fixture/buffer.txt"
-grep -qF '3 lines' "$out_dir/copylast-msg"
-# Typed as a command, the helper's own invocation is skipped so it still
-# copies the previous real command.
-cat >"$copylast_fixture/pane.txt" <<'EOF'
- 󰀵  …/groundwork ❯ ls
-file-a
-file-b
- 󰀵  …/groundwork ❯ tmux-copy-last
- 󰀵  …/groundwork
-❯
-EOF
-TMUX=fixture PATH="$copylast_fixture/bin:/usr/bin:/bin" \
-  /bin/bash home/dot_local/bin/executable_tmux-copy-last >/dev/null 2>&1
-diff -u "$copylast_fixture/expected.txt" "$copylast_fixture/buffer.txt"
-# Outside tmux it refuses instead of guessing.
-if TMUX='' PATH="$copylast_fixture/bin:/usr/bin:/bin" \
-  /bin/bash home/dot_local/bin/executable_tmux-copy-last >"$out_dir/copylast-notmux" 2>&1; then
+cat >"$adopt_fixture/bin/chsh" <<SH
+#!/usr/bin/env bash
+printf 'chsh %s\n' "\$*" >>"$adopt_fixture/state/log"
+[[ "\${CHSH_STATUS:-0}" == "0" ]] || exit "\$CHSH_STATUS"
+# CHSH_NOOP models the nasty case: chsh exits 0 but the account never changes.
+[[ "\${CHSH_NOOP:-0}" == "1" ]] && exit 0
+# A real chsh updates the account record; the fixture records it the same way.
+printf '%s\n' "\$2" >"$adopt_fixture/state/login-shell"
+SH
+# dscl is the macOS account-record reader; the fixture answers from state.
+cat >"$adopt_fixture/bin/dscl" <<SH
+#!/usr/bin/env bash
+printf 'UserShell: %s\n' "\$(cat "$adopt_fixture/state/login-shell" 2>/dev/null)"
+SH
+cat >"$adopt_fixture/bin/sudo" <<'SH'
+#!/usr/bin/env bash
+"$@"
+SH
+chmod +x "$adopt_fixture/bin/brew" "$adopt_fixture/bin/chsh" "$adopt_fixture/bin/dscl" "$adopt_fixture/bin/sudo"
+# The "Homebrew is gone" PATH keeps the account-record surface (chsh/dscl/sudo)
+# and drops only brew — otherwise the test would exercise the real chsh.
+for adopt_tool in chsh dscl sudo; do
+  ln -sf "$adopt_fixture/bin/$adopt_tool" "$adopt_fixture/nobrew-bin/$adopt_tool"
+done
+adopt_zsh="$adopt_fixture/brew-prefix/bin/zsh"
+adopt_shells="$adopt_fixture/state/shells"
+adopt_state="$adopt_fixture/state/groundwork"
+adopt_previous="$adopt_state/previous-login-shell"
+# The user's real previous shell — deliberately NOT zsh, because on Linux and
+# WSL2 it is usually bash. Reverting must restore this exact shell, not a
+# guessed platform default.
+adopt_prev_shell="$adopt_fixture/os-bash"
+printf '#!/bin/sh\necho "GNU bash, version 5.2 (os-fixture)"\n' >"$adopt_prev_shell"
+chmod +x "$adopt_prev_shell"
+adopt_env=(
+  PATH="$adopt_fixture/bin:/usr/bin:/bin"
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh"
+  GROUNDWORK_SHELLS_FILE="$adopt_shells"
+  GROUNDWORK_STATE_DIR="$adopt_state"
+)
+adopt_reset() {
+  rm -rf "$adopt_state"
+  # A real login shell is registered in the shells file — chsh requires it —
+  # so the fixture models that.
+  printf '/bin/sh\n%s\n' "$adopt_prev_shell" >"$adopt_shells"
+  printf '%s\n' "$adopt_prev_shell" >"$adopt_fixture/state/login-shell"
+  : >"$adopt_fixture/state/log"
+}
+
+# The intermediate tmux copy must never touch the clipboard or the buffer stack:
+# without -C -P, tmux pushes the RAW selection (uncapped, unheadered) to the
+# system clipboard before any of the safety logic runs.
+grep -qF 'copy-pipe-and-cancel -C -P' home/dot_local/bin/executable_tmux-copy-last \
+  || fail "the intermediate copy must use -C -P (no clipboard, no paste buffer)"
+# The final buffer must target the invoking client, or tmux guesses which
+# terminal gets the clipboard.
+grep -qF "load_args+=(-t \"\$client\")" home/dot_local/bin/executable_tmux-copy-last \
+  || fail "the final load-buffer must target the invoking client"
+# Byte accounting must use wc -c, never ${#var} (which counts characters under a
+# UTF-8 locale and would blow the byte cap on emoji/CJK paths).
+assert_no_matches "byte accounting must use wc -c, not character counts" \
+  rg -n '\$\{#(header|notice|head_part)\}' home/dot_local/bin/executable_tmux-copy-last
+grep -qF 'LC_ALL=C awk' home/dot_local/bin/executable_tmux-copy-last \
+  || fail "the tail budget must run under LC_ALL=C so awk length() counts bytes"
+
+# Migration from the user's own shell: records it, registers the managed zsh,
+# chsh's, verifies the account record, and says how to switch this terminal.
+adopt_reset
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-migrate" 2>&1 \
+  || {
+    sed 's/^/    /' "$out_dir/shell-adopt-migrate" >&2
+    fail "groundwork-shell-adopt failed to migrate from the user's shell"
+  }
+grep -qF "chsh -s $adopt_zsh" "$adopt_fixture/state/log" \
+  || fail "groundwork-shell-adopt did not chsh to the managed zsh"
+grep -qxF "$adopt_zsh" "$adopt_shells" \
+  || fail "groundwork-shell-adopt did not register the managed zsh in the shells file"
+grep -qxF "$adopt_prev_shell" "$adopt_previous" \
+  || fail "groundwork-shell-adopt did not record the previous login shell"
+grep -qF 'exec' "$out_dir/shell-adopt-migrate" \
+  || fail "groundwork-shell-adopt must tell the user how to switch the current terminal"
+grep -qF 'revert' "$out_dir/shell-adopt-migrate" \
+  || fail "groundwork-shell-adopt must state the undo path"
+test -x "$adopt_prev_shell" || fail "the user's previous shell must never be modified"
+
+# Idempotent: a second run neither duplicates the shells entry, re-chsh's, nor
+# overwrites the recorded previous shell with the managed zsh.
+: >"$adopt_fixture/state/log"
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-again" 2>&1
+[[ "$(grep -cxF "$adopt_zsh" "$adopt_shells")" -eq 1 ]] \
+  || fail "groundwork-shell-adopt duplicated the shells-file entry"
+test ! -s "$adopt_fixture/state/log" \
+  || fail "groundwork-shell-adopt ran chsh again when the shell was already adopted"
+grep -qxF "$adopt_prev_shell" "$adopt_previous" \
+  || fail "a rerun overwrote the recorded previous login shell"
+grep -qF 'already' "$out_dir/shell-adopt-again"
+
+# Already adopted but the managed zsh's registration was lost (a system update
+# can rewrite the shells file): repair it instead of reporting all-clear.
+printf '/bin/sh\n%s\n' "$adopt_prev_shell" >"$adopt_shells"
+: >"$adopt_fixture/state/log"
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-repair" 2>&1
+grep -qxF "$adopt_zsh" "$adopt_shells" \
+  || fail "groundwork-shell-adopt did not repair a lost shells-file registration"
+
+# --status changes nothing, and never calls $SHELL "this process".
+: >"$adopt_fixture/state/log"
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
+  >"$out_dir/shell-adopt-status" 2>&1
+test ! -s "$adopt_fixture/state/log" || fail "groundwork-shell-adopt --status changed the login shell"
+grep -qF "$adopt_zsh" "$out_dir/shell-adopt-status"
+grep -qF 'login shell' "$out_dir/shell-adopt-status"
+
+# --revert restores the recorded previous shell (bash here), not a guessed zsh,
+# and verifies the account record afterwards.
+: >"$adopt_fixture/state/log"
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
+  >"$out_dir/shell-adopt-revert" 2>&1 \
+  || fail "groundwork-shell-adopt --revert failed"
+grep -qF "chsh -s $adopt_prev_shell" "$adopt_fixture/state/log" \
+  || fail "--revert did not restore the recorded previous shell"
+
+# Recovery must not need Homebrew — that is the incident it exists for.
+printf '%s\n' "$adopt_zsh" >"$adopt_fixture/state/login-shell"
+: >"$adopt_fixture/state/log"
+env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" \
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_SHELLS_FILE="$adopt_shells" GROUNDWORK_STATE_DIR="$adopt_state" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
+  >"$out_dir/shell-revert-nobrew" 2>&1 \
+  || fail "groundwork-shell-adopt --revert failed without Homebrew — the escape hatch must work when brew is gone"
+grep -qF "chsh -s $adopt_prev_shell" "$adopt_fixture/state/log" \
+  || fail "--revert without Homebrew did not restore the previous shell"
+# --status must survive a missing Homebrew too.
+env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" \
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_SHELLS_FILE="$adopt_shells" GROUNDWORK_STATE_DIR="$adopt_state" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
+  >"$out_dir/shell-status-nobrew" 2>&1 \
+  || fail "groundwork-shell-adopt --status failed without Homebrew"
+
+# No recorded previous shell: refuse to guess, and name the explicit escape.
+adopt_reset
+printf '%s\n' "$adopt_zsh" >"$adopt_fixture/state/login-shell"
+if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
+  >"$out_dir/shell-revert-norecord" 2>&1; then
+  fail "--revert guessed a shell when no previous one was recorded"
+fi
+grep -qF -- '--revert-to' "$out_dir/shell-revert-norecord" \
+  || fail "--revert must point at --revert-to when it has nothing recorded"
+# --revert-to restores an explicit shell.
+: >"$adopt_fixture/state/log"
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --revert-to "$adopt_prev_shell" >"$out_dir/shell-revert-to" 2>&1 \
+  || fail "--revert-to failed"
+grep -qF "chsh -s $adopt_prev_shell" "$adopt_fixture/state/log"
+
+# chsh succeeds but the account record does not change: never claim success.
+adopt_reset
+if env "${adopt_env[@]}" CHSH_NOOP=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-noop" 2>&1; then
+  fail "groundwork-shell-adopt reported success although the account record never changed"
+fi
+grep -qF 'still' "$out_dir/shell-adopt-noop"
+
+# A failed/interrupted chsh must not claim success and must not move the shell.
+adopt_reset
+if env "${adopt_env[@]}" CHSH_STATUS=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-chsh-fail" 2>&1; then
+  fail "groundwork-shell-adopt reported success after chsh failed"
+fi
+grep -qxF "$adopt_prev_shell" "$adopt_fixture/state/login-shell" \
+  || fail "a failed chsh must leave the login shell unchanged"
+
+# Ownership, not mere existence: a binary at the managed path that Homebrew does
+# not own must never be adopted as "Groundwork-managed".
+adopt_reset
+if env "${adopt_env[@]}" BREW_OWNS_ZSH=0 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-unowned" 2>&1; then
+  fail "groundwork-shell-adopt adopted a zsh that Homebrew does not own"
+fi
+grep -qF 'not Homebrew' "$out_dir/shell-adopt-unowned"
+test ! -s "$adopt_fixture/state/log" || fail "an unowned zsh still reached chsh"
+
+# The recovery invariant: never change the login shell without a durable,
+# readable rollback record. An unusable current shell must refuse adoption.
+adopt_reset
+printf '\n' >"$adopt_fixture/state/login-shell"
+if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-noprev" 2>&1; then
+  fail "groundwork-shell-adopt adopted without a usable previous shell to record"
+fi
+grep -qF 'No account change was attempted' "$out_dir/shell-adopt-noprev"
+test ! -s "$adopt_fixture/state/log" || fail "adoption ran chsh with no rollback recorded"
+# A state directory that cannot be written must also refuse.
+adopt_reset
+if env PATH="$adopt_fixture/bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_STATE_DIR=/proc/nonexistent-groundwork-state \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-nostate" 2>&1; then
+  fail "groundwork-shell-adopt adopted although the rollback record could not be written"
+fi
+grep -qF 'Refusing to adopt' "$out_dir/shell-adopt-nostate"
+
+# A failing account-directory lookup (dscl/getent down) must not kill the
+# command silently under set -e: status still reports, revert and adopt refuse
+# with an explanation rather than vanishing.
+adopt_reset
+cat >"$adopt_fixture/bin/dscl" <<SH
+#!/usr/bin/env bash
+[[ "\${DSCL_BROKEN:-0}" == "1" ]] && exit 1
+printf 'UserShell: %s\n' "\$(cat "$adopt_fixture/state/login-shell" 2>/dev/null)"
+SH
+chmod +x "$adopt_fixture/bin/dscl"
+env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
+  >"$out_dir/shell-status-brokendir" 2>&1 \
+  || fail "--status died silently when the account directory was unreadable"
+test -s "$out_dir/shell-status-brokendir" \
+  || fail "--status printed nothing when the account directory was unreadable"
+if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
+  >"$out_dir/shell-revert-brokendir" 2>&1; then
+  fail "--revert proceeded although the account's current login shell was unreadable"
+fi
+grep -qF 'No account change was attempted' "$out_dir/shell-revert-brokendir"
+# --revert-to routes through the same guard, so it must NOT be offered as the
+# way out of an unreadable account record — every change is verified against
+# that record, which is precisely what is broken.
+assert_not_contains 'revert-to <shell>' "$out_dir/shell-revert-brokendir" \
+  "a broken account lookup must not recommend --revert-to, which hits the same guard"
+if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --revert-to "$adopt_prev_shell" >"$out_dir/shell-revertto-brokendir" 2>&1; then
+  fail "--revert-to proceeded although the account record was unreadable (the result could not be verified)"
+fi
+test ! -s "$adopt_fixture/state/log" || fail "--revert-to ran chsh with an unverifiable account record"
+
+# An unreadable shells file must fail closed, not skip the membership check and
+# call chsh anyway.
+adopt_reset
+printf '%s\n' "$adopt_zsh" >"$adopt_fixture/state/login-shell"
+if env "${adopt_env[@]}" GROUNDWORK_SHELLS_FILE="$adopt_fixture/state/missing-shells" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert-to "$adopt_prev_shell" \
+  >"$out_dir/shell-revertto-noshells" 2>&1; then
+  fail "--revert-to proceeded although the shells file was unreadable"
+fi
+grep -qF 'unreadable' "$out_dir/shell-revertto-noshells"
+test ! -s "$adopt_fixture/state/log" || fail "--revert-to ran chsh without verifying shells-file membership"
+if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-brokendir" 2>&1; then
+  fail "adoption proceeded although the account's current login shell was unreadable"
+fi
+grep -qF 'No account change was attempted' "$out_dir/shell-adopt-brokendir"
+test ! -s "$adopt_fixture/state/log" || fail "a broken account lookup still reached chsh"
+
+# Conflicting or malformed options are errors, not last-flag-wins.
+adopt_reset
+if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --status --revert >"$out_dir/shell-adopt-conflict" 2>&1; then
+  fail "groundwork-shell-adopt accepted conflicting modes"
+fi
+grep -qF 'mutually exclusive' "$out_dir/shell-adopt-conflict"
+if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --revert-to 'relative/zsh' >"$out_dir/shell-adopt-relative" 2>&1; then
+  fail "--revert-to accepted a relative path"
+fi
+grep -qF 'absolute path' "$out_dir/shell-adopt-relative"
+# EVERY control character, including the newline — grep would never match that
+# one, because it splits its input on newlines in the first place.
+for ctrl_case in newline:$'/bin/ba\nsh' cr:$'/bin/ba\rsh' tab:$'/bin/ba\tsh' \
+  esc:$'/bin/ba\x1bsh' del:$'/bin/ba\x7fsh'; do
+  ctrl_name="${ctrl_case%%:*}"
+  ctrl_value="${ctrl_case#*:}"
+  if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+    --revert-to "$ctrl_value" >"$out_dir/shell-adopt-ctrl-$ctrl_name" 2>&1; then
+    fail "--revert-to accepted a shell path containing an embedded $ctrl_name"
+  fi
+  grep -qF 'control characters' "$out_dir/shell-adopt-ctrl-$ctrl_name"
+done
+# --revert and --revert-to both mean "revert", so exclusivity must key on the
+# OPTION the user typed, not the resulting mode.
+if env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --revert --revert-to /bin/sh >"$out_dir/shell-adopt-bothrevert" 2>&1; then
+  fail "--revert and --revert-to were accepted together"
+fi
+grep -qF 'mutually exclusive' "$out_dir/shell-adopt-bothrevert"
+
+# A missing shared probe must be an explained failure for adoption, and must NOT
+# take out the doctor's unrelated Docker diagnostics.
+if env "${adopt_env[@]}" GROUNDWORK_SHELL_LIB=/nonexistent-groundwork-lib \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
+  >"$out_dir/shell-adopt-nolib" 2>&1; then
+  fail "groundwork-shell-adopt ran without its shell-runtime probe"
+fi
+grep -qF 'shell-runtime probe is missing' "$out_dir/shell-adopt-nolib"
+env GROUNDWORK_SHELL_LIB=/nonexistent-groundwork-lib \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
+  >"$out_dir/doctor-nolib" 2>&1 \
+  || fail "groundwork-doctor --shell crashed instead of reporting the missing probe"
+grep -qF 'shell-runtime probe is missing' "$out_dir/doctor-nolib"
+env GROUNDWORK_SHELL_LIB=/nonexistent-groundwork-lib \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --docker \
+  >"$out_dir/doctor-nolib-docker" 2>&1 \
+  || fail "a missing shell probe broke the doctor's unrelated Docker section"
+
+# An unowned binary at the stable path must never be summarized as "Groundwork's
+# zsh is your login shell" — path equality is not ownership.
+adopt_reset
+printf '%s\n' "$adopt_zsh" >"$adopt_fixture/state/login-shell"
+env "${adopt_env[@]}" BREW_OWNS_ZSH=0 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  --status >"$out_dir/shell-status-unowned" 2>&1
+assert_not_contains "Groundwork's verified Homebrew zsh is your login shell" "$out_dir/shell-status-unowned" \
+  "--status called an unowned binary Groundwork's zsh"
+grep -qF 'NOT a verified Homebrew zsh' "$out_dir/shell-status-unowned" \
+  || fail "--status must say the login shell's binary is unverified"
+
+# Adoption itself does need Homebrew: refuse clearly, change nothing.
+adopt_reset
+if env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_STATE_DIR="$adopt_state" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+  >"$out_dir/shell-adopt-nobrew" 2>&1; then
+  fail "groundwork-shell-adopt proceeded without Homebrew"
+fi
+grep -qF 'Homebrew is not available' "$out_dir/shell-adopt-nobrew"
+test ! -s "$adopt_fixture/state/log" || fail "a Homebrew-less adopt still ran chsh"
+
+# The doctor reports the runtime read-only, distinguishes failure states, and
+# never labels $SHELL as the running process.
+grep -qF 'shell_section' home/dot_local/bin/executable_groundwork-doctor
+assert_no_matches "groundwork-doctor must not present \$SHELL as the invoking process" \
+  rg -n 'this process:.*SHELL' home/dot_local/bin/executable_groundwork-doctor
+adopt_reset
+env "${adopt_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
+  >"$out_dir/doctor-shell" 2>&1
+grep -qF 'Shell runtime' "$out_dir/doctor-shell"
+# The green "managed zsh" line may only appear AFTER ownership is proven — and
+# the candidate must never be executed before that, or a replaced binary gets
+# run by the very command meant to identify it.
+grep -qF 'managed zsh: Homebrew owns it' "$out_dir/doctor-shell" \
+  || fail "the doctor must confirm Homebrew ownership, not just that a zsh exists"
+# A zsh at the stable path that Homebrew does NOT own must never be called
+# "managed", and must not be executed.
+adopt_reset
+if env "${adopt_env[@]}" BREW_OWNS_ZSH=0 /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
+  >"$out_dir/doctor-unowned" 2>&1; then :; fi
+assert_not_contains 'ok +managed zsh' "$out_dir/doctor-unowned" \
+  "the doctor called an unowned binary 'managed zsh'"
+grep -qF 'ownership is not established' "$out_dir/doctor-unowned" \
+  || fail "the doctor must say ownership is not established for an unowned zsh"
+grep -qF 'login shell (account)' "$out_dir/doctor-shell"
+grep -qF 'invoking process' "$out_dir/doctor-shell"
+grep -qF 'groundwork-shell-adopt' "$out_dir/doctor-shell" \
+  || fail "groundwork-doctor must name the adoption command when the login shell is not the managed zsh"
+# A damaged Homebrew is something a diagnostic reports, not something it dies on.
+mkdir -p "$adopt_fixture/badbrew-bin"
+printf '#!/bin/sh\nexit 1\n' >"$adopt_fixture/badbrew-bin/brew"
+chmod +x "$adopt_fixture/badbrew-bin/brew"
+env PATH="$adopt_fixture/badbrew-bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
+  GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_STATE_DIR="$adopt_state" \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
+  >"$out_dir/doctor-shell-badbrew" 2>&1 \
+  || fail "groundwork-doctor crashed on a damaged Homebrew instead of reporting it"
+grep -qF 'damaged' "$out_dir/doctor-shell-badbrew"
+
+# The one-time adoption notice: shown once interactively, never again, and
+# never when the shell is already adopted.
+notice_state="$adopt_fixture/notice-state"
+printf '%s\n' "$adopt_prev_shell" >"$adopt_fixture/state/login-shell"
+env "${adopt_env[@]}" GROUNDWORK_STATE_DIR="$notice_state" GROUNDWORK_REMINDER_ASSUME_TTY=1 \
+  /bin/bash home/run_after_99-shell-adopt-notice.sh >"$out_dir/adopt-notice" 2>&1
+grep -qF 'groundwork-shell-adopt' "$out_dir/adopt-notice" \
+  || fail "the adoption notice must name the command"
+env "${adopt_env[@]}" GROUNDWORK_STATE_DIR="$notice_state" GROUNDWORK_REMINDER_ASSUME_TTY=1 \
+  /bin/bash home/run_after_99-shell-adopt-notice.sh >"$out_dir/adopt-notice-2" 2>&1
+test ! -s "$out_dir/adopt-notice-2" || fail "the adoption notice repeated after being shown"
+# Noninteractive: say nothing and stay pending.
+rm -rf "$notice_state"
+env "${adopt_env[@]}" GROUNDWORK_STATE_DIR="$notice_state" \
+  /bin/bash home/run_after_99-shell-adopt-notice.sh >"$out_dir/adopt-notice-tty" 2>&1
+test ! -s "$out_dir/adopt-notice-tty" || fail "the adoption notice printed to a non-terminal"
+test ! -e "$notice_state/shell-adopt-notice-shown" \
+  || fail "a noninteractive run consumed the adoption notice"
+
+check "annotation escaping"
+[[ "$(annotation_escape_message $'50% done\r\n::error fake::injected')" == '50%25 done  ::error fake::injected' ]] \
+  || fail "annotation message escaping changed for %, CR, LF, or embedded workflow-command text"
+[[ "$(annotation_escape_title $'rendered zsh: a,b\r\nc % ::set-output')" == 'rendered zsh%3A a%2Cb  c %25 %3A%3Aset-output' ]] \
+  || fail "annotation title escaping changed for colon, comma, %, or control characters"
+
+check "tmux-copy-last helper"
+test -x home/dot_local/bin/executable_tmux-copy-last
+# The OSC 133 prompt mark must be part of PROMPT, not emitted from a precmd
+# hook: zle redraws the prompt line and wipes a mark written before the
+# redraw, so a precmd version silently records no marks at all.
+grep -qF '133;A' home/dot_zshrc.tmpl
+grep -qF "PROMPT=\"%{\${_groundwork_osc133_mark}%}\${PROMPT}\"" home/dot_zshrc.tmpl
+# Idempotency must be by inspecting PROMPT, not a "already ran" flag: starship's
+# init replaces PROMPT on every source, so a flag would skip the re-add and
+# leave the shell with no marks at all.
+grep -qF "\"\$PROMPT\" != *\"\$_groundwork_osc133_mark\"*" home/dot_zshrc.tmpl
+assert_no_matches "OSC 133 prompt marks must live in PROMPT, not a precmd hook (zle's redraw wipes them)" \
+  rg -n 'add-zsh-hook precmd .*osc133' home/dot_zshrc.tmpl
+# Outside tmux, with no target pane, it refuses — no server needed.
+if TMUX='' /bin/bash home/dot_local/bin/executable_tmux-copy-last >"$out_dir/copylast-notmux" 2>&1; then
   fail "tmux-copy-last ran outside tmux"
 fi
 grep -qF 'not inside tmux' "$out_dir/copylast-notmux"
+# The suite needs tmux 3.6+ — the version tmux-copy-last itself requires, since
+# the -C/-P copy flags are what keep the raw selection off the clipboard. An
+# older tmux cannot exercise the real contract. A skip must never be invisible:
+# GROUNDWORK_REQUIRE_TMUX=1 (set on the macOS CI job, which supplies a current
+# tmux) turns "cannot test" into a failure.
+tmux_suite_version=""
+tmux_suite_ok=0
+if command -v tmux >/dev/null 2>&1; then
+  tmux_suite_version="$(tmux -V 2>/dev/null | awk '{print $2}')"
+  suite_major="${tmux_suite_version%%.*}"
+  suite_minor="${tmux_suite_version#*.}"
+  suite_minor="${suite_minor%%[!0-9]*}"
+  if [[ "$suite_major" =~ ^[0-9]+$ && "$suite_minor" =~ ^[0-9]+$ ]] \
+    && ((suite_major > 3 || (suite_major == 3 && suite_minor >= 6))); then
+    tmux_suite_ok=1
+  fi
+fi
+if ((tmux_suite_ok == 0)); then
+  if [[ "${GROUNDWORK_REQUIRE_TMUX:-0}" == "1" ]]; then
+    fail "the tmux-copy-last behavior suite requires tmux 3.6+ (found: ${tmux_suite_version:-none}). A skipped clipboard/buffer suite must not pass as green."
+  fi
+  echo "tmux ${tmux_suite_version:-not installed} is below the 3.6 the copy suite needs; skipping those behavior tests (the macOS CI job runs them with GROUNDWORK_REQUIRE_TMUX=1)"
+else
+  copylast_socket="groundwork-validate-$$"
+  copylast_dir="$out_dir/copylast"
+  mkdir -p "$copylast_dir/bin"
+  printf 'set -g history-limit 20000\nset -g escape-time 0\n' >"$copylast_dir/tmux.conf"
+  # The helper calls plain `tmux`; this PATH shim pins every call to the
+  # private test server so the tests never touch a user's real session.
+  real_tmux="$(command -v tmux)"
+  cat >"$copylast_dir/bin/tmux" <<SH
+#!/bin/sh
+exec "$real_tmux" -L "$copylast_socket" "\$@"
+SH
+  chmod +x "$copylast_dir/bin/tmux"
+  run_copylast() {
+    TMUX='validate,0,0' PATH="$copylast_dir/bin:/usr/bin:/bin" \
+      /bin/bash home/dot_local/bin/executable_tmux-copy-last "$1"
+  }
+  copylast_wait() { # poll until the scenario pane finished rendering
+    local pane="$1" sentinel="$2"
+    for _ in $(seq 1 50); do
+      if tmux -L "$copylast_socket" capture-pane -p -S - -t "$pane" | grep -qF "$sentinel"; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    fail "tmux fixture pane never printed $sentinel"
+  }
+  copylast_window() { # start a scenario script as a pane's only process
+    tmux -L "$copylast_socket" new-window -c "$copylast_dir" "$copylast_dir/$1"
+    tmux -L "$copylast_socket" display-message -p '#{pane_id}'
+  }
+  # Each scenario script is the pane's only process and prints OSC 133 prompt
+  # marks exactly where a shell with integration would, so no interactive
+  # shell noise pollutes the history. A trailing sleep keeps the pane alive.
+  cat >"$copylast_dir/scenario-completed.sh" <<'SH'
+#!/bin/sh
+mark() { printf '\033]133;A\033\\'; }
+mark; printf '~/demo $ echo hello\n'; printf 'hello\n'
+mark; printf '~/demo $ cat trap.txt\n'
+printf ' 󰀵  …/groundwork ❯ rm -rf fake-prompt-in-output\n'
+printf 'badge 󰀵 in output text\n'
+printf 'READY-A\n'
+mark; printf '~/demo $ '
+sleep 300
+SH
+  # Same history, but the newest mark is a command still producing output —
+  # an open block with no closing mark.
+  cat >"$copylast_dir/scenario-running.sh" <<'SH'
+#!/bin/sh
+mark() { printf '\033]133;A\033\\'; }
+mark; printf '~/demo $ echo hello\n'; printf 'hello\n'
+mark; printf '~/demo $ cat trap.txt\n'
+printf ' 󰀵  …/groundwork ❯ rm -rf fake-prompt-in-output\n'
+printf 'badge 󰀵 in output text\n'
+printf 'READY-A\n'
+mark; printf '~/demo $ ./long-task\n'
+printf 'partial output 1\npartial output 2\n'
+printf 'READY-B\n'
+sleep 300
+SH
+  cat >"$copylast_dir/scenario-fresh.sh" <<'SH'
+#!/bin/sh
+printf 'READY-C\n'
+printf '\033]133;A\033\\'; printf '~/demo $ '
+sleep 300
+SH
+  cat >"$copylast_dir/scenario-nomarks.sh" <<'SH'
+#!/bin/sh
+printf 'plain output, no prompt marks\n'
+printf 'READY-D\n'
+sleep 300
+SH
+  # Output with NO trailing newline: the closing prompt begins on the SAME row,
+  # so a naive "step up a row" would swallow the last output.
+  cat >"$copylast_dir/scenario-nonewline.sh" <<'SH'
+#!/bin/sh
+mark() { printf '\033]133;A\033\\'; }
+mark; printf '\n~/demo $ printf tail-value\n'
+printf 'tail-value'
+mark; printf '\n~/demo $ READY-F\n'
+sleep 300
+SH
+  # A realistic multi-line prompt: the mark lands at the START of the prompt,
+  # which for starship (add_newline + line_break) is a blank row above the row
+  # carrying the typed command. Truncation must still keep that command.
+  cat >"$copylast_dir/scenario-huge.sh" <<'SH'
+#!/bin/sh
+printf '\033]133;A\033\\'; printf '\n'
+printf '~/demo $ seq 1 6000\n'
+seq 1 6000
+printf 'READY-E\n'
+printf '\033]133;A\033\\'; printf '\n~/demo $ '
+sleep 300
+SH
+  chmod +x "$copylast_dir"/scenario-*.sh
+  cat >"$copylast_dir/expected-block" <<'EOF'
+~/demo $ cat trap.txt
+ 󰀵  …/groundwork ❯ rm -rf fake-prompt-in-output
+badge 󰀵 in output text
+READY-A
+EOF
+  tmux -L "$copylast_socket" -f "$copylast_dir/tmux.conf" new-session -d -x 200 -y 50 \
+    -c "$copylast_dir" "$copylast_dir/scenario-completed.sh"
+  # The last completed command is selected even though the newest block is an
+  # idle prompt; hostile prompt-looking text and OS badge glyphs inside the
+  # output are copied through, never treated as block boundaries.
+  completed_pane="$(tmux -L "$copylast_socket" display-message -p '#{pane_id}')"
+  copylast_wait "$completed_pane" 'READY-A'
+  # Pre-existing paste buffers must survive: the helper reads and deletes its
+  # own selection buffer, never one the user put there.
+  tmux -L "$copylast_socket" set-buffer 'USER-BUFFER-ONE'
+  tmux -L "$copylast_socket" set-buffer 'USER-BUFFER-TWO'
+  run_copylast "$completed_pane" >"$copylast_dir/msg-a" 2>&1 \
+    || fail "tmux-copy-last failed on a pane with a completed command"
+  copylast_all="$(tmux -L "$copylast_socket" list-buffers -F '#{buffer_sample}')"
+  grep -qF 'USER-BUFFER-ONE' <<<"$copylast_all" \
+    || fail "tmux-copy-last destroyed a pre-existing user paste buffer"
+  grep -qF 'USER-BUFFER-TWO' <<<"$copylast_all" \
+    || fail "tmux-copy-last destroyed a pre-existing user paste buffer"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-a"
+  head -n 1 "$copylast_dir/buffer-a" | grep -Eq '^\[tmux-copy-last · [a-z0-9-]+ · /' \
+    || fail "tmux-copy-last did not prepend the platform + directory context line"
+  diff -u "$copylast_dir/expected-block" <(tail -n +2 "$copylast_dir/buffer-a")
+  # Buffer hygiene: the automatic selection buffer is cleaned up, so the helper
+  # adds exactly one buffer of its own on top of the two the user already had.
+  copylast_buffers="$(tmux -L "$copylast_socket" list-buffers | wc -l | tr -d ' ')"
+  [[ "$copylast_buffers" -eq 3 ]] \
+    || fail "tmux-copy-last left $copylast_buffers buffers (expected 3: two user buffers + one headered copy)"
+  tmux -L "$copylast_socket" list-buffers -F '#{buffer_name}' | grep -qxF 'groundwork-copy-last' \
+    || fail "tmux-copy-last did not write its stable named buffer"
+  # A running command — newest mark with output below and no closing mark —
+  # is never selected; the previous completed block is copied instead.
+  running_pane="$(copylast_window scenario-running.sh)"
+  copylast_wait "$running_pane" 'READY-B'
+  run_copylast "$running_pane" >"$copylast_dir/msg-b" 2>&1 \
+    || fail "tmux-copy-last failed on a pane with a running command"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-b"
+  diff -u "$copylast_dir/expected-block" <(tail -n +2 "$copylast_dir/buffer-b")
+  # A pane whose only mark is the idle prompt has no completed command.
+  fresh_pane="$(copylast_window scenario-fresh.sh)"
+  copylast_wait "$fresh_pane" 'READY-C'
+  if run_copylast "$fresh_pane" >"$copylast_dir/msg-c" 2>&1; then
+    fail "tmux-copy-last selected something in a pane with no completed command"
+  fi
+  grep -qF 'no completed command' "$copylast_dir/msg-c"
+  # A pane with no marks at all fails with copy-mode guidance, never a guess.
+  nomarks_pane="$(copylast_window scenario-nomarks.sh)"
+  copylast_wait "$nomarks_pane" 'READY-D'
+  if run_copylast "$nomarks_pane" >"$copylast_dir/msg-d" 2>&1; then
+    fail "tmux-copy-last selected something in a pane without prompt marks"
+  fi
+  grep -qF 'prompt marks' "$copylast_dir/msg-d"
+  grep -qF 'copy-mode' "$copylast_dir/msg-d"
+  # Oversized output is truncated visibly, never silently.
+  huge_pane="$(copylast_window scenario-huge.sh)"
+  copylast_wait "$huge_pane" 'READY-E'
+  run_copylast "$huge_pane" >"$copylast_dir/msg-e" 2>&1 \
+    || fail "tmux-copy-last failed on oversized output"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-e"
+  grep -qF '[tmux-copy-last: truncated' "$copylast_dir/buffer-e"
+  # The cap covers the FINAL payload — header and truncation notice included —
+  # not just the copied block. 5,000 means 5,000.
+  huge_lines="$(wc -l <"$copylast_dir/buffer-e" | tr -d ' ')"
+  ((huge_lines <= 5000)) || fail "tmux-copy-last exceeded its documented line cap ($huge_lines lines)"
+  grep -qF 'truncated' "$copylast_dir/msg-e"
+  # Truncation must never drop the command itself — without it, pasted output
+  # tells nobody (and no agent) what produced it.
+  grep -qF 'seq 1 6000' "$copylast_dir/buffer-e" \
+    || fail "tmux-copy-last truncation discarded the command line it claims to keep"
+  tail -n 1 "$copylast_dir/buffer-e" | grep -qxF 'READY-E' \
+    || fail "tmux-copy-last truncation did not keep the tail (end) of the output"
+  grep -qxF '6000' "$copylast_dir/buffer-e" \
+    || fail "tmux-copy-last truncation dropped the most recent output lines"
+  # The cap applies to the FINAL payload (header + head + notice + tail), not
+  # just the tail slice.
+  huge_bytes="$(wc -c <"$copylast_dir/buffer-e" | tr -d ' ')"
+  ((huge_bytes <= 512 * 1024)) \
+    || fail "tmux-copy-last exceeded its documented byte cap ($huge_bytes bytes)"
+  # A tight byte budget must still keep whole lines (never split a multibyte
+  # character) and still keep the command.
+  GROUNDWORK_COPY_MAX_BYTES=2048 run_copylast "$huge_pane" >/dev/null 2>&1 \
+    || fail "tmux-copy-last failed under a tight byte budget"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-tiny"
+  tiny_bytes="$(wc -c <"$copylast_dir/buffer-tiny" | tr -d ' ')"
+  ((tiny_bytes <= 2048)) || fail "tmux-copy-last ignored a tight byte cap ($tiny_bytes bytes)"
+  grep -qF 'seq 1 6000' "$copylast_dir/buffer-tiny" \
+    || fail "a tight byte cap dropped the command line"
+  iconv -f UTF-8 -t UTF-8 "$copylast_dir/buffer-tiny" >/dev/null 2>&1 \
+    || fail "tmux-copy-last truncation split a multibyte character"
+
+  # Multibyte output AND a multibyte working directory: byte accounting that
+  # counts characters would sail past the cap here while passing on ASCII.
+  mkdir -p "$copylast_dir/ünïcode 🚀"
+  cat >"$copylast_dir/scenario-utf8.sh" <<'SH'
+#!/bin/sh
+printf '\033]133;A\033\\'; printf '\n~/demo $ emit-unicode\n'
+i=0
+while [ "$i" -lt 400 ]; do
+  printf 'тест 日本語 🎉 ünïcode line %s\n' "$i"
+  i=$((i + 1))
+done
+printf 'READY-U\n'
+printf '\033]133;A\033\\'; printf '\n~/demo $ '
+sleep 300
+SH
+  chmod +x "$copylast_dir/scenario-utf8.sh"
+  tmux -L "$copylast_socket" new-window -c "$copylast_dir/ünïcode 🚀" \
+    "$copylast_dir/scenario-utf8.sh"
+  utf8_pane="$(tmux -L "$copylast_socket" display-message -p '#{pane_id}')"
+  copylast_wait "$utf8_pane" 'READY-U'
+  GROUNDWORK_COPY_MAX_BYTES=4096 run_copylast "$utf8_pane" >/dev/null 2>&1 \
+    || fail "tmux-copy-last failed on multibyte output"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-utf8"
+  utf8_bytes="$(wc -c <"$copylast_dir/buffer-utf8" | tr -d ' ')"
+  ((utf8_bytes <= 4096)) \
+    || fail "tmux-copy-last blew the byte cap on multibyte content ($utf8_bytes bytes) — is it counting characters?"
+  iconv -f UTF-8 -t UTF-8 "$copylast_dir/buffer-utf8" >/dev/null 2>&1 \
+    || fail "tmux-copy-last split a multibyte character at the truncation boundary"
+  head -n 1 "$copylast_dir/buffer-utf8" | grep -qF '🚀' \
+    || fail "the context header lost the multibyte working directory"
+  # The header stays one line even when the path carries control characters.
+  [[ "$(head -n 1 "$copylast_dir/buffer-utf8" | wc -l | tr -d ' ')" -eq 1 ]]
+
+  # A hostile TMPDIR must not break or inject: the scratch path is interpolated
+  # into a command string that tmux hands to a SHELL.
+  hostile_tmp="$copylast_dir/tmp dir 'quote'; \$(touch $copylast_dir/PWNED) #"
+  mkdir -p "$hostile_tmp"
+  TMPDIR="$hostile_tmp" run_copylast "$completed_pane" >"$copylast_dir/msg-hostile" 2>&1 \
+    || fail "tmux-copy-last failed with spaces/quotes/metacharacters in TMPDIR"
+  test ! -e "$copylast_dir/PWNED" \
+    || fail "tmux-copy-last executed injected shell code from TMPDIR"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-hostile"
+  diff -u "$copylast_dir/expected-block" <(tail -n +2 "$copylast_dir/buffer-hostile")
+
+  # Malformed or impossibly small limits are refused up front, not discovered
+  # halfway through (and never silently exceeded).
+  for bad_limit in 0 abc -5; do
+    if GROUNDWORK_COPY_MAX_LINES="$bad_limit" run_copylast "$completed_pane" \
+      >"$copylast_dir/msg-badlimit" 2>&1; then
+      fail "tmux-copy-last accepted an invalid line limit: $bad_limit"
+    fi
+  done
+  if GROUNDWORK_COPY_MAX_BYTES=100 run_copylast "$completed_pane" \
+    >"$copylast_dir/msg-smallcap" 2>&1; then
+    fail "tmux-copy-last accepted a byte cap too small to honor"
+  fi
+  grep -qF 'between 1024 and' "$copylast_dir/msg-smallcap"
+  # Bounded above too: a huge value overflows bash arithmetic.
+  if GROUNDWORK_COPY_MAX_BYTES=999999999999999999999 run_copylast "$completed_pane" \
+    >"$copylast_dir/msg-hugecap" 2>&1; then
+    fail "tmux-copy-last accepted an unbounded byte cap"
+  fi
+  # The cap is absolute: when the header and command alone cannot fit, copy
+  # NOTHING rather than publish an oversized payload while promising a maximum.
+  if GROUNDWORK_COPY_MAX_BYTES=1024 GROUNDWORK_COPY_MAX_LINES=5 \
+    run_copylast "$huge_pane" >"$copylast_dir/msg-cap-absolute" 2>&1; then
+    tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-cap" 2>/dev/null || true
+    cap_bytes="$(wc -c <"$copylast_dir/buffer-cap" | tr -d ' ')"
+    ((cap_bytes <= 1024)) \
+      || fail "tmux-copy-last published $cap_bytes bytes against a 1024-byte cap"
+  else
+    grep -qF 'nothing was copied' "$copylast_dir/msg-cap-absolute" \
+      || fail "when the cap cannot be honored, tmux-copy-last must refuse and say so"
+  fi
+
+  # Client targeting, proven behaviorally rather than by grep. Two clients are
+  # attached; the buffer must be delivered for the INVOKING one. Without -t,
+  # a backgrounded run-shell leaves tmux to infer a client and it can pick the
+  # wrong terminal's clipboard.
+  copylast_client_log="$copylast_dir/client.log"
+  : >"$copylast_client_log"
+  # A fake tmux that records the load-buffer invocation, then delegates.
+  mkdir -p "$copylast_dir/spy"
+  cat >"$copylast_dir/spy/tmux" <<SPY
+#!/bin/sh
+if [ "\$1" = "load-buffer" ]; then
+  printf '%s\n' "\$*" >>"$copylast_client_log"
+fi
+exec "$real_tmux" -L "$copylast_socket" "\$@"
+SPY
+  chmod +x "$copylast_dir/spy/tmux"
+  # TWO genuinely attached clients, so "which client?" is a real question. A
+  # detached server is not a client, and targeting the only client proves
+  # nothing. Each attach needs its own pty.
+  for _ in 1 2; do
+    if command -v script >/dev/null 2>&1; then
+      (script -q /dev/null "$real_tmux" -L "$copylast_socket" attach -t 0 >/dev/null 2>&1 &) || true
+    fi
+  done
+  for _ in $(seq 1 30); do
+    copylast_client_count="$(tmux -L "$copylast_socket" list-clients -F '#{client_name}' 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "$copylast_client_count" -ge 2 ]] && break
+    sleep 0.2
+  done
+  if [[ "${copylast_client_count:-0}" -lt 2 ]]; then
+    # A required receipt must not evaporate: on the CI lane that owns this
+    # property, "could not attach two clients" is a failure, not a skip.
+    if [[ "${GROUNDWORK_REQUIRE_TMUX:-0}" == "1" ]]; then
+      fail "could not attach two tmux clients, so the clipboard client-targeting receipt could not run (it must not silently skip on the lane that owns it)"
+    fi
+    echo "  (could not attach two clients here; the client-targeting receipt runs on the macOS CI job)"
+  else
+    # Target the SECOND client, not whichever happens to be first: picking the
+    # only/first client would pass even if the code ignored the argument.
+    copylast_other="$(tmux -L "$copylast_socket" list-clients -F '#{client_name}' | head -n 1)"
+    copylast_target="$(tmux -L "$copylast_socket" list-clients -F '#{client_name}' | sed -n '2p')"
+    : >"$copylast_client_log"
+    TMUX='validate,0,0' PATH="$copylast_dir/spy:/usr/bin:/bin" \
+      /bin/bash home/dot_local/bin/executable_tmux-copy-last "$completed_pane" "$copylast_target" \
+      >/dev/null 2>&1 || fail "tmux-copy-last failed when given an explicit client"
+    grep -qF -- "-t $copylast_target" "$copylast_client_log" \
+      || fail "the final load-buffer did not target the invoking client (the clipboard could land on the wrong terminal)"
+    assert_not_contains "\-t $copylast_other" "$copylast_client_log" \
+      "the final load-buffer targeted the WRONG client"
+  fi
+
+  # Fault injection: once copy-mode is entered and a scratch dir exists, EVERY
+  # later tmux call can fail. Each failure must leave copy-mode and remove the
+  # scratch directory — no stranded pane, no leaked selection on disk.
+  mkdir -p "$copylast_dir/faulty"
+  for fault in previous-prompt next-prompt copy-pipe-and-cancel load-buffer; do
+    cat >"$copylast_dir/faulty/tmux" <<FAULT
+#!/bin/sh
+for arg in "\$@"; do
+  if [ "\$arg" = "$fault" ]; then
+    echo "injected failure: $fault" >&2
+    exit 1
+  fi
+done
+exec "$real_tmux" -L "$copylast_socket" "\$@"
+FAULT
+    chmod +x "$copylast_dir/faulty/tmux"
+    scratch_before="$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'tmux-copy-last.*' 2>/dev/null | wc -l | tr -d ' ')"
+    set +e
+    TMUX='validate,0,0' PATH="$copylast_dir/faulty:/usr/bin:/bin" \
+      /bin/bash home/dot_local/bin/executable_tmux-copy-last "$completed_pane" \
+      >"$copylast_dir/fault-$fault" 2>&1
+    fault_status=$?
+    set -e
+    [[ "$fault_status" -ne 0 ]] \
+      || fail "tmux-copy-last reported success although '$fault' failed"
+    # The pane must not be stranded in copy-mode.
+    in_mode="$(tmux -L "$copylast_socket" display-message -p -t "$completed_pane" '#{pane_in_mode}' 2>/dev/null || echo 0)"
+    [[ "$in_mode" == "0" ]] \
+      || fail "a failure at '$fault' left the pane stuck in copy-mode"
+    # And it must not leave its scratch directory (the raw selection) behind.
+    scratch_after="$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'tmux-copy-last.*' 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "$scratch_after" -le "$scratch_before" ]] \
+      || fail "a failure at '$fault' leaked a scratch directory holding the raw selection"
+  done
+
+  # A command whose output has no trailing newline: the closing prompt shares
+  # the last output row, so the output must survive and the prompt must not
+  # leak into the copy.
+  nonewline_pane="$(copylast_window scenario-nonewline.sh)"
+  copylast_wait "$nonewline_pane" 'READY-F'
+  run_copylast "$nonewline_pane" >"$copylast_dir/msg-f" 2>&1 \
+    || fail "tmux-copy-last failed on output with no trailing newline"
+  tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-f"
+  grep -qF 'tail-value' "$copylast_dir/buffer-f" \
+    || fail "tmux-copy-last dropped output that had no trailing newline"
+  grep -qF 'READY-F' "$copylast_dir/buffer-f" \
+    && fail "tmux-copy-last leaked the next prompt into the copy"
+
+  # Repeated use must not accumulate buffers: one stable named buffer is reused.
+  copylast_before="$(tmux -L "$copylast_socket" list-buffers | wc -l | tr -d ' ')"
+  run_copylast "$completed_pane" >/dev/null 2>&1
+  run_copylast "$completed_pane" >/dev/null 2>&1
+  copylast_after="$(tmux -L "$copylast_socket" list-buffers | wc -l | tr -d ' ')"
+  [[ "$copylast_before" -eq "$copylast_after" ]] \
+    || fail "repeated tmux-copy-last runs accumulate buffers ($copylast_before -> $copylast_after)"
+  # The scenario panes above script the marks. This one proves the real
+  # integration: an interactive zsh loading the rendered .zshrc must actually
+  # register prompt marks that survive zle's redraw. A precmd-emitted mark
+  # passes every scripted test and records nothing here.
+  render darwin false arm64 home/dot_zshrc.tmpl "$copylast_dir/zshrc"
+  mkdir -p "$copylast_dir/zdot"
+  cp "$copylast_dir/zshrc" "$copylast_dir/zdot/.zshrc"
+  tmux -L "$copylast_socket" new-window -c "$copylast_dir" \
+    "env ZDOTDIR='$copylast_dir/zdot' HOME='$copylast_dir/zdot' zsh -i"
+  zsh_pane="$(tmux -L "$copylast_socket" display-message -p '#{pane_id}')"
+  # Sentinels + bounded polling, never fixed sleeps: a slow CI box must not
+  # turn this into a flaky test.
+  zsh_send() { # command sentinel — run it, then wait for its OUTPUT to land
+    tmux -L "$copylast_socket" send-keys -t "$zsh_pane" "$1" Enter
+    copylast_wait "$zsh_pane" "$2"
+  }
+  # The sentinel must not appear in the typed command itself, or the wait
+  # returns before zsh has even run it and the whole test races.
+  zsh_send "printf 'ZPROBE%s\n' 0" 'ZPROBE0'
+  zsh_send "printf 'ZPROBE%s\n' 1" 'ZPROBE1'
+  zsh_send "printf 'ZPROBE%s\n' 2" 'ZPROBE2'
+  zsh_marks() { # how many distinct prompt marks previous-prompt can reach
+    local seen=0 last="" now
+    tmux -L "$copylast_socket" copy-mode -t "$zsh_pane"
+    while ((seen < 12)); do
+      tmux -L "$copylast_socket" send-keys -t "$zsh_pane" -X previous-prompt
+      now="$(tmux -L "$copylast_socket" display-message -p -t "$zsh_pane" '#{copy_cursor_y}')"
+      [[ "$now" != "$last" ]] || break
+      last="$now"
+      seen=$((seen + 1))
+    done
+    tmux -L "$copylast_socket" send-keys -t "$zsh_pane" -X cancel
+    printf '%s\n' "$seen"
+  }
+  zsh_mark_count="$(zsh_marks)"
+  ((zsh_mark_count >= 2)) \
+    || fail "an interactive zsh with the rendered .zshrc registered no OSC 133 prompt marks (is the mark in a precmd hook instead of PROMPT?)"
+  # Re-sourcing .zshrc (or the shell's own self-refresh) must not stack a second
+  # mark onto PROMPT: duplicate marks give tmux two prompt positions per prompt
+  # and make previous-prompt navigation unpredictable. Count the marks in PROMPT
+  # itself rather than inferring from cursor movement.
+  # grep -o | wc -l, never grep -c: grep -c counts matching LINES, so five marks
+  # stacked on one prompt line would still report 1 and the test would pass.
+  # shellcheck disable=SC2016 # this is zsh source text sent to a pane, not bash
+  zsh_resource_cmd='source ~/.zshrc; source ~/.zshrc; printf "MK%s\n" "$(print -rn -- "$PROMPT" | grep -o "133;A" | wc -l | tr -d " ")"'
+  tmux -L "$copylast_socket" send-keys -t "$zsh_pane" "$zsh_resource_cmd" Enter
+  # Wait on a SEPARATE sentinel: any token inside the measurement command also
+  # appears in the echoed command line, which would race the assertion.
+  zsh_send "printf 'ZPROBE%s\n' 3" 'ZPROBE3'
+  tmux -L "$copylast_socket" capture-pane -p -S - -t "$zsh_pane" >"$copylast_dir/zsh-marks"
+  grep -qxF 'MK1' "$copylast_dir/zsh-marks" \
+    || fail "re-sourcing .zshrc must leave exactly one OSC 133 mark in PROMPT (saw $(grep -oE '^MK[0-9]+$' "$copylast_dir/zsh-marks" | tail -n 1))"
+  tmux -L "$copylast_socket" kill-server 2>/dev/null || true
+  copylast_socket=""
+fi
 
 check "largest helper"
 test -x home/dot_local/bin/executable_largest
@@ -802,11 +1899,23 @@ grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\"" home/dot_local/bin/execu
 assert_no_matches "substantive update-all shell function returned" rg -n '^update-all\(\) \{' home/dot_zshrc.tmpl
 grep -qF $'daily\tupdate-all\tcommand\t' home/dot_local/share/groundwork/commands.tsv
 test -f home/run_once_before_07-update-all-command-migration.sh
-test -f home/run_once_after_98-update-all-migration-reminder.sh
-# The copy-last workflow stays wired end to end: helper, tmux binding, and a
-# discoverable catalog entry.
+test -f home/run_after_98-update-all-migration-reminder.sh
+# Destructive tmux keys must ask first. x sits next to z (zoom), so an
+# unconfirmed kill-pane silently destroys panes running agents or servers;
+# tmux's own default for x is confirm-before, and overriding that away is a
+# regression, not a convenience.
+grep -qF 'bind x confirm-before' home/dot_config/tmux/tmux.conf.tmpl
+assert_no_matches "tmux kill-pane must ask before destroying a pane" \
+  rg -n '^bind x kill-pane' home/dot_config/tmux/tmux.conf.tmpl
+# The copy-last workflow stays wired end to end: zsh emits the semantic
+# marks, the binding uses an absolute path without blocking the client, and
+# the catalog entry stays discoverable.
 test -x home/dot_local/bin/executable_tmux-copy-last
-grep -qF "bind Y run-shell 'tmux-copy-last" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF 'bind Y run-shell -b' home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "\$HOME/.local/bin/tmux-copy-last" home/dot_config/tmux/tmux.conf.tmpl
+# tmux-yank claims prefix+Y for copy-pane-pwd and loads AFTER this config, so
+# without relocating its key the copy-last binding is silently dead.
+grep -qF "set -g @yank_pane_pwd" home/dot_config/tmux/tmux.conf.tmpl
 grep -qF $'tmux\tCtrl+a then Shift+Y\tkey\t' home/dot_local/share/groundwork/commands.tsv
 # Brew bundle streams progress so long fetches do not read as hangs and invite
 # a Ctrl+C.
@@ -820,14 +1929,19 @@ grep -qF 'Run these now? [y/N]' home/dot_local/bin/executable_groundwork-brew-re
 grep -qF '=~ ^brew' home/dot_local/bin/executable_groundwork-brew-repair
 grep -q '^  game_dev = false$' docker/chezmoi.headless.toml
 grep -q '^  xcode = false$' docker/chezmoi.headless.toml
-grep -q 'Is this a server/CI Mac with no desktop apps? Most Macs should say no. \[y/N\]' home/.chezmoi.toml.tmpl
-grep -q 'Headless/server environment with no desktop apps? \[Y/n\]' home/.chezmoi.toml.tmpl
+# The headless prompt must stay OS-split: a Mac defaults to a desktop, a Linux
+# box/container defaults to headless. The wording carries the steer ("most Macs
+# are not"); chezmoi renders the default itself.
+grep -qF 'Is this a server or CI Mac with no desktop apps (most Macs are not)' home/.chezmoi.toml.tmpl
+grep -qF 'Is this a headless server or container with no desktop apps' home/.chezmoi.toml.tmpl
 if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desktop apps' home/.chezmoi.toml.tmpl; then
   echo "old headless prompt wording found in home/.chezmoi.toml.tmpl" >&2
   exit 1
 fi
-grep -q 'Install optional Unity game development tools? Large download. \[y/N\]' home/.chezmoi.toml.tmpl
-grep -q 'Install Xcode for native Apple/iOS development? Large (~15GB+). \[y/N\]' home/.chezmoi.toml.tmpl
+# Both heavyweight installs stay opt-in and keep their size warning in the
+# prompt, so nobody agrees to a multi-gigabyte download by reflex.
+grep -qF 'Install optional Unity game development tools (large download)' home/.chezmoi.toml.tmpl
+grep -qF 'Install Xcode for native Apple and iOS development (large, ~15GB+)' home/.chezmoi.toml.tmpl
 
 check "no create_ seed files"
 create_seeds="$(find home -name 'create_*' -print)"
@@ -1128,11 +2242,19 @@ render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwi
 assert_not_contains '^brew "xcodes"' "$out_dir/darwin-beta-noxcode/Brewfile" "xcodes installed with beta but no Xcode"
 render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl "$out_dir/darwin-beta-noxcode/update-run" false false true
 assert_not_contains "beta channel on" "$out_dir/darwin-beta-noxcode/update-run" "beta reminder shown with beta but no Xcode"
-# Lock the update-all Homebrew command so it cannot revert to bare --greedy,
-# which re-downloads and re-quarantines self-updating casks (repeated Gatekeeper prompts).
+# Lock the update-all Homebrew policy: checksums required, and no --greedy of
+# any kind. --greedy re-downloads and re-quarantines self-updating casks
+# (repeated Gatekeeper prompts); --greedy-latest only adds `version :latest`
+# casks, which Groundwork installs none of — and those are the casks Homebrew
+# requires to ship `sha256 :no_check`, so admitting them would defeat
+# --require-sha.
 grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1' "$out_dir/darwin-beta/update-run"
-grep -q 'brew upgrade --greedy-latest' "$out_dir/darwin-beta/update-run"
-assert_not_contains 'brew upgrade --greedy( |$)' "$out_dir/darwin-beta/update-run" "update-all reverted to --greedy (re-quarantines self-updating casks)"
+grep -q 'brew upgrade --require-sha' "$out_dir/darwin-beta/update-run"
+assert_not_contains '^[^#]*brew upgrade[^#]*--greedy' "$out_dir/darwin-beta/update-run" \
+  "update-all must not use any --greedy flag (unchecked or re-quarantined casks)"
+# The safe lane must never silently fall back when a checksum check fails.
+assert_no_matches "a failed --require-sha upgrade must not be retried without it" \
+  rg -n 'require-sha.*\|\||\|\|.*brew upgrade' home/dot_local/bin/executable_groundwork-update-run.tmpl
 
 check "rendered agent adapters"
 render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"

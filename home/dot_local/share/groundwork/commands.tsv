@@ -2,15 +2,22 @@
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
-tmux	Ctrl+a then Shift+Y	key	Copy the last command and its output to the clipboard; the included prompt line tells an agent where it ran.
+tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.
+tmux	Ctrl+a then z	key	Zoom the active pane to fill the screen; press again to restore. The status line shows Z while zoomed — this is what happened if a pane suddenly took over the screen.
+tmux	Ctrl+a then x	key	Close the active pane. It asks first, because x sits next to z (zoom).
 daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
 daily	chezmoi apply	command	Apply the source repo to your home directory.
 daily	chezmoi update	command	Git pull the Groundwork repo and apply it; syncs config, not already-installed tool upgrades.
 daily	chezmoi edit <file>	command	Edit a managed dotfile at its source instead of editing the generated home file.
 daily	chezmoi cd	command	Open a shell in the Groundwork source repo.
 daily	groundwork-restore	command	Restore the first-run backup of managed files and macOS defaults.
-daily	groundwork-doctor	command	Read-only machine health report. Today it checks Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers/images/volumes with owner-scoped cleanup guidance.
+daily	groundwork-doctor	command	Read-only machine health report. Checks the shell runtime (managed zsh installed, registered, adopted, running here) and Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers/images/volumes with owner-scoped cleanup guidance.
 daily	groundwork-doctor --docker	command	Run only the Docker section of the health report.
+daily	groundwork-doctor --shell	command	Run only the shell runtime section: managed zsh installed, registered, selected as login shell, and running here.
+shell	groundwork-shell-adopt	command	Make Groundwork's Homebrew zsh your login shell (records your current shell first, registers the new one in /etc/shells, runs chsh, verifies the account record). Your previous shell stays untouched as the recovery path.
+shell	groundwork-shell-adopt --status	command	Report the shell runtime state (managed zsh, account login shell, $SHELL, recorded previous shell) and change nothing.
+shell	groundwork-shell-adopt --revert	command	Restore the login shell you had before adopting. Works even when Homebrew is unavailable.
+shell	groundwork-shell-adopt --revert-to <shell>	command	Restore a specific login shell, for when no previous one was recorded.
 project	new-project <path>	command	Scaffold AGENTS.md, agent folders, editor settings, and .gitignore for a new repo.
 project	new-wiki <path>	function	Scaffold a private agent-maintained knowledge wiki with raw/wiki layers and Obsidian setup.
 project	copy-context <paths>	command	Copy selected files or folders to the clipboard with path headers and contents for AI review.

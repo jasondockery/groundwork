@@ -87,6 +87,27 @@ after the work is verified, never aspirationally.
       a fake `findmnt` returning `drvfs`/`9p`/`ext4`, a symlink into the
       rejected mount, and a custom-root path; keep the existing lexical
       tests as the no-findmnt fallback proof.
+- [ ] Shell runtime adoption receipts (docs label these provisional until this
+      lands; on Ubuntu/WSL2 `--revert` restores the recorded previous shell,
+      commonly bash — not `/bin/zsh`): the validator drives
+      `groundwork-shell-adopt` against fixtures (fake brew prefix, chsh, dscl,
+      /etc/shells), which proves the logic but not real account records.
+      Collect one receipt each on a fresh Apple Silicon Mac, an Intel Mac
+      (`/usr/local` prefix), native Ubuntu and Ubuntu WSL2 (Linuxbrew
+      `/home/linuxbrew/.linuxbrew` prefix), covering: migration from the OS
+      shell, a second run (no duplicate `/etc/shells` line, no re-chsh),
+      existing terminals versus new ones, `--revert` back to the recorded previous shell,
+      Homebrew temporarily unavailable, and `update-all` actually upgrading
+      the managed zsh. Also confirm `groundwork-doctor --shell` detects a
+      login-shell/current-process mismatch on a real machine.
+- [ ] tmux-copy-last release receipts: the validator drives the helper
+      against a scripted tmux server, which proves selection logic but not
+      real environments. Collect one receipt each on macOS, native Linux,
+      and Ubuntu WSL2: prefix+Y after a completed command, during a running
+      command (must copy the previous completed one), in an ssh pane
+      without OSC 133 marks (must refuse with guidance), and in a terminal
+      without clipboard support (tmux buffer still works; note the
+      clipboard is best-effort by design).
 - [ ] Distro CI coverage: Ubuntu LTS is the primary tested Linux path
       today; Debian stable and Fedora stable are documented as targeted,
       not supported, until this lands. Add container jobs (`debian:stable`,
@@ -98,18 +119,60 @@ after the work is verified, never aspirationally.
       When a distro's job is green, promote its wording in AGENTS.md and
       docs/platforms.html from "targeted" to "supported"; that promotion is
       part of this task, not a separate cleanup.
-- [ ] `groundwork-doctor` — untrusted Homebrew taps module: newer Homebrew
-      requires tap trust and silently ignores formulae, casks, and commands
-      from untrusted taps, so an untrusted tap means a tool that quietly
+- [x] mise release cooldown (2026-07-14): `update-all` now runs `mise upgrade
+      --minimum-release-age 5d`, the same 5-day floor the shared
+      `renovate-config` preset applies to repo dependencies. It filters
+      floating versions (`node = "lts"`, `pnpm = "latest"`) and exempts
+      explicitly pinned ones, which is the escape hatch for a security fix
+      that must land immediately. A mise too old to enforce the floor FAILS
+      CLOSED: the runtime stage is skipped, the run exits nonzero, and no
+      success timestamp is written — a policy that steps aside whenever it
+      cannot be enforced is not a policy.
+- [x] Homebrew checksum policy (2026-07-14): casks must carry a checksum at
+      INSTALL as well as upgrade. `brew bundle` runs under
+      `HOMEBREW_CASK_OPTS=--require-sha` (the user's own cask options are
+      preserved, never replaced), and `update-all` runs `brew upgrade
+      --require-sha` with no `--greedy` of any kind. Verified against the real
+      inventory rather than assumed: every cask in the Brewfile is versioned
+      and checksummed, the AI CLIs included — `claude-code@latest` is a faster
+      release CHANNEL, not Homebrew's `version :latest` (which would force
+      `sha256 :no_check`), so no unchecked "fast lane" exists and no
+      `groundwork-ai-update` split is warranted. `--greedy-latest` was a no-op
+      justified by an incorrect comment and is gone. The one cask that genuinely
+      ships `sha256 :no_check` is google-chrome (Google's updater owns the
+      binary): it is OUT of the Brewfile, installed only by an explicit
+      setup-time consent prompt (default no), only after the checksummed bundle
+      succeeds, and its failure is a real failure so the next apply retries.
+      `scripts/audit-brew-casks` enforces both invariants across every
+      conditional profile (work, password manager, game-dev) and self-audits
+      the exception — it is a required macOS CI job, not a manual habit.
+- [ ] Homebrew release-age floor (the one real remaining gap): Homebrew has no
+      `minimumReleaseAge` equivalent, so formula/cask upgrades still take
+      whatever is published — including the deliberately fast
+      `claude-code@latest` channel. Checksums are enforced (above), but a
+      compromised-yet-correctly-signed release is not delayed. Decide whether
+      an age floor is even the right control here (versus pinning to the
+      stable `claude-code` cask), and if so, evaluate a release-date source —
+      Homebrew's API does not reliably expose per-version dates, so this needs
+      building. Keep `docs/dependencies.html` accurate about which paths are
+      age-gated and which are only checksum-gated.
+- [ ] `groundwork-doctor` — untrusted Homebrew taps module: Homebrew now
+      enforces tap trust by default, and untrusted taps degrade loudly or
+      quietly depending on the path — broad operations (upgrade, bundle)
+      warn that a tap was skipped, while directly requesting one of its
+      formulae fails explicitly. Either way a tool from an untrusted tap
       stops updating (seen 2026-07-13 on the work machine with
       `anomalyco/tap` and a leftover `opencode-ai/tap`). Detect and inform,
-      never auto-trust: list installed taps and their trust state, name the
-      installed formulae/casks that came from each, and print the exact
-      scoped commands (`brew trust --formula <tap>/<formula>`, or
-      `brew untap <tap>` for leftovers whose tools now live in
-      homebrew/core, like opencode). Groundwork's own Brewfile uses only
-      core/cask, so any untrusted tap is user-added or leftover — the
-      doctor reports; the owner decides.
+      never auto-trust: report the enforcement mode
+      (`HOMEBREW_NO_REQUIRE_TAP_TRUST` unset/set), each installed tap's
+      trust state across all four scopes (tap, formula, cask, command),
+      and name the installed packages that came from each tap. Print exact
+      scoped commands (`brew trust --formula <tap>/<formula>` and cask/
+      command equivalents). Recommend `brew untap` only after proving no
+      installed formula, cask, command, or dependency still belongs to the
+      tap. Groundwork's own Brewfile uses only core/cask, so any untrusted
+      tap is user-added or leftover — the doctor reports; the owner
+      decides.
 - [ ] `groundwork-doctor` — stale distro metadata module on Linux/WSL2:
       `update-all` deliberately never runs `apt`/`dnf`/`pacman` (the OS
       belongs to the distro, not Groundwork); the doctor can detect stale

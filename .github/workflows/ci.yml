@@ -65,7 +65,13 @@ jobs:
       - name: Install validation tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh shellcheck jq
+          # tmux and zsh are test dependencies, not extras. Note the ubuntu
+          # runner's tmux is older than the 3.6 that tmux-copy-last requires
+          # (-C/-P copy flags), so the tmux behavior suite deliberately skips
+          # here and is REQUIRED on the macOS job below, where Homebrew supplies
+          # a current tmux. Asking apt for "tmux" does not establish the feature
+          # contract; running the suite against 3.6+ does.
+          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux shellcheck jq
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
 
       # The validation script emits gcc-format shellcheck output under
@@ -77,6 +83,46 @@ jobs:
 
       - name: Validate Groundwork
         run: scripts/validate-groundwork
+
+  # tmux-copy-last manipulates the user's clipboard and paste buffers, and its
+  # safety depends on tmux 3.6+ (-C/-P). The ubuntu runner ships an older tmux,
+  # so that suite would skip there forever and the gate would still be green.
+  # This job supplies a current tmux via Homebrew and REQUIRES the suite to run:
+  # GROUNDWORK_REQUIRE_TMUX=1 turns a skip into a failure.
+  tmux-behavior:
+    name: tmux-behavior (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install validation tools
+        run: |
+          brew install tmux chezmoi ripgrep shellcheck jq
+          tmux_version="$(tmux -V | awk '{print $2}')"
+          tmux_major="${tmux_version%%.*}"
+          tmux_minor="${tmux_version#*.}"
+          tmux_minor="${tmux_minor%%[!0-9]*}"
+          if [ "$tmux_major" -lt 3 ] || { [ "$tmux_major" -eq 3 ] && [ "$tmux_minor" -lt 6 ]; }; then
+            echo "::error::tmux $tmux_version is below the 3.6 that tmux-copy-last requires (-C/-P copy flags)."
+            exit 1
+          fi
+          echo "tmux $tmux_version (>= 3.6 required)"
+
+      - name: Validate Groundwork (tmux suite required)
+        env:
+          GROUNDWORK_REQUIRE_TMUX: "1"
+        run: scripts/validate-groundwork
+
+      # The cask checksum policy is only real if it is a gate. This needs
+      # Homebrew and network metadata, so it cannot live in the offline
+      # validator — but "run it by hand sometimes" is not a policy either.
+      - name: Audit Homebrew cask integrity
+        run: scripts/audit-brew-casks
 
   secret-scan:
     name: secret-scan

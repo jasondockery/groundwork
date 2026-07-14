@@ -199,7 +199,24 @@
         <tr><td><code>chezmoi diff</code></td><td>Preview what Groundwork would change before applying.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply the source repo to the home directory.</td></tr>
         <tr><td><code>groundwork-restore</code></td><td>Restore the first-run backup of managed files and macOS defaults. Does not uninstall apps or undo Homebrew upgrades.</td></tr>
-        <tr><td><code>groundwork-doctor</code></td><td>Read-only machine health report. Today it covers Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers, images, and volumes, each with owner-scoped cleanup guidance. It never deletes or changes anything.</td></tr>
+        <tr><td><code>groundwork-doctor</code></td><td>Read-only machine health report. It covers the shell runtime (managed zsh installed, registered, selected as your login shell, and actually running here) and Docker: daemon reachability, log rotation, image store, disk usage, and leftover containers, images, and volumes, each with owner-scoped cleanup guidance. It never deletes or changes anything.</td></tr>
+        <tr><td><code>groundwork-doctor --shell</code></td><td>Run only the shell runtime section: managed zsh installed, registered, selected as login shell, and running here.</td></tr>
+        <tr><td><code>groundwork-doctor --docker</code></td><td>Run only the Docker section of the health report.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>The shell runtime</h2>
+      <div class="callout note">
+        <span class="label">Provisional beyond Apple Silicon</span>
+        <p>Shell adoption and <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span> are covered by automated tests and verified on Apple Silicon macOS. Intel macOS, native Linux, and WSL2 receipts are still being collected — and Groundwork's rule is that support follows verification, not intent — so treat those platforms as provisional for these two commands until the receipts land. Recovery (<code>--revert</code>) is designed to work regardless, including with Homebrew broken or missing.</p>
+      </div>
+      <p>Groundwork owns the interactive shell itself, not only its configuration. The zsh that runs your prompt, plugins, completions, and tmux integration is the one Homebrew installs, so it behaves the same on macOS, Linux, and WSL2 and <code>update-all</code> keeps it current along with everything else. Your operating system's own shell is never modified or removed — it stays as the recovery path.</p>
+      <p>Adopting it is a deliberate step, never something an apply does behind your back, because it changes your account's login-shell record and needs <code>sudo</code> to register the shell in <code>/etc/shells</code>. It also never replaces the shell process you are sitting in: new terminals pick it up, and the command prints an <code>exec</code> line if you want to switch the current one immediately.</p>
+      <p>Recovery is designed for the bad day. Adoption records the exact login shell you had first, so <code>--revert</code> restores <em>that</em> shell rather than guessing a platform default — and both <code>--status</code> and <code>--revert</code> work with Homebrew missing or broken, since that is precisely when you need them. Groundwork never modifies or removes your operating system's shell.</p>
+      <table class="keytable">
+        <tr><td><code>groundwork-shell-adopt</code></td><td>Make Groundwork's Homebrew zsh your login shell: registers it in <code>/etc/shells</code> (idempotent, needs sudo), runs <code>chsh</code>, then verifies the account record actually changed.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --status</code></td><td>Report the shell runtime state — managed zsh and version, the account's login shell, the <code>$SHELL</code> session value, the recorded previous shell, and <code>/etc/shells</code> registration — and change nothing.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --revert</code></td><td>Restore the login shell you had <em>before</em> adopting — the exact one, recorded at adoption, not a guessed default (on Linux that is often bash, not zsh). It deliberately works with Homebrew missing or broken, because that is the incident it exists for.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --revert-to &lt;shell&gt;</code></td><td>Restore a specific login shell, for the case where no previous one was recorded.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Shell aliases and search</h2>
@@ -234,7 +251,9 @@
         <tr><td><code>tmuxp freeze &gt; .tmuxp.yaml</code></td><td>Capture the current session as a starter layout config.</td></tr>
         <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot.</td></tr>
         <tr><td><code>~/.config/tmux/plugins/tpm/bin/update_plugins all</code></td><td>Update tmux plugins from a normal shell when TPM's tmux pane is hard to read.</td></tr>
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span></td><td>Copy the last command and its output to the clipboard; the included prompt line tells an agent where it ran.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span></td><td>Copy the last completed command and its output into a tmux buffer (and the clipboard when supported), selected by semantic prompt marks; a platform + working-directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span></td><td>Zoom the active pane to fill the screen; press again to restore. The status line shows <code>Z</code> while zoomed — this is what happened if a pane suddenly took over the screen.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>x</kbd></span></td><td>Close the active pane. It asks first, because <kbd>x</kbd> sits next to <kbd>z</kbd> (zoom).</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span></td><td>Save a tmux-resurrect snapshot now.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>r</kbd></span></td><td>Restore the last tmux-resurrect snapshot.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span></td><td>Update tmux plugins with TPM. Press <kbd>Esc</kbd> or <kbd>Enter</kbd> if the update pane does not repaint.</td></tr>

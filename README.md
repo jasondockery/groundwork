@@ -15,6 +15,30 @@ macOS is the primary desktop target. Linux, WSL, and headless containers share t
 
 This repo is the complete, version-controlled source for the setup, docs, validation, and project scaffolds.
 
+## Start Here
+
+On a fresh Mac, run the bootstrap script. It is the source of truth for new-Mac setup and is safe to re-run after fixing any failure.
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"
+```
+
+Want to inspect it first? (Reading a script before piping it into your shell is a habit worth keeping.)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh -o /tmp/bootstrap-mac.sh
+less /tmp/bootstrap-mac.sh
+bash /tmp/bootstrap-mac.sh
+```
+
+That script installs every Brewfile package, lays down all configs, and runs the setup scripts.
+
+> **Before you run it:** this is an opinionated environment, not a passive app installer — it **changes the Mac it runs on** (shell, Git, editor, tmux, VS Code, Homebrew packages, selected macOS defaults). It backs up what it replaces first, and `groundwork-restore` puts the managed files and defaults back. Read [Important — opinionated Mac setup](#important--opinionated-mac-setup) for exactly what changes and what the restore does and does not cover.
+
+New here and not ready to install? Read the docs at <https://jasondockery.github.io/groundwork/>, or keep reading below for what Groundwork is and who it's for.
+
+Not on a Mac? See [Supported Platforms](#supported-platforms) — Linux, WSL2, and headless Docker share the same terminal layer.
+
 ## Who It's For
 
 Groundwork is for anyone who wants to build seriously, wherever you are starting from: brand new to development or deep into a career, new to the terminal or fluent in it, new to AI-native work or already practicing it. It sets up a machine, image, or container quickly with everything needed to work — tools, shell, shortcuts, and agent instructions in place — and the docs meet each reader at their own starting point.
@@ -81,23 +105,7 @@ That restore is intentionally scoped: it restores the managed config files and m
 
 During `chezmoi init`, existing Macs are also offered an optional clean start for common conflict zones. Say **yes** only when you want old terminal/editor/tmux state moved aside before this setup applies. The moved files go to `~/.local/state/groundwork/reset/latest`; they are not deleted.
 
-## Start Here
-
-On a fresh Mac, run the bootstrap script. It is the source of truth for new-Mac setup and is safe to re-run after fixing any failure.
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"
-```
-
-Want to inspect it first?
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh -o /tmp/bootstrap-mac.sh
-less /tmp/bootstrap-mac.sh
-bash /tmp/bootstrap-mac.sh
-```
-
-That script installs every Brewfile package, lays down all configs, and runs the setup scripts. Re-run later with `chezmoi update` (pull + apply) or `chezmoi apply` (apply local source). Those commands sync configuration; they do not upgrade already-installed tools to newer upstream releases.
+## Installing from a fork or over SSH
 
 Advanced users can override the clone URL, for example when using SSH:
 
