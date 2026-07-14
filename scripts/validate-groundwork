@@ -29,15 +29,85 @@ fail() {
   exit 1
 }
 
-# Annotation messages must be single-line: escape literal % first, then
-# collapse newlines/carriage returns. Titles additionally escape the
-# property delimiters (:, ,) per the Actions toolkit rules. Kept as
-# functions so the escaping itself is testable against hostile input.
+# Toolkit-exact annotation escaping (@actions/core's escapeData/escapeProperty).
+#
+# The contract and its test vectors live in Roost's `@roost/ci-diagnostics`
+# (packages/ci-diagnostics/src/diagnostics.ts — escapeWorkflowData,
+# escapeWorkflowProperty, capWorkflowPayload — with the shared cases in that
+# package's src/vectors.json). This shell mirrors that TypeScript rather than
+# vendoring it: a Node toolchain does not belong in a shell-first repo, so what
+# travels between the repos is the contract, not the package. When the contract
+# changes, change it there first and mirror it here.
+#
+# Order matters. `%` is escaped FIRST, or the `%` that the later escapes
+# introduce would itself be escaped again (`\n` -> `%0A` -> `%250A`). CR and LF
+# become %0D/%0A rather than being collapsed to spaces: both forms are
+# injection-safe, since a workflow command is only recognized at the start of a
+# line and neither form lets content open one, but the encoded form is also
+# lossless — GitHub renders the annotation as the multi-line text it was.
+# U+2028/U+2029 terminate a line for the runner's command parser exactly like
+# LF, so they escape to %0A too.
+annotation_max_length=500
+
+# bash counts CODE POINTS in ${#s} and ${s:o:n} only under a multibyte locale;
+# under C/POSIX it counts BYTES, and a cut at 499 bytes can land inside a
+# multibyte character. A runner with no LANG set (GitHub's macOS images) is
+# exactly that case, so resolve a UTF-8 locale once, probing with a real 2-byte
+# character instead of trusting a locale's name.
+annotation_utf8_locale=""
+for annotation_locale_candidate in "${LC_ALL:-}" "${LC_CTYPE:-}" "${LANG:-}" C.UTF-8 en_US.UTF-8; do
+  [[ -n "$annotation_locale_candidate" ]] || continue
+  if ( LC_ALL="$annotation_locale_candidate"; probe=$'\303\251'; [[ ${#probe} -eq 1 ]] ) 2>/dev/null; then
+    annotation_utf8_locale="$annotation_locale_candidate"
+    break
+  fi
+done
+unset annotation_locale_candidate
+
+# Caps the RAW payload (before escaping), so the limit is a content limit rather
+# than an escaped-length limit and both emitters truncate at the same character.
+# Answers in the global `annotation_capped` instead of on stdout: a message may
+# legitimately end in a newline (it becomes %0A), and $(...) would eat it.
+annotation_capped=""
+annotation_cap() {
+  local s="$1" keep=$((annotation_max_length - 1)) had_lc_all=0 saved_lc_all="" last
+  if [[ -n "$annotation_utf8_locale" ]]; then
+    [[ -z "${LC_ALL+set}" ]] || { had_lc_all=1; saved_lc_all="$LC_ALL"; }
+    LC_ALL="$annotation_utf8_locale"
+    [[ ${#s} -le $annotation_max_length ]] || s="${s:0:$keep}…"
+    if [[ "$had_lc_all" -eq 1 ]]; then LC_ALL="$saved_lc_all"; else unset LC_ALL; fi
+  elif [[ ${#s} -gt $annotation_max_length ]]; then
+    # No UTF-8 locale exists on this machine, so bash is counting bytes. Cut at
+    # 499 BYTES and then back off any trailing partial character: drop trailing
+    # continuation bytes (0x80-0xBF), then a trailing lead byte (0xC0+), which at
+    # the end of the string can only be a sequence whose continuations were cut.
+    # Stricter than the 499-code-point contract and it may drop one extra whole
+    # character, but it can never emit a split character. Unreachable on a
+    # supported platform (macOS and Ubuntu both ship a UTF-8 locale).
+    s="${s:0:$keep}"
+    while [[ -n "$s" ]]; do
+      last="${s:$((${#s} - 1)):1}"
+      [[ "$last" == [$'\200'-$'\277'] ]] || break
+      s="${s:0:$((${#s} - 1))}"
+    done
+    if [[ -n "$s" ]]; then
+      last="${s:$((${#s} - 1)):1}"
+      [[ "$last" != [$'\300'-$'\375'] ]] || s="${s:0:$((${#s} - 1))}"
+    fi
+    s="$s…"
+  fi
+  annotation_capped="$s"
+}
+
 annotation_escape_message() {
-  local cr=$'\r' nl=$'\n' s="$1"
+  local cr=$'\r' nl=$'\n' ls=$'\342\200\250' ps=$'\342\200\251' s
+  annotation_cap "$1"
+  s="$annotation_capped"
   s="${s//%/%25}"
-  s="${s//"$cr"/ }"
-  s="${s//"$nl"/ }"
+  s="${s//"$cr"/%0D}"
+  s="${s//"$nl"/%0A}"
+  s="${s//"$ls"/%0A}"
+  s="${s//"$ps"/%0A}"
   printf '%s' "$s"
 }
 
@@ -1333,10 +1403,52 @@ test ! -e "$notice_state/shell-adopt-notice-shown" \
   || fail "a noninteractive run consumed the adoption notice"
 
 check "annotation escaping"
-[[ "$(annotation_escape_message $'50% done\r\n::error fake::injected')" == '50%25 done  ::error fake::injected' ]] \
+# Toolkit-exact, and byte-for-byte what @roost/ci-diagnostics renders for the
+# same inputs (its src/vectors.json is the shared case list). % escapes first,
+# so the % introduced by the CR/LF escapes is not escaped again; CR/LF become
+# %0D/%0A rather than spaces, which keeps the annotation multi-line-faithful.
+[[ "$(annotation_escape_message $'50% done\r\n::error fake::injected')" == '50%25 done%0D%0A::error fake::injected' ]] \
   || fail "annotation message escaping changed for %, CR, LF, or embedded workflow-command text"
-[[ "$(annotation_escape_title $'rendered zsh: a,b\r\nc % ::set-output')" == 'rendered zsh%3A a%2Cb  c %25 %3A%3Aset-output' ]] \
+[[ "$(annotation_escape_title $'rendered zsh: a,b\r\nc % ::set-output')" == 'rendered zsh%3A a%2Cb%0D%0Ac %25 %3A%3Aset-output' ]] \
   || fail "annotation title escaping changed for colon, comma, %, or control characters"
+# A pre-escaped sequence must not be double-unescaped back into a real newline.
+[[ "$(annotation_escape_message '%0A is a literal, not a newline')" == '%250A is a literal, not a newline' ]] \
+  || fail "annotation escaping must not let a literal %0A survive as a real escape"
+# U+2028/U+2029 end a line for the runner's command parser exactly like LF.
+[[ "$(annotation_escape_message $'before\342\200\250::error title=x::y\342\200\251after')" == 'before%0A::error title=x::y%0Aafter' ]] \
+  || fail "U+2028/U+2029 must escape to %0A, or content could open a new line"
+# The property that makes the escaping injection-safe, asserted directly rather
+# than inferred from the strings above: a workflow command is only recognized at
+# the start of a line, and no escaped output can contain a line break at all.
+ann_hostile="$(annotation_escape_title $'x\r\n::error fake::injected\342\200\250::notice a::b')"
+[[ "$ann_hostile" != *$'\n'* && "$ann_hostile" != *$'\r'* && "$ann_hostile" != *$'\342\200\250'* ]] \
+  || fail "escaped annotation content kept a line break, so an injected ::error could start its own line"
+
+# The 500-code-point display cap, matching @roost/ci-diagnostics'
+# WORKFLOW_COMMAND_MAX_LENGTH: at the cap, unchanged; over it, 499 kept plus an
+# ellipsis marker.
+ann_a500="$(printf '%500s' '' | tr ' ' a)"
+ann_a499="${ann_a500:0:499}"
+ann_a498="${ann_a500:0:498}"
+[[ "$(annotation_escape_message "$ann_a500")" == "$ann_a500" ]] \
+  || fail "an annotation message exactly at the 500-code-point cap must not be truncated"
+[[ "$(annotation_escape_message "${ann_a500}x")" == "$ann_a499…" ]] \
+  || fail "an over-long annotation message must truncate to 499 code points plus an ellipsis"
+[[ "$(annotation_escape_title "${ann_a500}x")" == "$ann_a499…" ]] \
+  || fail "an over-long annotation title must truncate to 499 code points plus an ellipsis"
+# CODE POINTS, not bytes. The rocket sits at code point 499 — the last character
+# the cap keeps — but at BYTE 499 of the payload, so a byte-wise cut would slice
+# it in half and emit a broken character. bash only counts code points under a
+# UTF-8 locale, which is why annotation_cap resolves one.
+ann_rocket=$'\360\237\232\200'
+[[ "$(annotation_escape_message "${ann_a498}${ann_rocket}zz")" == "${ann_a498}${ann_rocket}…" ]] \
+  || fail "the annotation cap split a multibyte character (it must count code points, not bytes)"
+# And with no UTF-8 locale on the machine at all, bash counts bytes: the cap then
+# backs off the partial character rather than emitting half of it. Stricter than
+# the contract (the whole rocket is dropped), never broken output.
+ann_no_utf8="$(annotation_utf8_locale=""; LC_ALL=C; annotation_escape_message "${ann_a498}${ann_rocket}zz")"
+[[ "$ann_no_utf8" == "$ann_a498…" ]] \
+  || fail "without a UTF-8 locale the annotation cap must drop the partial character, not split it"
 
 check "tmux-copy-last helper"
 test -x home/dot_local/bin/executable_tmux-copy-last
@@ -1684,13 +1796,14 @@ fi
 exec "$real_tmux" -L "$copylast_socket" "\$@"
 SPY
   chmod +x "$copylast_dir/spy/tmux"
-  # TWO genuinely attached clients, so "which client?" is a real question. A
-  # detached server is not a client, and targeting the only client proves
-  # nothing. Each attach needs its own pty.
+  # TWO genuinely attached clients, so "which client?" is a real question: a
+  # detached server is not a client, and targeting the only client would pass
+  # even if the code ignored the argument. Control-mode clients (-C) attach
+  # without a pty, which is what makes this receipt runnable on a CI runner
+  # instead of quietly skipping there. `sleep | ...` keeps stdin open so the
+  # client stays attached.
   for _ in 1 2; do
-    if command -v script >/dev/null 2>&1; then
-      (script -q /dev/null "$real_tmux" -L "$copylast_socket" attach -t 0 >/dev/null 2>&1 &) || true
-    fi
+    (sleep 120 | "$real_tmux" -L "$copylast_socket" -C attach -t 0 >/dev/null 2>&1 &) || true
   done
   for _ in $(seq 1 30); do
     copylast_client_count="$(tmux -L "$copylast_socket" list-clients -F '#{client_name}' 2>/dev/null | wc -l | tr -d ' ')"
