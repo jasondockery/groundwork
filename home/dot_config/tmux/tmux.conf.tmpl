@@ -16,10 +16,12 @@ set -g allow-passthrough on
 bind -T copy-mode-vi v send -X begin-selection
 bind -T copy-mode-vi C-v send -X rectangle-toggle
 bind -T copy-mode-vi y send -X copy-selection-and-cancel
-# Copy the last command + its output (prompt line included, so the pasted
-# text carries the repo path for AI agents). Terminal-native "select last
-# output" can't see inside tmux panes; this is the tmux-owned equivalent.
-bind Y run-shell 'tmux-copy-last "#{pane_id}"'
+# Copy the last completed command + its output, selected by semantic prompt
+# marks (OSC 133, emitted by Groundwork's zsh) — running commands and
+# prompt-looking output can't fool it. Terminal-native "select last output"
+# can't see inside tmux panes; this is the tmux-owned equivalent. Absolute
+# path and -b: don't trust a long-lived server's PATH, don't block the client.
+bind Y run-shell -b '"$HOME/.local/bin/tmux-copy-last" "#{pane_id}" "#{client_name}"'
 
 unbind C-b
 set -g prefix C-a
@@ -64,7 +66,10 @@ unbind -T prefix -q C-l
 
 # clear: C-l stays the normal shell clear-screen key; prefix C-k also wipes tmux scrollback.
 bind C-k send-keys C-l \; clear-history
-bind x kill-pane
+# Destructive keys ask first. tmux's own default for x is confirm-before, and
+# x sits right next to z (zoom) — a mistyped zoom must not silently destroy a
+# pane with a running agent, server, or unsaved editor in it.
+bind x confirm-before -p "kill pane #P (#{pane_current_command})? (y/n)" kill-pane
 
 # resize panes (repeatable: hold the key)
 bind -r H resize-pane -L 5
@@ -103,6 +108,12 @@ set -g @plugin 'tmux-plugins/tmux-cpu'
 set -g @plugin 'tmux-plugins/tmux-battery'
 set -g @plugin 'christoomey/vim-tmux-navigator'
 set -g @plugin 'catppuccin/tmux#v2.3.0'
+
+# tmux-yank claims prefix+Y for "copy the pane's working directory", and
+# plugins load after this file, so it would silently win over the prefix+Y
+# copy-last-command binding above. Move its pwd copy to prefix+C-y (still
+# available, just not on the more valuable key).
+set -g @yank_pane_pwd 'C-y'
 
 set -g @vim_navigator_mapping_left 'M-h'
 set -g @vim_navigator_mapping_down 'M-j'

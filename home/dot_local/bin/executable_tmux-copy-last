@@ -1,61 +1,295 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Copy the last completed command and its output from a tmux pane to the
-# system clipboard (and tmux paste buffer). Bound to prefix+Y; also works
-# typed as a command. The copied block starts at the prompt line, which
-# Groundwork's starship prompt stamps with the OS badge and repo-relative
-# path on purpose: pasted output then tells an AI agent where it ran.
+# Copy the last COMPLETED command and its output from a tmux pane into a tmux
+# paste buffer (always) and the system clipboard (when the terminal supports
+# it). Bound to prefix+Y.
 #
-# Prompt lines are recognized by the OS badge glyphs from starship.toml
-# [os.symbols]; blocks whose command is empty (the idle prompt) or that
-# invoked this helper itself are skipped, so you always get the previous
-# real command. If the prompt has been customized away from the badges,
-# fall back to tmux copy-mode (prefix+[).
-if [[ -z "${TMUX:-}" ]]; then
+# Selection uses tmux's semantic prompt marks (OSC 133), which Groundwork's zsh
+# emits inside tmux: a block is chosen only when a later prompt mark closes it,
+# so a still-running command is never copied and prompt-looking text inside
+# command output cannot fool the selection. When a pane has no marks (foreign
+# shell, ssh without integration), this fails with guidance instead of guessing.
+#
+# The copied block is prefixed with a deterministic context line (platform and
+# the pane's working directory) so pasted output tells an AI agent where it ran.
+# Review the copied text for secrets or personal/production data before pasting
+# it into an AI tool.
+
+pane="${1:-}"
+client="${2:-}"
+max_lines="${GROUNDWORK_COPY_MAX_LINES:-5000}"
+max_bytes="${GROUNDWORK_COPY_MAX_BYTES:-$((512 * 1024))}"
+# One stable buffer name, reused every run: unnamed buffers pile up and tmux
+# evicts the OLDEST automatic buffer when it hits its limit — which could be
+# one the user put there.
+final_buffer="groundwork-copy-last"
+
+if [[ -z "${TMUX:-}" && -z "$pane" ]]; then
   echo "tmux-copy-last: not inside tmux. Use your terminal's selection instead." >&2
   exit 1
 fi
 
-pane="${1:-}"
-badges='󰀵 󰌽 󰕈 󰣇 󰣚 󰣛 󰍲  󱄛  '
-
-# shellcheck disable=SC2086 # ${pane:+-t "$pane"} intentionally expands to two words
-block="$(tmux capture-pane -p -J -S - ${pane:+-t "$pane"} | awk -v badges="$badges" '
-  function is_prompt(s,   i) {
-    for (i = 1; i <= nb; i++) if (index(s, B[i])) return 1
-    return 0
+# The limits are consumed in arithmetic and promised in the output, so a
+# malformed or absurdly small value must be rejected up front, not discovered
+# halfway through. min_bytes leaves room for the header, the command, and the
+# truncation notice — below that the cap could not be honored while still
+# keeping the command, and silently breaking the promise is worse than refusing.
+for limit_name in max_lines max_bytes; do
+  limit_value="${!limit_name}"
+  # tr, not ${var^^}: macOS ships Bash 3.2, where ^^ is a bad substitution — so
+  # the error path itself would crash instead of explaining the bad input.
+  [[ "$limit_value" =~ ^[0-9]+$ ]] || {
+    limit_env="$(printf '%s' "$limit_name" | tr '[:lower:]' '[:upper:]')"
+    echo "tmux-copy-last: GROUNDWORK_COPY_$limit_env must be a positive integer (got '$limit_value')." >&2
+    exit 2
   }
-  BEGIN { nb = split(badges, B, " ") }
-  {
-    line[NR] = $0
-    if (is_prompt($0)) marker[++nm] = NR
-  }
-  END {
-    if (nm == 0) exit 3
-    for (m = nm; m >= 1; m--) {
-      start = marker[m]
-      finish = (m < nm) ? marker[m + 1] - 1 : NR
-      # The command follows the prompt character, on the marker line for a
-      # single-line prompt or on the following line for a two-line prompt.
-      cmd = ""
-      for (j = start; j <= finish && j <= start + 1; j++) {
-        pos = index(line[j], "❯")
-        if (pos) { cmd = substr(line[j], pos + length("❯")); break }
-      }
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", cmd)
-      if (cmd == "" || index(cmd, "tmux-copy-last")) continue
-      while (finish > start && line[finish] ~ /^[[:space:]]*$/) finish--
-      for (j = start; j <= finish; j++) print line[j]
-      exit 0
-    }
-    exit 3
-  }
-')" || {
-  echo "tmux-copy-last: no completed command found in this pane's history (is the Groundwork prompt active?). Use copy-mode: prefix+[." >&2
-  exit 1
+done
+# Bounded on BOTH sides: a huge value overflows bash arithmetic, a tiny one
+# cannot hold the header, command, and truncation notice.
+((max_lines >= 5 && max_lines <= 100000)) || {
+  echo "tmux-copy-last: GROUNDWORK_COPY_MAX_LINES must be between 5 and 100000 (got $max_lines)." >&2
+  exit 2
+}
+((max_bytes >= 1024 && max_bytes <= 16777216)) || {
+  echo "tmux-copy-last: GROUNDWORK_COPY_MAX_BYTES must be between 1024 and 16777216 (got $max_bytes)." >&2
+  exit 2
 }
 
-printf '%s\n' "$block" | tmux load-buffer -w -
-lines=$(printf '%s\n' "$block" | wc -l | tr -d ' ')
-tmux display-message "copied last command + output ($lines lines)"
+# Version contract: tmux 3.6+, and the floor is set by the STRICTEST feature
+# used, not the first one. Semantic prompt navigation (previous-prompt /
+# next-prompt) arrived in 3.4 and copy-pipe-and-cancel in 3.5, but the -C/-P
+# flags — which are what keep the raw selection off the clipboard and out of the
+# buffer stack — only exist from 3.6. Advertising 3.4 would be false. Groundwork
+# installs a current tmux; this guards an older tmux sitting first on PATH.
+# Fail CLOSED: an unparseable or missing version is not permission to proceed.
+# Proving 3.6+ is the only way past this gate.
+tmux_version="$(tmux -V 2>/dev/null | awk '{print $2}' || true)"
+tmux_major="${tmux_version%%.*}"
+tmux_minor="${tmux_version#*.}"
+tmux_minor="${tmux_minor%%[!0-9]*}"
+if ! [[ "$tmux_major" =~ ^[0-9]+$ && "$tmux_minor" =~ ^[0-9]+$ ]] \
+  || ((tmux_major < 3 || (tmux_major == 3 && tmux_minor < 6))); then
+  echo "tmux-copy-last: needs tmux 3.6+ (the -C/-P copy flags that keep the raw selection off your clipboard); this reports '${tmux_version:-no version}'." >&2
+  echo "Upgrade tmux (Groundwork installs a current one: brew upgrade tmux), or use copy-mode: prefix+[" >&2
+  exit 1
+fi
+
+tm() {
+  local cmd="$1"
+  shift
+  # shellcheck disable=SC2086 # ${pane:+-t "$pane"} intentionally expands to two words
+  tmux "$cmd" ${pane:+-t "$pane"} "$@"
+}
+say() {
+  if [[ -n "$client" ]]; then
+    # shellcheck disable=SC2086
+    tmux display-message -c "$client" ${pane:+-t "$pane"} "$1" 2>/dev/null && return
+  fi
+  echo "$1"
+}
+
+# Anything that goes wrong after entering copy-mode must not strand the pane in
+# it, and must not leave the scratch file behind.
+copy_mode_active=0
+scratch=""
+scratch_dir=""
+cleanup() {
+  if ((copy_mode_active)); then
+    tm send-keys -X cancel 2>/dev/null || true
+  fi
+  [[ -z "$scratch_dir" ]] || rm -rf -- "$scratch_dir"
+}
+trap cleanup EXIT
+
+give_up() {
+  cleanup
+  copy_mode_active=0
+  if [[ -n "$client" ]]; then
+    # shellcheck disable=SC2086
+    tmux display-message -c "$client" ${pane:+-t "$pane"} "tmux-copy-last: $1" 2>/dev/null \
+      || echo "tmux-copy-last: $1" >&2
+  else
+    echo "tmux-copy-last: $1" >&2
+  fi
+  exit 1
+}
+pos() { tm display-message -p '#{scroll_position}:#{copy_cursor_y}'; }
+
+if ! in_mode="$(tm display-message -p '#{pane_in_mode}' 2>/dev/null)"; then
+  echo "tmux-copy-last: no such pane${pane:+: $pane}" >&2
+  exit 1
+fi
+if [[ "$in_mode" == "1" ]]; then
+  say "tmux-copy-last: pane is already in copy-mode — finish there first (q exits)."
+  exit 1
+fi
+
+tm copy-mode
+copy_mode_active=1
+
+start="$(pos)"
+tm send-keys -X previous-prompt
+candidate="$(pos)"
+if [[ "$candidate" == "$start" ]]; then
+  give_up "no completed command found — this pane has no reachable OSC 133 prompt marks (shell integration missing?). Use copy-mode: prefix+["
+fi
+# A block counts only when a later prompt mark closes it; the final open block
+# (idle prompt or still-running command) is never selected.
+tm send-keys -X next-prompt
+closing="$(pos)"
+if [[ "$closing" == "$candidate" ]]; then
+  tm send-keys -X previous-prompt
+  earlier="$(pos)"
+  if [[ "$earlier" == "$candidate" ]]; then
+    give_up "no completed command in this pane yet — run something first."
+  fi
+else
+  tm send-keys -X previous-prompt
+fi
+
+tm send-keys -X start-of-line
+tm send-keys -X begin-selection
+tm send-keys -X next-prompt
+
+# The selection must end just before the closing prompt. Usually that prompt
+# starts its own row, so we step up a row and take the whole line. But when the
+# command's last output has no trailing newline (`printf result`), the next
+# prompt begins on the SAME row, and stepping up would eat that output. In that
+# case the cursor's column is > 0, so step left one cell instead.
+closing_x="$(tm display-message -p '#{copy_cursor_x}')"
+if [[ "${closing_x:-0}" -gt 0 ]]; then
+  tm send-keys -X cursor-left
+else
+  tm send-keys -X cursor-up
+  tm send-keys -X end-of-line
+fi
+
+# -C suppresses the terminal clipboard and -P suppresses the paste buffer, so
+# this intermediate copy stays entirely private: without them tmux would push
+# the RAW selection — uncapped, unheadered, untrimmed — straight to the system
+# clipboard before any of the safety logic below runs, and would leave an
+# automatic buffer behind that tmux may later evict a user's buffer to make room
+# for. The final, checked payload is the only thing that reaches either.
+#
+# The pipe writes to a .part file and renames it: a non-empty scratch file only
+# proves the FIRST bytes landed, so waiting on it would let a big selection be
+# trimmed and published while `cat` was still writing.
+scratch_dir="$(mktemp -d "${TMPDIR:-/tmp}/tmux-copy-last.XXXXXX")"
+scratch="$scratch_dir/selection"
+# tmux passes this string to a SHELL, so an unquoted path would let a TMPDIR
+# containing a space, quote, semicolon, or $() break the copy or run something
+# unintended. Encode both paths as POSIX single-quoted literals: wrap in
+# single quotes and replace each embedded quote with the '\'' escape dance.
+shell_quote() {
+  # POSIX single-quote encoding: wrap in single quotes, and end/escape/reopen
+  # around every embedded quote ('\''). Everything else — spaces, $(), ;, #,
+  # newlines — is inert inside single quotes.
+  printf "'%s'\n" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+if ! tm send-keys -X copy-pipe-and-cancel -C -P \
+  "cat > $(shell_quote "$scratch_dir/part") && mv $(shell_quote "$scratch_dir/part") $(shell_quote "$scratch")" 2>/dev/null; then
+  # -C (no clipboard) and -P (no paste buffer) are what keep the raw selection
+  # private. Without them the copy would still work — but it would push the
+  # unchecked selection to the system clipboard, so refuse rather than leak.
+  give_up "this tmux ($tmux_version) rejects the -C/-P copy flags that keep the raw selection off your clipboard. Upgrade tmux (brew upgrade tmux), or use copy-mode: prefix+["
+fi
+copy_mode_active=0
+
+# copy-pipe runs asynchronously; wait for the atomic rename, not for bytes.
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ -e "$scratch" ]] && break
+  sleep 0.05
+done
+[[ -s "$scratch" ]] || give_up "tmux produced no selection — nothing was copied."
+
+platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
+cwd="$(tm display-message -p '#{pane_current_path}')"
+# A working directory may legally contain newlines and control characters; the
+# header promises to be one line, so neutralize them rather than let a crafted
+# path forge extra lines in what an agent reads.
+cwd="$(printf '%s' "$cwd" | LC_ALL=C tr -d '\000-\037\177')"
+header="[tmux-copy-last · $platform · $cwd]"
+
+# Trim prompt spacing: a leading blank line (starship's add_newline puts the
+# prompt mark on it) and any trailing blank lines.
+block="$(sed -e '/[^[:space:]]/,$!d' -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$scratch")"
+
+total_lines="$(printf '%s\n' "$block" | wc -l | tr -d ' ')"
+total_bytes="$(printf '%s\n' "$block" | wc -c | tr -d ' ')"
+truncated=""
+# Kept out of the truncation branch: the final line-cap enforcement below needs
+# it too, and a variable that only exists on one path is a bug waiting to fire.
+head_lines=3
+# wc -c, never ${#var}: under a UTF-8 locale ${#var} counts CHARACTERS, so a
+# path or output with emoji/CJK/Thai would silently blow past the byte cap.
+header_bytes="$(printf '%s\n' "$header" | wc -c | tr -d ' ')"
+
+header_lines=1
+if ((total_lines + header_lines > max_lines || total_bytes + header_bytes > max_bytes)); then
+  # Keep the head of the block, not just one line: the prompt mark sits at the
+  # start of the prompt, and a multi-line prompt puts the typed command a row
+  # or two below it. Dropping the command is the one thing truncation must
+  # never do — it is what tells the reader (or agent) what produced the output.
+  notice="$(printf '[tmux-copy-last: truncated — kept the prompt and command above, plus the tail of %s lines / %s bytes]' \
+    "$total_lines" "$total_bytes")"
+  # awk, not head/tail: a `head` that closes the pipe early would SIGPIPE the
+  # producer and, under pipefail, kill the whole helper on exactly the large
+  # output this branch exists to handle.
+  head_part="$(printf '%s\n' "$block" | awk -v n="$head_lines" 'NR <= n')"
+  # Budget the tail against the FINAL payload (header + head + notice), and keep
+  # whole lines so a multibyte character is never cut in half.
+  # +8 covers the newlines that join header/head/notice/tail in the final
+  # payload; the cap is a promise about what lands in the buffer, so err under.
+  notice_bytes="$(printf '%s\n' "$notice" | wc -c | tr -d ' ')"
+  head_bytes="$(printf '%s\n' "$head_part" | wc -c | tr -d ' ')"
+  used=$((header_bytes + head_bytes + notice_bytes + 8))
+  budget=$((max_bytes - used))
+  ((budget > 0)) || budget=0
+  # LC_ALL=C so awk's length() counts BYTES, not characters — the whole point of
+  # the budget is the encoded size.
+  tail_part="$(printf '%s\n' "$block" \
+    | LC_ALL=C awk -v budget="$budget" -v head_lines="$head_lines" \
+      -v maxtail="$((max_lines - head_lines - 2))" '
+        { lines[++n] = $0; bytes[n] = length($0) + 1 }
+        END {
+          start = n - maxtail + 1
+          # Never overlap the preserved head: without this a short, byte-heavy
+          # block emits the same lines in head_part AND tail_part.
+          minimum = head_lines + 1
+          if (start < minimum) start = minimum
+          total = 0
+          first = n + 1
+          for (i = n; i >= start; i--) {
+            if (total + bytes[i] > budget) break
+            total += bytes[i]
+            first = i
+          }
+          for (i = first; i <= n; i++) print lines[i]
+        }')"
+  block="$(printf '%s\n%s\n%s\n' "$head_part" "$notice" "$tail_part")"
+  truncated=" (truncated)"
+
+fi
+
+# The cap is absolute. If even the header plus the command cannot fit (a very
+# long command, a deep working directory, a small configured cap), copy NOTHING
+# and say why — publishing an oversized payload while documenting a maximum
+# would make the promise a lie.
+payload_bytes="$(printf '%s\n%s\n' "$header" "$block" | wc -c | tr -d ' ')"
+if ((payload_bytes > max_bytes)); then
+  give_up "the context header and command alone need ${payload_bytes} bytes, over the ${max_bytes}-byte limit; nothing was copied. Raise GROUNDWORK_COPY_MAX_BYTES, or use copy-mode: prefix+["
+fi
+payload_lines="$(printf '%s\n%s\n' "$header" "$block" | wc -l | tr -d ' ')"
+if ((payload_lines > max_lines)); then
+  give_up "the context header and command alone need ${payload_lines} lines, over the ${max_lines}-line limit; nothing was copied."
+fi
+
+# -w sends the buffer to the clipboard; -t names WHICH client's terminal gets it.
+# Without -t, a backgrounded run-shell leaves tmux to infer a client and it can
+# pick the wrong one (or none).
+load_args=(-b "$final_buffer" -w)
+[[ -z "$client" ]] || load_args+=(-t "$client")
+printf '%s\n%s\n' "$header" "$block" | tmux load-buffer "${load_args[@]}" -
+copied_lines="$(printf '%s\n' "$block" | wc -l | tr -d ' ')"
+say "copied last command + output ($copied_lines lines$truncated) — paste: prefix+] · clipboard when supported · review for secrets before sharing"

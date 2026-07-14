@@ -103,6 +103,7 @@ if [[ -z "${TMUX:-}" ]]; then
   add-zsh-hook precmd _groundwork_title_precmd
 fi
 
+
 # Self-refreshing shells: after `chezmoi apply` rewrites ~/.zshrc, every open
 # pane is a stale shell that never re-reads config. Instead of anything
 # reaching into panes (unsafe mid-vim/ssh/typing), each shell checks its own
@@ -131,6 +132,26 @@ if (( $+builtins[zstat] )); then
 fi
 
 command -v starship >/dev/null && eval "$(starship init zsh)"
+
+# Semantic prompt marks (OSC 133) for tmux: tmux records a mark where each
+# prompt begins, which is what makes copy-mode prompt jumps and the prefix+Y
+# last-command copy exact instead of guessing from prompt text that command
+# output could fake. The mark must live INSIDE the prompt string, not in a
+# precmd hook: zle redraws the prompt line and a mark emitted before the
+# redraw is wiped with it. %{...%} keeps it zero-width so no column math
+# shifts. Only inside tmux (it consumes the sequence); outside tmux, the
+# terminal's own shell integration covers this.
+# Idempotent by inspecting PROMPT itself, not a "did I run?" flag: re-sourcing
+# this file re-runs starship's init, which REPLACES PROMPT and drops the mark
+# with it. A flag would skip the re-add and silently leave the shell with no
+# marks; checking the content re-adds exactly one, and never stacks a second.
+if [[ -n "${TMUX:-}" ]]; then
+  _groundwork_osc133_mark=$'\e]133;A\e\\'
+  if [[ "$PROMPT" != *"$_groundwork_osc133_mark"* ]]; then
+    PROMPT="%{${_groundwork_osc133_mark}%}${PROMPT}"
+  fi
+  unset _groundwork_osc133_mark
+fi
 command -v zoxide   >/dev/null && eval "$(zoxide init zsh)"
 command -v mise     >/dev/null && eval "$(mise activate zsh)"
 command -v direnv   >/dev/null && eval "$(direnv hook zsh)"
