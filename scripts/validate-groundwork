@@ -52,17 +52,46 @@ annotation_max_length=500
 # bash counts CODE POINTS in ${#s} and ${s:o:n} only under a multibyte locale;
 # under C/POSIX it counts BYTES, and a cut at 499 bytes can land inside a
 # multibyte character. A runner with no LANG set (GitHub's macOS images) is
-# exactly that case, so resolve a UTF-8 locale once, probing with a real 2-byte
-# character instead of trusting a locale's name.
+# exactly that case, so the cap forces a locale of its own rather than inheriting
+# whatever the caller happened to have. Assigning LC_ALL re-runs setlocale in the
+# current shell — no subshell needed, and none wanted, since the capped string
+# has to come back out.
+annotation_saved_lc_all=""
+annotation_saved_lc_all_set=0
+annotation_force_locale() {
+  annotation_saved_lc_all=""
+  annotation_saved_lc_all_set=0
+  if [[ -n "${LC_ALL+set}" ]]; then
+    annotation_saved_lc_all="$LC_ALL"
+    annotation_saved_lc_all_set=1
+  fi
+  LC_ALL="$1"
+}
+
+annotation_restore_locale() {
+  if [[ "$annotation_saved_lc_all_set" -eq 1 ]]; then
+    LC_ALL="$annotation_saved_lc_all"
+  else
+    unset LC_ALL
+  fi
+}
+
+# Resolve a usable UTF-8 locale once, probing with a real 2-byte character rather
+# than trusting a locale's name: an unknown name leaves setlocale on C, where the
+# probe is 2 characters long instead of 1. Empty means this machine has none.
 annotation_utf8_locale=""
 for annotation_locale_candidate in "${LC_ALL:-}" "${LC_CTYPE:-}" "${LANG:-}" C.UTF-8 en_US.UTF-8; do
   [[ -n "$annotation_locale_candidate" ]] || continue
-  if ( LC_ALL="$annotation_locale_candidate"; probe=$'\303\251'; [[ ${#probe} -eq 1 ]] ) 2>/dev/null; then
+  annotation_force_locale "$annotation_locale_candidate"
+  annotation_locale_probe=$'\303\251'
+  if [[ ${#annotation_locale_probe} -eq 1 ]]; then
+    annotation_restore_locale
     annotation_utf8_locale="$annotation_locale_candidate"
     break
   fi
+  annotation_restore_locale
 done
-unset annotation_locale_candidate
+unset annotation_locale_candidate annotation_locale_probe
 
 # Caps the RAW payload (before escaping), so the limit is a content limit rather
 # than an escaped-length limit and both emitters truncate at the same character.
@@ -70,20 +99,24 @@ unset annotation_locale_candidate
 # legitimately end in a newline (it becomes %0A), and $(...) would eat it.
 annotation_capped=""
 annotation_cap() {
-  local s="$1" keep=$((annotation_max_length - 1)) had_lc_all=0 saved_lc_all="" last
+  local s="$1" keep=$((annotation_max_length - 1)) last
   if [[ -n "$annotation_utf8_locale" ]]; then
-    [[ -z "${LC_ALL+set}" ]] || { had_lc_all=1; saved_lc_all="$LC_ALL"; }
-    LC_ALL="$annotation_utf8_locale"
+    annotation_force_locale "$annotation_utf8_locale"
     [[ ${#s} -le $annotation_max_length ]] || s="${s:0:$keep}…"
-    if [[ "$had_lc_all" -eq 1 ]]; then LC_ALL="$saved_lc_all"; else unset LC_ALL; fi
-  elif [[ ${#s} -gt $annotation_max_length ]]; then
-    # No UTF-8 locale exists on this machine, so bash is counting bytes. Cut at
-    # 499 BYTES and then back off any trailing partial character: drop trailing
-    # continuation bytes (0x80-0xBF), then a trailing lead byte (0xC0+), which at
-    # the end of the string can only be a sequence whose continuations were cut.
-    # Stricter than the 499-code-point contract and it may drop one extra whole
-    # character, but it can never emit a split character. Unreachable on a
-    # supported platform (macOS and Ubuntu both ship a UTF-8 locale).
+    annotation_restore_locale
+    annotation_capped="$s"
+    return
+  fi
+  # No UTF-8 locale exists on this machine. Force C so the semantics are known to
+  # be BYTES (rather than assuming it of whatever the caller had), cut at 499
+  # bytes, then back off any trailing partial character: drop trailing
+  # continuation bytes (0x80-0xBF), then a trailing lead byte (0xC0+), which at
+  # the end of the string can only be a sequence whose continuations were cut.
+  # Stricter than the 499-code-point contract — it can drop one extra whole
+  # character — but it can never emit a split one. Unreachable on a supported
+  # platform: macOS and Ubuntu both ship a UTF-8 locale.
+  annotation_force_locale C
+  if [[ ${#s} -gt $annotation_max_length ]]; then
     s="${s:0:$keep}"
     while [[ -n "$s" ]]; do
       last="${s:$((${#s} - 1)):1}"
@@ -94,8 +127,11 @@ annotation_cap() {
       last="${s:$((${#s} - 1)):1}"
       [[ "$last" != [$'\300'-$'\375'] ]] || s="${s:0:$((${#s} - 1))}"
     fi
-    s="$s…"
+    # Braced deliberately: under a UTF-8 locale bash 3.2 scans the ellipsis bytes
+    # as part of an unbraced variable name.
+    s="${s}…"
   fi
+  annotation_restore_locale
   annotation_capped="$s"
 }
 
@@ -1432,9 +1468,9 @@ ann_a499="${ann_a500:0:499}"
 ann_a498="${ann_a500:0:498}"
 [[ "$(annotation_escape_message "$ann_a500")" == "$ann_a500" ]] \
   || fail "an annotation message exactly at the 500-code-point cap must not be truncated"
-[[ "$(annotation_escape_message "${ann_a500}x")" == "$ann_a499…" ]] \
+[[ "$(annotation_escape_message "${ann_a500}x")" == "${ann_a499}…" ]] \
   || fail "an over-long annotation message must truncate to 499 code points plus an ellipsis"
-[[ "$(annotation_escape_title "${ann_a500}x")" == "$ann_a499…" ]] \
+[[ "$(annotation_escape_title "${ann_a500}x")" == "${ann_a499}…" ]] \
   || fail "an over-long annotation title must truncate to 499 code points plus an ellipsis"
 # CODE POINTS, not bytes. The rocket sits at code point 499 — the last character
 # the cap keeps — but at BYTE 499 of the payload, so a byte-wise cut would slice
@@ -1446,8 +1482,8 @@ ann_rocket=$'\360\237\232\200'
 # And with no UTF-8 locale on the machine at all, bash counts bytes: the cap then
 # backs off the partial character rather than emitting half of it. Stricter than
 # the contract (the whole rocket is dropped), never broken output.
-ann_no_utf8="$(annotation_utf8_locale=""; LC_ALL=C; annotation_escape_message "${ann_a498}${ann_rocket}zz")"
-[[ "$ann_no_utf8" == "$ann_a498…" ]] \
+ann_no_utf8="$(annotation_utf8_locale=""; annotation_escape_message "${ann_a498}${ann_rocket}zz")"
+[[ "$ann_no_utf8" == "${ann_a498}…" ]] \
   || fail "without a UTF-8 locale the annotation cap must drop the partial character, not split it"
 
 check "tmux-copy-last helper"
