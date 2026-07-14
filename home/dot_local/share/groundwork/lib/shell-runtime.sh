@@ -72,6 +72,21 @@ gw_shell_probe() {
   # Every probe is fail-soft: a directory-service hiccup under `set -e` would
   # otherwise kill the diagnostics that exist for exactly that moment.
   GW_LOGIN_SHELL=""
+  # Test seam. Without it, a fixture can only shim `dscl`/`getent` as binaries —
+  # and if one of those returns empty, the probe falls through to the REAL next
+  # source (getent, then /etc/passwd) and reads the actual machine account. That
+  # is how a Linux CI run adopted against the runner's real login shell while the
+  # same test passed on a Mac (no getent). One seam, honored first, ends it.
+  if [[ -n "${GROUNDWORK_LOGIN_SHELL_FILE:-}" ]]; then
+    if [[ -r "$GROUNDWORK_LOGIN_SHELL_FILE" ]]; then
+      GW_LOGIN_SHELL="$(head -n 1 "$GROUNDWORK_LOGIN_SHELL_FILE" 2>/dev/null || true)"
+    fi
+    GW_LOGIN_STATE="ok"
+    [[ -n "$GW_LOGIN_SHELL" ]] || GW_LOGIN_STATE="unreadable"
+    GW_SESSION_SHELL="${SHELL:-}"
+    gw_shell_probe_rest
+    return 0
+  fi
   if command -v dscl >/dev/null 2>&1; then
     GW_LOGIN_SHELL="$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}' || true)"
   fi
@@ -85,7 +100,12 @@ gw_shell_probe() {
   [[ -n "$GW_LOGIN_SHELL" ]] || GW_LOGIN_STATE="unreadable"
 
   GW_SESSION_SHELL="${SHELL:-}"
+  gw_shell_probe_rest
+}
 
+# Everything after the account record — factored out so the test seam above can
+# reuse it verbatim instead of duplicating the ownership logic.
+gw_shell_probe_rest() {
   # --- the process that actually invoked us ($SHELL cannot answer this) ---
   GW_PARENT_EXE=""
   GW_PARENT_STATE="unknown"

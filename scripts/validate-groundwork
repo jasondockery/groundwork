@@ -971,6 +971,7 @@ chmod +x "$adopt_prev_shell"
 adopt_env=(
   PATH="$adopt_fixture/bin:/usr/bin:/bin"
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh"
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell"
   GROUNDWORK_SHELLS_FILE="$adopt_shells"
   GROUNDWORK_STATE_DIR="$adopt_state"
 )
@@ -1064,6 +1065,7 @@ printf '%s\n' "$adopt_zsh" >"$adopt_fixture/state/login-shell"
 : >"$adopt_fixture/state/log"
 env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" \
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   GROUNDWORK_SHELLS_FILE="$adopt_shells" GROUNDWORK_STATE_DIR="$adopt_state" \
   /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
   >"$out_dir/shell-revert-nobrew" 2>&1 \
@@ -1073,6 +1075,7 @@ grep -qF "chsh -s $adopt_prev_shell" "$adopt_fixture/state/log" \
 # --status must survive a missing Homebrew too.
 env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" \
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   GROUNDWORK_SHELLS_FILE="$adopt_shells" GROUNDWORK_STATE_DIR="$adopt_state" \
   /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
   >"$out_dir/shell-status-nobrew" 2>&1 \
@@ -1135,6 +1138,7 @@ test ! -s "$adopt_fixture/state/log" || fail "adoption ran chsh with no rollback
 adopt_reset
 if env PATH="$adopt_fixture/bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   GROUNDWORK_STATE_DIR=/proc/nonexistent-groundwork-state \
   /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
   >"$out_dir/shell-adopt-nostate" 2>&1; then
@@ -1148,16 +1152,17 @@ grep -qF 'Refusing to adopt' "$out_dir/shell-adopt-nostate"
 adopt_reset
 cat >"$adopt_fixture/bin/dscl" <<SH
 #!/usr/bin/env bash
-[[ "\${DSCL_BROKEN:-0}" == "1" ]] && exit 1
 printf 'UserShell: %s\n' "\$(cat "$adopt_fixture/state/login-shell" 2>/dev/null)"
 SH
 chmod +x "$adopt_fixture/bin/dscl"
-env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
+env "${adopt_env[@]}" GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/no-such-record" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --status \
   >"$out_dir/shell-status-brokendir" 2>&1 \
   || fail "--status died silently when the account directory was unreadable"
 test -s "$out_dir/shell-status-brokendir" \
   || fail "--status printed nothing when the account directory was unreadable"
-if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
+if env "${adopt_env[@]}" GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/no-such-record" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt --revert \
   >"$out_dir/shell-revert-brokendir" 2>&1; then
   fail "--revert proceeded although the account's current login shell was unreadable"
 fi
@@ -1167,7 +1172,8 @@ grep -qF 'No account change was attempted' "$out_dir/shell-revert-brokendir"
 # that record, which is precisely what is broken.
 assert_not_contains 'revert-to <shell>' "$out_dir/shell-revert-brokendir" \
   "a broken account lookup must not recommend --revert-to, which hits the same guard"
-if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+if env "${adopt_env[@]}" GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/no-such-record" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
   --revert-to "$adopt_prev_shell" >"$out_dir/shell-revertto-brokendir" 2>&1; then
   fail "--revert-to proceeded although the account record was unreadable (the result could not be verified)"
 fi
@@ -1184,7 +1190,8 @@ if env "${adopt_env[@]}" GROUNDWORK_SHELLS_FILE="$adopt_fixture/state/missing-sh
 fi
 grep -qF 'unreadable' "$out_dir/shell-revertto-noshells"
 test ! -s "$adopt_fixture/state/log" || fail "--revert-to ran chsh without verifying shells-file membership"
-if env "${adopt_env[@]}" DSCL_BROKEN=1 /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
+if env "${adopt_env[@]}" GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/no-such-record" \
+  /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
   >"$out_dir/shell-adopt-brokendir" 2>&1; then
   fail "adoption proceeded although the account's current login shell was unreadable"
 fi
@@ -1232,6 +1239,7 @@ if env "${adopt_env[@]}" GROUNDWORK_SHELL_LIB=/nonexistent-groundwork-lib \
 fi
 grep -qF 'shell-runtime probe is missing' "$out_dir/shell-adopt-nolib"
 env GROUNDWORK_SHELL_LIB=/nonexistent-groundwork-lib \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
   >"$out_dir/doctor-nolib" 2>&1 \
   || fail "groundwork-doctor --shell crashed instead of reporting the missing probe"
@@ -1256,6 +1264,7 @@ grep -qF 'NOT a verified Homebrew zsh' "$out_dir/shell-status-unowned" \
 adopt_reset
 if env PATH="$adopt_fixture/nobrew-bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   GROUNDWORK_STATE_DIR="$adopt_state" \
   /bin/bash home/dot_local/bin/executable_groundwork-shell-adopt \
   >"$out_dir/shell-adopt-nobrew" 2>&1; then
@@ -1297,6 +1306,7 @@ printf '#!/bin/sh\nexit 1\n' >"$adopt_fixture/badbrew-bin/brew"
 chmod +x "$adopt_fixture/badbrew-bin/brew"
 env PATH="$adopt_fixture/badbrew-bin:/usr/bin:/bin" GROUNDWORK_SHELLS_FILE="$adopt_shells" \
   GROUNDWORK_SHELL_LIB="$PWD/home/dot_local/share/groundwork/lib/shell-runtime.sh" \
+  GROUNDWORK_LOGIN_SHELL_FILE="$adopt_fixture/state/login-shell" \
   GROUNDWORK_STATE_DIR="$adopt_state" \
   /bin/bash home/dot_local/bin/executable_groundwork-doctor --shell \
   >"$out_dir/doctor-shell-badbrew" 2>&1 \
@@ -1548,11 +1558,14 @@ EOF
     || fail "tmux-copy-last exceeded its documented byte cap ($huge_bytes bytes)"
   # A tight byte budget must still keep whole lines (never split a multibyte
   # character) and still keep the command.
-  GROUNDWORK_COPY_MAX_BYTES=2048 run_copylast "$huge_pane" >/dev/null 2>&1 \
+  # 8192, not a hair above the header: a CI checkout path is long, and a cap the
+  # header alone cannot fit is a correct REFUSAL, not a bug — testing that here
+  # would only assert the runner's path length.
+  GROUNDWORK_COPY_MAX_BYTES=8192 run_copylast "$huge_pane" >/dev/null 2>&1 \
     || fail "tmux-copy-last failed under a tight byte budget"
   tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-tiny"
   tiny_bytes="$(wc -c <"$copylast_dir/buffer-tiny" | tr -d ' ')"
-  ((tiny_bytes <= 2048)) || fail "tmux-copy-last ignored a tight byte cap ($tiny_bytes bytes)"
+  ((tiny_bytes <= 8192)) || fail "tmux-copy-last ignored a tight byte cap ($tiny_bytes bytes)"
   grep -qF 'seq 1 6000' "$copylast_dir/buffer-tiny" \
     || fail "a tight byte cap dropped the command line"
   iconv -f UTF-8 -t UTF-8 "$copylast_dir/buffer-tiny" >/dev/null 2>&1 \
