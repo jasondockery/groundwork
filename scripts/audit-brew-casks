@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Prove the checksum policy against the real cask inventory, not a comment.
+#
+# Two SEPARATE invariants, because collapsing them lets an exception list defeat
+# the policy it is supposed to document:
+#
+#   1. Brewfile policy — NO cask in any rendered Brewfile may ship
+#      `sha256 :no_check` or `version :latest`. There is no allowlist here: the
+#      Brewfile is installed under `--require-sha`, so an unchecked cask in it
+#      would fail the bundle anyway, and admitting one would put an unverified
+#      artifact on every new machine.
+#
+#   2. Exception registry — google-chrome is the one cask Groundwork wants that
+#      cannot satisfy that policy (Google's own updater owns the binary, so the
+#      cask declares no_check). It must therefore be ABSENT from every rendered
+#      Brewfile and installed only by its own consent-gated installer. If Chrome
+#      ever gains a real checksum, this audit says so, and it should go back into
+#      the Brewfile rather than keep an unnecessary bypass alive.
+#
+# Needs macOS, Homebrew, chezmoi, jq, and network access, so this is a receipt
+# (and a required CI job), not part of the offline validator.
+#
+# Usage: scripts/audit-brew-casks
+
+cd "$(dirname "$0")/.."
+
+for tool in brew jq chezmoi; do
+  command -v "$tool" >/dev/null 2>&1 || {
+    echo "audit-brew-casks: needs $tool (run this on a Mac with Homebrew)." >&2
+    exit 1
+  }
+done
+
+# The cask that is allowed to be unchecked — and ONLY outside the Brewfile.
+exception_cask="google-chrome"
+
+status=0
+declare -a all_casks=()
+
+render_profile() {
+  # Every conditional cask branch, not just the default one: password managers
+  # (bitwarden / 1password) and the Unity game-dev set are gated on setup
+  # answers, so auditing one profile would leave them unaudited.
+  local work="$1" pw="$2" game="$3"
+  chezmoi --source "$PWD" execute-template --init \
+    --promptBool "work=$work,headless=false,reset_existing_configs=false,game_dev=$game,xcode=false,install_chrome=true" \
+    --promptString 'name=x,email_personal=x@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name=' \
+    --promptChoice "password_manager=$pw" \
+    <home/dot_config/homebrew/Brewfile.tmpl \
+    | sed -n 's/^cask "\([^"]*\)".*/\1/p'
+}
+
+for work in false true; do
+  for pw in none bitwarden 1password; do
+    for game in false true; do
+      profile="work=$work pw=$pw game_dev=$game"
+      # Capture BEFORE iterating: a `while read` fed by process substitution
+      # keeps going when the renderer dies, so a broken template would "audit"
+      # zero casks and report success. Fail loudly instead.
+      if ! rendered="$(render_profile "$work" "$pw" "$game" 2>/dev/null)"; then
+        echo "FAIL: Brewfile rendering failed for profile: $profile" >&2
+        exit 1
+      fi
+      if [[ -z "$rendered" ]]; then
+        echo "FAIL: profile rendered zero casks ($profile) — the audit would have proved nothing." >&2
+        exit 1
+      fi
+      while IFS= read -r cask; do
+        [[ -n "$cask" ]] || continue
+        all_casks+=("$cask")
+        # Invariant 2: the exception must never be inside the Brewfile.
+        if [[ "$cask" == "$exception_cask" ]]; then
+          echo "VIOLATION $cask is in the Brewfile ($profile)." >&2
+          echo "          It ships no checksum, so the --require-sha bundle would fail — and admitting" >&2
+          echo "          it would hand every new machine an unverified artifact. It belongs in its" >&2
+          echo "          consent-gated installer (run_onchange_after_10-brew-bundle.sh)." >&2
+          status=1
+        fi
+      done <<<"$rendered"
+    done
+  done
+done
+
+# Deduplicate before querying metadata (profiles overlap heavily).
+# NOT mapfile: macOS ships Bash 3.2, where mapfile does not exist — and it fails
+# to an EMPTY array rather than an error, which would make this audit "pass" by
+# checking nothing. Groundwork does not install Bash, so 3.2 is the contract.
+unique_casks=()
+while IFS= read -r cask; do
+  [[ -n "$cask" ]] && unique_casks+=("$cask")
+done < <(printf '%s\n' "${all_casks[@]}" | sort -u)
+((${#unique_casks[@]} > 0)) || {
+  echo "FAIL: no casks discovered across any profile." >&2
+  exit 1
+}
+
+echo "== Brewfile policy: every cask must be versioned and checksummed =="
+for cask in "${unique_casks[@]}"; do
+  json="$(brew info --json=v2 --cask "$cask" 2>/dev/null || true)"
+  # Validate the SHAPE once, and make a parse failure fatal. Without this, a
+  # schema change or malformed payload leaves the variation query empty and the
+  # audit reads that as "no unchecked variations" — the same fail-open class this
+  # audit exists to kill.
+  if ! printf '%s' "$json" | jq -e --arg token "$cask" '
+        (.casks | type) == "array"
+        and (.casks | length) == 1
+        and (.casks[0].token == $token)
+        and (.casks[0].version | type) == "string"
+        and (.casks[0].sha256 | type) == "string"
+        and ((.casks[0].variations // {}) | type) == "object"
+      ' >/dev/null 2>&1; then
+    echo "  UNKNOWN   $cask — unsupported or malformed cask metadata (network? schema change? renamed?)" >&2
+    status=1
+    continue
+  fi
+  version="$(printf '%s' "$json" | jq -r '.casks[0].version')"
+  sha="$(printf '%s' "$json" | jq -r '.casks[0].sha256')"
+  # Architecture matters: a cask can carry per-variation hashes, and Groundwork
+  # supports Intel and Apple Silicon. No `|| true` — a jq failure here is fatal.
+  if ! bad_variation="$(printf '%s' "$json" | jq -r '
+        [(.casks[0].variations // {}) | to_entries[]
+         | select((.value.sha256? == "no_check") or (.value.version? == "latest"))
+         | .key] | join(",")')"; then
+    echo "  UNKNOWN   $cask — could not evaluate architecture variations" >&2
+    status=1
+    continue
+  fi
+  if [[ "$sha" == "no_check" || "$version" == "latest" ]]; then
+    echo "  VIOLATION $cask (version=$version sha=$sha) — unchecked cask in the Brewfile" >&2
+    status=1
+  elif [[ -n "$bad_variation" ]]; then
+    echo "  VIOLATION $cask — unchecked architecture variation(s): $bad_variation" >&2
+    status=1
+  fi
+done
+
+echo "== Exception registry: $exception_cask =="
+# The exception must justify itself on every run, in full — not just "it has no
+# sha". If any leg of the rationale stops being true, the bypass is no longer
+# earned and must be removed rather than quietly kept alive.
+json="$(brew info --json=v2 --cask "$exception_cask" 2>/dev/null || true)"
+if ! printf '%s' "$json" | jq -e --arg token "$exception_cask" '
+      (.casks | type) == "array" and (.casks | length) == 1
+      and (.casks[0].token == $token)
+      and (.casks[0].sha256 | type) == "string"
+      and ((.casks[0].variations // {}) | type) == "object"
+    ' >/dev/null 2>&1; then
+  echo "  UNKNOWN   $exception_cask — unsupported or malformed cask metadata" >&2
+  status=1
+else
+  version="$(printf '%s' "$json" | jq -r '.casks[0].version')"
+  sha="$(printf '%s' "$json" | jq -r '.casks[0].sha256')"
+  auto_updates="$(printf '%s' "$json" | jq -r '.casks[0].auto_updates // false')"
+  if [[ "$sha" != "no_check" && "$version" != "latest" ]]; then
+    echo "  STALE     $exception_cask now HAS a checksum (version=$version sha=$sha)." >&2
+    echo "            The exception is no longer justified: move it back into the Brewfile" >&2
+    echo "            and delete its separate installer — an unnecessary bypass is a hole." >&2
+    status=1
+  elif [[ "$auto_updates" != "true" ]]; then
+    # The whole reason the cask ships no checksum is that Google's own updater
+    # owns the binary. If that stops being true, the rationale has changed and a
+    # human must re-decide — not inherit an unexamined exception.
+    echo "  STALE     $exception_cask no longer declares auto_updates:true (got '$auto_updates')." >&2
+    echo "            The stated rationale (Google's updater owns the binary) no longer holds." >&2
+    status=1
+  else
+    echo "  ok        $exception_cask ships no checksum and self-updates (version=$version sha=$sha, auto_updates=$auto_updates)"
+    echo "            The exception remains justified; it stays out of the Brewfile."
+  fi
+fi
+
+if ((status == 0)); then
+  echo "ok: ${#unique_casks[@]} unique casks across all profiles are versioned and checksummed; the one exception is justified and outside the Brewfile"
+else
+  echo "FAIL: the cask inventory violates Groundwork's checksum policy" >&2
+fi
+exit "$status"

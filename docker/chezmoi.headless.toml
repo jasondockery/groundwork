@@ -11,5 +11,6 @@ sourceDir = "/opt/groundwork/home"
   password_manager = "none"
   signingkey = ""
   obsidian_vault_name = ""
+  install_chrome = false
   game_dev = false
   xcode = false

@@ -20,6 +20,11 @@ brew "wget"
 brew "age"
 
 # Shell UX
+# Groundwork owns the interactive shell runtime, not just its config: the same
+# zsh family on macOS, Linux, and WSL2, upgraded by update-all like everything
+# else it manages. The OS shell stays untouched as a recovery fallback; run
+# groundwork-shell-adopt to make this zsh your login shell.
+brew "zsh"
 brew "starship"
 brew "antidote"
 brew "fzf"
@@ -75,7 +80,12 @@ cask "bitwarden"
 {{- end }}
 cask "karabiner-elements"
 brew "defaultbrowser"
-cask "google-chrome"          # ubiquitous baseline for web-compat/testing
+# NOTE: google-chrome is deliberately NOT here. It is the one cask Groundwork
+# wants that ships `sha256 :no_check` (Google's own updater owns the binary), so
+# it would fail the `--require-sha` policy this Brewfile is installed under.
+# It is installed as an explicit, announced exception by
+# run_onchange_after_10-brew-bundle.sh — see that script. Keeping it out of here
+# is what lets every cask in this file be checksum-verified.
 cask "zen"                    # daily driver: Arc-like sidebar + vertical tabs (Gecko)
 cask "zoom"
 cask "slack"
@@ -102,7 +112,12 @@ cask "docker-desktop"
 
 {{ if not $work -}}
 # Personal machines only: AI agents + editors + personal apps
-cask "claude-code@latest"    # Claude Code CLI: faster-moving latest channel, not the stable cask
+# Claude Code CLI on the vendor's faster release channel. This is a normal
+# versioned, checksummed cask — NOT Homebrew's `version :latest` (which would
+# force `sha256 :no_check`). So it carries no release-age floor, but its
+# artifact is still verified, and `brew upgrade --require-sha` in update-all
+# keeps it that way.
+cask "claude-code@latest"
 cask "claude"                # Claude desktop app (chat, files, supervise Claude Code sessions)
 cask "codex"                 # Codex CLI
 cask "codex-app"             # Codex desktop app (manage coding agents)
