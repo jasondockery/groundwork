@@ -37,7 +37,7 @@ is installed under. Default no: the safe lane is the default, and accepting a
 weaker integrity path should be a decision someone makes on purpose. */ -}}
 {{- $installChrome := false -}}
 {{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
-{{- $installChrome = promptBoolOnce . "install_chrome" "Install Google Chrome? Its Homebrew cask has NO checksum (Google's updater owns the binary), unlike every other app Groundwork installs" false -}}
+{{- $installChrome = promptBoolOnce . "install_chrome" "Install Google Chrome even though its Homebrew cask has no checksum, unlike every other app Groundwork installs (Google's own updater owns the binary)" false -}}
 {{- end -}}
 {{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools (large download)" false -}}
 {{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development (large, ~15GB+)" false -}}

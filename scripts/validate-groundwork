@@ -890,7 +890,10 @@ prompt_texts="$(rg -o 'prompt(Bool|String|Choice)Once \. "[^"]+" "[^"]+"' home/.
 while IFS= read -r prompt_text; do
   [[ -n "$prompt_text" ]] || continue
   case "$prompt_text" in
-    *[.?!])
+    *\?*)
+      fail "setup prompt must not contain '?' anywhere (chezmoi appends the '?'; phrase it as one question with no internal question mark): $prompt_text"
+      ;;
+    *[.!])
       fail "setup prompt must not end with punctuation (chezmoi appends its own '?', giving '??' or '.?'): $prompt_text"
       ;;
   esac

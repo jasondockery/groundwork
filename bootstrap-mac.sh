@@ -68,7 +68,7 @@ ensure_github_auth() {
     echo "Use the active GitHub account above if it can read ${repo_owner}/${repo_name}."
     echo "Choose 'switch' if another already-authenticated account should be active."
     echo "Choose 'login' to add or refresh a GitHub account."
-    choice="$(prompt "GitHub account choice [keep/switch/login]: " "keep")"
+    choice="$(prompt "GitHub account choice [KEEP/switch/login]: " "keep")"
     case "$choice" in
       keep|k|"")
         ;;
