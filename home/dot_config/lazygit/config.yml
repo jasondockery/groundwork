@@ -1,0 +1,33 @@
+# Groundwork-managed lazygit defaults. lazygit reads this from
+# ~/.config/lazygit/config.yml because Groundwork exports
+# XDG_CONFIG_HOME=$HOME/.config (see ~/.zprofile); without it, macOS builds
+# default to ~/Library/Application Support/lazygit and this file is ignored.
+#
+# Personal changes: `chezmoi edit --apply ~/.config/lazygit/config.yml` or a
+# fork — this file is fully managed, so a hand-edit of the applied copy is
+# overwritten on the next apply.
+gui:
+  # Follow the system language rather than pinning English.
+  language: auto
+  # Keep the keybinding hint line visible: discoverable shortcuts beat
+  # memorized ones, and the hints double as the accessible "what can I press
+  # here" affordance.
+  showBottomLine: true
+  # Show the panel jump keys in each panel title.
+  showPanelJumps: true
+  # No animation, ever: motion adds nothing to inspecting a diff and is an
+  # accessibility cost. (This kills the nuke-working-tree explosion.)
+  animateExplosion: false
+os:
+  # Commit messages, interactive rebases, and file edits open in Neovim.
+  editPreset: nvim
+customCommands:
+  # Capital O from anywhere in lazygit: open the whole repository in Neovim.
+  # The flow this serves: `groundwork-repos pick` lands you in a repo's
+  # lazygit window to inspect an agent's uncommitted work; when a diff needs
+  # real editing, O continues in the editor without leaving the window.
+  - key: O
+    context: global
+    description: Open repository in Neovim
+    command: nvim .
+    output: terminal

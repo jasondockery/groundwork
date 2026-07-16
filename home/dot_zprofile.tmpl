@@ -7,6 +7,13 @@ for _brew in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/loc
 done
 unset _brew
 
+# One config home everywhere: XDG-following tools already use ~/.config, and
+# tools that only honor it when asked (lazygit on macOS defaults to
+# ~/Library/Application Support) join the same tree once this is exported.
+# Set here, not in ~/.zshrc, so tmux servers, GUI-launched terminals, and
+# non-interactive tool runners inherit it too. Respect an existing value.
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
 export PATH="$HOME/.local/bin:$PATH"
 typeset -gU path PATH
 
