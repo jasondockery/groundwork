@@ -25,9 +25,13 @@ Sections (all run by default):
                 it never rolls back what is already installed, so a version taken
                 before the floor existed stays until something says so.
   Docker        daemon reachability, engine hygiene (log rotation, image
-                store), disk usage, and leftover containers, images, and
-                volumes — each finding paired with the owner-scoped cleanup
-                command, never a blanket prune.
+                store), disk usage, and leftovers: containers, dangling
+                images, volumes, and the labeled-ephemeral scratch images —
+                judged by the same shared scanner groundwork-docker-tidy
+                acts on, with tidy-eligible, in-grace, protected, and
+                unverified counts reported separately (a fresh in-grace
+                image is not a leftover). Each finding is paired with the
+                owner-scoped cleanup command, never a blanket prune.
 
 The doctor only reports. It never installs, deletes, prunes, or changes
 settings; every fix stays your decision.
@@ -42,10 +46,6 @@ heading() { printf '\n== %s ==\n' "$1"; }
 ok()      { printf '  ok    %s\n' "$1"; }
 warn()    { printf '  warn  %s\n' "$1"; }
 note()    { printf '  note  %s\n' "$1"; }
-
-count_lines() {
-  sed '/^$/d' | wc -l | tr -d ' '
-}
 
 docker_section() {
   heading "Docker"
@@ -80,18 +80,49 @@ docker_section() {
   printf '\n  Disk usage (docker system df):\n'
   docker system df 2>/dev/null | sed 's/^/    /' || note "could not read docker system df"
 
-  local stopped dangling_images dangling_volumes
-  stopped="$(docker ps -aq --filter status=exited 2>/dev/null | count_lines || echo 0)"
-  dangling_images="$(docker images -q --filter dangling=true 2>/dev/null | count_lines || echo 0)"
-  dangling_volumes="$(docker volume ls -q --filter dangling=true 2>/dev/null | count_lines || echo 0)"
+  # Leftover facts come from the same shared scanner groundwork-docker-tidy
+  # acts on (lib/docker-scan.sh), so the doctor's counts and the tidy's
+  # decisions can never disagree. A count of "unknown" means the query
+  # failed — a different fact from zero, and reported as such.
+  local docker_lib="${GROUNDWORK_DOCKER_LIB:-$HOME/.local/share/groundwork/lib/docker-scan.sh}"
+  if [[ ! -r "$docker_lib" ]]; then
+    warn "Groundwork's docker-scan probe is missing: $docker_lib — leftover counts skipped."
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
+  else
+    # shellcheck source=/dev/null
+    . "$docker_lib"
 
-  printf '\n  Leftovers:\n'
-  printf '    stopped containers: %s\n' "$stopped"
-  printf '    dangling images:    %s\n' "$dangling_images"
-  printf '    dangling volumes:   %s\n' "$dangling_volumes"
+    local max_age
+    if ! max_age="$(gw_docker_max_age_hours)"; then
+      warn "invalid GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS='${GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS:-}' — reporting with the ${max_age}h default (groundwork-docker-tidy refuses to act until it is fixed)."
+    fi
 
-  if [[ "$stopped" != 0 || "$dangling_images" != 0 || "$dangling_volumes" != 0 ]]; then
-    cat <<'EOF'
+    local stopped dangling_images dangling_volumes
+    stopped="$(gw_docker_count ps -aq --filter status=exited)"
+    dangling_images="$(gw_docker_count images -q --filter dangling=true)"
+    dangling_volumes="$(gw_docker_count volume ls -q --filter dangling=true)"
+
+    local scan n_eligible n_retained n_protected n_unverified
+    scan="$(gw_docker_scan "$max_age")"
+    n_eligible="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "eligible" { n++ } END { print n + 0 }')"
+    n_retained="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "retained" { n++ } END { print n + 0 }')"
+    n_protected="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "protected" { n++ } END { print n + 0 }')"
+    n_unverified="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "unverified" { n++ } END { print n + 0 }')"
+
+    printf '\n  Leftovers (unknown = the query failed, not zero):\n'
+    printf '    stopped containers: %s\n' "$stopped"
+    printf '    dangling images:    %s\n' "$dangling_images"
+    printf '    dangling volumes:   %s\n' "$dangling_volumes"
+    printf '    ephemeral scratch images (label dev.roost.ephemeral=true, %sh grace):\n' "$max_age"
+    printf '      tidy-eligible (past grace):     %s\n' "$n_eligible"
+    printf '      in grace (fresh, not leftover): %s\n' "$n_retained"
+    printf '      protected (tag/container ref):  %s\n' "$n_protected"
+    printf '      unverified (retained):          %s\n' "$n_unverified"
+
+    # A fresh in-grace image is NOT a leftover — it never triggers guidance.
+    if [[ "$stopped" != 0 || "$dangling_images" != 0 || "$dangling_volumes" != 0 ]] \
+      || ((n_eligible + n_protected + n_unverified > 0)); then
+      cat <<'EOF'
 
   Cleanup guidance (review first; the doctor never deletes):
     Prefer the owning repo's clean commands — well-run projects ship
@@ -100,10 +131,19 @@ docker_section() {
       docker ps -a --filter status=exited
       docker images --filter dangling=true
       docker volume ls --filter dangling=true
+    Ephemeral scratch images opted in to cleanup with their label:
+    groundwork-docker-tidy previews the tidy (dry run by default), and
+    groundwork-docker-tidy --yes removes only the tidy-eligible ones —
+    enumerated, re-checked, deleted by image ID; never volumes, never
+    unlabeled images, never dangling images or builder cache.
+    Stopped containers, dangling images, and builder cache are DAEMON-WIDE
+    (every project on this machine): that cleanup is the separate, owner-run
+    groundwork-docker-cache-tidy.
     A dangling volume can still be the only copy of a database. Check the
     volume name and owner before removing anything, and avoid blanket
     'docker system prune' — it reaches into every project's state at once.
 EOF
+    fi
   fi
 
   if [[ "$settings_hint" == true ]]; then

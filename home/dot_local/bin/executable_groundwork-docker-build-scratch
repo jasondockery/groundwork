@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The managed build wrapper for disposable Docker images. It owns the
+# ephemeral-build contract's syntax so nobody hand-types it: the lifecycle
+# label pair (dev.roost.ephemeral=true plus an RFC 3339 dev.roost.built the
+# wrapper generates itself — the authoritative clock groundwork-docker-tidy
+# strict-parses) and a tag inside the scratch namespace
+# (<project>/scratch:<purpose>). A wrapper cannot forget a label, cannot
+# typo the namespace, and cannot emit a timestamp the tidy refuses to parse.
+#
+# Never `docker tag` the result into a real tag: labels live on the IMAGE,
+# not the tag, so a retagged scratch image stays tidy-eligible in spirit even
+# while <project>:latest points at it (the tidy's namespace check refuses to
+# delete it, but the real tag now carries scratch metadata). Promote by
+# REBUILDING under the real tag, without these labels.
+
+EPHEMERAL_LABEL="dev.roost.ephemeral"
+BUILT_LABEL="dev.roost.built"
+
+usage() {
+  cat <<'EOF'
+Build a disposable (scratch) Docker image under the ephemeral-build contract.
+
+Usage:
+  groundwork-docker-build-scratch <purpose> <context> [options] [-- <docker build args>]
+
+  <purpose>   what this build proves (review, test, spike-arm64, ...) — must
+              be a legal tag component: [A-Za-z0-9_][A-Za-z0-9._-]*, at most
+              128 characters
+  <context>   the docker build context directory
+
+Options:
+  --project <name>   scratch namespace project (default: derived from the
+                     context's git repository or directory name)
+  --rm-after         remove the image immediately after a successful build —
+                     the prove-and-delete flow for builds that only verify a
+                     Dockerfile change
+  -h, --help         show this help
+
+Everything after -- is checked against a closed allowlist before it reaches
+docker build. Allowed through: --file/-f, --target, --platform, --build-arg,
+--secret, --ssh, --no-cache, --pull, --progress. Anything else is refused by
+name. In particular, --output/-o and --push are unsupported: the wrapper's
+contract requires a local, inspectable image (labels the tidy can enumerate,
+an image ID it can print), and those flags redirect or export the result.
+
+The wrapper builds with:
+  --label dev.roost.ephemeral=true
+  --label dev.roost.built=<RFC 3339 UTC timestamp, generated here>
+  -t <project>/scratch:<purpose>
+and prints the resulting image ID. groundwork-docker-tidy removes the image
+after the grace window; same-session cleanup (--rm-after or docker rmi) is
+still the ideal.
+
+More help:
+  groundwork-help docker
+  https://jasondockery.github.io/groundwork/platforms.html
+EOF
+}
+
+err() {
+  echo "groundwork-docker-build-scratch: $1" >&2
+  exit 2
+}
+
+purpose=""
+context=""
+project=""
+rm_after=false
+forward=()
+
+while (($#)); do
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --project)
+      [[ $# -ge 2 ]] || err "--project needs a value"
+      project="$2"
+      shift
+      ;;
+    --rm-after) rm_after=true ;;
+    --)
+      shift
+      while (($#)); do
+        forward+=("$1")
+        shift
+      done
+      break
+      ;;
+    -*)
+      err "unknown option: $1 (docker build arguments go after --)"
+      ;;
+    *)
+      if [[ -z "$purpose" ]]; then
+        purpose="$1"
+      elif [[ -z "$context" ]]; then
+        context="$1"
+      else
+        err "unexpected argument: $1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+[[ -n "$purpose" && -n "$context" ]] || err "usage: groundwork-docker-build-scratch <purpose> <context> [-- <docker build args>] (see --help)"
+
+# The purpose becomes the tag component after the colon; docker's rule is
+# [A-Za-z0-9_][A-Za-z0-9._-]{0,127}.
+if ! [[ "$purpose" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]] || ((${#purpose} > 128)); then
+  err "invalid purpose '$purpose' — a tag component starts with [A-Za-z0-9_] and continues with [A-Za-z0-9._-], at most 128 characters"
+fi
+
+[[ -d "$context" ]] || err "context directory not found: $context"
+
+# Forwarded arguments pass a closed allowlist: only options that shape HOW
+# the image is built go through. Anything that could break the contract the
+# wrapper exists to own — the tag, the labels, the image-ID capture, or the
+# existence of a local inspectable image — is refused by name, and unknown
+# options are refused rather than trusted. Options that take a separate
+# value have that value skipped, so a value is never misread as an option.
+forward_count=${#forward[@]}
+forward_index=0
+while ((forward_index < forward_count)); do
+  arg="${forward[$forward_index]}"
+  case "$arg" in
+    -t | --tag | --tag=*)
+      err "refusing forwarded '$arg' — the wrapper owns the tag (<project>/scratch:<purpose>)"
+      ;;
+    --iidfile | --iidfile=*)
+      err "refusing forwarded '$arg' — the wrapper owns the image-ID capture"
+      ;;
+    --label | --label=*)
+      err "refusing forwarded '$arg' — the wrapper owns the dev.roost.* lifecycle labels, and other labels are not in the forward allowlist"
+      ;;
+    -o | --output | --output=* | --push)
+      err "refusing forwarded '$arg' — --output/--push are unsupported: the wrapper's contract requires a local inspectable image"
+      ;;
+    -f | --file | --target | --platform | --build-arg | --secret | --ssh | --progress)
+      forward_index=$((forward_index + 1))
+      ((forward_index < forward_count)) || err "forwarded '$arg' needs a value"
+      ;;
+    --file=* | --target=* | --platform=* | --build-arg=* | --secret=* | --ssh=* | --progress=*) ;;
+    --no-cache | --pull) ;;
+    *)
+      err "refusing forwarded '$arg' — not in the allowlist (--file/-f, --target, --platform, --build-arg, --secret, --ssh, --no-cache, --pull, --progress)"
+      ;;
+  esac
+  forward_index=$((forward_index + 1))
+done
+
+# Derive the project from the context when not overridden: the containing git
+# repository's name, or the directory's own name. Docker repository name
+# components are lowercase; sanitize, then validate against a closed shape
+# instead of shipping whatever survived.
+if [[ -z "$project" ]]; then
+  project="$(git -C "$context" rev-parse --show-toplevel 2>/dev/null || true)"
+  [[ -n "$project" ]] || project="$(cd "$context" && pwd -P)"
+  project="$(basename "$project" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9._-')"
+fi
+if ! [[ "$project" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+  err "cannot derive a valid project name from '$context' — pass --project <name> (lowercase letters, digits, and . _ -)"
+fi
+
+tag="$project/scratch:$purpose"
+built="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+iidfile="$(mktemp "${TMPDIR:-/tmp}/groundwork-scratch-iid.XXXXXX")"
+trap 'rm -f -- "$iidfile"' EXIT
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "groundwork-docker-build-scratch: docker CLI not installed." >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "groundwork-docker-build-scratch: Docker daemon not reachable. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun." >&2
+  exit 1
+fi
+
+docker build \
+  --label "$EPHEMERAL_LABEL=true" \
+  --label "$BUILT_LABEL=$built" \
+  -t "$tag" \
+  --iidfile "$iidfile" \
+  ${forward[@]+"${forward[@]}"} \
+  "$context"
+
+image_id="$(cat "$iidfile" 2>/dev/null || true)"
+if [[ -z "$image_id" ]]; then
+  image_id="$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null || true)"
+fi
+
+echo "built $tag"
+echo "image id: ${image_id:-unknown}"
+echo "labels: $EPHEMERAL_LABEL=true, $BUILT_LABEL=$built"
+
+if [[ "$rm_after" == true ]]; then
+  if [[ -n "$image_id" ]] && docker image rm "$image_id" >/dev/null; then
+    echo "removed after build (--rm-after): $image_id"
+  else
+    echo "groundwork-docker-build-scratch: --rm-after could not remove the image; remove it with: docker rmi $tag" >&2
+    exit 1
+  fi
+else
+  echo "clean up in the same session (docker rmi $tag), or groundwork-docker-tidy removes it after the grace window."
+fi

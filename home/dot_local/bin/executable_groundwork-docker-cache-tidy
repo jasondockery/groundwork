@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Daemon-wide Docker cleanup — deliberately separate from the label-scoped
+# groundwork-docker-tidy. Everything here reaches resources from EVERY project
+# on this machine, not just Groundwork's labeled scratch builds: dangling
+# images, stopped containers, and BuildKit builder cache have no project
+# boundary. That is exactly why this is its own command: it says what it
+# touches, it defaults to a dry run, it acts only on an explicit --yes, and
+# neither update-all nor any scheduled or agent path ever invokes it. Running
+# it is the owner's decision every time.
+
+KEEP_STORAGE="${GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE:-5GB}"
+
+usage() {
+  cat <<EOF
+Daemon-wide Docker cleanup (dry run by default). This command affects ALL
+projects on this Docker daemon, not just Groundwork.
+
+Usage:
+  groundwork-docker-cache-tidy           dry run: report what --yes would do
+  groundwork-docker-cache-tidy --yes     act
+  groundwork-docker-cache-tidy -h|--help show this help
+
+--yes removes, daemon-wide:
+  1. stopped containers (every project's)
+  2. dangling images (untagged build leftovers, every project's)
+  3. builder cache: docker builder prune --keep-storage $KEEP_STORAGE asks
+     Docker to prune eligible cache for the selected builder while retaining
+     a target of $KEEP_STORAGE — it is a pruning target, not a guarantee that
+     total cache ends up at or below that number.
+
+Never touched: volumes, running containers and their images, and tagged
+images. For the label-scoped scratch-image tidy, use groundwork-docker-tidy.
+
+Builder-cache target: $KEEP_STORAGE (GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE,
+e.g. 5GB, 512MB, 20GiB).
+
+This command is owner-run only: update-all and scheduled agent routines never
+invoke it.
+
+More help:
+  groundwork-help docker
+  https://jasondockery.github.io/groundwork/platforms.html
+EOF
+}
+
+heading() { printf '\n== %s ==\n' "$1"; }
+item()    { printf '  %-11s %s\n' "$1" "$2"; }
+note()    { printf '  note  %s\n' "$1"; }
+
+lib="${GROUNDWORK_DOCKER_LIB:-$HOME/.local/share/groundwork/lib/docker-scan.sh}"
+if [[ ! -r "$lib" ]]; then
+  echo "groundwork-docker-cache-tidy: the docker-scan probe is missing: $lib" >&2
+  echo "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$lib"
+
+# The size format is a closed set: digits (optionally decimal) plus one unit
+# docker documents. Anything else is refused rather than guessed at or
+# silently replaced — a garbled cap must not decide how much cache survives.
+if ! [[ "$KEEP_STORAGE" =~ ^[0-9]+(\.[0-9]+)?(B|KB|MB|GB|TB|KiB|MiB|GiB|TiB)$ ]]; then
+  echo "groundwork-docker-cache-tidy: invalid GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE='$KEEP_STORAGE' — want <number><unit> with a unit from B, KB, MB, GB, TB, KiB, MiB, GiB, TiB (e.g. 5GB)." >&2
+  exit 2
+fi
+
+banner() {
+  echo "groundwork-docker-cache-tidy: DAEMON-WIDE cleanup — this touches stopped containers, dangling images, and builder cache from ALL projects on this machine, not just Groundwork's labeled scratch builds."
+}
+
+dry_run() {
+  banner
+  echo "Dry run — nothing was changed. Add --yes to act."
+
+  heading "Stopped containers (every project's)"
+  local stopped
+  stopped="$(gw_docker_count ps -aq --filter status=exited)"
+  if [[ "$stopped" == unknown ]]; then
+    note "count unknown — the query failed, which is not the same as zero."
+  else
+    item "eligible" "$stopped stopped container(s) — inspect: docker ps -a --filter status=exited"
+  fi
+
+  heading "Dangling images (untagged build leftovers, every project's)"
+  local dangling
+  dangling="$(gw_docker_count images -q --filter dangling=true)"
+  if [[ "$dangling" == unknown ]]; then
+    note "count unknown — the query failed, which is not the same as zero."
+  else
+    item "eligible" "$dangling dangling image(s) — inspect: docker images --filter dangling=true"
+  fi
+
+  heading "Builder cache"
+  local cache_line
+  cache_line="$(docker system df --format $'{{.Type}}\t{{.Size}}\t{{.Reclaimable}}' 2>/dev/null \
+    | awk -F '\t' '$1 ~ /Build/ {print $2 " total, " $3 " reclaimable"}' || true)"
+  note "${cache_line:-size unavailable}."
+  note "--yes runs: docker builder prune --keep-storage $KEEP_STORAGE — that asks Docker to prune eligible cache for the selected builder while retaining a target of $KEEP_STORAGE; it does not guarantee total cache ends up at or below that number."
+
+  heading "Never touched"
+  note "volumes, running containers and their images, and tagged images."
+  note "labeled scratch images have their own scoped command: groundwork-docker-tidy."
+}
+
+apply() {
+  banner
+
+  heading "1/3 stopped containers (every project's)"
+  docker container prune --force
+
+  heading "2/3 dangling images (every project's)"
+  docker image prune --force
+
+  heading "3/3 builder cache (prune toward a $KEEP_STORAGE retention target)"
+  docker builder prune --force --keep-storage "$KEEP_STORAGE"
+  note "--keep-storage is a retention target for the selected builder, not a guarantee that total cache is now at or below $KEEP_STORAGE."
+
+  heading "After"
+  docker system df 2>/dev/null | sed 's/^/  /' || true
+  echo
+  echo "Volumes, running containers, and tagged images were not touched."
+}
+
+mode=""
+set_mode() {
+  if [[ -n "$mode" && "$mode" != "$1" ]]; then
+    echo "groundwork-docker-cache-tidy: conflicting modes: --$mode and --$1 are mutually exclusive." >&2
+    exit 2
+  fi
+  mode="$1"
+}
+
+while (($#)); do
+  case "$1" in
+    --dry-run) set_mode "dry-run" ;;
+    --yes) set_mode "yes" ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "groundwork-docker-cache-tidy: unknown option: $1" >&2
+      echo "Run 'groundwork-docker-cache-tidy --help' for usage." >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+[[ -n "$mode" ]] || mode="dry-run"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "groundwork-docker-cache-tidy: docker CLI not installed; nothing to clean."
+  exit 0
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "groundwork-docker-cache-tidy: Docker daemon not reachable. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun."
+  exit 0
+fi
+
+case "$mode" in
+  dry-run) dry_run ;;
+  yes) apply ;;
+esac
