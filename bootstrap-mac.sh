@@ -36,14 +36,33 @@ prompt() {
   local question="$1"
   local default="${2:-}"
 
-  if [[ ! -t 0 ]]; then
+  # Block where the question is asked, on the controlling terminal: stdin
+  # can be a pipe (curl | bash) while a human still sits at the terminal.
+  # Only a run with no terminal at all takes the default, and it says so
+  # instead of silently deciding. (The seam lets the validator substitute
+  # the terminal device.)
+  local tty_device="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+  if [[ -t 0 ]]; then
+    read -r -p "$question" reply || reply=""
+  elif { exec 3<"$tty_device"; } 2>/dev/null; then
+    read -r -u 3 -p "$question" reply || reply=""
+    exec 3<&-
+  else
+    printf 'Groundwork: no terminal to answer "%s"; defaulting to "%s".\n' "$question" "$default" >&2
     printf '%s' "$default"
     return
   fi
-
-  read -r -p "$question" reply
   printf '%s' "${reply:-$default}"
 }
+
+# Validation seam: lets scripts/validate-groundwork drive the prompt helper
+# directly (TTY blocking, Enter-takes-default, and the no-terminal message)
+# without running any bootstrap step.
+if [[ "${GROUNDWORK_BOOTSTRAP_SELFTEST:-}" == "prompt" ]]; then
+  prompt "${1:-Question [y/N]: }" "${2:-}"
+  printf '\n'
+  exit 0
+fi
 
 ensure_github_auth() {
   info "Checking GitHub authentication"

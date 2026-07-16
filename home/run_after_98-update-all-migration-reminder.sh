@@ -16,7 +16,17 @@ if [[ ! -t 1 && "${GROUNDWORK_REMINDER_ASSUME_TTY:-0}" != "1" ]]; then
   exit 0
 fi
 
-if [[ -t 1 ]]; then
+# Color keys on the run-wide signal update-all exports (GROUNDWORK_COLOR),
+# not on a per-stage TTY probe that any tee or capture upstream defeats. A
+# direct `chezmoi apply` in a terminal gets the TTY fallback; NO_COLOR wins.
+color=0
+if [[ "${GROUNDWORK_COLOR:-}" == "1" ]]; then
+  color=1
+elif [[ -z "${GROUNDWORK_COLOR:-}" && -t 1 && -z "${NO_COLOR:-}" ]]; then
+  color=1
+fi
+
+if [[ "$color" == "1" ]]; then
   printf '\033[1;33m'
 fi
 cat <<'EOF'
@@ -31,7 +41,7 @@ Terminals opened before this update still have the old function loaded.
 New terminals need nothing, and future update-all changes take effect
 during the same run that fetches them — no more shell reloads.
 EOF
-if [[ -t 1 ]]; then
+if [[ "$color" == "1" ]]; then
   printf '\033[0m'
 fi
 

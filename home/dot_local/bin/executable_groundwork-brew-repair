@@ -15,29 +15,43 @@ set -euo pipefail
 log="${1:-}"
 [[ -n "$log" && -r "$log" ]] || exit 1
 
-grep -qF "Please run the following commands and try again:" "$log" || exit 1
+# The bundle log can carry ANSI color codes (update-all forces brew color
+# through the tee so the terminal keeps it); strip them before parsing so
+# the marker and the command whitelist match the text, not the styling.
+esc="$(printf '\033')"
+log_text="$(sed "s/${esc}\[[0-9;]*m//g" "$log")"
+
+printf '%s\n' "$log_text" | grep -qF "Please run the following commands and try again:" || exit 1
 
 # Take the suggested commands after the marker, and accept only plain brew
 # invocations whose flags and formula names match Homebrew's own naming
 # rules. Anything else in the block means we do not understand the
 # suggestion, so we stay hands-off.
-commands="$(awk '/Please run the following commands and try again:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print} found && !/^[[:space:]]*brew /{exit}' "$log")"
+commands="$(printf '%s\n' "$log_text" | awk '/Please run the following commands and try again:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print} found && !/^[[:space:]]*brew /{exit}')"
 [[ -n "$commands" ]] || exit 1
 while IFS= read -r cmd; do
   [[ "$cmd" =~ ^brew[\ ]([a-z-]+)([\ ]--[a-z-]+)*([\ ][A-Za-z0-9@._+-]+)*$ ]] || exit 1
 done <<<"$commands"
 
-if [[ ! -t 0 ]]; then
-  echo "Groundwork: Homebrew suggested a repair, but no interactive terminal is attached."
+echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
+printf '%s\n' "$commands" | awk '{print "  " $0}'
+# Ask on the controlling terminal even when stdin is a pipe; only a run with
+# no terminal at all takes the default, and it says which default that is.
+# (The seam lets the validator substitute the terminal device.)
+prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+if [[ -t 0 ]]; then
+  printf 'Run these now? [y/N] '
+  read -r answer || answer=""
+elif { exec 3<"$prompt_tty"; } 2>/dev/null; then
+  printf 'Run these now? [y/N] '
+  read -r -u 3 answer || answer=""
+  exec 3<&-
+else
+  echo "Groundwork: no terminal; defaulting to N (skip)."
   echo "Run these yourself, then re-run chezmoi apply:"
   printf '%s\n' "$commands" | awk '{print "  " $0}'
   exit 1
 fi
-
-echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
-printf '%s\n' "$commands" | awk '{print "  " $0}'
-printf 'Run these now? [y/N] '
-read -r answer || answer=""
 case "$answer" in
   y|Y|yes|YES)
     while IFS= read -r cmd; do

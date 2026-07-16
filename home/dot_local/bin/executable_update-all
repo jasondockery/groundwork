@@ -8,6 +8,27 @@ set -euo pipefail
 # run; keep substantive logic out of this file.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# One color decision for the whole refresh, made here while the user's
+# terminal is still what stdout points at. Every stage and hook script keys
+# on this signal instead of probing its own stdout, so a tee or capture
+# INSIDE the pipeline (the brew-bundle log, a summary stage) can no longer
+# strip color the terminal supports — while redirecting the WHOLE command
+# to a file still disables it. Standard overrides win: NO_COLOR forces off,
+# FORCE_COLOR (non-zero) forces on, and a caller-provided GROUNDWORK_COLOR
+# is respected as-is.
+if [[ -z "${GROUNDWORK_COLOR:-}" ]]; then
+  if [[ -n "${NO_COLOR:-}" ]]; then
+    GROUNDWORK_COLOR=0
+  elif [[ -n "${FORCE_COLOR:-}" && "${FORCE_COLOR}" != "0" ]]; then
+    GROUNDWORK_COLOR=1
+  elif [[ -t 1 ]]; then
+    GROUNDWORK_COLOR=1
+  else
+    GROUNDWORK_COLOR=0
+  fi
+fi
+export GROUNDWORK_COLOR
+
 command -v chezmoi >/dev/null 2>&1 || {
   echo "Groundwork: chezmoi is not on PATH." >&2
   exit 1

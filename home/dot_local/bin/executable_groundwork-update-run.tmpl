@@ -9,6 +9,30 @@ set -euo pipefail
 # that includes the sync.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# The update-all launcher decides color once for the whole run and exports
+# GROUNDWORK_COLOR before the sync, so every stage and hook script inherits
+# it. Recompute only when invoked directly (same rules: NO_COLOR off,
+# FORCE_COLOR on, else a real terminal on stdout).
+if [[ -z "${GROUNDWORK_COLOR:-}" ]]; then
+  if [[ -n "${NO_COLOR:-}" ]]; then
+    GROUNDWORK_COLOR=0
+  elif [[ -n "${FORCE_COLOR:-}" && "${FORCE_COLOR}" != "0" ]]; then
+    GROUNDWORK_COLOR=1
+  elif [[ -t 1 ]]; then
+    GROUNDWORK_COLOR=1
+  else
+    GROUNDWORK_COLOR=0
+  fi
+fi
+export GROUNDWORK_COLOR
+if [[ "$GROUNDWORK_COLOR" == "1" ]]; then
+  # Homebrew decides color per-process from its own stdout; the run-wide
+  # signal already decided. HOMEBREW_COLOR is Homebrew's documented switch
+  # for exactly this (force color even when stdout is not a TTY), and
+  # Homebrew itself still honors NO_COLOR above it.
+  export HOMEBREW_COLOR=1
+fi
+
 # Fail closed before any stage can mutate tools or the timestamp: the support
 # contract is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable
 # WSL environment.
@@ -67,6 +91,17 @@ if command -v brew >/dev/null 2>&1; then
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
   {{- end }}
+fi
+
+# Docker hygiene: one line, and only when disposable build leftovers have
+# piled up. Like shell adoption, deletion is never something a refresh does
+# silently — groundwork-docker-tidy --yes is the explicit owner step, and the
+# tidy only ever touches images that opted in with the ephemeral label. The
+# helper owns docker CLI and daemon reachability itself (--summary stays
+# silent when either is missing), so no probe is duplicated here — and
+# daemon-wide cleanup stays owner-run only, never invoked from a refresh.
+if [[ -x "$HOME/.local/bin/groundwork-docker-tidy" ]]; then
+  "$HOME/.local/bin/groundwork-docker-tidy" --summary || true
 fi
 
 if command -v mise >/dev/null 2>&1; then

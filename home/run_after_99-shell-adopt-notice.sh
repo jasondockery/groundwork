@@ -14,6 +14,16 @@ if [[ ! -t 1 && "${GROUNDWORK_REMINDER_ASSUME_TTY:-0}" != "1" ]]; then
   exit 0
 fi
 
+# Color keys on the run-wide signal update-all exports (GROUNDWORK_COLOR),
+# not on a per-stage TTY probe that any tee or capture upstream defeats. A
+# direct `chezmoi apply` in a terminal gets the TTY fallback; NO_COLOR wins.
+color=0
+if [[ "${GROUNDWORK_COLOR:-}" == "1" ]]; then
+  color=1
+elif [[ -z "${GROUNDWORK_COLOR:-}" && -t 1 && -z "${NO_COLOR:-}" ]]; then
+  color=1
+fi
+
 lib="${GROUNDWORK_SHELL_LIB:-$HOME/.local/share/groundwork/lib/shell-runtime.sh}"
 [[ -r "$lib" ]] || exit 0
 # shellcheck source=/dev/null
@@ -38,7 +48,7 @@ if [[ "$GW_LOGIN_SHELL" == "$GW_MANAGED_ZSH" ]]; then
   exit 0
 fi
 
-[[ -t 1 ]] && printf '\033[1;33m'
+[[ "$color" == "1" ]] && printf '\033[1;33m'
 cat <<EOF
 
 ==> Groundwork can now manage your zsh
@@ -56,7 +66,7 @@ Verified on Apple Silicon macOS; Intel macOS, Linux, and WSL2 are provisional
 while their receipts are collected. This notice appears once, either way.
 
 EOF
-[[ -t 1 ]] && printf '\033[0m'
+[[ "$color" == "1" ]] && printf '\033[0m'
 
 # Shown once. Whether they adopt or ignore it, that decision is theirs.
 mkdir -p "$state_dir"

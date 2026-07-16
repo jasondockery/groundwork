@@ -10,22 +10,32 @@
 {{- fail "Groundwork supports WSL2, not WSL1: WSL1 filesystem and syscall behavior differ from real Linux. From PowerShell, check with `wsl --list --verbose` and convert with `wsl --set-version <DistributionName> 2`, then rerun setup." -}}
 {{- end -}}
 {{- end -}}
-{{- $work := promptBoolOnce . "work" "Is this a work machine" false -}}
+{{- /* Every yes/no question carries its own affordance: chezmoi's bool
+prompt accepts y/yes/t/true/1 and n/no/f/false/0, shows only a dim
+"bool, default <x>" hint, and takes the default on a bare Enter — so the
+question itself must say what to type and name the default. */ -}}
+{{- $work := promptBoolOnce . "work" "Is this a work machine (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $headless := false -}}
 {{- if eq .chezmoi.os "darwin" -}}
-{{- $headless = promptBoolOnce . "headless" "Is this a server or CI Mac with no desktop apps (most Macs are not)" false -}}
+{{- $headless = promptBoolOnce . "headless" "Is this a server or CI Mac with no desktop apps, which most Macs are not (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- else -}}
 {{- /* Native Linux is a supported desktop, not just a server: default to
 headless only when nothing indicates a graphical session. A desktop Ubuntu
-should not be defaulted into the server profile just for not being a Mac. */ -}}
+should not be defaulted into the server profile just for not being a Mac.
+Two literal prompts, not one computed default, so the named default in the
+question text always matches the real one. */ -}}
 {{- $graphical := or (env "DISPLAY") (env "WAYLAND_DISPLAY") -}}
-{{- $headless = promptBoolOnce . "headless" "Is this a headless server or container with no desktop apps" (not $graphical) -}}
+{{- if $graphical -}}
+{{- $headless = promptBoolOnce . "headless" "Is this a headless server or container with no desktop apps (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
+{{- else -}}
+{{- $headless = promptBoolOnce . "headless" "Is this a headless server or container with no desktop apps (y/t = yes, n/f = no; Enter keeps the default: yes)" true -}}
+{{- end -}}
 {{- end -}}
 {{- $name := promptStringOnce . "name" "What name should Git use for commits" -}}
 {{- $emailPersonal := promptStringOnce . "email_personal" "What personal email should Git use for commits" -}}
 {{- $emailWork := promptStringOnce . "email_work" "What work email should Git use (leave blank if none)" "" -}}
 {{- $codeDir := promptStringOnce . "code_dir" "Where should projects live" "~/code" -}}
-{{- $resetExisting := promptBoolOnce . "reset_existing_configs" "Reset old terminal, editor, and tmux state before applying" false -}}
+{{- $resetExisting := promptBoolOnce . "reset_existing_configs" "Reset old terminal, editor, and tmux state before applying (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $pwManagers := list "bitwarden" "1password" "none" -}}
 {{- $pwManager := promptChoiceOnce . "password_manager" "Which password manager should Groundwork configure for SSH and Git signing" $pwManagers "bitwarden" -}}
 {{- $signingKey := promptStringOnce . "signingkey" "What SSH public key should Git use for signing (leave blank to skip)" "" -}}
@@ -37,13 +47,13 @@ is installed under. Default no: the safe lane is the default, and accepting a
 weaker integrity path should be a decision someone makes on purpose. */ -}}
 {{- $installChrome := false -}}
 {{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
-{{- $installChrome = promptBoolOnce . "install_chrome" "Install Google Chrome even though its Homebrew cask has no checksum, unlike every other app Groundwork installs (Google's own updater owns the binary)" false -}}
+{{- $installChrome = promptBoolOnce . "install_chrome" "Google's Chrome cask ships without a checksum because Google's own updater owns the binary, unlike every other app Groundwork installs, which are all checksum-verified. Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)" false -}}
 {{- end -}}
-{{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools (large download)" false -}}
-{{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development (large, ~15GB+)" false -}}
+{{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools, a large download (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
+{{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development, large at ~15GB+ (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $beta := false -}}
 {{- if $xcode -}}
-{{- $beta = promptBoolOnce . "beta" "Also follow Apple's Xcode beta channel (adds the xcodes tool; you sign in with your Apple Account — no paid membership — and choose versions yourself)" false -}}
+{{- $beta = promptBoolOnce . "beta" "Also follow Apple's Xcode beta channel with the xcodes tool, where you sign in with your Apple Account, no paid membership, and choose versions yourself (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- end -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
