@@ -1,0 +1,492 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Cross-repo navigation for AI-native work: discover every Git repository
+# under your configured roots and move between them without leaving the
+# keyboard.
+#
+# Why: agent-assisted work spreads across repositories — one agent editing
+# here, another leaving uncommitted work there. The human's job is
+# supervision, and supervision needs sight: which repos exist, which are
+# dirty, and a one-keystroke jump into any of them with lazygit in its own
+# tmux window.
+#
+# Two hard rules this command lives by:
+#   1. Repositories are DISCOVERED under the configured roots at call time,
+#      never hardcoded by name. A fresh clone appears within the cache TTL
+#      (30s by default) — or immediately with --refresh — with zero
+#      configuration.
+#   2. Inspection disables repository-controlled execution: every git call
+#      goes through safe_git, which turns off repository hooks
+#      (core.hooksPath=/dev/null) and the fsmonitor
+#      (core.fsmonitor=false, core.untrackedCache=false) for the duration
+#      of the command, and sets GIT_OPTIONAL_LOCKS=0 so inspection never
+#      takes optional writes. No repo-local scripts or configs are sourced.
+#
+# Config: ~/.config/groundwork/repos.conf (Groundwork-managed), plus an
+# optional unmanaged ~/.config/groundwork/repos.local.conf that appends
+# roots/excludes and overrides scalars. Compatible with /bin/bash 3.2.
+
+usage() {
+  cat <<EOF
+Discover Git repositories under your configured roots and navigate them.
+
+Usage:
+  groundwork-repos            table: repo, branch, dirty/clean, ahead/behind,
+                              worktree marker, path (same as 'status')
+  groundwork-repos status     the table, explicitly
+  groundwork-repos pick       fuzzy-pick a repo (fzf) with a git-status
+                              preview; opens or reuses its lazygit tmux window
+  groundwork-repos changed    open one lazygit tmux window per dirty repo
+  groundwork-repos list       plumbing: discovered paths as path<TAB>flag
+                              lines (flag: wt for a linked worktree, - if not)
+  groundwork-repos --refresh  bypass and rewrite the discovery cache; combine
+                              with any command (a fresh clone appears within
+                              the cache TTL anyway — this makes it immediate)
+  groundwork-repos -h|--help  show this help
+
+Repositories are discovered dynamically under the roots in
+~/.config/groundwork/repos.conf — never hardcoded. Add personal roots or
+excludes in ~/.config/groundwork/repos.local.conf (kept out of Groundwork's
+management, so chezmoi apply never touches it).
+
+Keyboard: inside tmux, prefix+Shift+R opens the picker in a popup and
+prefix+Shift+G opens every dirty repo. Outside tmux, both create or attach
+the '$SESSION_NAME' session.
+
+More help:
+  groundwork-help repos
+  https://jasondockery.github.io/groundwork/repo-navigation.html
+EOF
+}
+
+SESSION_NAME="repos"
+
+# Every git inspection goes through this wrapper. Repositories under a root
+# are untrusted data, and plain `git status` will happily execute a repo's
+# configured core.fsmonitor. The wrapper disables repository hooks and the
+# fsmonitor for the duration of each call:
+#   core.hooksPath=/dev/null      hooks resolve under a non-directory, so no
+#                                 repository hook can run (verified: a
+#                                 nonexistent dir also neutralizes; /dev/null
+#                                 is used because it can never be created)
+#   core.fsmonitor=false          the fsmonitor hook/daemon is never invoked
+#   core.untrackedCache=false     no untracked-cache extension writes
+#   GIT_OPTIONAL_LOCKS=0          inspection never takes optional locks or
+#                                 background index refreshes
+# The same flags appear inline in the fzf preview command, which runs git
+# outside this process. Keep the two in sync.
+safe_git() {
+  local repo="$1"
+  shift
+  GIT_OPTIONAL_LOCKS=0 git -c core.fsmonitor=false -c core.untrackedCache=false \
+    -c core.hooksPath=/dev/null -C "$repo" "$@"
+}
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+cache_home="${XDG_CACHE_HOME:-$HOME/.cache}"
+config_file="$config_home/groundwork/repos.conf"
+local_config_file="$config_home/groundwork/repos.local.conf"
+cache_file="$cache_home/groundwork/repos.list"
+
+# Defaults; repos.conf normally restates them, so a missing config still works.
+roots=()
+max_depth=4
+include_worktrees=true
+cache_ttl_seconds=30
+excludes=(node_modules .cache Library dist vendor)
+excludes_from_config=0
+
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+expand_home() {
+  local v="$1"
+  # The patterns below match LITERAL config text ("~/code", "$HOME/code");
+  # nothing here is meant to expand before the match.
+  # shellcheck disable=SC2088,SC2016
+  case "$v" in
+    "~") v="$HOME" ;;
+    "~/"*) v="$HOME/${v#\~/}" ;;
+    '$HOME') v="$HOME" ;;
+    '$HOME/'*) v="$HOME/${v#\$HOME/}" ;;
+  esac
+  printf '%s' "$v"
+}
+
+parse_config_file() {
+  local file="$1" line key value
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    [[ "$line" == *=* ]] || continue
+    key="$(trim "${line%%=*}")"
+    value="$(trim "${line#*=}")"
+    [[ -n "$key" && -n "$value" ]] || continue
+    case "$key" in
+      root) roots+=("$(expand_home "$value")") ;;
+      max_depth) max_depth="$value" ;;
+      include_worktrees) include_worktrees="$value" ;;
+      cache_ttl_seconds) cache_ttl_seconds="$value" ;;
+      exclude)
+        # The first exclude line in config replaces the built-in default
+        # list; later lines (and repos.local.conf lines) append to it.
+        if [[ "$excludes_from_config" -eq 0 ]]; then
+          excludes=()
+          excludes_from_config=1
+        fi
+        excludes+=("$value")
+        ;;
+    esac
+  done <"$file"
+}
+
+load_config() {
+  parse_config_file "$config_file"
+  parse_config_file "$local_config_file"
+  if [[ "${#roots[@]}" -eq 0 ]]; then
+    roots=("$HOME/code")
+  fi
+  [[ "$max_depth" =~ ^[0-9]+$ ]] || max_depth=4
+  [[ "$cache_ttl_seconds" =~ ^[0-9]+$ ]] || cache_ttl_seconds=30
+  case "$include_worktrees" in
+    true | false) : ;;
+    *) include_worktrees=true ;;
+  esac
+}
+
+file_mtime() {
+  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+}
+
+cache_is_fresh() {
+  [[ "$cache_ttl_seconds" -gt 0 ]] || return 1
+  [[ -f "$cache_file" ]] || return 1
+  local now age mtime
+  now="$(date +%s 2>/dev/null || echo 0)"
+  mtime="$(file_mtime "$cache_file")"
+  age=$((now - mtime))
+  [[ "$age" -ge 0 && "$age" -lt "$cache_ttl_seconds" ]] || return 1
+  # A config newer than the cache invalidates it: edits show up immediately.
+  local cfg
+  for cfg in "$config_file" "$local_config_file"; do
+    [[ -f "$cfg" ]] || continue
+    [[ "$(file_mtime "$cfg")" -le "$mtime" ]] || return 1
+  done
+}
+
+# discover: print "canonical_path<TAB>flag" lines, sorted, deduped.
+# find -L follows symlinked roots and folders; -maxdepth bounds it so a
+# symlink loop terminates, and the visited set collapses the duplicate paths
+# a loop or symlink alias produces (git resolves each candidate to one
+# physical toplevel).
+discover() {
+  local root gitpath candidate canonical flag seen=$'\n'
+  local depth_limit=$((max_depth + 1))
+  local prune_expr=() ex results=""
+  for ex in "${excludes[@]}"; do
+    prune_expr+=(-name "$ex" -o)
+  done
+  # Terminator so the parenthesised group is valid; matches nothing.
+  prune_expr+=(-name '')
+  for root in "${roots[@]}"; do
+    [[ -d "$root" ]] || continue
+    while IFS= read -r gitpath; do
+      [[ -n "$gitpath" ]] || continue
+      candidate="${gitpath%/.git}"
+      # Canonicalize through git itself: resolves symlinks, agrees with what
+      # git considers the toplevel, and fails harmlessly on false positives.
+      canonical="$(safe_git "$candidate" rev-parse --show-toplevel 2>/dev/null)" || continue
+      [[ -n "$canonical" ]] || continue
+      case "$seen" in
+        *$'\n'"$canonical"$'\n'*) continue ;;
+      esac
+      seen="$seen$canonical"$'\n'
+      flag="-"
+      if [[ -f "$canonical/.git" ]]; then
+        # A .git FILE means a linked worktree (or submodule): the real git
+        # dir lives elsewhere. Linked worktrees have git-dir != common-dir.
+        if [[ "$(safe_git "$canonical" rev-parse --git-dir 2>/dev/null)" != \
+              "$(safe_git "$canonical" rev-parse --git-common-dir 2>/dev/null)" ]]; then
+          flag="wt"
+        fi
+      fi
+      if [[ "$flag" == "wt" && "$include_worktrees" != "true" ]]; then
+        continue
+      fi
+      results="$results$canonical"$'\t'"$flag"$'\n'
+    done < <(find -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
+      \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print 2>/dev/null)
+  done
+  printf '%s' "$results" | sort
+}
+
+# repo_list: discovery with the short-lived cache in front. The cache stores
+# PATHS only — branch and dirty state are always read live, so a repo going
+# clean or dirty shows immediately even inside the TTL. --refresh bypasses
+# the freshness check and rewrites the cache.
+repo_list() {
+  if [[ "$refresh" -eq 0 ]] && cache_is_fresh; then
+    cat "$cache_file"
+    return 0
+  fi
+  local listing tmp
+  listing="$(discover)"
+  mkdir -p "${cache_file%/*}"
+  tmp="$(mktemp "$cache_file.XXXXXX")"
+  printf '%s' "$listing" >"$tmp"
+  mv "$tmp" "$cache_file"
+  printf '%s' "$listing"
+}
+
+# Window naming: each repo's name is the SHORTEST path suffix that is unique
+# across ALL discovered canonical paths, extending depth one component at a
+# time until unique (app → client/app → code/client/app → …). Two distinct
+# repos can therefore never share a window name, no matter how their roots
+# and parents collide. annotate_names turns "path<TAB>flag" lines into
+# "path<TAB>flag<TAB>name" lines; assert_unique_names then proves uniqueness
+# and fails visibly rather than letting tmux new-window -S silently merge
+# two different repos into one window.
+annotate_names() {
+  printf '%s' "$1" | awk -F'\t' '
+    function suffix(path, d,    m, a, i, s) {
+      m = split(path, a, "/")
+      s = a[m]
+      for (i = 1; i < d; i++) s = a[m - i] "/" s
+      return s
+    }
+    NF { paths[++n] = $1; flags[n] = $2 }
+    END {
+      for (i = 1; i <= n; i++) {
+        # components below the root "" produced by the leading slash
+        comps[i] = split(paths[i], parts, "/") - 1
+        depth[i] = 1
+      }
+      changed = 1
+      while (changed) {
+        changed = 0
+        for (name in seen) delete seen[name]
+        for (i = 1; i <= n; i++) {
+          names[i] = suffix(paths[i], depth[i])
+          seen[names[i]]++
+        }
+        for (i = 1; i <= n; i++) {
+          if (seen[names[i]] > 1 && depth[i] < comps[i]) {
+            depth[i]++
+            changed = 1
+          }
+        }
+      }
+      for (i = 1; i <= n; i++) print paths[i] "\t" flags[i] "\t" names[i]
+    }'
+}
+
+assert_unique_names() {
+  local dupes
+  dupes="$(printf '%s\n' "$1" | awk -F'\t' 'NF { print $3 }' | sort | uniq -d)"
+  if [[ -n "$dupes" ]]; then
+    echo "groundwork-repos: window-name collision after shortest-unique-suffix naming:" >&2
+    printf '%s\n' "$dupes" | sed 's/^/  /' >&2
+    echo "Refusing to open or reuse windows on an ambiguous name. This should be impossible for distinct paths — please report it." >&2
+    exit 1
+  fi
+}
+
+repo_branch() {
+  local branch
+  branch="$(safe_git "$1" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+  if [[ -z "$branch" ]]; then
+    branch="detached@$(safe_git "$1" rev-parse --short HEAD 2>/dev/null || echo '?')"
+  fi
+  printf '%s' "$branch"
+}
+
+repo_is_dirty() {
+  [[ -n "$(safe_git "$1" status --porcelain 2>/dev/null | head -n 1)" ]]
+}
+
+repo_sync() {
+  local counts behind ahead
+  counts="$(safe_git "$1" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null || true)"
+  if [[ -z "$counts" ]]; then
+    printf 'no upstream'
+    return 0
+  fi
+  IFS=$'\t' read -r behind ahead <<<"$counts"
+  printf 'ahead %s, behind %s' "$ahead" "$behind"
+}
+
+# State is words + symbols, never color alone; color is an optional extra on
+# top. It keys on the run-wide GROUNDWORK_COLOR signal when update-all set
+# one, and otherwise drops when stdout is not a terminal or NO_COLOR is set.
+color_dirty="" color_clean="" color_off=""
+init_colors() {
+  if [[ "${GROUNDWORK_COLOR:-}" == "1" ]] \
+    || [[ -z "${GROUNDWORK_COLOR:-}" && -t 1 && -z "${NO_COLOR:-}" ]]; then
+    color_dirty=$'\033[31m'
+    color_clean=$'\033[32m'
+    color_off=$'\033[0m'
+  fi
+}
+
+cmd_list() {
+  load_config
+  repo_list
+}
+
+cmd_status() {
+  load_config
+  init_colors
+  local list annotated path flag name branch state sync wt count=0
+  list="$(repo_list)"
+  if [[ -z "$list" ]]; then
+    echo "groundwork-repos: no repositories found under: ${roots[*]}"
+    echo "Roots are configured in $config_file (add yours in repos.local.conf)."
+    return 0
+  fi
+  annotated="$(annotate_names "$list")"
+  assert_unique_names "$annotated"
+  printf '%-28s %-24s %-8s %-20s %-3s %s\n' "REPO" "BRANCH" "STATE" "SYNC" "WT" "PATH"
+  while IFS=$'\t' read -r path flag name; do
+    [[ -n "$path" ]] || continue
+    branch="$(repo_branch "$path")"
+    if repo_is_dirty "$path"; then
+      state="${color_dirty}● dirty${color_off}"
+    else
+      state="${color_clean}✓ clean${color_off}"
+    fi
+    sync="$(repo_sync "$path")"
+    wt="-"
+    [[ "$flag" == "wt" ]] && wt="wt"
+    # The state cell is printed verbatim: printf padding counts bytes, and
+    # the ●/✓ symbols are multibyte. Both states are 7 display columns wide.
+    printf '%-28s %-24s ' "$name" "$branch"
+    printf '%s ' "$state"
+    printf '%-20s %-3s %s\n' "$sync" "$wt" "$path"
+    count=$((count + 1))
+  done <<<"$annotated"
+}
+
+require_lazygit() {
+  if ! command -v lazygit >/dev/null 2>&1; then
+    echo "groundwork-repos: lazygit is not on PATH (brew install lazygit)." >&2
+    exit 1
+  fi
+}
+
+# Window opening. Everything is passed to tmux as separate argv words —
+# repository paths (including paths with spaces) are never interpolated into
+# a shell string. `new-window -S` selects an existing window with the same
+# name instead of opening a duplicate, so re-picking a repo jumps to the
+# window you already have.
+open_repo_window() {
+  local name="$1" path="$2"
+  if [[ -n "${TMUX:-}" ]]; then
+    tmux new-window -S -n "$name" -c "$path" lazygit
+  elif tmux has-session -t "=$SESSION_NAME" 2>/dev/null; then
+    tmux new-window -S -t "$SESSION_NAME:" -n "$name" -c "$path" lazygit
+  else
+    tmux new-session -d -s "$SESSION_NAME" -n "$name" -c "$path" lazygit
+  fi
+}
+
+attach_if_outside() {
+  if [[ -z "${TMUX:-}" ]]; then
+    exec tmux attach-session -t "=$SESSION_NAME"
+  fi
+}
+
+cmd_pick() {
+  load_config
+  require_lazygit
+  local list annotated line name path flag
+  list="$(repo_list)"
+  if [[ -z "$list" ]]; then
+    echo "groundwork-repos: no repositories found under: ${roots[*]}"
+    echo "Roots are configured in $config_file (add yours in repos.local.conf)."
+    return 0
+  fi
+  if ! command -v fzf >/dev/null 2>&1; then
+    echo "groundwork-repos: pick needs fzf on PATH (brew install fzf)." >&2
+    echo "The discovered repositories, so the trip was not wasted:" >&2
+    printf '%s' "$list" | awk -F'\t' '{ print "  " $1 }' >&2
+    exit 1
+  fi
+  annotated="$(annotate_names "$list")"
+  assert_unique_names "$annotated"
+  local rows=""
+  while IFS=$'\t' read -r path flag name; do
+    [[ -n "$path" ]] || continue
+    rows="$rows$name"$'\t'"$path"$'\t'"$flag"$'\n'
+  done <<<"$annotated"
+  # {2} is the path field; fzf shell-quotes placeholders itself, so paths
+  # with spaces stay one argument in the preview command. The preview runs
+  # git OUTSIDE this process, so it carries the same safe_git flags inline:
+  # hooks and fsmonitor stay disabled even in the preview.
+  line="$(printf '%s' "$rows" | fzf --delimiter '\t' --with-nth 1 \
+    --prompt 'repo ' --reverse --no-sort \
+    --header 'enter open/reuse lazygit window · esc cancel' \
+    --preview 'GIT_OPTIONAL_LOCKS=0 git -c core.fsmonitor=false -c core.untrackedCache=false -c core.hooksPath=/dev/null -C {2} status --short --branch' \
+    --preview-window 'right,55%,border-left')" || return 0
+  [[ -n "$line" ]] || return 0
+  IFS=$'\t' read -r name path _ <<<"$line"
+  open_repo_window "$name" "$path"
+  attach_if_outside
+}
+
+cmd_changed() {
+  load_config
+  require_lazygit
+  local list annotated path flag name opened=0
+  list="$(repo_list)"
+  annotated="$(annotate_names "$list")"
+  assert_unique_names "$annotated"
+  while IFS=$'\t' read -r path flag name; do
+    [[ -n "$path" ]] || continue
+    repo_is_dirty "$path" || continue
+    open_repo_window "$name" "$path"
+    opened=$((opened + 1))
+  done <<<"$annotated"
+  if [[ "$opened" -eq 0 ]]; then
+    echo "groundwork-repos: every discovered repository is clean — nothing to open."
+    return 0
+  fi
+  echo "groundwork-repos: opened $opened lazygit window(s) for dirty repositories."
+  attach_if_outside
+}
+
+refresh=0
+mode=""
+for arg in "$@"; do
+  case "$arg" in
+    --refresh) refresh=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -n "$mode" ]]; then
+        echo "groundwork-repos: unexpected argument: $arg" >&2
+        echo "Run 'groundwork-repos --help' for usage." >&2
+        exit 2
+      fi
+      mode="$arg"
+      ;;
+  esac
+done
+[[ -n "$mode" ]] || mode="status"
+case "$mode" in
+  status) cmd_status ;;
+  list) cmd_list ;;
+  pick) cmd_pick ;;
+  changed) cmd_changed ;;
+  *)
+    echo "groundwork-repos: unknown command: $mode" >&2
+    echo "Run 'groundwork-repos --help' for usage." >&2
+    exit 2
+    ;;
+esac

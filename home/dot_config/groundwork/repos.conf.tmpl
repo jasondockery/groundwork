@@ -1,0 +1,41 @@
+# Repository discovery for groundwork-repos (the repo picker, the status
+# table, and the per-repo lazygit tmux windows).
+#
+# Repositories are DISCOVERED under these roots at call time, never listed by
+# name: clone a repo and it appears within the cache TTL (30s) — or
+# immediately with `groundwork-repos --refresh` — with no edit here.
+# Discovery inspects data (directory names plus read-only git queries), and
+# every git call disables repository hooks and the fsmonitor for the duration
+# of the inspection, so a repo's own config cannot run code during discovery.
+#
+# Format note: a `#` starts a comment anywhere on a line, so paths containing
+# `#` are unsupported by this deliberately simple format.
+#
+# This file is Groundwork-managed; `chezmoi apply` refreshes it. Personal
+# additions belong in repos.local.conf next to this file — it is unmanaged,
+# never touched by an apply. Roots and excludes there APPEND to this file;
+# scalar keys there OVERRIDE this file.
+
+# Where your repositories live. Repeat `root` for more than one location.
+root = {{ .code_dir }}
+# root = ~/work
+
+# How many directory levels below a root a repository may sit.
+max_depth = 4
+
+# Linked git worktrees (a .git *file* pointing at the main clone) are listed
+# too, marked `wt` — agents often work in worktrees, and unseen worktree
+# changes are exactly what supervision must not miss.
+include_worktrees = true
+
+# Discovery results are cached this many seconds (paths only — branch and
+# dirty state are always read live). 0 disables the cache.
+cache_ttl_seconds = 30
+
+# Directory names never descended into. The first `exclude` line replaces
+# the built-in defaults, so keep the full list when editing.
+exclude = node_modules
+exclude = .cache
+exclude = Library
+exclude = dist
+exclude = vendor
