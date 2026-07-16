@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Groundwork&#x27;s repo picker turns tmux windows into a map of your open repositories: each repo gets one lazygit window with a readable name, re-picking a repo…">
+<title>tmux repo windows · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/tmux-repository-windows.html">
+<meta property="og:title" content="tmux repo windows · Groundwork">
+<meta property="og:description" content="Groundwork&#x27;s repo picker turns tmux windows into a map of your open repositories: each repo gets one lazygit window with a readable name, re-picking a repo…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="tmux repo windows · Groundwork">
+<meta name="twitter:description" content="Groundwork&#x27;s repo picker turns tmux windows into a map of your open repositories: each repo gets one lazygit window with a readable name, re-picking a repo…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/tmux-repository-windows.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html" class="active">tmux repo windows</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Directing agents</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Interest tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Multiplexer</p>
+      <h1>tmux repo windows: one window per repository, named so you can read the room.</h1>
+      <p class="lead">Groundwork's repo picker turns tmux windows into a map of your open repositories: each repo gets one lazygit window with a readable name, re-picking a repo jumps to its existing window, and the whole flow works whether you start inside tmux or from a bare terminal.</p>
+
+      <div class="trigger"><b>When you'll want this</b> Your tmux status line says <code>zsh · zsh · nvim · zsh</code> and you have no idea which shell is standing in which repository.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — prefix is Ctrl+a</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>R</kbd></span> <span class="act">repo picker popup</span></div>
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>G</kbd></span> <span class="act">window per dirty repo</span></div>
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>1</kbd>…<kbd>9</kbd></span> <span class="act">jump between repo windows</span></div>
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>g</kbd></span> <span class="act">lazygit for the current folder</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Why windows, not more panes</h2>
+      <p>A <a href="tmux.html">tmux</a> window is the right size for a repository: it has a name in the status line, a number you can jump to, and room for whatever that repo needs. When each open repo is one window, the status line becomes a survey of your working set — <code>1:groundwork 2:my-app 3:notes</code> reads like a to-review list. Panes are for views <em>inside</em> a repo (editor beside tests beside an agent); windows are for moving <em>between</em> repos.</p>
+
+      <h2><span class="hash">#</span>Open-or-select, never duplicate</h2>
+      <p>The picker opens repo windows with tmux's <code>new-window -S</code>: if a window with that name already exists, tmux selects it instead of creating a twin. Pick the same repo five times and you land in the same window five times. That keeps window numbers stable through a whole session, which is what makes <kbd>prefix</kbd> <kbd>1</kbd>…<kbd>9</kbd> muscle memory possible.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">what the picker actually runs</span></div>
+        <pre><code><span class="prompt">$ </span>tmux new-window -S -n my-app -c ~/code/my-app lazygit
+<span class="comment"># -S  select the existing my-app window if there is one</span>
+<span class="comment"># -n  readable window name (shortest unique path suffix when repos collide)</span>
+<span class="comment"># -c  start in the repo — the path travels as one argument, spaces and all</span></code></pre>
+      </div>
+      <p>Names stay honest: a window named for a repo was created for that repo, and because Groundwork's tmux config keeps manual renames sticky (<kbd>prefix</kbd> <kbd>,</kbd>), your own labels are never overwritten by the picker — the window is simply reused by name.</p>
+
+      <h2><span class="hash">#</span>Inside or outside tmux</h2>
+      <p>Inside tmux, picked repos become windows in your current session. Outside tmux — a fresh terminal, an SSH hop — the same commands create a session called <code>repos</code> (or attach to it if it exists), put the repo windows there, and attach. You never get an error for not being in tmux yet; the tool meets you where you are.</p>
+
+      <h2><span class="hash">#</span>The popup bindings</h2>
+      <p>Both bindings live in Groundwork's managed tmux config, and both call <code>groundwork-repos</code> by absolute path so a long-lived tmux server's PATH can't break them. Repositories are <a href="repo-navigation.html">discovered under your configured roots</a> — the tmux config never contains a repository name:</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>prefix</kbd> <kbd>R</kbd></span></td><td>Picker in a popup over your current window; <kbd>Esc</kbd> closes it with no side effects</td></tr>
+        <tr><td><span class="keys"><kbd>prefix</kbd> <kbd>G</kbd></span></td><td>One lazygit window per dirty repo, without blocking the tmux client (<code>run-shell -b</code>)</td></tr>
+      </table>
+      <div class="callout tip">
+        <span class="label">End-of-session sweep</span>
+        <p>Before you stop for the day: <kbd>prefix</kbd> <kbd>G</kbd>. Every repository with uncommitted work — yours or an agent's — becomes a window. Walk them left to right, commit or discard, and end at inbox zero for diffs.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Try it now</h2>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">two-minute drill</span></div>
+        <pre><code><span class="prompt">$ </span>groundwork-repos            <span class="comment"># the table: what exists, what's dirty</span>
+<span class="prompt">$ </span>tmux                        <span class="comment"># if you're not already in it</span>
+<span class="comment"># prefix R → type a few letters of any repo → Enter → you're in its lazygit</span>
+<span class="comment"># prefix R → pick the SAME repo → note you landed in the same window</span>
+<span class="comment"># q quits lazygit; prefix x closes the window (it asks first)</span></code></pre>
+      </div>
+
+      <div class="pagenav">
+        <a href="repo-navigation.html"><span class="dir">← Prev</span>Repo navigation</a>
+        <a href="lazygit.html"><span class="dir">Next →</span>lazygit</a>
+      </div>
+      <footer class="site">One repo, one window, one honest name. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

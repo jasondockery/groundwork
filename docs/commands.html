@@ -67,14 +67,17 @@
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
       <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
     </nav>
     <nav class="nav-group">
       <h4>Daily workflow</h4>
       <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
@@ -163,9 +166,17 @@
         <tr><td><code>copy-context --paths-only docs</code></td><td>Copy only the selected file list when you want to discuss scope before sharing contents.</td></tr>
       </table>
 
+      <h2><span class="hash">#</span>Repository navigation</h2>
+      <table class="keytable">
+        <tr><td><code>groundwork-repos</code></td><td>Table of every Git repository discovered under your configured roots (<code>~/.config/groundwork/repos.conf</code>): branch, dirty/clean as symbol + word, ahead/behind, worktree marker, path. Discovery is dynamic — a fresh clone appears within the cache TTL (30&nbsp;s), or immediately with <code>--refresh</code>, with no config edit. See <a href="repo-navigation.html">Repository navigation</a>.</td></tr>
+        <tr><td><code>groundwork-repos pick</code></td><td>Fuzzy-pick a discovered repository (fzf) with a live git-status preview, then open or reuse its lazygit tmux window. Inside tmux it becomes a window (also on <kbd>Ctrl</kbd><kbd>a</kbd> then <kbd>Shift</kbd><kbd>R</kbd>); outside, it creates or attaches the <code>repos</code> session.</td></tr>
+        <tr><td><code>groundwork-repos changed</code></td><td>Open one lazygit tmux window per repository with uncommitted work — the fastest way to see everything your agents left unreviewed (also on <kbd>Ctrl</kbd><kbd>a</kbd> then <kbd>Shift</kbd><kbd>G</kbd>).</td></tr>
+      </table>
+
       <h2><span class="hash">#</span>Project scaffolders</h2>
       <table class="keytable">
         <tr><td><code>new-project my-app</code></td><td>Create a starter repo with <code>AGENTS.md</code>, shared agent folders, editor settings, and ignored local/secrets files.</td></tr>
+        <tr><td><code>groundwork-docker-build-scratch review .</code></td><td>Build a disposable Docker image under the ephemeral-build contract. The wrapper owns the syntax nobody should hand-type: it applies <code>dev.roost.ephemeral=true</code>, generates the RFC&nbsp;3339 <code>dev.roost.built</code> timestamp itself, tags <code>&lt;project&gt;/scratch:&lt;purpose&gt;</code> (project derived from the context, or <code>--project</code>), validates the purpose as a legal tag component, and prints the resulting image ID. <code>--rm-after</code> removes the image right after a successful build (prove-and-delete); allowlisted <code>docker build</code> arguments go after <code>--</code> (<code>--file</code>/<code>-f</code>, <code>--target</code>, <code>--platform</code>, <code>--build-arg</code>, <code>--secret</code>, <code>--ssh</code>, <code>--no-cache</code>, <code>--pull</code>, <code>--progress</code>; anything else is refused by name — <code>--output</code>/<code>--push</code> are unsupported because the contract requires a local, inspectable image). See <a href="platforms.html">Platforms</a>.</td></tr>
         <tr><td><code>new-wiki ~/code/llm-wiki</code></td><td>Create a private knowledge wiki where sources live in <code>raw/</code>, an agent maintains <code>wiki/</code>, and Obsidian can browse the vault.</td></tr>
         <tr><td><code>obsidian-plugins ~/code/llm-wiki</code></td><td>Install the Groundwork-managed Obsidian plugin set into a vault.</td></tr>
       </table>
@@ -203,6 +214,10 @@
         <tr><td><code>groundwork-doctor --shell</code></td><td>Run only the shell runtime section: managed zsh installed, registered, selected as login shell, and running here.</td></tr>
         <tr><td><code>groundwork-doctor --runtimes</code></td><td>Flag any mise-managed runtime that was adopted <em>inside</em> the five-day release floor. This closes a real gap: a cooldown only filters what you <em>acquire</em> — it never retires a version already on disk, so anything installed before the floor existed stays until something says so. It reads the release date from the tool's own backend rather than from mise's upgrade warning, which only appears when mise's version cache happens to be cold.</td></tr>
         <tr><td><code>groundwork-doctor --docker</code></td><td>Run only the Docker section of the health report.</td></tr>
+        <tr><td><code>groundwork-docker-tidy</code></td><td>Dry-run Docker tidy, by enumeration: every image labeled <code>dev.roost.ephemeral=true</code> is inspected individually and reported as <em>eligible</em> (its strict-parsed <code>dev.roost.built</code> label is past the 72-hour grace, every tag sits in the scratch namespace <code>*/scratch:*</code>, and no container — running or stopped — references it), <em>retained</em> (inside the grace window), <em>protected</em> (a non-scratch tag or a container reference refuses deletion — a scratch image retagged <code>groundwork:latest</code> keeps its label, so the tag check is the backstop), or <em>unverified</em> (missing <code>jq</code>, or a missing or malformed build label — retained and explained, never "probably old"); exited containers carrying the label are judged by the same grace window against their <code>CreatedAt</code>. The label is the consent, so your real <code>groundwork</code> image, base images, and other projects' images are structurally out of reach — and dangling images and builder cache are daemon-wide state this command never touches. See <a href="platforms.html">Platforms</a> for the ephemeral-build contract.</td></tr>
+        <tr><td><code>groundwork-docker-tidy --yes</code></td><td>Remove the eligible set: exited containers carrying the label whose <code>CreatedAt</code> is past the same 72-hour grace (container state under an ephemeral image is disposable only after the grace, and the status is re-checked immediately before removal), then each eligible image — deduplicated by image ID, re-checked immediately before deletion, and deleted by explicit image ID, never by a broad prune. A multi-tag image that only partly cleans up is reported as partially cleaned, naming the removed tags and why the image stayed. Weekly, or before a large build, is plenty; <code>update-all</code> prints a one-line nudge when tidy-eligible leftovers have piled up.</td></tr>
+        <tr><td><code>groundwork-docker-cache-tidy</code></td><td>Dry-run preview of the <strong>daemon-wide</strong> cleanup: stopped containers, dangling images, and builder cache from <em>every project on this machine</em>, not just Groundwork. That is exactly why it is a separate command — it says what it touches, and <code>update-all</code> and scheduled agent paths never invoke it.</td></tr>
+        <tr><td><code>groundwork-docker-cache-tidy --yes</code></td><td>Apply the daemon-wide cleanup: prune stopped containers and dangling images, and prune builder cache toward a 5&nbsp;GB retention target. <code>--keep-storage</code> asks Docker to prune eligible cache for the selected builder while retaining a target — it does not guarantee total cache lands at or below the number. Never volumes, never tagged images.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>The shell runtime</h2>
@@ -253,6 +268,8 @@
         <tr><td><code>tmux-fresh</code></td><td>Start tmux without restoring the previous resurrect snapshot.</td></tr>
         <tr><td><code>~/.config/tmux/plugins/tpm/bin/update_plugins all</code></td><td>Update tmux plugins from a normal shell when TPM's tmux pane is hard to read.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span></td><td>Copy the last completed command and its output into a tmux buffer (and the clipboard when supported), selected by semantic prompt marks; a platform + working-directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>R</kbd></span></td><td>Repo picker popup: fuzzy-search every repository discovered under your configured roots, preview its git status, and jump to (or open) its lazygit window. See <a href="tmux-repository-windows.html">tmux repo windows</a>.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>G</kbd></span></td><td>Open a lazygit window for every repository with uncommitted changes (<code>groundwork-repos changed</code>).</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>z</kbd></span></td><td>Zoom the active pane to fill the screen; press again to restore. The status line shows <code>Z</code> while zoomed — this is what happened if a pane suddenly took over the screen.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>x</kbd></span></td><td>Close the active pane. It asks first, because <kbd>x</kbd> sits next to <kbd>z</kbd> (zoom).</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>s</kbd></span></td><td>Save a tmux-resurrect snapshot now.</td></tr>

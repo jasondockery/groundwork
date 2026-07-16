@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="lazygit is a keyboard-driven terminal UI for Git: stage lines, read history, and review every change an agent left behind, with each keystroke mapping to a…">
+<title>lazygit · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/lazygit.html">
+<meta property="og:title" content="lazygit · Groundwork">
+<meta property="og:description" content="lazygit is a keyboard-driven terminal UI for Git: stage lines, read history, and review every change an agent left behind, with each keystroke mapping to a…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="lazygit · Groundwork">
+<meta name="twitter:description" content="lazygit is a keyboard-driven terminal UI for Git: stage lines, read history, and review every change an agent left behind, with each keystroke mapping to a…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/lazygit.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="lazygit.html" class="active">lazygit</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Directing agents</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Interest tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Version control</p>
+      <h1>lazygit: the fast visual layer over the Git you already know.</h1>
+      <p class="lead">lazygit is a keyboard-driven terminal UI for Git: stage lines, read history, and review every change an agent left behind, with each keystroke mapping to a Git command you could type yourself. Groundwork ships working defaults and wires lazygit into tmux so any repository is one keystroke away.</p>
+
+      <div class="trigger"><b>When you'll want this</b> An agent changed nine files and you want to review and stage the work hunk by hunk, not squint at a wall of <code>git diff</code>.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — opening and moving</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>lg</code></span> <span class="act">open in the current repo</span></div>
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>g</kbd></span> <span class="act">popup for the current repo</span></div>
+          <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>R</kbd></span> <span class="act">pick any repo → its lazygit window</span></div>
+          <div class="qr"><span class="keys"><kbd>O</kbd></span> <span class="act">open the repo in Neovim (Groundwork custom command)</span></div>
+          <div class="qr"><span class="keys"><kbd>?</kbd></span> <span class="act">every shortcut for the panel you're in</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Learn Git first, then get fast</h2>
+      <p>The <a href="git.html">Git page</a> teaches the commands and introduces lazygit as a picture of them — start there if staging and branches are still new, because the TUI only makes sense as a view of a model you already hold. This page is about the layer Groundwork adds on top: managed defaults, editor integration, and the tmux wiring that makes lazygit the review surface for <em>all</em> your repositories, not just the one you happen to be standing in.</p>
+
+      <h2><span class="hash">#</span>The managed defaults</h2>
+      <p>Groundwork manages <code>~/.config/lazygit/config.yml</code> (and exports <code>XDG_CONFIG_HOME=$HOME/.config</code> in the login shell so lazygit actually reads it there on macOS, instead of <code>~/Library/Application Support</code>). What's in it, and why:</p>
+      <table class="keytable">
+        <tr><td><code>os.editPreset: nvim</code></td><td>Commit messages, rebases, and "edit this file" land in <a href="neovim.html">Neovim</a></td></tr>
+        <tr><td><code>gui.showBottomLine: true</code></td><td>The shortcut hint line stays visible — discoverable keys beat memorized ones</td></tr>
+        <tr><td><code>gui.showPanelJumps: true</code></td><td>Panel jump numbers stay visible in panel titles</td></tr>
+        <tr><td><code>gui.animateExplosion: false</code></td><td>No animation, anywhere: motion adds nothing to reviewing a diff</td></tr>
+        <tr><td><code>gui.language: auto</code></td><td>Follows your system language instead of pinning English</td></tr>
+        <tr><td><kbd>O</kbd> custom command</td><td>"Open repository in Neovim" from any panel — inspect in lazygit, edit in the editor, same window</td></tr>
+      </table>
+      <p>It's a fully managed file: change it with <code>chezmoi edit --apply ~/.config/lazygit/config.yml</code> so your change survives the next apply, and see <a href="customizing.html">Customizing</a> for the pattern.</p>
+
+      <h2><span class="hash">#</span>Reviewing an agent's work</h2>
+      <p>lazygit's review loop is the human half of the <a href="agents.html">agent workflow</a>: the agent proposes, you inspect and own the commit. The moves that matter, all visible under <kbd>?</kbd>:</p>
+      <table class="keytable">
+        <tr><td><kbd>Space</kbd></td><td>Stage or unstage the selected file — or the selected line/hunk inside a diff. Staging touches the index only; it never edits file contents</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>Drill into a file's diff; drill into a commit to see what it changed</td></tr>
+        <tr><td><kbd>d</kbd> on an unstaged change</td><td>Discard it — lazygit asks first, and it only ever touches the change you selected</td></tr>
+        <tr><td><kbd>c</kbd></td><td>Commit what's staged (message opens in Neovim)</td></tr>
+        <tr><td><kbd>z</kbd> / <kbd>Z</kbd></td><td>Undo / redo, built on the reflog — exploration is safe</td></tr>
+      </table>
+      <p>For the multi-repo version of this loop — every dirty repository as its own lazygit window — see <a href="repo-navigation.html">Repository navigation</a> and <a href="tmux-repository-windows.html">tmux repo windows</a>.</p>
+
+      <h2><span class="hash">#</span>Accessible by construction</h2>
+      <p>Everything is keyboard-driven with the current keys always on screen; state in Groundwork's surrounding tooling is words and symbols rather than color alone; and the one animation lazygit ships is turned off. If you prefer a mouse-first view some days, <a href="git.html">GitUp</a> reads the same repository — tools here are choices, not tests.</p>
+
+      <div class="pagenav">
+        <a href="tmux-repository-windows.html"><span class="dir">← Prev</span>tmux repo windows</a>
+        <a href="git.html"><span class="dir">Next →</span>Git</a>
+      </div>
+      <footer class="site">A picture of Git, wired into every repository you have. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

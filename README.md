@@ -77,6 +77,8 @@ docker build -t groundwork .
 docker run -it --rm groundwork
 ```
 
+Keep the `groundwork` tag for the image you actually run. A build that only verifies a Dockerfile change (yours or an agent's) goes through the managed wrapper instead — `groundwork-docker-build-scratch <purpose> .` — which owns the ephemeral-build contract: it applies `dev.roost.ephemeral=true`, generates the RFC 3339 `dev.roost.built` timestamp itself, tags `groundwork/scratch:<purpose>`, and prints the image ID (add `--rm-after` to prove-and-delete in one step). Never hand-type the labels, and never `docker tag` a scratch image into a real name — labels live on the image, so promote by rebuilding. Scratch images are removed in the same session or left for `groundwork-docker-tidy` to remove after the 72-hour grace (see `docs/platforms.html`).
+
 ## AI-native by default
 
 Groundwork treats AI as part of the development environment, not as a sidecar. The terminal, tmux, Neovim, Git, Raycast, Anybox, and the docs are arranged around a repeatable human-in-the-loop workflow:
@@ -206,6 +208,12 @@ groundwork-help                     # show Groundwork commands, aliases, keys, a
 groundwork-help update              # filter the command catalog
 largest ~                           # find large files/folders, then show cleanup guidance
 groundwork-doctor                   # read-only machine health report (Docker hygiene, disk, leftovers)
+groundwork-docker-tidy              # dry-run tidy of ephemeral-labeled Docker scratch images, by enumeration (--yes to act)
+groundwork-docker-cache-tidy        # DAEMON-WIDE Docker cleanup preview (all projects; owner-run only, --yes to act)
+groundwork-docker-build-scratch review .   # build a disposable image under the ephemeral contract (wrapper owns labels + scratch tag)
+groundwork-repos                    # table of every discovered repo: branch, dirty/clean, ahead/behind
+groundwork-repos pick               # fuzzy-pick a repo -> its lazygit tmux window (prefix+R in tmux)
+groundwork-repos changed            # lazygit window per dirty repo (prefix+G in tmux)
 scripts/validate-groundwork         # validate/lint the repo before commit/release
 browser-extensions --open       # open vetted browser add-ons for Zen/Chrome/Dia
 raycast-extensions --open       # open recommended Raycast Store entries
@@ -268,6 +276,11 @@ home/
   dot_local/bin/executable_groundwork-distro # reports the distro ID; --family reports debian / fedora / arch / opensuse / unknown
   dot_local/bin/executable_largest    # guided largest-file/folder scanner over dust
   dot_local/bin/executable_groundwork-doctor # read-only machine health report
+  dot_local/bin/executable_groundwork-docker-tidy # label-scoped Docker tidy by enumeration, dry run by default
+  dot_local/bin/executable_groundwork-docker-cache-tidy # daemon-wide Docker cleanup, owner-run only
+  dot_local/bin/executable_groundwork-docker-build-scratch # disposable-build wrapper: labels + scratch tag
+  dot_local/share/groundwork/lib/docker-scan.sh # shared read-only scanner behind tidy and doctor
+  dot_local/bin/executable_groundwork-repos # discover repos under configured roots; picker, status, dirty-repo windows
   dot_local/bin/executable_raycast-extensions.tmpl
                                       # Raycast Store extension checklist helper
   dot_local/share/groundwork/commands.tsv  # source for groundwork-help

@@ -221,6 +221,16 @@ Roost.
 
 ## Operations
 
+- [ ] Docs sidebar/nav modularity (flagged 2026-07-16): every page in
+      `docs/` carries its own copy of the sidebar, and the validator only
+      enforces that the copies are byte-identical (active marker aside).
+      That guards drift but multiplies every nav edit across ~50 files.
+      Make the sidebar a single generated source (one fragment the pages
+      are rendered from, or a generator that stamps it into every page)
+      with the validator enforcing no-drift against that source. Honest
+      status: duplication is guarded today, not modular; no refactor has
+      been started.
+
 - [x] Renovate configured: hosted app (Interactive mode), `renovate.json`,
       operating notes in `PLAYBOOK.md`. Migrated 2026-07-08 to the
       self-hosted runner + shared preset in `renovate-config` (hosted app

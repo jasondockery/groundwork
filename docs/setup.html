@@ -67,14 +67,17 @@
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
       <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
     </nav>
     <nav class="nav-group">
       <h4>Daily workflow</h4>
       <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
@@ -196,6 +199,7 @@
       </div>
       <p>To read it first, download it to <code>/tmp/bootstrap-mac.sh</code>, open it with <code>less</code>, then run <code>bash /tmp/bootstrap-mac.sh</code>.</p>
       <p>The first run asks a few questions — your name and email, whether this is a work machine, whether a Mac is a server/CI machine, which password manager you use, and whether to install optional large toolchains such as Unity or Xcode. Your answers are saved, so it won't ask again. From there it installs the selected profile and configures the machine.</p>
+      <p>Two prompt styles appear during setup, because two tools ask. The <strong>setup questions</strong> are chezmoi's: a yes/no question ends with its accepted answers and its default spelled out — type <code>y</code> or <code>t</code> for yes, <code>n</code> or <code>f</code> for no, and a bare Enter keeps the named default (the dim <code>bool, default false</code> under the cursor is chezmoi's type hint, not something to type). <strong>Groundwork's own prompts</strong> (bootstrap, repair offers) use the shell convention instead: a bracketed affordance like <code>[y/N]</code> or <code>[KEEP/switch/login]</code>, where the capitalized choice is the default and Enter takes it. In both styles, a run with no terminal attached takes the default and says so rather than hanging.</p>
       <p>The backup is scoped to what this repo can reasonably restore: selected managed config files, selected macOS defaults keys, and Homebrew state notes. It does not uninstall apps, undo Homebrew upgrades, reverse manual permissions, or replace Time Machine.</p>
       <p>If the Mac already has an old dev setup, answer <strong>yes</strong> to the reset prompt only when you want a cleaner start. It moves common conflict zones aside — Neovim config/state/cache, tmux legacy config/plugin/restore state, and zsh completion dumps — before applying this repo. It does not delete them.</p>
       <div class="callout warn">
@@ -210,7 +214,7 @@
 <div class="callout note">
   <span class="label">Linux / WSL2 / containers</span>
   <p>Groundwork treats Docker as a way to run the environment, not as a standalone lesson. Linux and WSL2 get the shared terminal layer: shell, Git, tmux, Neovim, mise/uv, helper scripts, and agent instructions. macOS GUI apps, App Store apps, browser helpers, and macOS defaults are skipped when <code>.chezmoi.os</code> is not <code>darwin</code>; on macOS, the server/CI prompt lets a headless Mac skip the same desktop layer.</p>
-  <p>The Docker image is the non-interactive headless profile for agents, CI, and disposable shells. From the repo root, build it with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>. Personal Macs can use Docker Desktop; work Macs use Colima plus the Docker CLI, so start the daemon with <code>colima start</code> first. This does not try to teach Dockerfiles, Compose, or app hosting; it just gives the Groundwork terminal environment somewhere reproducible to run. See <a href="platforms.html">Platforms</a> for the profile-by-profile split.</p>
+  <p>The Docker image is the non-interactive headless profile for agents, CI, and disposable shells. From the repo root, build it with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>. Keep that <code>groundwork</code> tag for the image you actually use; when you or an agent rebuild only to test a Dockerfile change, build it with <code>groundwork-docker-build-scratch &lt;purpose&gt; .</code> instead — the wrapper applies the ephemeral labels and the <code>groundwork/scratch:&lt;purpose&gt;</code> tag so <code>groundwork-docker-tidy</code> can remove it later — see <a href="platforms.html">Platforms</a> for the contract. Personal Macs can use Docker Desktop; work Macs use Colima plus the Docker CLI, so start the daemon with <code>colima start</code> first. This does not try to teach Dockerfiles, Compose, or app hosting; it just gives the Groundwork terminal environment somewhere reproducible to run. See <a href="platforms.html">Platforms</a> for the profile-by-profile split.</p>
 </div>
 
       <h2><span class="hash">#</span>Day to day</h2>

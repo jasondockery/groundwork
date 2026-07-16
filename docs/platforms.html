@@ -67,14 +67,17 @@
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
       <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
     </nav>
     <nav class="nav-group">
       <h4>Daily workflow</h4>
       <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
@@ -180,6 +183,20 @@
 <span class="prompt">$ </span>docker image inspect node:24 --format '{{.Architecture}}'
 <span class="comment"># arm64 on Apple Silicon = native. amd64 there = emulated — find an arm64 image.</span></code></pre>
       </div>
+
+      <h2><span class="hash">#</span>Ephemeral builds and the tidy habit</h2>
+      <p>AI-native workflows build images constantly: every review, test, or agent session that touches a Dockerfile builds a full image to verify it, tags it something ad hoc (<code>groundwork:test</code>, <code>groundwork:review-fix</code>), and moves on. Tags never expire, each full build is gigabytes, and nothing in that flow prunes — so a few weeks of perfectly normal work can quietly accumulate several gigabytes of dead images on the disk. The fix is not deleting harder afterward; it is declaring intent at build time.</p>
+      <p>The contract: a build that exists only to verify something says so, with a scratch-namespace tag (<code>&lt;project&gt;/scratch:&lt;purpose&gt;</code>) and two labels — <code>dev.roost.ephemeral=true</code> (the consent) and <code>dev.roost.built</code> (the authoritative build clock the tidy strict-parses). Groundwork and Roost-scaffolded repos share the same label pair, so one tidy serves every repo on the machine. Don't hand-type any of that — the wrapper owns the syntax, so it cannot forget a label, typo the namespace, or emit a timestamp the tidy refuses to parse:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">scratch-build.sh</span></div>
+        <pre><code><span class="prompt">$ </span>groundwork-docker-build-scratch review .   <span class="comment"># labels + groundwork/scratch:review, prints the image ID</span>
+<span class="prompt">$ </span>docker run -it --rm groundwork/scratch:review
+<span class="prompt">$ </span>docker rmi groundwork/scratch:review  <span class="comment"># best: clean up in the same session</span>
+<span class="prompt">$ </span>groundwork-docker-build-scratch review . --rm-after  <span class="comment"># or prove-and-delete in one step</span></code></pre>
+      </div>
+      <p>Keep the plain <code>groundwork</code> tag for the image you actually run — it stays unlabeled on purpose, so no cleanup can ever take it. And never <code>docker tag</code> a scratch image into a real name: labels live on the image, not the tag, so the retagged image still carries the scratch metadata — promote by rebuilding under the real tag instead. Same-session cleanup is still the ideal; the label is the safety net for the sessions (yours or an agent's) that forget.</p>
+      <p><code>groundwork-docker-tidy</code> enforces the contract <em>by enumeration</em> — the label is the consent, and the tidy honors it image by image, never by handing the decision to a broad prune. It is a dry run by default, and it reports every labeled image with one of four verdicts: <em>eligible</em> (its strict-parsed <code>dev.roost.built</code> is past the 72-hour grace, every tag sits inside the scratch namespace, and no container — running or stopped — references it), <em>retained</em> (inside the grace window), <em>protected</em> (a tag outside the scratch namespace or a container reference refuses deletion — a scratch image retagged <code>groundwork:latest</code> keeps its label, which is exactly why the tag check exists), or <em>unverified</em> (a missing or malformed build label, or no <code>jq</code> to verify it — retained and explained, never "probably old"). <code>--yes</code> removes exited containers carrying the label only when their <code>CreatedAt</code> is past the same grace window — container state under an ephemeral image is disposable only after the grace — with each container's status re-checked immediately before removal, and then the eligible images: deduplicated by image ID, re-checked immediately before deletion, deleted by explicit image ID. When a multi-tag image only partly cleans up (extra tags untagged, final delete refused), the report says <em>partially cleaned</em> and names the removed tags — never a plain "kept". It never touches volumes, running containers, unlabeled images — or dangling images and builder cache, which belong to the whole daemon. Run it weekly, or before a large build; <code>update-all</code> prints a one-line nudge when tidy-eligible leftovers have piled up, and <code>groundwork-doctor</code> reports the same scan's four counts in its read-only report (a fresh in-grace image is not a leftover).</p>
+      <p>Daemon-wide state is a separate decision. <code>groundwork-docker-cache-tidy</code> handles dangling images, stopped containers, and builder cache — resources from <em>every project on this machine</em>, which is why it is its own command: it says so when it runs, it is a dry run by default, and neither <code>update-all</code> nor any scheduled or agent path ever invokes it. Its builder-cache step (<code>docker builder prune --keep-storage 5GB</code>) asks Docker to prune eligible cache for the selected builder while retaining a target — an honest cap request, not a guarantee that total cache lands under the number.</p>
 
       <h2><span class="hash">#</span>Mac choices</h2>
       <p>Most Macs should use the default desktop profile. The server/CI prompt exists for the unusual case: a Mac used as a remote runner, build box, or agent host with no logged-in desktop workflow.</p>

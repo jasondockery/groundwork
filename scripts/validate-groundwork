@@ -280,6 +280,10 @@ bash -n bootstrap-mac.sh
 
 check "helper script syntax"
 shellcheck_files=(bootstrap-mac.sh)
+# The shared docker-scan library is sourced, not executed, so the executable_*
+# glob misses it; lint it explicitly (bash -n needs a shell, so use bash).
+bash -n home/dot_local/share/groundwork/lib/docker-scan.sh
+shellcheck_files+=(home/dot_local/share/groundwork/lib/docker-scan.sh)
 for script in docker/*.sh home/dot_local/bin/executable_* home/dot_codex/modify_private_config.toml home/dot_config/karabiner/modify_karabiner.json scripts/*; do
   [[ -f "$script" ]] || continue
   [[ "$script" == *.tmpl ]] && continue
@@ -390,7 +394,7 @@ chmod +x "$update_all_fixture/old-launcher" "$update_all_fixture/rendered-runner
 
 cat >"$update_all_bin/chezmoi" <<'SH'
 #!/usr/bin/env bash
-printf 'chezmoi %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+printf 'chezmoi %s color=%s\n' "$*" "${GROUNDWORK_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
 [[ "${CHEZMOI_STATUS:-0}" == "0" ]] || exit "$CHEZMOI_STATUS"
 if [[ "${CHEZMOI_INSTALL_RUNNER:-0}" == "1" ]]; then
   cp "$FRESH_RUNNER" "$HOME/.local/bin/groundwork-update-run"
@@ -399,7 +403,7 @@ fi
 SH
 cat >"$update_all_fixture/fresh-runner" <<'SH'
 #!/usr/bin/env bash
-printf 'fresh runner\n' >>"$GROUNDWORK_TEST_LOG"
+printf 'fresh runner color=%s\n' "${GROUNDWORK_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
 for arg in "$@"; do
   printf 'arg=%s\n' "$arg" >>"$GROUNDWORK_TEST_LOG"
 done
@@ -413,9 +417,10 @@ SH
 cat >"$update_all_bin/brew" <<'SH'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "upgrade" ]]; then
-  printf 'brew %s auto=%s casks=%s\n' "$*" \
+  printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
     "${HOMEBREW_NO_AUTO_UPDATE:-unset}" \
-    "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" >>"$GROUNDWORK_TEST_LOG"
+    "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" \
+    "${HOMEBREW_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
 else
   printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 fi
@@ -447,19 +452,43 @@ update_all_path="/usr/bin:/bin"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
   FRESH_RUNNER_STATUS=42 "$update_all_fixture/old-launcher" alpha "two words" \
   >"$update_all_fixture/handoff-output" 2>&1
 update_all_status=$?
 set -e
 [[ "$update_all_status" -eq 42 ]] || fail "update-all did not preserve the freshly installed runner's exit status"
+# color=0 on the chezmoi line proves the launcher decided color BEFORE the
+# sync (hook scripts inherit it), and on the runner line that the exec'd
+# runner inherits the same decision; stdout is a file here, so it is 0.
 cat >"$update_all_fixture/expected-handoff" <<'EOF'
-chezmoi update --init
-fresh runner
+chezmoi update --init color=0
+fresh runner color=0
 arg=alpha
 arg=two words
 EOF
 diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+# The 2026 color-override contract on the one run-wide decision: FORCE_COLOR
+# turns the signal on without a terminal, NO_COLOR beats FORCE_COLOR, and a
+# caller's explicit GROUNDWORK_COLOR passes through untouched.
+for color_case in 'FORCE_COLOR=1 NO_COLOR= GROUNDWORK_COLOR=:1' \
+  'FORCE_COLOR=1 NO_COLOR=1 GROUNDWORK_COLOR=:0' \
+  'FORCE_COLOR= NO_COLOR=1 GROUNDWORK_COLOR=1:1'; do
+  color_env="${color_case%:*}"
+  color_expected="${color_case#*:}"
+  : >"$update_all_log"
+  # shellcheck disable=SC2086
+  env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    $color_env CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+    "$update_all_fixture/old-launcher" >/dev/null 2>&1 \
+    || fail "update-all failed under color overrides: $color_env"
+  grep -qxF "chezmoi update --init color=$color_expected" "$update_all_log" \
+    || fail "the launcher must decide color=$color_expected before the sync under: $color_env"
+  grep -qxF "fresh runner color=$color_expected" "$update_all_log" \
+    || fail "the exec'd runner must inherit color=$color_expected under: $color_env"
+done
 
 # The launcher gates the platform BEFORE syncing: chezmoi update runs the
 # install hooks (Homebrew bootstrap, brew bundle, every run_ script), so an
@@ -485,12 +514,13 @@ grep -qF 'wsl --list --verbose' "$update_all_fixture/launcher-wsl-unknown"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   CHEZMOI_STATUS=1 "$update_all_fixture/old-launcher" \
   >"$update_all_fixture/sync-failure-output" 2>&1
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all continued after chezmoi update failed"
-diff -u <(printf 'chezmoi update --init\n') "$update_all_log"
+diff -u <(printf 'chezmoi update --init color=0\n') "$update_all_log"
 
 # A successful sync that does not deliver the runner fails loudly instead of
 # continuing through stale logic.
@@ -498,12 +528,13 @@ rm -f "$update_all_bin/groundwork-update-run"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   "$update_all_fixture/old-launcher" >"$update_all_fixture/missing-output" 2>&1
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all continued without the freshly installed runner"
 grep -qF 'update runner is missing or not executable' "$update_all_fixture/missing-output"
-diff -u <(printf 'chezmoi update --init\n') "$update_all_log"
+diff -u <(printf 'chezmoi update --init color=0\n') "$update_all_log"
 
 # The remaining transactions exercise the rendered runner directly, exactly as
 # the launcher execs it. Unsupported platforms fail closed before ANY stage:
@@ -563,10 +594,11 @@ done
 # packages on Linux, the Windows host on WSL2, are never Groundwork's to touch.
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   "$update_all_fixture/rendered-runner" >"$update_all_fixture/success-output" 2>&1
 cat >"$update_all_fixture/expected-success" <<'EOF'
 brew-update
-brew upgrade auto=1 casks=unset
+brew upgrade auto=1 casks=unset hb-color=unset
 brew autoremove
 brew cleanup
 mise upgrade --minimum-release-age 5d
@@ -579,10 +611,31 @@ update_all_temps=("${update_all_stamp}.tmp."*)
 grep -qF 'managed separately by your distribution' "$update_all_fixture/success-output"
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   FAKE_PLATFORM=wsl2 "$update_all_fixture/rendered-runner" \
   >"$update_all_fixture/wsl-success-output" 2>&1
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 grep -qF 'managed separately on the host' "$update_all_fixture/wsl-success-output"
+
+# The run-wide color signal reaches the brew stages: with GROUNDWORK_COLOR=1
+# the runner forces Homebrew's documented HOMEBREW_COLOR through any capture,
+# and with the signal off (or NO_COLOR set and no signal) it forces nothing —
+# redirecting the whole run to a file stays monochrome.
+for runner_color_case in 'GROUNDWORK_COLOR=1 NO_COLOR= FORCE_COLOR=:1' \
+  'GROUNDWORK_COLOR=0 NO_COLOR= FORCE_COLOR=:unset' \
+  'GROUNDWORK_COLOR= NO_COLOR=1 FORCE_COLOR=:unset' \
+  'GROUNDWORK_COLOR= NO_COLOR= FORCE_COLOR=1:1'; do
+  runner_color_env="${runner_color_case%:*}"
+  runner_color_expected="${runner_color_case#*:}"
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  # shellcheck disable=SC2086
+  env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    HOMEBREW_COLOR= $runner_color_env "$update_all_fixture/rendered-runner" >/dev/null 2>&1 \
+    || fail "update-all runner failed under color settings: $runner_color_env"
+  grep -qxF "brew upgrade auto=1 casks=unset hb-color=$runner_color_expected" "$update_all_log" \
+    || fail "brew must see HOMEBREW_COLOR=$runner_color_expected under: $runner_color_env"
+done
 
 # A later mise failure leaves the previous timestamp untouched, proving it
 # represents the whole transaction rather than Homebrew alone.
@@ -590,6 +643,7 @@ printf 'previous-success\n' >"$update_all_stamp"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   MISE_STATUS=1 "$update_all_fixture/rendered-runner" \
   >"$update_all_fixture/mise-failure-output" 2>&1
 update_all_status=$?
@@ -641,11 +695,12 @@ chmod +x "$update_all_bin/groundwork-apps-start"
 rm -f "$update_all_stamp"
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
   >"$update_all_fixture/darwin-success" 2>&1
 cat >"$update_all_fixture/expected-darwin" <<'EOF'
 brew-update
-brew upgrade --require-sha auto=1 casks=1
+brew upgrade --require-sha auto=1 casks=1 hb-color=unset
 brew autoremove
 brew cleanup
 apps-start
@@ -658,6 +713,7 @@ test -f "$update_all_stamp"
 rm -f "$update_all_stamp"
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   FAKE_PLATFORM=darwin APPS_START_STATUS=1 "$update_all_fixture/darwin-runner" \
   >"$update_all_fixture/darwin-apps-fail" 2>&1 \
   || fail "a failed app relaunch must not fail update-all (it is best-effort)"
@@ -711,6 +767,29 @@ HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 \
   /bin/bash home/run_after_98-update-all-migration-reminder.sh \
   >"$out_dir/update-all-migration-reminder-repeat"
 test ! -s "$out_dir/update-all-migration-reminder-repeat"
+# Color keys on the run-wide signal update-all exports, not on a per-stage
+# TTY probe: with GROUNDWORK_COLOR=1 the reminder emits ANSI even though
+# stdout is a file here; with it 0 (or NO_COLOR and no signal) it stays plain.
+reminder_esc="$(printf '\033')"
+: >"$migration_flag"
+HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 GROUNDWORK_COLOR=1 \
+  /bin/bash home/run_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-color-on"
+grep -qF "${reminder_esc}[1;33m" "$out_dir/update-all-migration-color-on" \
+  || fail "the migration reminder must emit color when GROUNDWORK_COLOR=1, even behind a capture"
+: >"$migration_flag"
+HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 GROUNDWORK_COLOR=0 \
+  /bin/bash home/run_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-color-off"
+grep -qF 'one step left' "$out_dir/update-all-migration-color-off"
+assert_not_contains "$reminder_esc" "$out_dir/update-all-migration-color-off" \
+  "the migration reminder emitted color although GROUNDWORK_COLOR=0"
+: >"$migration_flag"
+HOME="$migration_home" GROUNDWORK_REMINDER_ASSUME_TTY=1 NO_COLOR=1 GROUNDWORK_COLOR='' \
+  /bin/bash home/run_after_98-update-all-migration-reminder.sh \
+  >"$out_dir/update-all-migration-no-color"
+assert_not_contains "$reminder_esc" "$out_dir/update-all-migration-no-color" \
+  "the migration reminder emitted color although NO_COLOR was set and no signal decided otherwise"
 printf '# fresh install has no old function\n' >"$migration_home/.zshrc"
 HOME="$migration_home" /bin/bash home/run_once_before_07-update-all-command-migration.sh \
   >"$out_dir/update-all-fresh-notice"
@@ -885,7 +964,7 @@ check "setup prompt wording"
 # type hint, and trailing punctuation renders as "??" or ".?".
 assert_no_matches "setup prompts must not hand-write [y/N]; chezmoi already shows 'bool, default <x>'" \
   rg -n '\[y/N\]|\[Y/n\]' home/.chezmoi.toml.tmpl
-prompt_texts="$(rg -o 'prompt(Bool|String|Choice)Once \. "[^"]+" "[^"]+"' home/.chezmoi.toml.tmpl \
+prompt_texts="$(rg --no-config -o 'prompt(Bool|String|Choice)Once \. "[^"]+" "[^"]+"' home/.chezmoi.toml.tmpl \
   | sed -E 's/.*" "([^"]+)"$/\1/')"
 while IFS= read -r prompt_text; do
   [[ -n "$prompt_text" ]] || continue
@@ -898,6 +977,35 @@ while IFS= read -r prompt_text; do
       ;;
   esac
 done <<<"$prompt_texts"
+
+# Every yes/no question carries its own affordance and names its default,
+# because chezmoi's only hint is a dim 'bool, default false' placeholder that
+# reads as "type true or false" — the exact confusion behind "do I hit yN or
+# tF?". The named default must match the literal default argument, so the two
+# can never drift apart (the Linux headless prompt is two literal prompts for
+# exactly this reason).
+# --no-config: a user ripgrep config with max-columns would silently truncate
+# these long prompt lines and make the checks pass or fail on elided text.
+bool_prompts="$(rg --no-config -o 'promptBoolOnce \. "[^"]+" "[^"]+" (true|false)' home/.chezmoi.toml.tmpl)"
+[[ -n "$bool_prompts" ]] || fail "no promptBoolOnce prompts found to check in home/.chezmoi.toml.tmpl"
+while IFS= read -r bool_prompt; do
+  [[ -n "$bool_prompt" ]] || continue
+  bool_default="${bool_prompt##* }"
+  bool_text="$(sed -E 's/.*" "([^"]+)" (true|false)$/\1/' <<<"$bool_prompt")"
+  bool_named="no"
+  [[ "$bool_default" == "true" ]] && bool_named="yes"
+  [[ "$bool_text" == *"Enter keeps the default: $bool_named)" ]] \
+    || fail "every bool setup prompt must end by naming its real default ('... Enter keeps the default: $bool_named)'): $bool_prompt"
+  [[ "$bool_text" == *"y/t"*"n/f"* ]] \
+    || fail "every bool setup prompt must show the accepted answers (y/t ... n/f ...): $bool_prompt"
+done <<<"$bool_prompts"
+
+# The Chrome question follows the agreed shape: the checksum consequence as
+# plain prose first, then one short question that carries the affordance.
+grep -qF 'Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)' home/.chezmoi.toml.tmpl \
+  || fail "the Chrome opt-in must end with the short affordance question: 'Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)'"
+grep -qF "Google's Chrome cask ships without a checksum" home/.chezmoi.toml.tmpl \
+  || fail "the Chrome opt-in must lead with the checksum consequence as plain prose"
 
 # Regex over the template proves the source, not the UI. Drive a real
 # `chezmoi init` in a real terminal and assert the rendered prompt: chezmoi
@@ -920,13 +1028,109 @@ if command -v tmux >/dev/null 2>&1; then
   tmux -L "$prompt_socket" kill-server 2>/dev/null || true
   grep -qF 'bool, default' <<<"$prompt_rendered" \
     || fail "chezmoi init never rendered a prompt (cannot verify the setup UI)"
-  grep -qF 'Is this a work machine?' <<<"$prompt_rendered" \
-    || fail "the first setup prompt did not render as expected"
+  grep -qF 'Is this a work machine (y/t = yes, n/f = no; Enter keeps the default: no)?' <<<"$prompt_rendered" \
+    || fail "the first setup prompt did not render with its answer affordance and named default"
   if grep -qE '\?\?|\.\?|\[y/N\]|\[Y/n\]' <<<"$prompt_rendered"; then
     printf '%s\n' "$prompt_rendered" >&2
     fail "the rendered setup prompt has doubled punctuation or a hand-written [y/N] (chezmoi adds its own '?' and 'bool, default <x>' hint)"
   fi
 fi
+
+check "shell prompt convention (bootstrap and brew repair)"
+# Groundwork's own shell prompts follow one convention: a bracketed affordance
+# with the default capitalized, a blocking read on the controlling terminal
+# even when stdin is a pipe (curl | bash), Enter takes the default, and a run
+# with no terminal at all takes the default and says so. The seams
+# (GROUNDWORK_BOOTSTRAP_SELFTEST, GROUNDWORK_PROMPT_TTY) let this drive the
+# real helpers without a real terminal.
+grep -qF '[KEEP/switch/login]' bootstrap-mac.sh \
+  || fail "the bootstrap GitHub prompt must keep its bracketed affordance with the capitalized default"
+prompt_fixture="$out_dir/prompt-fixture"
+mkdir -p "$prompt_fixture/bin"
+# 1. No terminal anywhere: the default is taken and announced, not silent.
+printf '' | GROUNDWORK_BOOTSTRAP_SELFTEST=prompt GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+  /bin/bash bootstrap-mac.sh "GitHub account choice [KEEP/switch/login]: " keep \
+  >"$prompt_fixture/no-tty-out" 2>"$prompt_fixture/no-tty-err" \
+  || fail "the bootstrap prompt helper failed outright without a terminal"
+grep -qxF 'keep' "$prompt_fixture/no-tty-out" \
+  || fail "without any terminal the bootstrap prompt must return the default"
+grep -qF 'no terminal' "$prompt_fixture/no-tty-err" \
+  || fail "without any terminal the bootstrap prompt must say it has no terminal"
+grep -qF 'defaulting to "keep"' "$prompt_fixture/no-tty-err" \
+  || fail "without any terminal the bootstrap prompt must name the default it takes"
+# 2. Enter takes the default (the controlling-terminal seam delivers a bare newline).
+printf '\n' >"$prompt_fixture/tty-enter"
+printf '' | GROUNDWORK_BOOTSTRAP_SELFTEST=prompt GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-enter" \
+  /bin/bash bootstrap-mac.sh "GitHub account choice [KEEP/switch/login]: " keep \
+  >"$prompt_fixture/enter-out" 2>/dev/null \
+  || fail "the bootstrap prompt helper failed on a bare Enter"
+grep -qxF 'keep' "$prompt_fixture/enter-out" \
+  || fail "a bare Enter must take the prompt default"
+# 3. A typed answer on the controlling terminal wins even when stdin is a pipe.
+printf 'switch\n' >"$prompt_fixture/tty-switch"
+printf '' | GROUNDWORK_BOOTSTRAP_SELFTEST=prompt GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-switch" \
+  /bin/bash bootstrap-mac.sh "GitHub account choice [KEEP/switch/login]: " keep \
+  >"$prompt_fixture/switch-out" 2>/dev/null \
+  || fail "the bootstrap prompt helper failed reading the controlling terminal"
+grep -qxF 'switch' "$prompt_fixture/switch-out" \
+  || fail "an answer typed on the controlling terminal must win over the default"
+
+# groundwork-brew-repair keeps the same convention around its [y/N] gate.
+cat >"$prompt_fixture/bin/brew" <<'SH'
+#!/usr/bin/env bash
+printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+SH
+chmod +x "$prompt_fixture/bin/brew"
+repair_log="$prompt_fixture/bundle.log"
+cat >"$repair_log" <<'EOF'
+Error: some formula is in a known-broken state
+Please run the following commands and try again:
+  brew update
+EOF
+repair_cmd_log="$prompt_fixture/repair-commands.log"
+# No terminal: default N (skip), said explicitly, exit nonzero, nothing runs.
+: >"$repair_cmd_log"
+set +e
+printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$repair_log" \
+  >"$prompt_fixture/repair-no-tty" 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -ne 0 ]] || fail "brew-repair must not report success without consent"
+grep -qF 'no terminal; defaulting to N (skip)' "$prompt_fixture/repair-no-tty" \
+  || fail "brew-repair must name the default it takes when no terminal exists"
+test ! -s "$repair_cmd_log" || fail "brew-repair ran commands without consent"
+# Enter takes the default: N (skip).
+printf '\n' >"$prompt_fixture/tty-repair-enter"
+: >"$repair_cmd_log"
+set +e
+printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-enter" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$repair_log" \
+  >"$prompt_fixture/repair-enter" 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -ne 0 ]] || fail "a bare Enter must take the [y/N] default: N (skip)"
+grep -qF 'skipped' "$prompt_fixture/repair-enter"
+test ! -s "$repair_cmd_log" || fail "brew-repair ran commands on a bare Enter"
+# y on the controlling terminal runs exactly the suggested commands — and the
+# log may carry ANSI color now that update-all forces brew color through the
+# tee, so the colored variant must parse identically.
+repair_esc="$(printf '\033')"
+printf '%s[31mError:%s[0m some formula is in a known-broken state\nPlease run the following commands and try again:\n  brew update\n' \
+  "$repair_esc" "$repair_esc" >"$prompt_fixture/bundle-colored.log"
+printf 'y\n' >"$prompt_fixture/tty-repair-yes"
+for repair_variant in "$repair_log" "$prompt_fixture/bundle-colored.log"; do
+  : >"$repair_cmd_log"
+  printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+    GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+    /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$repair_variant" \
+    >"$prompt_fixture/repair-yes" 2>&1 \
+    || fail "brew-repair must succeed after consent on $repair_variant"
+  grep -qxF 'brew update' "$repair_cmd_log" \
+    || fail "brew-repair must run exactly the suggested command from $repair_variant"
+done
 
 check "Homebrew cask policy (rendered installer behavior)"
 # The NETWORK audit (scripts/audit-brew-casks) owns upstream cask metadata.
@@ -951,6 +1155,13 @@ assert_not_contains 'brew install --cask google-chrome' "$chrome_off" \
 grep -qF "HOMEBREW_CASK_OPTS=\"\$safe_cask_opts\"" "$chrome_on" \
   || fail "brew bundle must run under the --require-sha cask policy"
 grep -qF -- '--require-sha' "$chrome_on"
+# The tee to the bundle log makes brew see a pipe; color must key on the
+# run-wide GROUNDWORK_COLOR signal (with a TTY fallback for a direct apply)
+# and force Homebrew's documented HOMEBREW_COLOR when it is on.
+grep -qF 'GROUNDWORK_COLOR' "$chrome_on" \
+  || fail "the brew bundle stage must key color on the run-wide GROUNDWORK_COLOR signal, not its own piped stdout"
+grep -qF 'export HOMEBREW_COLOR=1' "$chrome_on" \
+  || fail "the brew bundle stage must force HOMEBREW_COLOR through the tee when the color signal is on"
 # The user's own cask options are preserved, never replaced.
 grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_on" \
   || fail "the user's HOMEBREW_CASK_OPTS must be preserved, not overwritten"
@@ -2074,42 +2285,944 @@ if home/dot_local/bin/executable_largest --files --folders "$largest_fixture" >/
   fail "largest accepted mutually exclusive --files and --folders"
 fi
 
-check "groundwork-doctor helper"
-test -x home/dot_local/bin/executable_groundwork-doctor
-doctor_bin="$out_dir/doctor-bin"
-mkdir -p "$doctor_bin"
-cat >"$doctor_bin/docker" <<'SH'
-#!/usr/bin/env bash
+check "docker helper suite setup"
+# One scriptable docker stub serves the doctor, the tidy, the cache tidy, and
+# the build wrapper. Its state is plain TSV files a test writes per case —
+# images.tsv (id, tags comma-joined or -, ephemeral label, built label,
+# created, size) and containers.tsv (id, image id, running|exited, name,
+# ephemeral label, status text, created) — so each scenario is a declared
+# policy state, not a hand-crafted case statement. Every argv is recorded one
+# line per call, `image rm`/`container rm` mutate the state the way docker
+# would (refusing multi-tag ID deletes and container-referenced deletes), and
+# a trip hook can swap the image or container state mid-run to prove the
+# apply-time re-checks.
+docker_lib="$PWD/home/dot_local/share/groundwork/lib/docker-scan.sh"
+test -f "$docker_lib"
+docker_stub_bin="$out_dir/docker-stub"
+mkdir -p "$docker_stub_bin"
+cat >"$docker_stub_bin/docker" <<'SH'
+#!/bin/bash
+set -eu
+state="${DOCKER_STATE:?}"
+printf '%s\n' "$*" >>"$state/argv.log"
+imgs="$state/images.tsv"; ctrs="$state/containers.tsv"
+if [ -f "$state/fail.conf" ]; then
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$*" in *"$f"*) exit 1 ;; esac
+  done <"$state/fail.conf"
+fi
+if [ -f "$state/trip.conf" ]; then
+  # shellcheck disable=SC1091
+  . "$state/trip.conf"
+  case "$*" in
+    *"$TRIP_SUBSTR"*)
+      tc="$(cat "$state/trip.count" 2>/dev/null || echo 0)"; tc=$((tc + 1))
+      printf '%s\n' "$tc" >"$state/trip.count"
+      if [ "$tc" -eq "$TRIP_AT" ]; then
+        if [ -n "${TRIP_IMAGES:-}" ]; then cp "$TRIP_IMAGES" "$imgs"; fi
+        if [ -n "${TRIP_CONTAINERS:-}" ]; then cp "$TRIP_CONTAINERS" "$ctrs"; fi
+      fi
+      ;;
+  esac
+fi
+img_field() { awk -F'\t' -v id="$1" -v n="$2" '$1 == id { print $n; exit }' "$imgs"; }
+img_exists() { awk -F'\t' -v id="$1" 'BEGIN { r = 1 } $1 == id { r = 0 } END { exit r }' "$imgs"; }
+last_arg() { eval "printf '%s\n' \"\${$#}\""; }
 case "$*" in
-  "info") exit 0 ;;
-  "info --format {{.LoggingDriver}}") echo "json-file" ;;
-  "info --format {{.Driver}}") echo "overlayfs" ;;
-  "system df") echo "TYPE TOTAL ACTIVE SIZE RECLAIMABLE" ;;
-  "ps -aq --filter status=exited") echo "abc123" ;;
-  "images -q --filter dangling=true") : ;;
-  "volume ls -q --filter dangling=true") printf 'vol1\nvol2\n' ;;
+  info) exit 0 ;;
+  'info --format {{.LoggingDriver}}') cat "$state/log-driver" 2>/dev/null || echo local ;;
+  'info --format {{.Driver}}') echo overlayfs ;;
+  'system df --format'*) printf 'Build Cache\t7.2GB\t7.2GB\n' ;;
+  'system df') printf 'TYPE TOTAL ACTIVE SIZE RECLAIMABLE\n' ;;
+  'images --no-trunc --filter label=dev.roost.ephemeral=true --format {{.ID}}'*)
+    awk -F'\t' '$3 == "true" { n = split($2, t, ","); if ($2 == "-") n = 1; for (i = 1; i <= n; i++) print $1 "\t" $6 }' "$imgs" ;;
+  'images -q --filter dangling=true')
+    awk -F'\t' '$2 == "-" { print substr($1, 8, 12) }' "$imgs" ;;
+  'ps -aq --no-trunc' | 'ps -aq')
+    awk -F'\t' '{ print $1 }' "$ctrs" ;;
+  'ps -aq --filter status=exited')
+    awk -F'\t' '$3 == "exited" { print $1 }' "$ctrs" ;;
+  'ps -a --no-trunc --filter status=exited --filter label=dev.roost.ephemeral=true --format {{.ID}}'*)
+    awk -F'\t' '$3 == "exited" && $5 == "true" { print $1 "\t" $4 "\t" $6 }' "$ctrs" ;;
+  'volume ls -q --filter dangling=true')
+    cat "$state/volumes.txt" 2>/dev/null || true ;;
+  'container inspect --format {{.Image}}'*)
+    cid="$(last_arg "$@")"
+    awk -F'\t' -v c="$cid" '$1 == c { print $2 "\t/" $4 "\t" $3; f = 1 } END { exit f ? 0 : 1 }' "$ctrs" ;;
+  'container inspect --format {{.Created}}'*)
+    cid="$(last_arg "$@")"
+    awk -F'\t' -v c="$cid" '$1 == c { print ($7 == "" ? "-" : $7) "\t" $3 "\t" $2; f = 1 } END { exit f ? 0 : 1 }' "$ctrs" ;;
+  'image inspect --format {{.Id}} '*)
+    id="$(last_arg "$@")"; img_exists "$id" || exit 1; printf '%s\n' "$id" ;;
+  'image inspect --format {{index .Config.Labels "dev.roost.ephemeral"}} '*)
+    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    v="$(img_field "$id" 3)"; [ "$v" = "-" ] && v="<no value>"; printf '%s\n' "$v" ;;
+  'image inspect --format {{index .Config.Labels "dev.roost.built"}} '*)
+    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    v="$(img_field "$id" 4)"; [ "$v" = "-" ] && v="<no value>"; printf '%s\n' "$v" ;;
+  'image inspect --format {{range .RepoTags}}{{println .}}{{end}} '*)
+    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    tags="$(img_field "$id" 2)"; [ "$tags" = "-" ] || printf '%s\n' "$tags" | tr ',' '\n' ;;
+  'image inspect --format {{.Created}} '*)
+    id="$(last_arg "$@")"; img_exists "$id" || exit 1; img_field "$id" 5 ;;
+  'container rm '*)
+    cid="$(last_arg "$@")"
+    grep -q "^$cid	" "$ctrs" || { echo "no such container" >&2; exit 1; }
+    grep -v "^$cid	" "$ctrs" >"$ctrs.tmp" || true
+    mv "$ctrs.tmp" "$ctrs"; printf '%s\n' "$cid" ;;
+  'image rm '*)
+    ref="$(last_arg "$@")"
+    if img_exists "$ref"; then
+      id="$ref"
+      if awk -F'\t' -v i="$id" 'BEGIN { r = 1 } $2 == i { r = 0 } END { exit r }' "$ctrs"; then
+        echo "conflict: image is being used by a container" >&2; exit 1
+      fi
+      tags="$(img_field "$id" 2)"
+      case "$tags" in
+        *,*) echo "conflict: image is referenced in multiple repositories" >&2; exit 1 ;;
+      esac
+      grep -v "^$id	" "$imgs" >"$imgs.tmp" || true
+      mv "$imgs.tmp" "$imgs"; echo "Deleted: $id"
+    else
+      row="$(awk -F'\t' -v t="$ref" '{ n = split($2, a, ","); for (i = 1; i <= n; i++) if (a[i] == t) { print $1; exit } }' "$imgs")"
+      [ -n "$row" ] || { echo "no such image: $ref" >&2; exit 1; }
+      tags="$(img_field "$row" 2)"
+      case "$tags" in
+        *,*)
+          newtags="$(printf '%s\n' "$tags" | tr ',' '\n' | grep -vx "$ref" | paste -sd, -)"
+          awk -F'\t' -v OFS='\t' -v id="$row" -v nt="$newtags" '$1 == id { $2 = nt } { print }' "$imgs" >"$imgs.tmp"
+          mv "$imgs.tmp" "$imgs"; echo "Untagged: $ref"
+          ;;
+        *)
+          if awk -F'\t' -v i="$row" 'BEGIN { r = 1 } $2 == i { r = 0 } END { exit r }' "$ctrs"; then
+            echo "conflict: image is being used by a container" >&2; exit 1
+          fi
+          grep -v "^$row	" "$imgs" >"$imgs.tmp" || true
+          mv "$imgs.tmp" "$imgs"; echo "Deleted: $row"
+          ;;
+      esac
+    fi ;;
+  'build '*)
+    iid=""; tag=""; prev=""
+    for a in "$@"; do
+      case "$prev" in
+        --iidfile) iid="$a" ;;
+        -t) tag="$a" ;;
+      esac
+      prev="$a"
+    done
+    [ -n "$iid" ] && printf 'sha256:builtimage000\n' >"$iid"
+    if [ -n "$tag" ]; then
+      printf 'sha256:builtimage000\t%s\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' "$tag" >>"$imgs"
+    fi
+    echo "stub build ok" ;;
+  *'prune'*) echo pruned ;;
   *) exit 0 ;;
 esac
 SH
-chmod +x "$doctor_bin/docker"
-PATH="$doctor_bin:$PATH" home/dot_local/bin/executable_groundwork-doctor >"$out_dir/doctor-output"
+chmod +x "$docker_stub_bin/docker"
+# A hermetic tool PATH for the missing-jq case: the stub plus symlinks to the
+# exact real tools the tidy and the scanner may use — and no jq.
+docker_tools_nojq="$out_dir/docker-tools-nojq"
+mkdir -p "$docker_tools_nojq"
+for docker_tool in awk cat cp cut date grep head mv paste rm sed sort tr wc; do
+  docker_tool_path="$(command -v "$docker_tool")" \
+    || fail "docker suite: required tool missing: $docker_tool"
+  ln -s "$docker_tool_path" "$docker_tools_nojq/$docker_tool"
+done
+unset docker_tool docker_tool_path
+docker_state_init() {
+  rm -rf "$1"
+  mkdir -p "$1"
+  : >"$1/images.tsv"
+  : >"$1/containers.tsv"
+  : >"$1/argv.log"
+}
+docker_run() {
+  local state="$1" path_env="$2" script="$3"
+  shift 3
+  DOCKER_STATE="$state" PATH="$path_env" GROUNDWORK_DOCKER_LIB="$docker_lib" \
+    /bin/bash "home/dot_local/bin/executable_$script" "$@"
+}
+docker_now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+check "groundwork-doctor helper"
+test -x home/dot_local/bin/executable_groundwork-doctor
+# The doctor reuses the shared scanner — the four scratch-image counts come
+# from the same facts the tidy acts on, reported separately: a fresh in-grace
+# image is NOT a leftover.
+grep -qF 'lib/docker-scan.sh' home/dot_local/bin/executable_groundwork-doctor
+doctor_state="$out_dir/doctor-state"
+docker_state_init "$doctor_state"
+printf 'sha256:young9999\tgroundwork/scratch:fresh\ttrue\t%s\t%s\t500MB\n' \
+  "$docker_now" "$docker_now" >"$doctor_state/images.tsv"
+printf 'c-plain\tsha256:otherbase\texited\told-c\t-\tExited (0) 3 days ago\n' >"$doctor_state/containers.tsv"
+printf 'vol1\nvol2\n' >"$doctor_state/volumes.txt"
+echo json-file >"$doctor_state/log-driver"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker >"$out_dir/doctor-output"
 grep -qF 'read-only report; nothing is changed or deleted' "$out_dir/doctor-output"
 grep -qF "log-driver is 'json-file'" "$out_dir/doctor-output"
 grep -qF 'containerd image store is enabled' "$out_dir/doctor-output"
 grep -qF 'stopped containers: 1' "$out_dir/doctor-output"
 grep -qF 'dangling volumes:   2' "$out_dir/doctor-output"
+grep -qF 'tidy-eligible (past grace):     0' "$out_dir/doctor-output"
+grep -qF 'in grace (fresh, not leftover): 1' "$out_dir/doctor-output"
+grep -qF 'groundwork-docker-cache-tidy' "$out_dir/doctor-output"
 grep -qF "avoid blanket" "$out_dir/doctor-output"
+assert_no_matches "the doctor must never prune or remove" grep -n 'prune\|rm ' "$doctor_state/argv.log"
+# A machine whose only labeled image is fresh and in grace is CLEAN: no
+# cleanup guidance, because an in-grace image is not a leftover.
+docker_state_init "$doctor_state"
+printf 'sha256:young9999\tgroundwork/scratch:fresh\ttrue\t%s\t%s\t500MB\n' \
+  "$docker_now" "$docker_now" >"$doctor_state/images.tsv"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker >"$out_dir/doctor-fresh"
+grep -qF 'in grace (fresh, not leftover): 1' "$out_dir/doctor-fresh"
+assert_not_contains 'Cleanup guidance' "$out_dir/doctor-fresh" \
+  "doctor flagged a fresh in-grace image as a leftover"
+# A failed query is "unknown", never silently zero.
+printf 'ps -aq --filter status=exited\n' >"$doctor_state/fail.conf"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker >"$out_dir/doctor-unknown"
+grep -qF 'stopped containers: unknown' "$out_dir/doctor-unknown"
+rm -f "$doctor_state/fail.conf"
 grep -qF 'groundwork-help doctor' < <(home/dot_local/bin/executable_groundwork-doctor --help)
-cat >"$doctor_bin/docker" <<'SH'
-#!/usr/bin/env bash
-exit 1
-SH
-chmod +x "$doctor_bin/docker"
-PATH="$doctor_bin:$PATH" home/dot_local/bin/executable_groundwork-doctor >"$out_dir/doctor-down"
+printf 'info\n' >"$doctor_state/fail.conf"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker >"$out_dir/doctor-down"
 grep -qF 'Docker daemon not reachable' "$out_dir/doctor-down"
 assert_not_contains 'Disk usage' "$out_dir/doctor-down" "doctor probed a down docker daemon"
 if home/dot_local/bin/executable_groundwork-doctor --bogus >/dev/null 2>&1; then
   fail "groundwork-doctor accepted an unknown option"
+fi
+
+check "groundwork-docker-tidy helper"
+test -x home/dot_local/bin/executable_groundwork-docker-tidy
+grep -qF 'lib/docker-scan.sh' home/dot_local/bin/executable_groundwork-docker-tidy
+# The default tidy acts BY ENUMERATION only. No prune of any kind may even
+# appear in its source: candidate images are inspected, re-checked, and
+# deleted by explicit image ID.
+assert_no_matches "tidy must never hand deletion to a broad prune" \
+  rg -n 'image prune|container prune|builder prune|system prune' \
+  home/dot_local/bin/executable_groundwork-docker-tidy "$docker_lib"
+grep -qF '*/scratch:*' "$docker_lib"
+tidy_mixed_state() {
+  # The policy-state fixture behind most scenarios, one image per rule:
+  #   old1     old + labeled + scratch tag             -> eligible
+  #   young1   labeled + scratch tag, built just now   -> retained (grace)
+  #   hostile  ONE image ID tagged groundwork/scratch:review AND
+  #            groundwork:latest (the retag hazard)    -> protected
+  #   multi    two scratch tags on one image ID        -> ONE candidate
+  #   runref   referenced by a RUNNING container       -> protected
+  #   stopref  referenced by a STOPPED container       -> protected
+  #   badts    malformed dev.roost.built               -> unverified
+  #   nots     no dev.roost.built label                -> unverified
+  #   dang1    unlabeled dangling image                -> not a candidate at all
+  # plus two exited containers carrying the label: c-eph00 created long past
+  # the grace (removed first) and c-ephyng created just now (retained — the
+  # container grace policy matches the image grace policy).
+  docker_state_init "$1"
+  {
+    printf 'sha256:old1000\tgroundwork/scratch:old\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00.000000000Z\t1.8GB\n'
+    printf 'sha256:young100\tgroundwork/scratch:fresh\ttrue\t%s\t%s\t500MB\n' "$docker_now" "$docker_now"
+    printf 'sha256:hostile0\tgroundwork/scratch:review,groundwork:latest\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t2.0GB\n'
+    printf 'sha256:multi000\tgroundwork/scratch:a,groundwork/scratch:b\ttrue\t2001-01-02\t2001-01-02T00:00:00Z\t1.1GB\n'
+    printf 'sha256:runref00\tgroundwork/scratch:runref\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t900MB\n'
+    printf 'sha256:stopref0\tgroundwork/scratch:stopref\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t800MB\n'
+    printf 'sha256:badts000\tgroundwork/scratch:badts\ttrue\tnot-a-date\t2001-01-01T00:00:00Z\t700MB\n'
+    printf 'sha256:nots0000\tgroundwork/scratch:nots\ttrue\t-\t2001-01-01T00:00:00Z\t600MB\n'
+    printf 'sha256:dang1000\t-\t-\t-\t2001-01-01T00:00:00Z\t300MB\n'
+  } >"$1/images.tsv"
+  {
+    printf 'c-run00\tsha256:runref00\trunning\tkeeper\t-\tUp 2 hours\n'
+    printf 'c-stop0\tsha256:stopref0\texited\tstopped-keeper\t-\tExited (0) 1 day ago\n'
+    printf 'c-eph00\tsha256:otherbase\texited\ttidy-me\ttrue\tExited (0) 5 days ago\t2001-01-01T00:00:00.123456789Z\n'
+    printf 'c-ephyng\tsha256:otherbase\texited\tfresh-exit\ttrue\tExited (0) 1 minute ago\t%s\n' "$docker_now"
+  } >"$1/containers.tsv"
+}
+tidy_state="$out_dir/tidy-state"
+
+# Scenario: dry run. Every verdict appears with its reason; the copy never
+# claims "would remove"; nothing is mutated.
+tidy_mixed_state "$tidy_state"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy >"$out_dir/tidy-dry"
+grep -qF 'dry run — nothing was changed' "$out_dir/tidy-dry"
+grep -F 'groundwork/scratch:old —' "$out_dir/tidy-dry" | grep -qF 'eligible'
+grep -F 'groundwork/scratch:fresh' "$out_dir/tidy-dry" | grep -qF 'retained'
+grep -F 'groundwork/scratch:fresh' "$out_dir/tidy-dry" | grep -qF 'grace'
+grep -F 'groundwork:latest' "$out_dir/tidy-dry" | grep -qF 'protected'
+grep -F 'groundwork:latest' "$out_dir/tidy-dry" | grep -qF 'tag outside the scratch namespace'
+grep -F 'groundwork/scratch:runref' "$out_dir/tidy-dry" | grep -qF 'keeper (running)'
+grep -F 'groundwork/scratch:stopref' "$out_dir/tidy-dry" | grep -qF 'stopped-keeper (exited)'
+grep -F 'groundwork/scratch:badts' "$out_dir/tidy-dry" | grep -qF 'unverified'
+grep -F 'groundwork/scratch:badts' "$out_dir/tidy-dry" | grep -qF 'malformed'
+grep -F 'groundwork/scratch:nots' "$out_dir/tidy-dry" | grep -qF 'unverified'
+test "$(grep -cF 'sha256:multi000' "$out_dir/tidy-dry")" = 1 \
+  || fail "a multi-scratch-tag image must be ONE candidate, not one per tag"
+grep -qF 'counts: 2 eligible, 1 retained (in grace), 3 protected, 2 unverified.' "$out_dir/tidy-dry"
+grep -qF 'Docker may retain an item if another reference exists' "$out_dir/tidy-dry"
+# Containers get the SAME grace policy, and the dry run enumerates each with
+# id, name, age, and image — the old one eligible, the young one retained.
+grep -F 'tidy-me' "$out_dir/tidy-dry" | grep -qF 'eligible'
+grep -F 'fresh-exit' "$out_dir/tidy-dry" | grep -qF 'retained'
+grep -F 'fresh-exit' "$out_dir/tidy-dry" | grep -qF 'grace'
+grep -qF 'id c-eph00, age ' "$out_dir/tidy-dry"
+grep -qF 'image sha256:otherbase' "$out_dir/tidy-dry"
+grep -qF 'disposable only after the grace window' "$out_dir/tidy-dry"
+grep -qF 'Never touched' "$out_dir/tidy-dry"
+grep -qF 'groundwork-docker-cache-tidy' "$out_dir/tidy-dry"
+assert_not_contains 'would remove' "$out_dir/tidy-dry" \
+  "dry run claimed 'would remove' — the vocabulary is eligible/retained/protected/unverified"
+assert_no_matches "tidy dry run must not remove or prune anything" \
+  grep -nE ' rm |prune' "$tidy_state/argv.log"
+
+# Scenario: apply. The labeled stopped container past the grace goes first
+# (the young one is retained — same grace as images), each eligible image is
+# re-checked and deleted by explicit image ID, a multi-tag image is untagged
+# then ID-deleted once, and nothing protected, unverified, in grace,
+# unlabeled, or daemon-wide is touched.
+tidy_mixed_state "$tidy_state"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >"$out_dir/tidy-yes"
+grep -qF 'container rm c-eph00' "$tidy_state/argv.log"
+assert_no_matches "apply removed a young exited labeled container inside the grace" \
+  grep -n 'container rm c-ephyng' "$tidy_state/argv.log"
+grep -qF 'c-ephyng' "$tidy_state/containers.tsv" \
+  || fail "young exited labeled container vanished despite being inside the grace"
+grep -F 'fresh-exit' "$out_dir/tidy-yes" | grep -qF 'retained'
+grep -qF 'image rm sha256:old1000' "$tidy_state/argv.log"
+grep -qF 'image rm groundwork/scratch:b' "$tidy_state/argv.log"
+grep -qF 'image rm sha256:multi000' "$tidy_state/argv.log"
+if [[ "$(grep -n 'container rm c-eph00' "$tidy_state/argv.log" | cut -d: -f1)" \
+  -gt "$(grep -n 'image rm' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)" ]]; then
+  fail "the labeled exited container must be removed BEFORE image deletion"
+fi
+for tidy_kept in hostile0 runref00 stopref0 young100 badts000 nots0000 dang1000; do
+  assert_no_matches "apply deleted a non-eligible image (sha256:$tidy_kept)" \
+    grep -n "image rm sha256:$tidy_kept" "$tidy_state/argv.log"
+done
+unset tidy_kept
+assert_no_matches "default --yes must not prune anything (no dangling/builder/daemon-wide cleanup)" \
+  grep -n 'prune' "$tidy_state/argv.log"
+assert_no_matches "tidy must never touch volumes" grep -n 'volume' "$tidy_state/argv.log"
+grep -qF 'removed 1 container(s) and 2 image(s)' "$out_dir/tidy-yes"
+if grep -qF 'sha256:old1000' "$tidy_state/images.tsv"; then
+  fail "eligible image survived apply"
+fi
+grep -qF 'sha256:hostile0' "$tidy_state/images.tsv" || fail "protected image was deleted"
+grep -qF 'sha256:dang1000' "$tidy_state/images.tsv" || fail "unlabeled dangling image was deleted"
+
+# Scenario: the apply-time re-check. The image is eligible at scan time; the
+# trip hook retags it groundwork:latest just before the re-check reads it, so
+# deletion must be refused.
+docker_state_init "$tidy_state"
+printf 'sha256:reck0000\tgroundwork/scratch:reck\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.5GB\n' \
+  >"$tidy_state/images.tsv"
+printf 'sha256:reck0000\tgroundwork/scratch:reck,groundwork:latest\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.5GB\n' \
+  >"$tidy_state/images-tripped.tsv"
+cat >"$tidy_state/trip.conf" <<EOF
+TRIP_SUBSTR='{{index .Config.Labels "dev.roost.ephemeral"}} sha256:reck0000'
+TRIP_AT=2
+TRIP_IMAGES=$tidy_state/images-tripped.tsv
+EOF
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >"$out_dir/tidy-recheck"
+grep -qF 'state changed since the scan' "$out_dir/tidy-recheck"
+assert_no_matches "apply deleted a candidate that changed after the scan" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+grep -qF 'sha256:reck0000' "$tidy_state/images.tsv" || fail "re-check failed to protect the retagged image"
+
+# Scenario: the container re-check. An old exited labeled container is
+# eligible at scan time; the trip hook restarts it just before the pre-rm
+# status re-check reads it, so removal must be refused.
+docker_state_init "$tidy_state"
+printf 'c-trip00\tsha256:otherbase\texited\ttrip-me\ttrue\tExited (0) 9 days ago\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_state/containers.tsv"
+printf 'c-trip00\tsha256:otherbase\trunning\ttrip-me\ttrue\tUp 1 second\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_state/containers-tripped.tsv"
+cat >"$tidy_state/trip.conf" <<EOF
+TRIP_SUBSTR='container inspect --format {{.Created}}'
+TRIP_AT=2
+TRIP_CONTAINERS=$tidy_state/containers-tripped.tsv
+EOF
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >"$out_dir/tidy-ctr-recheck"
+grep -qF 'state changed since the scan' "$out_dir/tidy-ctr-recheck"
+assert_no_matches "apply removed a container whose status changed after the scan" \
+  grep -n 'container rm' "$tidy_state/argv.log"
+grep -qF 'c-trip00' "$tidy_state/containers.tsv" || fail "status re-check failed to protect the restarted container"
+rm -f "$tidy_state/trip.conf" "$tidy_state/trip.count"
+
+# Scenario: partial multi-tag cleanup honesty. The extra scratch tag untags
+# cleanly, then the final ID delete is made to fail: the report must say
+# "partially cleaned" and name the removed tags — never a plain "kept" that
+# hides the untag that already happened.
+docker_state_init "$tidy_state"
+printf 'sha256:parti000\tgroundwork/scratch:pa,groundwork/scratch:pb\ttrue\t2001-01-02\t2001-01-02T00:00:00Z\t1.1GB\n' \
+  >"$tidy_state/images.tsv"
+printf 'image rm sha256:parti000\n' >"$tidy_state/fail.conf"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >"$out_dir/tidy-partial"
+grep -qF 'partially cleaned: removed tags groundwork/scratch:pb; image retained because' "$out_dir/tidy-partial"
+grep -F 'sha256:parti000' "$tidy_state/images.tsv" | grep -qF 'groundwork/scratch:pa' \
+  || fail "partial-cleanup fixture lost its remaining tag state"
+assert_no_matches "a partial multi-tag cleanup reported the plain kept verdict" \
+  grep -n 'kept.*parti000\|parti000.*— docker refused the removal' "$out_dir/tidy-partial"
+rm -f "$tidy_state/fail.conf"
+
+# Scenario: no jq. Age cannot be verified, so the verdict is unverified —
+# retained and explained, never "would remove", and never deleted.
+tidy_nojq_state="$out_dir/tidy-nojq-state"
+docker_state_init "$tidy_nojq_state"
+printf 'sha256:oldnojq0\tgroundwork/scratch:nojq\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.8GB\n' \
+  >"$tidy_nojq_state/images.tsv"
+printf 'c-nojq00\tsha256:otherbase\texited\tnojq-c\ttrue\tExited (0) 9 days ago\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_nojq_state/containers.tsv"
+docker_run "$tidy_nojq_state" "$docker_stub_bin:$docker_tools_nojq" groundwork-docker-tidy >"$out_dir/tidy-nojq"
+grep -F 'groundwork/scratch:nojq' "$out_dir/tidy-nojq" | grep -qF 'unverified'
+grep -F 'nojq-c' "$out_dir/tidy-nojq" | grep -qF 'unverified'
+grep -qF 'jq' "$out_dir/tidy-nojq"
+grep -qF 'counts: 0 eligible, 0 retained (in grace), 0 protected, 1 unverified.' "$out_dir/tidy-nojq"
+assert_not_contains 'would remove' "$out_dir/tidy-nojq" \
+  "an unverifiable image must never be presented as removable"
+docker_run "$tidy_nojq_state" "$docker_stub_bin:$docker_tools_nojq" groundwork-docker-tidy --yes >/dev/null
+assert_no_matches "apply deleted an image whose age could not be verified (no jq)" \
+  grep -n 'image rm' "$tidy_nojq_state/argv.log"
+assert_no_matches "apply removed a container whose age could not be verified (no jq)" \
+  grep -n 'container rm' "$tidy_nojq_state/argv.log"
+
+# --summary nudges on eligible/unverified leftovers and stays silent when the
+# only labeled image is fresh and in grace.
+tidy_mixed_state "$tidy_state"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --summary >"$out_dir/tidy-summary"
+grep -qF 'tidy-eligible' "$out_dir/tidy-summary"
+# Only the past-grace container counts; the young exited one is not a leftover.
+grep -qF '1 tidy-eligible exited ephemeral container(s)' "$out_dir/tidy-summary"
+grep -qF 'groundwork-docker-tidy --yes' "$out_dir/tidy-summary"
+assert_no_matches "tidy --summary must not remove or prune anything" \
+  grep -nE ' rm |prune' "$tidy_state/argv.log"
+docker_state_init "$tidy_state"
+printf 'sha256:young9999\tgroundwork/scratch:fresh\ttrue\t%s\t%s\t500MB\n' \
+  "$docker_now" "$docker_now" >"$tidy_state/images.tsv"
+printf 'c-ephyng\tsha256:otherbase\texited\tfresh-exit\ttrue\tExited (0) 1 minute ago\t%s\n' \
+  "$docker_now" >"$tidy_state/containers.tsv"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --summary >"$out_dir/tidy-summary-clean"
+test ! -s "$out_dir/tidy-summary-clean"
+
+# Daemon down, option hygiene, conflicting modes, garbled policy env, and the
+# missing shared scanner all fail the safe way.
+docker_state_init "$tidy_state"
+printf 'info\n' >"$tidy_state/fail.conf"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy >"$out_dir/tidy-down"
+grep -qF 'Docker daemon not reachable' "$out_dir/tidy-down"
+rm -f "$tidy_state/fail.conf"
+grep -qF 'groundwork-help docker' < <(GROUNDWORK_DOCKER_LIB="$docker_lib" \
+  home/dot_local/bin/executable_groundwork-docker-tidy --help)
+if docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --bogus >/dev/null 2>&1; then
+  fail "groundwork-docker-tidy accepted an unknown option"
+fi
+if docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes --summary \
+  >"$out_dir/tidy-conflict" 2>&1; then
+  fail "groundwork-docker-tidy accepted conflicting modes instead of rejecting them"
+fi
+grep -qF 'mutually exclusive' "$out_dir/tidy-conflict"
+if GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS=abc \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  >"$out_dir/tidy-badenv" 2>&1; then
+  fail "groundwork-docker-tidy acted on a garbled grace-window policy"
+fi
+grep -qF 'invalid GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS' "$out_dir/tidy-badenv"
+if GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS=99999 \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  >/dev/null 2>&1; then
+  fail "groundwork-docker-tidy accepted an out-of-range grace window"
+fi
+if DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
+  GROUNDWORK_DOCKER_LIB=/nonexistent-groundwork-docker-lib \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy \
+  >"$out_dir/tidy-nolib" 2>&1; then
+  fail "groundwork-docker-tidy ran without the shared docker-scan probe"
+fi
+grep -qF 'docker-scan probe is missing' "$out_dir/tidy-nolib"
+
+check "groundwork-docker-cache-tidy helper"
+# Daemon-wide cleanup is a SEPARATE, owner-only command: it says it reaches
+# every project, it dry-runs by default, and no refresh or scheduled path may
+# ever invoke it.
+test -x home/dot_local/bin/executable_groundwork-docker-cache-tidy
+grep -qF 'lib/docker-scan.sh' home/dot_local/bin/executable_groundwork-docker-cache-tidy
+assert_no_matches "the daemon-wide cache tidy leaked into a scheduled or refresh path" \
+  rg -n 'docker-cache-tidy' \
+  home/dot_local/bin/executable_update-all \
+  home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  home/dot_zshrc.tmpl home/run_after_20-tools.sh.tmpl \
+  home/run_onchange_after_10-brew-bundle.sh.tmpl
+# update-all keeps only the tidy's silent one-liner, and the helper owns
+# docker reachability itself — no duplicated probe in the runner.
+grep -qF 'groundwork-docker-tidy" --summary' home/dot_local/bin/executable_groundwork-update-run.tmpl
+assert_no_matches "update-run must not duplicate the tidy's docker reachability probe" \
+  rg -n 'docker info' home/dot_local/bin/executable_groundwork-update-run.tmpl
+cache_state="$out_dir/cache-state"
+docker_state_init "$cache_state"
+printf 'sha256:dangx000\t-\t-\t-\t2001-01-01T00:00:00Z\t300MB\n' >"$cache_state/images.tsv"
+printf 'c-plain\tsha256:otherbase\texited\told-c\t-\tExited (0) 3 days ago\n' >"$cache_state/containers.tsv"
+docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy >"$out_dir/cache-dry"
+grep -qF 'DAEMON-WIDE' "$out_dir/cache-dry"
+grep -qF 'ALL projects' "$out_dir/cache-dry"
+grep -qF 'Dry run — nothing was changed' "$out_dir/cache-dry"
+grep -qF 'does not guarantee' "$out_dir/cache-dry"
+assert_no_matches "cache tidy dry run must not prune anything" grep -n 'prune' "$cache_state/argv.log"
+docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes >"$out_dir/cache-yes"
+grep -qF 'container prune --force' "$cache_state/argv.log"
+grep -qF 'image prune --force' "$cache_state/argv.log"
+grep -qF 'builder prune --force --keep-storage 5GB' "$cache_state/argv.log"
+grep -qF 'retention target' "$out_dir/cache-yes"
+assert_no_matches "cache tidy must never touch volumes" grep -n 'volume' "$cache_state/argv.log"
+: >"$cache_state/argv.log"
+GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE=20GiB \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes >/dev/null
+grep -qF 'builder prune --force --keep-storage 20GiB' "$cache_state/argv.log"
+if GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE=lots \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy \
+  >"$out_dir/cache-badenv" 2>&1; then
+  fail "groundwork-docker-cache-tidy accepted a keep-storage value outside the closed size format"
+fi
+grep -qF 'invalid GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE' "$out_dir/cache-badenv"
+if docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes --dry-run \
+  >/dev/null 2>&1; then
+  fail "groundwork-docker-cache-tidy accepted conflicting modes"
+fi
+if docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --bogus >/dev/null 2>&1; then
+  fail "groundwork-docker-cache-tidy accepted an unknown option"
+fi
+grep -qF 'groundwork-help docker' < <(GROUNDWORK_DOCKER_LIB="$docker_lib" \
+  home/dot_local/bin/executable_groundwork-docker-cache-tidy --help)
+
+check "groundwork-docker-build-scratch helper"
+# The wrapper owns the contract's syntax: both labels, a generated RFC 3339
+# build clock, the scratch-namespace tag, a printed image ID — and it refuses
+# forwarded arguments that could break any of that.
+test -x home/dot_local/bin/executable_groundwork-docker-build-scratch
+build_state="$out_dir/build-state"
+build_ctx="$out_dir/buildctx"
+docker_state_init "$build_state"
+mkdir -p "$build_ctx"
+printf 'FROM scratch\n' >"$build_ctx/Dockerfile"
+docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" -- --build-arg FOO=bar >"$out_dir/build-out"
+grep -qF -- '--label dev.roost.ephemeral=true' "$build_state/argv.log"
+grep -qE -- '--label dev\.roost\.built=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z ' "$build_state/argv.log"
+grep -qF -- '-t buildctx/scratch:review' "$build_state/argv.log"
+grep -qF -- '--build-arg FOO=bar' "$build_state/argv.log"
+grep -qF 'image id: sha256:builtimage000' "$out_dir/build-out"
+docker_state_init "$build_state"
+docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" --project myproj --rm-after >"$out_dir/build-rmafter"
+grep -qF -- '-t myproj/scratch:review' "$build_state/argv.log"
+grep -qF 'image rm sha256:builtimage000' "$build_state/argv.log"
+grep -qF 'removed after build' "$out_dir/build-rmafter"
+docker_state_init "$build_state"
+if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  'bad purpose!' "$build_ctx" >"$out_dir/build-badpurpose" 2>&1; then
+  fail "groundwork-docker-build-scratch accepted an illegal tag component as the purpose"
+fi
+grep -qF 'invalid purpose' "$out_dir/build-badpurpose"
+assert_no_matches "an invalid purpose still reached docker build" grep -n 'build' "$build_state/argv.log"
+for build_bad_arg in '-t' '--tag=evil' '--iidfile'; do
+  if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+    review "$build_ctx" -- "$build_bad_arg" evil >/dev/null 2>&1; then
+    fail "groundwork-docker-build-scratch forwarded '$build_bad_arg', which breaks the contract it owns"
+  fi
+done
+unset build_bad_arg
+if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" -- --label dev.roost.ephemeral=false >/dev/null 2>&1; then
+  fail "groundwork-docker-build-scratch let a forwarded --label override the lifecycle labels"
+fi
+# Forwarding is a closed allowlist. Allowed options pass through in both
+# separate-value and = forms; --output/-o/--push are refused by name (the
+# contract requires a local inspectable image); unknown options are refused
+# rather than trusted.
+docker_state_init "$build_state"
+docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" -- --file "$build_ctx/Dockerfile" --target=final --no-cache \
+  --platform linux/arm64 >/dev/null
+grep -qF -- "--file $build_ctx/Dockerfile" "$build_state/argv.log"
+grep -qF -- '--target=final' "$build_state/argv.log"
+grep -qF -- '--no-cache' "$build_state/argv.log"
+grep -qF -- '--platform linux/arm64' "$build_state/argv.log"
+for build_out_arg in '--output' '-o' '--push' '--output=type=local,dest=/tmp/x'; do
+  docker_state_init "$build_state"
+  if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+    review "$build_ctx" -- "$build_out_arg" dest >"$out_dir/build-output-refused" 2>&1; then
+    fail "groundwork-docker-build-scratch forwarded '$build_out_arg', which exports the image away from local inspection"
+  fi
+  grep -qF 'unsupported' "$out_dir/build-output-refused"
+  grep -qF 'local inspectable image' "$out_dir/build-output-refused"
+  assert_no_matches "a refused '$build_out_arg' still reached docker build" \
+    grep -n 'build' "$build_state/argv.log"
+done
+unset build_out_arg
+docker_state_init "$build_state"
+if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" -- --squash >"$out_dir/build-unknown-refused" 2>&1; then
+  fail "groundwork-docker-build-scratch forwarded an option outside the allowlist"
+fi
+grep -qF 'not in the allowlist' "$out_dir/build-unknown-refused"
+assert_no_matches "an option outside the allowlist still reached docker build" \
+  grep -n 'build' "$build_state/argv.log"
+grep -qF 'groundwork-help docker' < <(home/dot_local/bin/executable_groundwork-docker-build-scratch --help)
+# Catalog rows for the whole docker family stay discoverable.
+grep -qF $'daily\tgroundwork-docker-tidy\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'daily\tgroundwork-docker-cache-tidy\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'project\tgroundwork-docker-build-scratch <purpose> <context>\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+
+check "groundwork-repos helper"
+test -x home/dot_local/bin/executable_groundwork-repos
+test -f home/dot_config/groundwork/repos.conf.tmpl
+test -f home/dot_config/lazygit/config.yml
+# Discovery stays dynamic: the managed config configures ROOTS, never names.
+grep -qF 'root = {{ .code_dir }}' home/dot_config/groundwork/repos.conf.tmpl
+grep -qF 'max_depth' home/dot_config/groundwork/repos.conf.tmpl
+grep -qF 'include_worktrees' home/dot_config/groundwork/repos.conf.tmpl
+grep -qF 'cache_ttl_seconds' home/dot_config/groundwork/repos.conf.tmpl
+grep -qF 'exclude = node_modules' home/dot_config/groundwork/repos.conf.tmpl
+# The deliberately simple config format documents its own limitation.
+grep -qF 'paths containing' home/dot_config/groundwork/repos.conf.tmpl
+# Inspection safety: the safe_git wrapper and the fzf preview both disable
+# repository hooks and the fsmonitor; the behavior proof is the fsmonitor
+# tripwire below.
+grep -qF 'core.hooksPath=/dev/null' home/dot_local/bin/executable_groundwork-repos
+grep -F -- '--preview' home/dot_local/bin/executable_groundwork-repos | grep -qF 'core.fsmonitor=false'
+# Docs promise the precise guarantee, not a blanket "never executed", and
+# the honest cache timing (TTL or --refresh), not "next run".
+assert_no_matches "docs/config claim a blanket never-executed guarantee for discovery" \
+  rg -n 'ever executed|never executes code' docs/repo-navigation.html home/dot_config/groundwork/repos.conf.tmpl
+assert_no_matches "stale 'next run' cache claim survived" \
+  rg -n 'next run' docs/repo-navigation.html docs/commands.html \
+  home/dot_config/groundwork/repos.conf.tmpl home/dot_local/share/groundwork/commands.tsv \
+  home/dot_local/bin/executable_groundwork-repos
+# lazygit defaults keep their agent-inspection and accessibility contract.
+grep -qF 'editPreset: nvim' home/dot_config/lazygit/config.yml
+grep -qF 'language: auto' home/dot_config/lazygit/config.yml
+grep -qF 'showBottomLine: true' home/dot_config/lazygit/config.yml
+grep -qF 'showPanelJumps: true' home/dot_config/lazygit/config.yml
+grep -qF 'animateExplosion: false' home/dot_config/lazygit/config.yml
+grep -qF 'Open repository in Neovim' home/dot_config/lazygit/config.yml
+# lazygit only reads ~/.config on macOS when XDG_CONFIG_HOME says so; the
+# export lives in the login shell so tmux servers and tool runners inherit it.
+grep -qF "export XDG_CONFIG_HOME=\"\${XDG_CONFIG_HOME:-\$HOME/.config}\"" home/dot_zprofile.tmpl
+# tmux: the picker and dirty-repo bindings exist, call the helper by absolute
+# path, and the current-repo lazygit popup (prefix g) stays.
+grep -qF 'bind -N "repo picker" R display-popup' home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "\"\$HOME/.local/bin/groundwork-repos\" pick" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF 'bind -N "lazygit for every dirty repo" G run-shell -b' home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "\"\$HOME/.local/bin/groundwork-repos\" changed" home/dot_config/tmux/tmux.conf.tmpl
+grep -qF 'bind g display-popup' home/dot_config/tmux/tmux.conf.tmpl
+# Catalog rows stay discoverable.
+grep -qF $'project\tgroundwork-repos\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'tmux\tCtrl+a then Shift+R\tkey\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'tmux\tCtrl+a then Shift+G\tkey\t' home/dot_local/share/groundwork/commands.tsv
+# The skill that guards this surface keeps its central rule verbatim.
+grep -qF 'Repository behavior is discovered dynamically. Never hardcode a user'"'"'s current repository list into tmux, shell, Lazygit, or documentation.' skills/developer-workspace-navigation/SKILL.md
+
+# Behavior suite. Fixtures are real throwaway git repos (git is already a
+# dependency of this script and discovery is read-only data inspection);
+# tmux, fzf, and lazygit are PATH stubs that record argv one word per line,
+# so quoting mistakes (a path with spaces splitting into two words) are
+# provable, not assumed. The tool PATH is hermetic: only the stubs plus
+# symlinks to the exact real binaries the helper is allowed to need.
+repos_dir="$out_dir/repos"
+repos_root="$repos_dir/root"
+repos_root2="$repos_dir/root2"
+repos_xdg="$repos_dir/xdg"
+repos_cache="$repos_dir/cache"
+repos_stub="$repos_dir/stub"
+repos_stub_nofzf="$repos_dir/stub-nofzf"
+repos_tools="$repos_dir/tools"
+repos_tmux_log="$repos_dir/tmux-log"
+repos_fzf_in="$repos_dir/fzf-in"
+repos_fzf_args="$repos_dir/fzf-args"
+mkdir -p "$repos_root" "$repos_root2" "$repos_xdg/groundwork" "$repos_cache" \
+  "$repos_stub" "$repos_stub_nofzf" "$repos_tools"
+repos_dir="$(cd "$repos_dir" && pwd -P)"
+repos_root="$(cd "$repos_root" && pwd -P)"
+repos_root2="$(cd "$repos_root2" && pwd -P)"
+
+for repos_tool in git find sort awk grep head uniq stat date mktemp mv mkdir cat rm; do
+  repos_tool_path="$(command -v "$repos_tool")" \
+    || fail "groundwork-repos suite: required tool missing: $repos_tool"
+  ln -s "$repos_tool_path" "$repos_tools/$repos_tool"
+done
+unset repos_tool repos_tool_path
+
+# /bin/sh shebangs: the stubs run under the hermetic PATH, where an
+# `env bash` lookup would find nothing.
+cat >"$repos_stub/tmux" <<'SH'
+#!/bin/sh
+printf '%s\n' "$@" >>"${REPOS_TMUX_LOG:?}"
+case "${1:-}" in
+  has-session) exit 1 ;;
+esac
+exit 0
+SH
+cat >"$repos_stub/lazygit" <<'SH'
+#!/bin/sh
+exit 0
+SH
+cat >"$repos_stub/fzf" <<'SH'
+#!/bin/sh
+printf '%s\n' "$@" >"${REPOS_FZF_ARGS:?}"
+cat >"${REPOS_FZF_INPUT:?}"
+grep -F -- "${REPOS_FZF_CHOOSE:?}" "$REPOS_FZF_INPUT" | head -n 1
+SH
+chmod +x "$repos_stub/tmux" "$repos_stub/lazygit" "$repos_stub/fzf"
+cp "$repos_stub/tmux" "$repos_stub_nofzf/tmux"
+cp "$repos_stub/lazygit" "$repos_stub_nofzf/lazygit"
+chmod +x "$repos_stub_nofzf/tmux" "$repos_stub_nofzf/lazygit"
+
+repos_git() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    git -c init.defaultBranch=main -c user.name=groundwork \
+    -c user.email=groundwork@example.invalid "$@"
+}
+repos_mk() {
+  mkdir -p "$1"
+  repos_git -C "$1" init -q
+  repos_git -C "$1" commit -q --allow-empty -m init
+}
+repos_mk "$repos_root/alpha"
+repos_mk "$repos_root/space repo"
+repos_mk "$repos_root/one/app"
+repos_mk "$repos_root/two/app"
+repos_mk "$repos_root/outer"
+# The nested repo must exercise nesting, not dirtiness: without this ignore,
+# inner/ would be untracked content that makes outer permanently dirty.
+printf 'inner/\n' >"$repos_root/outer/.gitignore"
+repos_git -C "$repos_root/outer" add .gitignore
+repos_git -C "$repos_root/outer" commit -q -m ignore-inner
+repos_mk "$repos_root/outer/inner"
+repos_mk "$repos_root/node_modules/hidden"
+repos_mk "$repos_root/d1/d2/d3/d4/toodeep"
+repos_git -C "$repos_root/alpha" worktree add -q "$repos_root/alpha-wt"
+mkdir -p "$repos_root/loop"
+ln -s .. "$repos_root/loop/back"
+echo change >"$repos_root/space repo/untracked.txt"
+# Cross-root collisions for shortest-unique-suffix window naming: identical
+# basename AND parent across two roots (client/app under both), plus a
+# triple-depth collision (aa/bb/deep under both) that only the root
+# directory itself disambiguates.
+repos_mk "$repos_root/client/app"
+repos_mk "$repos_root2/client/app"
+repos_mk "$repos_root/aa/bb/deep"
+repos_mk "$repos_root2/aa/bb/deep"
+# The fsmonitor tripwire: a repo whose own config points core.fsmonitor at a
+# script that writes a sentinel. Discovery and status must never trigger it.
+repos_mk "$repos_root/fsmon"
+repos_fsmon_sentinel="$repos_dir/fsmon-sentinel"
+cat >"$repos_dir/fsmon-hook" <<SH
+#!/bin/sh
+echo ran >>"$repos_fsmon_sentinel"
+echo "/"
+SH
+chmod +x "$repos_dir/fsmon-hook"
+repos_git -C "$repos_root/fsmon" config core.fsmonitor "$repos_dir/fsmon-hook"
+
+cat >"$repos_xdg/groundwork/repos.conf" <<EOF
+root = $repos_root
+root = $repos_root2
+max_depth = 4
+include_worktrees = true
+cache_ttl_seconds = 0
+exclude = node_modules
+exclude = .cache
+exclude = dist
+exclude = vendor
+EOF
+
+# repos_run <TMUX value> <PATH> <args...>
+repos_run() {
+  local tmux_env="$1" path_env="$2"
+  shift 2
+  TMUX="$tmux_env" PATH="$path_env" \
+    XDG_CONFIG_HOME="$repos_xdg" XDG_CACHE_HOME="$repos_cache" \
+    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    REPOS_TMUX_LOG="$repos_tmux_log" REPOS_FZF_INPUT="$repos_fzf_in" \
+    REPOS_FZF_ARGS="$repos_fzf_args" \
+    REPOS_FZF_CHOOSE="${REPOS_FZF_CHOOSE:-}" NO_COLOR=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-repos "$@"
+}
+repos_path="$repos_stub:$repos_tools"
+
+# Discovery: repos with .git dirs AND .git files (worktrees), spaces,
+# duplicate basenames, and nested repos all appear; excluded dirs and
+# repos beyond max_depth do not; the symlink loop terminates and the
+# canonical dedupe leaves every repo listed exactly once.
+repos_run '' "$repos_path" list >"$repos_dir/list-out"
+grep -qF "$repos_root/alpha"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/space repo"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/one/app"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/two/app"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/client/app"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root2/client/app"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/outer"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/outer/inner"$'\t' "$repos_dir/list-out"
+grep -qF "$repos_root/alpha-wt"$'\t'"wt" "$repos_dir/list-out"
+assert_no_matches "excluded directory leaked into discovery" grep -n 'node_modules' "$repos_dir/list-out"
+assert_no_matches "repo beyond max_depth leaked into discovery" grep -n 'toodeep' "$repos_dir/list-out"
+assert_no_matches "symlink-loop paths leaked past canonical dedupe" grep -n '/loop/back/' "$repos_dir/list-out"
+if [[ -n "$(awk -F'\t' '{print $1}' "$repos_dir/list-out" | sort | uniq -d)" ]]; then
+  fail "groundwork-repos listed a repository more than once"
+fi
+
+# A fresh clone appears with zero config changes.
+repos_mk "$repos_root/charlie"
+repos_run '' "$repos_path" list | grep -qF "$repos_root/charlie"
+
+# The include_worktrees toggle is honored via the unmanaged local overlay.
+echo 'include_worktrees = false' >"$repos_xdg/groundwork/repos.local.conf"
+repos_run '' "$repos_path" list >"$repos_dir/list-nowt"
+assert_no_matches "worktree listed despite include_worktrees=false" grep -n 'alpha-wt' "$repos_dir/list-nowt"
+rm -f "$repos_xdg/groundwork/repos.local.conf"
+
+# The status table: dirty/clean as symbol + word (never color-only; NO_COLOR
+# is set for the whole suite), shortest-unique-suffix repo names, the
+# worktree marker, and the branch.
+repos_run '' "$repos_path" status >"$repos_dir/status-out"
+grep -F 'space repo' "$repos_dir/status-out" | grep -qF '● dirty'
+grep -- '/alpha$' "$repos_dir/status-out" | grep -qF '✓ clean'
+grep -qF 'one/app' "$repos_dir/status-out"
+grep -qF 'two/app' "$repos_dir/status-out"
+grep -- '/alpha-wt$' "$repos_dir/status-out" | grep -qF ' wt '
+grep -qF 'main' "$repos_dir/status-out"
+assert_no_matches "status table must not emit color under NO_COLOR" grep -n $'\033\[' "$repos_dir/status-out"
+# Shortest-unique-suffix names: identical basename+parent across two roots
+# extends to the root component; a triple-depth collision extends further;
+# nothing keeps an ambiguous shorter name; and every name is unique.
+awk '{ print $1 }' "$repos_dir/status-out" >"$repos_dir/status-names"
+grep -qxF 'root/client/app' "$repos_dir/status-names"
+grep -qxF 'root2/client/app' "$repos_dir/status-names"
+grep -qxF 'root/aa/bb/deep' "$repos_dir/status-names"
+grep -qxF 'root2/aa/bb/deep' "$repos_dir/status-names"
+assert_no_matches "an ambiguous shorter name survived (client/app)" grep -nxF 'client/app' "$repos_dir/status-names"
+assert_no_matches "an ambiguous shorter name survived (bb/deep)" grep -nxF 'bb/deep' "$repos_dir/status-names"
+assert_no_matches "an ambiguous shorter name survived (deep)" grep -nxF 'deep' "$repos_dir/status-names"
+if [[ -n "$(sort "$repos_dir/status-names" | uniq -d)" ]]; then
+  fail "groundwork-repos status produced duplicate repo names"
+fi
+
+# Clean/dirty transitions show immediately: the cache stores paths only,
+# state is always read live.
+rm "$repos_root/space repo/untracked.txt"
+repos_run '' "$repos_path" status | grep -F 'space repo' | grep -qF '✓ clean'
+
+# The fsmonitor tripwire. First prove the fixture is LIVE: plain git status
+# in that repo executes the configured core.fsmonitor script.
+rm -f "$repos_fsmon_sentinel"
+repos_git -C "$repos_root/fsmon" status --porcelain >/dev/null
+if [[ ! -f "$repos_fsmon_sentinel" ]]; then
+  fail "fsmonitor fixture is not live: plain git status did not run the configured core.fsmonitor"
+fi
+# Now every groundwork-repos mode walks the same repo, and the safe wrapper
+# (hooks and fsmonitor disabled per git call) must keep the script silent.
+rm -f "$repos_fsmon_sentinel"
+repos_run '' "$repos_path" list >/dev/null
+repos_run '' "$repos_path" status >/dev/null
+: >"$repos_tmux_log"
+REPOS_FZF_CHOOSE='alpha' repos_run 'validate,0,0' "$repos_path" pick
+repos_run 'validate,0,0' "$repos_path" changed >/dev/null
+if [[ -f "$repos_fsmon_sentinel" ]]; then
+  fail "a groundwork-repos mode executed a discovered repo's core.fsmonitor — inspection must disable repository hooks and the fsmonitor"
+fi
+# The fzf preview runs git OUTSIDE the helper process; it must carry the
+# same neutralizing flags — asserted on the recorded fzf argv, then proven
+# by executing the preview command against the tripwire repo.
+repos_preview_cmd="$(awk 'found { print; exit } $0 == "--preview" { found = 1 }' "$repos_fzf_args")"
+[[ -n "$repos_preview_cmd" ]] || fail "the picker no longer passes an fzf --preview command"
+case "$repos_preview_cmd" in
+  *GIT_OPTIONAL_LOCKS=0*core.fsmonitor=false*core.untrackedCache=false*core.hooksPath=/dev/null*) : ;;
+  *) fail "the fzf preview git command lost its hook/fsmonitor-disabling flags: $repos_preview_cmd" ;;
+esac
+rm -f "$repos_fsmon_sentinel"
+repos_fsmon_quoted="'$repos_root/fsmon'"
+repos_preview_run="${repos_preview_cmd//\{2\}/$repos_fsmon_quoted}"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null PATH="$repos_path" \
+  /bin/sh -c "$repos_preview_run" >/dev/null
+if [[ -f "$repos_fsmon_sentinel" ]]; then
+  fail "the fzf preview command executed a discovered repo's core.fsmonitor"
+fi
+
+# The picker, inside tmux: fzf sees every repo, and the selected repo's
+# window opens via new-window -S (reuse, never duplicate) with the path
+# travelling as ONE argv word — spaces intact.
+: >"$repos_tmux_log"
+REPOS_FZF_CHOOSE='space repo' repos_run 'validate,0,0' "$repos_path" pick
+grep -qF "$repos_root/alpha" "$repos_fzf_in"
+grep -qxF -- 'new-window' "$repos_tmux_log"
+grep -qxF -- '-S' "$repos_tmux_log"
+grep -qxF -- 'space repo' "$repos_tmux_log"
+grep -qxF -- "$repos_root/space repo" "$repos_tmux_log"
+grep -qxF -- 'lazygit' "$repos_tmux_log"
+assert_no_matches "picker inside tmux must not create sessions" grep -n 'new-session' "$repos_tmux_log"
+
+# The picker, outside tmux: it creates the repos session and attaches.
+: >"$repos_tmux_log"
+REPOS_FZF_CHOOSE='alpha' repos_run '' "$repos_path" pick
+grep -qxF -- 'new-session' "$repos_tmux_log"
+grep -qxF -- 'repos' "$repos_tmux_log"
+grep -qxF -- 'attach-session' "$repos_tmux_log"
+
+# Window names in tmux carry the shortest unique suffix: two dirty repos
+# with identical basename+parent across roots open under distinct names.
+echo dirt >"$repos_root/client/app/wip.txt"
+echo dirt >"$repos_root2/client/app/wip.txt"
+: >"$repos_tmux_log"
+repos_run 'validate,0,0' "$repos_path" changed >/dev/null
+grep -qxF -- 'root/client/app' "$repos_tmux_log"
+grep -qxF -- 'root2/client/app' "$repos_tmux_log"
+rm "$repos_root/client/app/wip.txt" "$repos_root2/client/app/wip.txt"
+
+# changed: one window per dirty repo, none for clean repos.
+echo dirt >"$repos_root/alpha/wip.txt"
+echo dirt >"$repos_root/one/app/wip.txt"
+: >"$repos_tmux_log"
+repos_run 'validate,0,0' "$repos_path" changed >"$repos_dir/changed-out"
+test "$(grep -cxF -- 'new-window' "$repos_tmux_log")" = 2
+grep -qxF -- 'one/app' "$repos_tmux_log"
+assert_no_matches "changed opened a window for a clean repo" grep -n "$repos_root/two/app" "$repos_tmux_log"
+grep -qF 'opened 2 lazygit window(s)' "$repos_dir/changed-out"
+
+# changed with everything clean opens nothing and says so.
+rm "$repos_root/alpha/wip.txt" "$repos_root/one/app/wip.txt"
+: >"$repos_tmux_log"
+repos_run 'validate,0,0' "$repos_path" changed >"$repos_dir/changed-clean"
+grep -qF 'every discovered repository is clean' "$repos_dir/changed-clean"
+test ! -s "$repos_tmux_log"
+
+# Without fzf the picker degrades to a message plus the list, not a stack trace.
+if repos_run 'validate,0,0' "$repos_stub_nofzf:$repos_tools" pick \
+  >"$repos_dir/pick-nofzf" 2>&1; then
+  fail "groundwork-repos pick succeeded without fzf"
+fi
+grep -qF 'needs fzf' "$repos_dir/pick-nofzf"
+grep -qF "$repos_root/alpha" "$repos_dir/pick-nofzf"
+
+# The discovery cache honors its TTL, and paths (not state) are what it holds.
+cat >"$repos_xdg/groundwork/repos.local.conf" <<'EOF'
+cache_ttl_seconds = 300
+EOF
+repos_run '' "$repos_path" list >/dev/null
+rm -rf "$repos_root/charlie"
+repos_run '' "$repos_path" list | grep -qF "$repos_root/charlie" \
+  || fail "warm cache inside TTL should still list the removed repo"
+# --refresh bypasses AND rewrites the cache: the change shows immediately,
+# and the next plain run reads the rewritten cache, not the stale one.
+repos_run '' "$repos_path" --refresh list >"$repos_dir/list-refresh"
+assert_no_matches "--refresh still served the stale cache" \
+  grep -nF "$repos_root/charlie" "$repos_dir/list-refresh"
+repos_run '' "$repos_path" list >"$repos_dir/list-after-refresh"
+assert_no_matches "--refresh did not rewrite the cache for the next run" \
+  grep -nF "$repos_root/charlie" "$repos_dir/list-after-refresh"
+rm -f "$repos_xdg/groundwork/repos.local.conf" "$repos_cache/groundwork/repos.list"
+
+# Help and option hygiene, same contract as the other helpers.
+repos_run '' "$repos_path" --help | grep -qF 'groundwork-help repos'
+if repos_run '' "$repos_path" --bogus >/dev/null 2>&1; then
+  fail "groundwork-repos accepted an unknown option"
 fi
 
 check "chezmoi root"
@@ -2180,7 +3293,7 @@ grep -q '^  xcode = false$' docker/chezmoi.headless.toml
 # The headless prompt must stay OS-split: a Mac defaults to a desktop, a Linux
 # box/container defaults to headless. The wording carries the steer ("most Macs
 # are not"); chezmoi renders the default itself.
-grep -qF 'Is this a server or CI Mac with no desktop apps (most Macs are not)' home/.chezmoi.toml.tmpl
+grep -qF 'Is this a server or CI Mac with no desktop apps, which most Macs are not' home/.chezmoi.toml.tmpl
 grep -qF 'Is this a headless server or container with no desktop apps' home/.chezmoi.toml.tmpl
 if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desktop apps' home/.chezmoi.toml.tmpl; then
   echo "old headless prompt wording found in home/.chezmoi.toml.tmpl" >&2
@@ -2188,8 +3301,8 @@ if grep -Eq 'Use a headless/server profile|Headless / server profile|Set up desk
 fi
 # Both heavyweight installs stay opt-in and keep their size warning in the
 # prompt, so nobody agrees to a multi-gigabyte download by reflex.
-grep -qF 'Install optional Unity game development tools (large download)' home/.chezmoi.toml.tmpl
-grep -qF 'Install Xcode for native Apple and iOS development (large, ~15GB+)' home/.chezmoi.toml.tmpl
+grep -qF 'Install optional Unity game development tools, a large download' home/.chezmoi.toml.tmpl
+grep -qF 'Install Xcode for native Apple and iOS development, large at ~15GB+' home/.chezmoi.toml.tmpl
 
 check "no create_ seed files"
 create_seeds="$(find home -name 'create_*' -print)"
