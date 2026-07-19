@@ -31,6 +31,10 @@ echo "Groundwork: fetching Homebrew packages — a fresh install downloads"
 echo "several gigabytes in parallel and can look quiet for minutes at a"
 echo "time. It has not hung; interrupting only delays it (it resumes)."
 export HOMEBREW_VERBOSE_USING_DOTS=1
+# Curl-level retries for the transient failures curl itself classifies as
+# retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry are
+# handled after the fact by groundwork-brew-refetch below.
+export HOMEBREW_CURL_RETRIES=3
 # One failed package must not skip the recovery steps below (a dead cask
 # should never leave the launcher or keyboard driver down), but the script
 # still exits non-zero afterwards so chezmoi retries the bundle on the next
@@ -70,8 +74,30 @@ user_cask_opts="${HOMEBREW_CASK_OPTS-}"
 safe_cask_opts="${user_cask_opts:+$user_cask_opts }--require-sha"
 HOMEBREW_CASK_OPTS="$safe_cask_opts" \
   brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 | tee "$bundle_log" || bundle_status=$?
+# The repair helper runs even when the bundle exited 0: Homebrew's per-cask
+# "cannot be upgraded as-is" warning does not fail the run, so it would
+# otherwise repeat on every apply forever. Its exit code distinguishes
+# outcomes that demand opposite responses (0 repaired / 1 nothing / 2
+# declined / 3 approved-but-FAILED / 4 unparseable suggestion).
+repair_status=0
+"$HOME/.local/bin/groundwork-brew-repair" "$bundle_log" || repair_status=$?
+retry_bundle=0
+if [[ "$repair_status" -eq 0 && "$bundle_status" -ne 0 ]]; then
+  retry_bundle=1
+elif [[ "$repair_status" -eq 3 ]]; then
+  echo "Groundwork: the Homebrew repair you approved did not complete — review the output above."
+  [[ "$bundle_status" -ne 0 ]] || bundle_status=1
+elif [[ "$repair_status" -ge 4 ]]; then
+  echo "Groundwork: Homebrew printed a remediation Groundwork could not safely parse; review the log above and run it yourself."
+fi
+# Failed downloads (curl 92 and friends) are not retried by curl's ordinary
+# --retry; re-fetch just those artifacts serially, then retry the bundle so
+# it picks them up from the cache.
 if [[ "$bundle_status" -ne 0 ]] \
-  && "$HOME/.local/bin/groundwork-brew-repair" "$bundle_log"; then
+  && "$HOME/.local/bin/groundwork-brew-refetch" "$bundle_log"; then
+  retry_bundle=1
+fi
+if [[ "$retry_bundle" -eq 1 ]]; then
   bundle_status=0
   HOMEBREW_CASK_OPTS="$safe_cask_opts" \
     brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" || bundle_status=$?

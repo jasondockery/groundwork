@@ -288,12 +288,14 @@
       </table>
 
       <h3>yazi — browsing the folder landscape</h3>
-      <p>When you want to <em>see</em> a directory rather than list it — skim a tree, preview files as you arrow through them, do a quick bulk rename or move — <code>y</code> opens Yazi, a visual file browser. It is a choice, not a replacement for <code>cd</code>, <code>fd</code>, and <code>eza</code>: those composable commands stay the fundamentals and the shared language with agents. Yazi is the visual layer on top for the moments you would otherwise leave the terminal for a GUI file manager. Quit with <kbd>q</kbd> and the shell lands in whatever folder you were browsing, so a visual detour ends where you looked.</p>
+      <p>When you want to <em>see</em> a directory rather than list it — skim a tree, preview files as you arrow through them, do a quick bulk rename or move — <code>y</code> opens Yazi, a visual file browser. It is a choice, not a replacement for <code>cd</code>, <code>fd</code>, and <code>eza</code>: those composable commands stay the fundamentals and the shared language with agents. Yazi is the visual layer on top for the moments you would otherwise leave the terminal for a GUI file manager. Quitting is a choice between two keys: <kbd>q</kbd> lands the shell in whatever folder you were browsing, so a visual detour ends where you looked; <kbd>Q</kbd> quits without changing directory, for when the browsing was just a peek and you want to stay where you started.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">yazi</span></div>
         <pre><code><span class="prompt">$ </span>y
-<span class="comment"># arrow keys or hjkl to move, Enter to open, q to quit into the current folder</span></code></pre>
+<span class="comment"># arrow keys or hjkl to move, Enter to open in the editor, O to pick an opener
+# q quits into the folder you were browsing; Q quits back where you started</span></code></pre>
       </div>
+      <p>Groundwork manages <code>~/.config/yazi/yazi.toml</code> so the preview pane gets most of the width — the panes are for navigating, the preview is for reading. The preview is still a glance, not a reader: press <kbd>Enter</kbd> to open the file in the editor, or <kbd>O</kbd> and choose <em>Read with bat</em> for a highlighted, scrollable view that drops you back into Yazi when you quit it.</p>
       <p>Image, PDF, and video previews render inline in Ghostty, which speaks the Kitty graphics protocol. Yazi already uses the <code>fd</code>, <code>rg</code>, <code>fzf</code>, and <code>bat</code> that Groundwork installs; for richer previews of more formats you can optionally add <code>poppler</code> (PDF) and <code>ffmpeg</code> (video thumbnails).</p>
 
       <h3 id="largest">largest: find space, then clean by owner</h3>

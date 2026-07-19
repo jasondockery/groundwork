@@ -178,6 +178,17 @@
         <p>The install scripts are written to be re-run safely: anything that failed (a network blip, a tool that wasn't ready) is picked up on the next <code>chezmoi apply</code>, and steps that already succeeded are skipped. So a clean re-apply is the right first response to a half-finished install.</p>
       </div>
 
+      <h3>Downloads fail with <code>curl: (92)</code> or the fetch stalls</h3>
+      <p>Repeated <code>HTTP/2 stream was not closed cleanly: PROTOCOL_ERROR</code> failures across several vendors usually point to the connection — a VPN, proxy, travel router, or guest Wi-Fi — though a vendor outage or a local <code>~/.curlrc</code> can look the same; it is rarely a broken setup. When downloads fail, the update re-fetches just the failed ones, one at a time with backoff, and leaves everything that succeeded alone. If a large parallel fetch stalls after a download error, pressing <kbd>Ctrl</kbd><kbd>C</kbd> and re-running <code>update-all</code> is safe in the sense that installed packages stay installed and completed downloads are normally cached — but the rerun repeats the normal update phases rather than resuming mid-fetch, so skim the final output before retrying.</p>
+
+      <h3>Homebrew warns: "The following taps are not trusted"</h3>
+      <p>Homebrew now requires you to explicitly trust third-party taps before it will use their formulae and casks — a supply-chain protection, and the taps it lists are ones <em>you</em> (or a tool you ran) added; Groundwork adds none. Ignore the warning and those taps stay inert. To keep using something from one, prefer trusting just the formulae you actually use over whole-tap trust, which also covers everything the tap publishes in the future:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">tap trust</span></div>
+        <pre><code><span class="prompt">$ </span>brew trust --formula hashicorp/tap/terraform   <span class="comment"># narrow: one formula</span>
+<span class="prompt">$ </span>brew untap someuser/sometap                     <span class="comment"># or drop a tap you no longer use</span></code></pre>
+      </div>
+
       <h3>A Python tool tries to build SciPy or asks for gfortran</h3>
       <p>Global Python tools intentionally use a proven Python version, not the newest Python release. Heavy dependencies such as NumPy and SciPy need mature wheel coverage; when a tool runs on a too-new Python, <code>uv</code> can fall back to a slow source build and fail on a normal Mac because no Fortran compiler is installed. Keep the global tool Python on the Groundwork-managed version, and choose newer Python versions per project with <code>mise use python@...</code> only when that project needs them.</p>
 
@@ -209,6 +220,14 @@
         <tr><td><strong>Not moved</strong></td><td>Raycast&apos;s internal database, app permissions, browser profiles, arbitrary project folders, and unrelated dotfiles</td></tr>
         <tr><td><strong>Run later</strong></td><td>Edit <code>~/.config/chezmoi/chezmoi.toml</code>, set <code>reset_existing_configs = true</code>, remove <code>~/.local/state/groundwork/reset/.reset-existing-configs-done</code> if present, then run <code>chezmoi apply</code></td></tr>
       </table>
+
+      <h3>chezmoi warns: "config file template has changed, run chezmoi init"</h3>
+      <p>This appears after a bare <code>chezmoi update</code> when Groundwork&apos;s setup questions changed — usually because a new question was added. Running <code>chezmoi init</code> again is not starting over: every answer you already gave is kept (the questions are ask-once), so it asks only the new questions and regenerates the config file, and nothing is reinstalled. Skipping it means new features that depend on a new answer stay off until you do. <code>update-all</code> and <code>chezmoi update --init</code> handle this automatically, which is why they are the recommended forms:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">re-init</span></div>
+        <pre><code><span class="prompt">$ </span>chezmoi init     <span class="comment"># keeps existing answers, asks only new questions</span>
+<span class="prompt">$ </span>chezmoi apply    <span class="comment"># apply with the refreshed answers</span></code></pre>
+      </div>
 
       <h3>Windows &amp; WSL: scripts fail with <code>bad interpreter: ^M</code></h3>
       <p>That <code>^M</code> is a Windows carriage return: the clone was made with Git for Windows converting files to CRLF line endings, which breaks shell scripts and chezmoi templates the moment WSL runs them. Groundwork ships a <code>.gitattributes</code> that forces LF, so a fresh clone made <em>inside WSL</em> checks out correctly. If you hit this, re-clone from a WSL terminal, and tell Git to never introduce CRLF again:</p>

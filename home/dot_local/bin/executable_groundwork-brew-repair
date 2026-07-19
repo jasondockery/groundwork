@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# When Homebrew hits a known-broken state (e.g. a circular formula
-# dependency), it prints its own remediation block:
+# When Homebrew hits a known-broken state, it prints its own remediation.
+# Two shapes are recognized:
 #   Please run the following commands and try again:
 #     brew update
 #     brew uninstall --ignore-dependencies --force libtiff webp
 #     brew install libtiff webp
-# Given a log containing that block, offer to run exactly those commands —
+# and the per-cask warning (which does NOT fail the run, so it repeats on
+# every upgrade until someone acts on it):
+#   Warning: The cask 'dotnet-sdk' cannot be upgraded as-is. To fix this, run:
+#     brew reinstall --cask --force dotnet-sdk
+# Given a log containing either, offer to run exactly those commands —
 # nothing invented, shown in full, only with a person at the terminal saying
-# yes. Exit 0 only after the remediation ran cleanly, so the caller knows a
-# retry is worth it.
+# yes. The exit code tells the caller what actually happened, because
+# "nothing to do" and "the repair you approved failed" demand opposite
+# responses:
+#   0  remediation found, approved, and completed — a retry is worth it
+#   1  no actionable remediation in the log
+#   2  remediation declined (or no terminal to ask on)
+#   3  remediation attempted and FAILED — the caller must not report success
+#   4  suggestion recognized but malformed/unsafe — hands off, warn only
 
 log="${1:-}"
 [[ -n "$log" && -r "$log" ]] || exit 1
+readonly EXIT_NOTHING=1 EXIT_DECLINED=2 EXIT_FAILED=3 EXIT_MALFORMED=4
 
 # The bundle log can carry ANSI color codes (update-all forces brew color
 # through the tee so the terminal keeps it); strip them before parsing so
@@ -21,16 +32,22 @@ log="${1:-}"
 esc="$(printf '\033')"
 log_text="$(sed "s/${esc}\[[0-9;]*m//g" "$log")"
 
-printf '%s\n' "$log_text" | grep -qF "Please run the following commands and try again:" || exit 1
+printf '%s\n' "$log_text" \
+  | grep -qE "Please run the following commands and try again:|cannot be upgraded as-is\. To fix this, run:" \
+  || exit "$EXIT_NOTHING"
 
-# Take the suggested commands after the marker, and accept only plain brew
+# Take the suggested commands after each marker, and accept only plain brew
 # invocations whose flags and formula names match Homebrew's own naming
 # rules. Anything else in the block means we do not understand the
 # suggestion, so we stay hands-off.
-commands="$(printf '%s\n' "$log_text" | awk '/Please run the following commands and try again:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print} found && !/^[[:space:]]*brew /{exit}')"
-[[ -n "$commands" ]] || exit 1
+block_commands="$(printf '%s\n' "$log_text" | awk '/Please run the following commands and try again:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print} found && !/^[[:space:]]*brew /{exit}')"
+# The cask warning suggests exactly one command on the line after its marker;
+# collect each occurrence (several casks can warn in one run).
+cask_commands="$(printf '%s\n' "$log_text" | awk '/cannot be upgraded as-is\. To fix this, run:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print; found=0; next} found{found=0}')"
+commands="$(printf '%s\n%s\n' "$block_commands" "$cask_commands" | awk 'NF && !seen[$0]++')"
+[[ -n "$commands" ]] || exit "$EXIT_MALFORMED"
 while IFS= read -r cmd; do
-  [[ "$cmd" =~ ^brew[\ ]([a-z-]+)([\ ]--[a-z-]+)*([\ ][A-Za-z0-9@._+-]+)*$ ]] || exit 1
+  [[ "$cmd" =~ ^brew[\ ]([a-z-]+)([\ ]--[a-z-]+)*([\ ][A-Za-z0-9@._+-]+)*$ ]] || exit "$EXIT_MALFORMED"
 done <<<"$commands"
 
 echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
@@ -50,22 +67,22 @@ else
   echo "Groundwork: no terminal; defaulting to N (skip)."
   echo "Run these yourself, then re-run chezmoi apply:"
   printf '%s\n' "$commands" | awk '{print "  " $0}'
-  exit 1
+  exit "$EXIT_DECLINED"
 fi
 case "$answer" in
   y|Y|yes|YES)
     while IFS= read -r cmd; do
       echo "Groundwork: running: $cmd"
       if ! $cmd; then
-        echo "Groundwork: '$cmd' failed — often a transient network error."
-        echo "Nothing is half-applied; re-run chezmoi apply to try the whole sequence again."
-        exit 1
+        echo "Groundwork: the repair you approved FAILED at: $cmd"
+        echo "Earlier commands in the sequence may have run; review the output above."
+        exit "$EXIT_FAILED"
       fi
     done <<<"$commands"
     echo "Groundwork: repair finished; retrying."
     ;;
   *)
     echo "Groundwork: skipped. Run the commands above yourself, then re-run chezmoi apply."
-    exit 1
+    exit "$EXIT_DECLINED"
     ;;
 esac

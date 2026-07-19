@@ -65,10 +65,58 @@ case "$platform" in
 esac
 
 # --init regenerates the config when .chezmoi.toml.tmpl changed; all prompts
-# are *Once, so existing answers are reused without asking again.
-chezmoi update --init
+# are *Once, so existing answers are reused without asking again. Pull WITHOUT
+# applying: the preflight below inspects drift first, and the full apply runs
+# inside the freshly installed runner so long installs happen in a phase the
+# new implementation owns.
+chezmoi update --init --apply=false
+
+# The preflight must succeed before anything is applied: a status failure
+# means chezmoi cannot render this source against this machine, and applying
+# anyway would run install hooks against a state nobody inspected.
+if ! status_output="$(chezmoi status)"; then
+  echo "Groundwork: could not inspect managed-file drift (chezmoi status failed above); nothing was applied." >&2
+  exit 1
+fi
+
+# A file is MM when it changed on disk since chezmoi last wrote it AND this
+# update also changes it — exactly the files the apply will stop and ask
+# about. Name them and explain the choices before any question appears.
+drift="$(printf '%s\n' "$status_output" | sed -n 's/^MM //p')"
+if [[ -n "$drift" ]]; then
+  echo "Groundwork: these managed files changed on this machine since Groundwork last wrote them,"
+  echo "and this update also changes them, so chezmoi will ask about each one:"
+  while IFS= read -r drift_path; do
+    printf '  ~/%s\n' "$drift_path"
+  done <<<"$drift"
+  echo "Answer y to take Groundwork's version, n to keep your local change this time,"
+  echo "or d to see the diff first. Nothing is overwritten without your answer."
+  # The overwrite question needs a person. With no usable terminal (an agent,
+  # cron, redirected stdin with no controlling tty), stop BEFORE the apply
+  # instead of leaving chezmoi to hang or fail mid-run. Exit 2 = review
+  # required. (GROUNDWORK_PROMPT_TTY is the same test seam the other
+  # Groundwork prompts use.)
+  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+  if [[ ! -t 0 ]] && ! { : <"$prompt_tty"; } 2>/dev/null; then
+    echo "Groundwork: no interactive terminal to answer on — stopping before the apply." >&2
+    echo "Nothing was overwritten. Review each file with 'chezmoi diff <file>', resolve it," >&2
+    echo "then run update-all again from a terminal." >&2
+    exit 2
+  fi
+fi
 
 runner="$HOME/.local/bin/groundwork-update-run"
+
+# Install ONLY the fresh runner (a targeted apply runs no hook scripts), then
+# prove it matches the synchronized source — a runner kept as a local edit
+# must never run wearing the "freshly applied" label. The full apply,
+# configuration files and install hooks alike, happens inside the runner.
+chezmoi apply "$runner"
+if ! chezmoi verify "$runner"; then
+  echo "Groundwork: $runner does not match the synchronized source (a kept local edit?)." >&2
+  echo "Refusing to run a stale updater. Review it with: chezmoi diff ~/.local/bin/groundwork-update-run" >&2
+  exit 1
+fi
 if [[ ! -x "$runner" ]]; then
   echo "Groundwork: chezmoi finished, but the update runner is missing or not executable: $runner" >&2
   exit 1

@@ -221,8 +221,10 @@
       <p>When the shared repo gets new changes, pull them and apply:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">update.sh</span></div>
-        <pre><code><span class="prompt">$ </span>chezmoi update
-<span class="comment"># pulls the latest repo and applies it in one step</span></code></pre>
+        <pre><code><span class="prompt">$ </span>chezmoi update --init
+<span class="comment"># pulls the latest repo and applies it in one step
+# --init also refreshes the setup answers when new questions were added:
+# every answer you already gave is kept, only the new questions are asked</span></code></pre>
       </div>
       <p>That refreshes your <em>config</em> from the repo. If the update changes an install hook, such as the Brewfile bundle, that hook can add newly declared tools. It does not upgrade already-installed Homebrew apps, casks, or mise runtimes to newer upstream releases. To freshen everything at once, the setup ships an <code>update-all</code> command:</p>
       <div class="terminal">

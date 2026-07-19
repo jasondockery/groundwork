@@ -9,7 +9,7 @@ tmux	Ctrl+a then Shift+G	key	Open a lazygit window for every repository with unc
 tmux	Ctrl+a then x	key	Close the active pane. It asks first, because x sits next to z (zoom).
 daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
 daily	chezmoi apply	command	Apply the source repo to your home directory.
-daily	chezmoi update	command	Git pull the Groundwork repo and apply it; syncs config, not already-installed tool upgrades.
+daily	chezmoi update --init	command	Git pull the Groundwork repo and apply it; --init keeps every setup answer and asks only newly added questions. Syncs config, not already-installed tool upgrades.
 daily	chezmoi edit <file>	command	Edit a managed dotfile at its source instead of editing the generated home file.
 daily	chezmoi cd	command	Open a shell in the Groundwork source repo.
 daily	groundwork-restore	command	Restore the first-run backup of managed files and macOS defaults.

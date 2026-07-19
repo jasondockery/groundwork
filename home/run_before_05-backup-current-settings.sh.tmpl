@@ -10,8 +10,10 @@ fi
 state_dir="$HOME/.local/state/groundwork/backups"
 latest="$state_dir/latest"
 
+# A first-run backup already exists: this is every routine update, so stay
+# quiet — the backup's location is documented (troubleshooting: "Restore the
+# pre-Groundwork snapshot") and printing it every refresh is noise.
 if [[ -e "$latest" ]]; then
-  echo "Groundwork backup: existing first-run backup found at $latest"
   exit 0
 fi
 

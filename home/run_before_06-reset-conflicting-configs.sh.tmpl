@@ -5,8 +5,10 @@ set -euo pipefail
 state_dir="$HOME/.local/state/groundwork/reset"
 marker="$state_dir/.reset-existing-configs-done"
 
+# Reset already ran: this is every routine update after the first, so stay
+# quiet — the rerun path is documented (troubleshooting: "Old configs are
+# competing with the setup"), not printed as marker-file internals every run.
 if [[ -e "$marker" ]]; then
-  echo "Groundwork reset: already completed; remove $marker to run again"
   exit 0
 fi
 

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# curl's ordinary --retry (what HOMEBREW_CURL_RETRIES feeds) only covers
+# timeouts and a short list of HTTP status codes; the failure flaky links
+# actually produce — `curl: (92) HTTP/2 stream was not closed cleanly`
+# (CURLE_HTTP2_STREAM) — is not on that list, so a big parallel fetch treats
+# it as final. Given a brew upgrade/bundle log, find the downloads Homebrew
+# reported as failed and re-fetch ONLY those, one at a time (serial
+# downloads avoid re-triggering the multiplexed-stream failure mode), using
+# brew's own `fetch --retry` backoff. Packages that already succeeded are
+# never touched.
+#
+# Exit codes:
+#   0  every failed download was re-fetched; the caller's retry hits the cache
+#   1  the log names no failed downloads (nothing for this helper to do)
+#   2  at least one re-fetch still failed; the caller keeps its failure
+
+log="${1:-}"
+[[ -n "$log" && -r "$log" ]] || exit 1
+
+esc="$(printf '\033')"
+log_text="$(sed "s/${esc}\[[0-9;]*m//g" "$log")"
+
+# Homebrew names a failed artifact in two shapes:
+#   Download failed on Cask 'chatgpt' with message: ...
+#   ✘ Cask chatgpt (26.715.31925)   /   ✘ Bottle atuin (18.17.1)
+failed_casks="$(printf '%s\n' "$log_text" \
+  | sed -n -e "s/^.*Download failed on Cask '\([A-Za-z0-9@._+/-]*\)'.*$/\1/p" \
+    -e 's/^.*✘[[:space:]]*Cask[[:space:]]\([A-Za-z0-9@._+/-]*\).*$/\1/p' \
+  | awk 'NF && !seen[$0]++')"
+failed_formulae="$(printf '%s\n' "$log_text" \
+  | sed -n -e "s/^.*Download failed on Formula '\([A-Za-z0-9@._+/-]*\)'.*$/\1/p" \
+    -e 's/^.*✘[[:space:]]*Bottle[[:space:]]\([A-Za-z0-9@._+/-]*\).*$/\1/p' \
+  | awk 'NF && !seen[$0]++')"
+
+[[ -n "$failed_casks$failed_formulae" ]] || exit 1
+
+status=0
+refetch() {
+  local kind="$1" name="$2"
+  echo "Groundwork: re-fetching $kind $name (serial, with retry/backoff)"
+  if ! HOMEBREW_DOWNLOAD_CONCURRENCY=1 brew fetch --retry "--$kind" "$name"; then
+    echo "Groundwork: $kind $name still failed to download."
+    status=2
+  fi
+}
+while IFS= read -r name; do
+  [[ -n "$name" ]] && refetch cask "$name"
+done <<<"$failed_casks"
+while IFS= read -r name; do
+  [[ -n "$name" ]] && refetch formula "$name"
+done <<<"$failed_formulae"
+
+if [[ "$status" -ne 0 ]]; then
+  echo "Groundwork: some downloads kept failing — usually a connection, VPN, or"
+  echo "proxy issue, but a vendor outage or a local ~/.curlrc can look the same."
+  echo "Completed downloads stay cached; run update-all again later to resume."
+fi
+exit "$status"

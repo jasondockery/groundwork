@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The post-sync half of update-all. The update-all launcher runs
-# `chezmoi update --init` and then execs this freshly applied file, so every
-# stage below runs the implementation the sync just installed. Stages guard on
-# `command -v`, so the same file works on macOS, Linux, and WSL2 whether or not
-# a given manager is installed. Run update-all, not this file, for a refresh
-# that includes the sync.
+# The post-sync half of update-all. The launcher pulls the source
+# (`chezmoi update --init --apply=false`), preflights drift, installs and
+# verifies just this file, then execs it — so every stage below, including
+# the full `chezmoi apply` and its install hooks, runs the implementation the
+# sync just delivered. Stages guard on `command -v`, so the same file works on
+# macOS, Linux, and WSL2 whether or not a given manager is installed. Run
+# update-all, not this file, for a refresh that includes the sync.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 # The update-all launcher decides color once for the whole run and exports
@@ -59,7 +60,22 @@ case "$platform" in
     ;;
 esac
 
+# The launcher installs only this runner before exec'ing it; the FULL apply —
+# configuration files and install hooks, the Homebrew bundle among them —
+# runs here, under the freshly synchronized implementation. A hang or failure
+# inside a large install now happens in a phase the fresh runner owns, not
+# before it exists.
+command -v chezmoi >/dev/null 2>&1 || {
+  echo "Groundwork: chezmoi is not on PATH; cannot complete the synchronization." >&2
+  exit 1
+}
+chezmoi apply
+
 if command -v brew >/dev/null 2>&1; then
+  # Curl-level retries for the transient failures curl itself classifies as
+  # retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry
+  # are handled after the fact by groundwork-brew-refetch below.
+  export HOMEBREW_CURL_RETRIES=3
   "$HOME/.local/bin/groundwork-brew-update"
   # Use the metadata snapshot that just refreshed. A user-customized Homebrew
   # auto-update interval must not start a second, unwrapped update here.
@@ -77,8 +93,42 @@ if command -v brew >/dev/null 2>&1; then
   # NO_UPGRADE_AUTO_UPDATES_CASKS still leaves self-updating GUI apps to their
   # own channels, so they are not re-downloaded and re-quarantined behind fresh
   # Gatekeeper prompts.
+  # Tee the upgrade so groundwork-brew-repair can read Homebrew's own
+  # remediation hints. The per-cask "cannot be upgraded as-is" warning does
+  # NOT fail the upgrade, so without this it repeats on every refresh
+  # forever; the helper shows brew's exact suggested command and only acts
+  # on a yes. A failed upgrade retries once after a repair actually ran.
+  upgrade_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-upgrade.XXXXXX")"
+  trap 'rm -f -- "$upgrade_log"' EXIT
+  upgrade_status=0
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-    brew upgrade --require-sha
+    brew upgrade --require-sha 2>&1 | tee "$upgrade_log" || upgrade_status=$?
+  repair_status=0
+  "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
+  retry_upgrade=0
+  if [[ "$repair_status" -eq 0 && "$upgrade_status" -ne 0 ]]; then
+    retry_upgrade=1
+  elif [[ "$repair_status" -eq 3 ]]; then
+    echo "Groundwork: the Homebrew repair you approved did not complete — review the output above."
+    [[ "$upgrade_status" -ne 0 ]] || upgrade_status=1
+  elif [[ "$repair_status" -ge 4 ]]; then
+    echo "Groundwork: Homebrew printed a remediation Groundwork could not safely parse; review the log above and run it yourself."
+  fi
+  # Failed downloads (curl 92 and friends) are not retried by curl's
+  # ordinary --retry; re-fetch just those artifacts serially, then retry
+  # the upgrade so it picks them up from the cache.
+  if [[ "$upgrade_status" -ne 0 ]] \
+    && "$HOME/.local/bin/groundwork-brew-refetch" "$upgrade_log"; then
+    retry_upgrade=1
+  fi
+  if [[ "$retry_upgrade" -eq 1 ]]; then
+    upgrade_status=0
+    HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
+      brew upgrade --require-sha || upgrade_status=$?
+  fi
+  rm -f -- "$upgrade_log"
+  trap - EXIT
+  [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
   {{- else }}
   # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades formulae only.
   HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade

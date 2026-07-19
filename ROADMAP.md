@@ -62,6 +62,30 @@ after the work is verified, never aspirationally.
 
 ## Setup and machine health
 
+- [ ] Update-orchestration slice (designed 2026-07-19 from a real noisy
+      `update-all` transcript; the first tranche — drift preflight that
+      stops before apply when no terminal can answer, the full apply and
+      install hooks moved under the verified fresh runner, karabiner
+      ownership, brew repair with a real outcome contract, targeted serial
+      re-fetch of failed downloads, no-op chatter removal — is implemented
+      and validated locally, pending review/commit). The
+      remaining slice: (a) a phase-status summary at the end of every
+      `update-all` — completed / degraded / failed per stage, what to run
+      next, and a full log captured to `~/.local/state/groundwork/logs/`
+      with only concise output on the console by default; (b) elapsed-time
+      heartbeat for long quiet Homebrew stretches and an
+      `update-all --retry-failed` that re-fetches only failed casks at
+      reduced concurrency; (c) a `groundwork-configure` wrapper that owns
+      the re-init UX — show current answers, explain new questions and their
+      consequences, preview the resulting diff, then apply — so no user ever
+      needs to reason about raw `chezmoi init` semantics; (d) required-vs-
+      optional package classification with a stable exit contract (required
+      failure fails the run; an optional cask failure degrades it);
+      (e) temp-HOME + temp-XDG + local-bare-remote chezmoi integration tests
+      (fresh init, idempotent re-init, drift does not clobber, run_once /
+      run_onchange semantics) and stub-driven update-all failure/retry/hang
+      cases. Keep each phase honest: no phase may swallow another tool's
+      warnings, and the raw stream stays available under `--verbose`.
 - [ ] WSL2 release receipt: emulated WSL fixtures in the validator prove
       detection logic, not real WSL behavior. Each significant WSL-affecting
       change should get a small smoke pass on a real WSL2 Ubuntu LTS:

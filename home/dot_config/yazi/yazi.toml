@@ -1,0 +1,25 @@
+# Yazi is the visual layer for reviewing files, so the preview pane gets the
+# majority of the width: a slim parent column, a compact file list, and room
+# to actually read what is selected. Reading still belongs to the editor and
+# pager — Enter opens the file in the editor, O offers "Read with bat" for a
+# highlighted, scrollable view without leaving the flow.
+
+[mgr]
+# parent : current : preview
+ratio = [1, 2, 5]
+
+[opener]
+# %s expands to the selected files (Yazi's placeholder syntax; the older
+# shell-style "$@" is no longer substituted and would launch bat with no
+# file arguments).
+pager = [
+	{ run = 'bat --paging=always %s', block = true, desc = "Read with bat" },
+]
+
+[open]
+# Prepend so text files keep Enter -> editor (first opener wins) while the
+# O menu gains the bat pager. Yazi's built-in rules stay intact behind these.
+prepend_rules = [
+	{ mime = "text/*", use = ["edit", "pager", "reveal"] },
+	{ mime = "application/{json,toml,yaml,x-yaml}", use = ["edit", "pager", "reveal"] },
+]

@@ -63,8 +63,9 @@ for id in "${plugin_ids[@]}"; do
   fi
 done
 
+# Nothing to install: this is every routine update, so stay quiet instead of
+# repeating a no-op status line each refresh.
 if [[ "${#missing[@]}" -eq 0 ]]; then
-  echo "obsidian-plugins: all plugins already installed in $vault"
   exit 0
 fi
 

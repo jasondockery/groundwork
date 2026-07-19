@@ -266,7 +266,7 @@ home/
     tmux/tmux.conf.tmpl                # tmux
     starship.toml                      # prompt
     mise/config.toml                   # runtime / tool versions
-    karabiner/modify_karabiner.json    # keyboard rule merged into Karabiner's app-owned JSON
+    private_karabiner/modify_karabiner.json # keyboard rule merged into Karabiner's app-owned JSON (700 dir, matching the app)
     homebrew/Brewfile.tmpl             # everything Homebrew installs
   dot_local/bin/executable_new-project # per-repo AGENTS.md + .agents/ scaffolder
   dot_local/bin/executable_groundwork-help # installed command catalog helper

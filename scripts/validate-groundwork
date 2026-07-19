@@ -284,7 +284,7 @@ shellcheck_files=(bootstrap-mac.sh)
 # glob misses it; lint it explicitly (bash -n needs a shell, so use bash).
 bash -n home/dot_local/share/groundwork/lib/docker-scan.sh
 shellcheck_files+=(home/dot_local/share/groundwork/lib/docker-scan.sh)
-for script in docker/*.sh home/dot_local/bin/executable_* home/dot_codex/modify_private_config.toml home/dot_config/karabiner/modify_karabiner.json scripts/*; do
+for script in docker/*.sh home/dot_local/bin/executable_* home/dot_codex/modify_private_config.toml home/dot_config/private_karabiner/modify_karabiner.json scripts/*; do
   [[ -f "$script" ]] || continue
   [[ "$script" == *.tmpl ]] && continue
   if head -n 1 "$script" | grep -q 'bash'; then
@@ -392,14 +392,29 @@ render linux false amd64 home/dot_local/bin/executable_groundwork-update-run.tmp
   "$update_all_fixture/rendered-runner"
 chmod +x "$update_all_fixture/old-launcher" "$update_all_fixture/rendered-runner"
 
+# The stub mirrors the real contract: ONLY a successful `apply` installs the
+# runner — an update or status call installing it would let the fixture pass
+# while the real flow ran a stale runner.
 cat >"$update_all_bin/chezmoi" <<'SH'
 #!/usr/bin/env bash
 printf 'chezmoi %s color=%s\n' "$*" "${GROUNDWORK_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
 [[ "${CHEZMOI_STATUS:-0}" == "0" ]] || exit "$CHEZMOI_STATUS"
-if [[ "${CHEZMOI_INSTALL_RUNNER:-0}" == "1" ]]; then
-  cp "$FRESH_RUNNER" "$HOME/.local/bin/groundwork-update-run"
-  chmod +x "$HOME/.local/bin/groundwork-update-run"
-fi
+case "${1:-}" in
+  status)
+    [[ "${CHEZMOI_STATUS_FAIL:-0}" == "0" ]] || exit 1
+    [[ -z "${CHEZMOI_DRIFT:-}" ]] || printf '%s\n' "$CHEZMOI_DRIFT"
+    ;;
+  verify)
+    exit "${CHEZMOI_VERIFY_STATUS:-0}"
+    ;;
+  apply)
+    [[ "${CHEZMOI_APPLY_FAIL:-0}" == "0" ]] || exit 1
+    if [[ "${CHEZMOI_INSTALL_RUNNER:-0}" == "1" ]]; then
+      cp "$FRESH_RUNNER" "$HOME/.local/bin/groundwork-update-run"
+      chmod +x "$HOME/.local/bin/groundwork-update-run"
+    fi
+    ;;
+esac
 SH
 cat >"$update_all_fixture/fresh-runner" <<'SH'
 #!/usr/bin/env bash
@@ -414,6 +429,20 @@ cat >"$update_all_home/.local/bin/groundwork-brew-update" <<'SH'
 printf 'brew-update\n' >>"$GROUNDWORK_TEST_LOG"
 exit "${BREW_UPDATE_STATUS:-0}"
 SH
+# Default to "nothing actionable" (1); tests override to prove each outcome
+# of the repair/refetch contract actually drives the runner's behavior.
+cat >"$update_all_home/.local/bin/groundwork-brew-repair" <<'SH'
+#!/usr/bin/env bash
+printf 'brew-repair\n' >>"$GROUNDWORK_TEST_LOG"
+exit "${REPAIR_STATUS:-1}"
+SH
+cat >"$update_all_home/.local/bin/groundwork-brew-refetch" <<'SH'
+#!/usr/bin/env bash
+printf 'brew-refetch\n' >>"$GROUNDWORK_TEST_LOG"
+exit "${REFETCH_STATUS:-1}"
+SH
+chmod +x "$update_all_home/.local/bin/groundwork-brew-repair" \
+  "$update_all_home/.local/bin/groundwork-brew-refetch"
 cat >"$update_all_bin/brew" <<'SH'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "upgrade" ]]; then
@@ -462,13 +491,103 @@ set -e
 # color=0 on the chezmoi line proves the launcher decided color BEFORE the
 # sync (hook scripts inherit it), and on the runner line that the exec'd
 # runner inherits the same decision; stdout is a file here, so it is 0.
-cat >"$update_all_fixture/expected-handoff" <<'EOF'
-chezmoi update --init color=0
+update_all_runner_path="$update_all_home/.local/bin/groundwork-update-run"
+cat >"$update_all_fixture/expected-handoff" <<EOF
+chezmoi update --init --apply=false color=0
+chezmoi status color=0
+chezmoi apply $update_all_runner_path color=0
+chezmoi verify $update_all_runner_path color=0
 fresh runner color=0
 arg=alpha
 arg=two words
 EOF
 diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+# Drift preflight: an MM file (changed locally AND changed by this update) is
+# named and the overwrite question explained BEFORE chezmoi can ask it. With
+# a usable terminal (the GROUNDWORK_PROMPT_TTY seam) the run continues into
+# the runner, which owns the full apply.
+printf '\n' >"$update_all_fixture/tty-drift"
+: >"$update_all_log"
+printf '' | env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  GROUNDWORK_PROMPT_TTY="$update_all_fixture/tty-drift" \
+  CHEZMOI_DRIFT='MM .config/karabiner/karabiner.json' \
+  CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+  "$update_all_fixture/old-launcher" >"$update_all_fixture/drift-output" 2>&1 \
+  || fail "update-all failed on the drift-with-terminal preflight case"
+grep -qF 'chezmoi will ask about each one' "$update_all_fixture/drift-output" \
+  || fail "the drift preflight must explain the upcoming overwrite question"
+grep -qF '.config/karabiner/karabiner.json' "$update_all_fixture/drift-output" \
+  || fail "the drift preflight must name the drifted file"
+grep -qF 'fresh runner color=0' "$update_all_log" \
+  || fail "the run must continue into the runner after the drift preflight"
+
+# Drift with NO usable terminal stops BEFORE any apply with the documented
+# review-required status (2): an agent or cron run must never leave chezmoi
+# hanging on (or failing through) an overwrite question nobody can answer.
+: >"$update_all_log"
+set +e
+printf '' | env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+  CHEZMOI_DRIFT='MM .config/karabiner/karabiner.json' \
+  "$update_all_fixture/old-launcher" >"$update_all_fixture/drift-no-tty" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -eq 2 ]] \
+  || fail "drift without a terminal must exit 2 (review required), got $update_all_status"
+grep -qF 'stopping before the apply' "$update_all_fixture/drift-no-tty" \
+  || fail "the no-terminal drift stop must say it stopped before the apply"
+assert_not_contains 'chezmoi apply' "$update_all_log" \
+  "drift without a terminal must not reach any chezmoi apply"
+
+# A failed `chezmoi status` fails CLOSED before any apply: it means the
+# source cannot be rendered against this machine, and applying anyway would
+# run install hooks against a state nobody inspected.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  CHEZMOI_STATUS_FAIL=1 "$update_all_fixture/old-launcher" \
+  >"$update_all_fixture/status-failure" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all continued after chezmoi status failed"
+grep -qF 'could not inspect managed-file drift' "$update_all_fixture/status-failure" \
+  || fail "a status failure must be reported, not silently treated as no drift"
+assert_not_contains 'chezmoi apply' "$update_all_log" \
+  "a status failure must stop the run before any chezmoi apply"
+
+# A runner that fails verification (a kept local edit) is refused: the
+# handoff contract promises the FRESHLY applied runner, never a stale copy
+# wearing its name.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  CHEZMOI_VERIFY_STATUS=1 CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+  "$update_all_fixture/old-launcher" >"$update_all_fixture/stale-runner" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all executed a runner that failed verification"
+grep -qF 'Refusing to run a stale updater' "$update_all_fixture/stale-runner" \
+  || fail "a verification failure must refuse the stale runner explicitly"
+assert_not_contains 'fresh runner' "$update_all_log" \
+  "a runner that failed verification must never be executed"
+
+# A failed apply of the runner target stops the handoff.
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  CHEZMOI_APPLY_FAIL=1 "$update_all_fixture/old-launcher" \
+  >"$update_all_fixture/apply-failure" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "update-all continued after the runner apply failed"
+assert_not_contains 'fresh runner' "$update_all_log" \
+  "a failed runner apply must not execute any runner"
 
 # The 2026 color-override contract on the one run-wide decision: FORCE_COLOR
 # turns the signal on without a terminal, NO_COLOR beats FORCE_COLOR, and a
@@ -484,7 +603,7 @@ for color_case in 'FORCE_COLOR=1 NO_COLOR= GROUNDWORK_COLOR=:1' \
     $color_env CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
     "$update_all_fixture/old-launcher" >/dev/null 2>&1 \
     || fail "update-all failed under color overrides: $color_env"
-  grep -qxF "chezmoi update --init color=$color_expected" "$update_all_log" \
+  grep -qxF "chezmoi update --init --apply=false color=$color_expected" "$update_all_log" \
     || fail "the launcher must decide color=$color_expected before the sync under: $color_env"
   grep -qxF "fresh runner color=$color_expected" "$update_all_log" \
     || fail "the exec'd runner must inherit color=$color_expected under: $color_env"
@@ -520,7 +639,7 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all continued after chezmoi update failed"
-diff -u <(printf 'chezmoi update --init color=0\n') "$update_all_log"
+diff -u <(printf 'chezmoi update --init --apply=false color=0\n') "$update_all_log"
 
 # A successful sync that does not deliver the runner fails loudly instead of
 # continuing through stale logic.
@@ -534,7 +653,8 @@ update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all continued without the freshly installed runner"
 grep -qF 'update runner is missing or not executable' "$update_all_fixture/missing-output"
-diff -u <(printf 'chezmoi update --init color=0\n') "$update_all_log"
+diff -u <(printf 'chezmoi update --init --apply=false color=0\nchezmoi status color=0\nchezmoi apply %s color=0\nchezmoi verify %s color=0\n' \
+  "$update_all_runner_path" "$update_all_runner_path") "$update_all_log"
 
 # The remaining transactions exercise the rendered runner directly, exactly as
 # the launcher execs it. Unsupported platforms fail closed before ANY stage:
@@ -565,12 +685,13 @@ grep -qF 'wsl --list --verbose' "$update_all_fixture/unsupported-wsl-unknown" \
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   BREW_UPDATE_STATUS=1 "$update_all_fixture/rendered-runner" \
   >"$update_all_fixture/failure-output" 2>&1
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all runner continued after its metadata refresh failed"
-diff -u <(printf 'brew-update\n') "$update_all_log"
+diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
 test ! -e "$update_all_stamp"
 
 # Ctrl-C and termination statuses from a managed stage propagate unchanged.
@@ -578,13 +699,14 @@ for interrupt_status in 130 143; do
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
     BREW_UPDATE_STATUS="$interrupt_status" "$update_all_fixture/rendered-runner" \
     >/dev/null 2>&1
   update_all_status=$?
   set -e
   [[ "$update_all_status" -eq "$interrupt_status" ]] \
     || fail "update-all runner changed stage status $interrupt_status to $update_all_status"
-  diff -u <(printf 'brew-update\n') "$update_all_log"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
   test ! -e "$update_all_stamp"
 done
 
@@ -597,6 +719,7 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
   NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
   "$update_all_fixture/rendered-runner" >"$update_all_fixture/success-output" 2>&1
 cat >"$update_all_fixture/expected-success" <<'EOF'
+chezmoi apply color=0
 brew-update
 brew upgrade auto=1 casks=unset hb-color=unset
 brew autoremove
@@ -699,8 +822,10 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
   FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
   >"$update_all_fixture/darwin-success" 2>&1
 cat >"$update_all_fixture/expected-darwin" <<'EOF'
+chezmoi apply color=0
 brew-update
 brew upgrade --require-sha auto=1 casks=1 hb-color=unset
+brew-repair
 brew autoremove
 brew cleanup
 apps-start
@@ -708,6 +833,43 @@ mise upgrade --minimum-release-age 5d
 EOF
 diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
 test -f "$update_all_stamp"
+
+# BEHAVIOR, not wiring text: a failed upgrade whose downloads re-fetch (exit
+# 0 from refetch) is retried exactly once; a still-failing retry fails the
+# run and writes no timestamp.
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  FAKE_PLATFORM=darwin BREW_STAGE_STATUS=1 REFETCH_STATUS=0 \
+  "$update_all_fixture/darwin-runner" >"$update_all_fixture/darwin-refetch-retry" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a retried upgrade that still fails must fail the run"
+[[ "$(grep -c '^brew upgrade --require-sha' "$update_all_log")" -eq 2 ]] \
+  || fail "a successful re-fetch must retry the failed upgrade exactly once"
+grep -qxF 'brew-refetch' "$update_all_log" \
+  || fail "a failed upgrade must consult groundwork-brew-refetch"
+test ! -e "$update_all_stamp"
+
+# An APPROVED repair that failed (exit 3) must fail the run even though the
+# upgrade itself exited 0 — a broken machine must never be reported updated.
+rm -f "$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  FAKE_PLATFORM=darwin REPAIR_STATUS=3 \
+  "$update_all_fixture/darwin-runner" >"$update_all_fixture/darwin-repair-fail" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a failed approved repair must fail the run, not be reported as success"
+grep -qF 'did not complete' "$update_all_fixture/darwin-repair-fail" \
+  || fail "a failed approved repair must be reported in the output"
+test ! -e "$update_all_stamp"
 # A failed app relaunch must not fail the refresh (it is best-effort), and a
 # failed Homebrew stage must still stop everything after it.
 rm -f "$update_all_stamp"
@@ -723,12 +885,13 @@ rm -f "$update_all_stamp"
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   FAKE_PLATFORM=darwin BREW_UPDATE_STATUS=1 "$update_all_fixture/darwin-runner" \
   >"$update_all_fixture/darwin-brew-fail" 2>&1
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner continued after its metadata refresh failed"
-diff -u <(printf 'brew-update\n') "$update_all_log"
+diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
 test ! -e "$update_all_stamp"
 
 check "update-all migration notice"
@@ -1017,8 +1180,17 @@ if command -v tmux >/dev/null 2>&1; then
   mkdir -p "$prompt_dir/home" "$prompt_dir/src"
   cp home/.chezmoi.toml.tmpl "$prompt_dir/src/.chezmoi.toml.tmpl"
   tmux -L "$prompt_socket" new-session -d -x 120 -y 24 -c "$prompt_dir" /bin/sh
+  # HOME alone does not isolate chezmoi: Groundwork exports XDG_CONFIG_HOME,
+  # and chezmoi reads its config from there first, so the machine's real saved
+  # answers would silently satisfy every promptOnce and no prompt would render
+  # — and worse, `chezmoi init` would REGENERATE the real config pointing at
+  # the scratch source (this happened; see the sentinel below). Every XDG dir
+  # is scoped into the fixture home.
+  real_chezmoi_config="${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml"
+  real_config_before="none"
+  [[ ! -f "$real_chezmoi_config" ]] || real_config_before="$(cksum <"$real_chezmoi_config")"
   tmux -L "$prompt_socket" send-keys \
-    "HOME=$prompt_dir/home chezmoi init --source $prompt_dir/src" Enter
+    "HOME=$prompt_dir/home XDG_CONFIG_HOME=$prompt_dir/home/.config XDG_DATA_HOME=$prompt_dir/home/.local/share XDG_STATE_HOME=$prompt_dir/home/.local/state XDG_CACHE_HOME=$prompt_dir/home/.cache chezmoi init --source $prompt_dir/src" Enter
   prompt_rendered=""
   for _ in $(seq 1 50); do
     prompt_rendered="$(tmux -L "$prompt_socket" capture-pane -p 2>/dev/null || true)"
@@ -1034,6 +1206,14 @@ if command -v tmux >/dev/null 2>&1; then
     printf '%s\n' "$prompt_rendered" >&2
     fail "the rendered setup prompt has doubled punctuation or a hand-written [y/N] (chezmoi adds its own '?' and 'bool, default <x>' hint)"
   fi
+  # Sentinel: validation must NEVER touch the machine's real chezmoi config.
+  # An earlier version of this check leaked through XDG_CONFIG_HOME and
+  # rewrote the real config to point at the scratch source; this assertion
+  # makes that class of regression fail loudly instead of corrupting state.
+  real_config_after="none"
+  [[ ! -f "$real_chezmoi_config" ]] || real_config_after="$(cksum <"$real_chezmoi_config")"
+  [[ "$real_config_before" == "$real_config_after" ]] \
+    || fail "the setup-UI check MUTATED the real chezmoi config at $real_chezmoi_config — its isolation is broken"
 fi
 
 check "shell prompt convention (bootstrap and brew repair)"
@@ -1078,7 +1258,12 @@ grep -qxF 'switch' "$prompt_fixture/switch-out" \
 # groundwork-brew-repair keeps the same convention around its [y/N] gate.
 cat >"$prompt_fixture/bin/brew" <<'SH'
 #!/usr/bin/env bash
-printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+if [[ "${1:-}" == "fetch" ]]; then
+  printf 'brew %s conc=%s\n' "$*" "${HOMEBREW_DOWNLOAD_CONCURRENCY:-unset}" >>"$GROUNDWORK_TEST_LOG"
+else
+  printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+fi
+exit "${GROUNDWORK_TEST_BREW_STATUS:-0}"
 SH
 chmod +x "$prompt_fixture/bin/brew"
 repair_log="$prompt_fixture/bundle.log"
@@ -1097,7 +1282,8 @@ printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$r
   >"$prompt_fixture/repair-no-tty" 2>&1
 repair_status=$?
 set -e
-[[ "$repair_status" -ne 0 ]] || fail "brew-repair must not report success without consent"
+[[ "$repair_status" -eq 2 ]] \
+  || fail "brew-repair without a terminal must exit 2 (declined), got $repair_status"
 grep -qF 'no terminal; defaulting to N (skip)' "$prompt_fixture/repair-no-tty" \
   || fail "brew-repair must name the default it takes when no terminal exists"
 test ! -s "$repair_cmd_log" || fail "brew-repair ran commands without consent"
@@ -1111,7 +1297,8 @@ printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$r
   >"$prompt_fixture/repair-enter" 2>&1
 repair_status=$?
 set -e
-[[ "$repair_status" -ne 0 ]] || fail "a bare Enter must take the [y/N] default: N (skip)"
+[[ "$repair_status" -eq 2 ]] \
+  || fail "a bare Enter must take the [y/N] default and exit 2 (declined), got $repair_status"
 grep -qF 'skipped' "$prompt_fixture/repair-enter"
 test ! -s "$repair_cmd_log" || fail "brew-repair ran commands on a bare Enter"
 # y on the controlling terminal runs exactly the suggested commands — and the
@@ -1131,6 +1318,112 @@ for repair_variant in "$repair_log" "$prompt_fixture/bundle-colored.log"; do
   grep -qxF 'brew update' "$repair_cmd_log" \
     || fail "brew-repair must run exactly the suggested command from $repair_variant"
 done
+# The per-cask "cannot be upgraded as-is" warning is the second remediation
+# shape Homebrew prints. It does NOT fail the run, so unhandled it repeats on
+# every refresh forever; repeated warnings must dedupe to one command.
+cat >"$prompt_fixture/cask-warning.log" <<'EOF'
+Warning: The cask 'dotnet-sdk' cannot be upgraded as-is. To fix this, run:
+  brew reinstall --cask --force dotnet-sdk
+==> Upgraded 3 outdated packages
+Warning: The cask 'dotnet-sdk' cannot be upgraded as-is. To fix this, run:
+  brew reinstall --cask --force dotnet-sdk
+EOF
+: >"$repair_cmd_log"
+printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$prompt_fixture/cask-warning.log" \
+  >"$prompt_fixture/repair-cask" 2>&1 \
+  || fail "brew-repair must handle the cask cannot-be-upgraded-as-is warning"
+diff -u <(printf 'brew reinstall --cask --force dotnet-sdk\n') "$repair_cmd_log" \
+  || fail "brew-repair must run the deduplicated cask fix exactly once"
+# An APPROVED repair whose command fails must exit 3 — callers must be able
+# to tell "the fix you consented to failed" apart from "nothing to do", or a
+# broken machine gets reported as a successful update.
+set +e
+printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_TEST_BREW_STATUS=1 GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$repair_log" \
+  >"$prompt_fixture/repair-failed" 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -eq 3 ]] \
+  || fail "an approved repair that failed must exit 3 (attempted and failed), got $repair_status"
+grep -qF 'FAILED at' "$prompt_fixture/repair-failed" \
+  || fail "a failed approved repair must say which command failed"
+# A recognized marker whose suggested command is not a plain brew invocation
+# must exit 4 and run NOTHING.
+cat >"$prompt_fixture/malformed.log" <<'EOF'
+Please run the following commands and try again:
+  rm -rf /somewhere
+EOF
+: >"$repair_cmd_log"
+set +e
+printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$prompt_fixture/malformed.log" \
+  >/dev/null 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -eq 4 ]] \
+  || fail "a non-brew suggestion must exit 4 (malformed), got $repair_status"
+test ! -s "$repair_cmd_log" || fail "brew-repair ran a command from a malformed suggestion"
+
+# groundwork-brew-refetch: curl's ordinary --retry does not cover the
+# curl-92 stream errors from the field transcript, so failed downloads get a
+# targeted, serial re-fetch — and ONLY the failed ones.
+cat >"$prompt_fixture/refetch.log" <<'EOF'
+✘ Cask chatgpt (26.715.31925)
+Error: Download failed on Cask 'chatgpt' with message: curl: (92) HTTP/2 stream 1 was not closed cleanly: PROTOCOL_ERROR (err 1)
+✔︎ Cask zed (1.11.3)
+✘ Cask whatsapp (26.28.22)
+✘ Bottle atuin (18.17.1)
+EOF
+: >"$repair_cmd_log"
+env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-refetch "$prompt_fixture/refetch.log" \
+  >/dev/null 2>&1 \
+  || fail "brew-refetch must exit 0 when every failed download re-fetches"
+diff -u <(printf 'brew fetch --retry --cask chatgpt conc=1\nbrew fetch --retry --cask whatsapp conc=1\nbrew fetch --retry --formula atuin conc=1\n') "$repair_cmd_log" \
+  || fail "brew-refetch must re-fetch exactly the failed artifacts, serially (concurrency 1)"
+printf 'everything succeeded\n' >"$prompt_fixture/refetch-clean.log"
+set +e
+env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-refetch "$prompt_fixture/refetch-clean.log" \
+  >/dev/null 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -eq 1 ]] \
+  || fail "brew-refetch with no failed downloads must exit 1, got $repair_status"
+set +e
+env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+  GROUNDWORK_TEST_BREW_STATUS=1 \
+  /bin/bash home/dot_local/bin/executable_groundwork-brew-refetch "$prompt_fixture/refetch.log" \
+  >/dev/null 2>&1
+repair_status=$?
+set -e
+[[ "$repair_status" -eq 2 ]] \
+  || fail "brew-refetch must exit 2 when a re-fetch still fails, got $repair_status"
+# Both brew stages feed the repair helper their logs and retry curl on
+# transient CDN stream errors; losing either wiring brings back the
+# repeats-forever cask warning and the one-shot download failures.
+grep -qF 'HOMEBREW_CURL_RETRIES=3' home/run_onchange_after_10-brew-bundle.sh.tmpl \
+  || fail "the brew bundle hook must export HOMEBREW_CURL_RETRIES"
+grep -qF 'HOMEBREW_CURL_RETRIES=3' home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  || fail "the update runner must export HOMEBREW_CURL_RETRIES"
+grep -qF "groundwork-brew-repair\" \"\$upgrade_log\"" home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  || fail "the update runner must feed the brew upgrade log to groundwork-brew-repair"
+grep -qF "groundwork-brew-repair\" \"\$bundle_log\"" home/run_onchange_after_10-brew-bundle.sh.tmpl \
+  || fail "the brew bundle hook must feed the bundle log to groundwork-brew-repair"
+grep -qF "groundwork-brew-refetch\" \"\$upgrade_log\"" home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  || fail "the update runner must feed failed downloads to groundwork-brew-refetch"
+grep -qF "groundwork-brew-refetch\" \"\$bundle_log\"" home/run_onchange_after_10-brew-bundle.sh.tmpl \
+  || fail "the brew bundle hook must feed failed downloads to groundwork-brew-refetch"
+# Both callers must treat repair exit 3 (approved but FAILED) as a failure —
+# never fold it into "nothing to do".
+grep -qF "\"\$repair_status\" -eq 3" home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  || fail "the update runner must handle repair exit 3 (approved repair failed)"
+grep -qF "\"\$repair_status\" -eq 3" home/run_onchange_after_10-brew-bundle.sh.tmpl \
+  || fail "the brew bundle hook must handle repair exit 3 (approved repair failed)"
 
 check "Homebrew cask policy (rendered installer behavior)"
 # The NETWORK audit (scripts/audit-brew-casks) owns upstream cask metadata.
@@ -3234,8 +3527,56 @@ test -f home/dot_zprofile.tmpl
 test -x home/dot_codex/modify_private_config.toml
 grep -qF 'mise activate zsh --shims' home/dot_zprofile.tmpl
 grep -qF 'experimental_use_profile = true' home/dot_codex/modify_private_config.toml
-grep -qF 'config.global.show_in_menu_bar = true;' home/dot_config/karabiner/modify_karabiner.json
-assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging" rg -n 'show_in_menu_bar[[:space:]]*=[[:space:]]*false|show_in_menu_bar"[[:space:]]*:[[:space:]]*false' home/dot_config/karabiner
+grep -qF 'config.global.show_in_menu_bar = true;' home/dot_config/private_karabiner/modify_karabiner.json
+assert_no_matches "Karabiner menu bar icon must stay visible for setup/debugging" rg -n 'show_in_menu_bar[[:space:]]*=[[:space:]]*false|show_in_menu_bar"[[:space:]]*:[[:space:]]*false' home/dot_config/private_karabiner
+# Karabiner-Elements chmods ~/.config/karabiner to 700, so the source dir must
+# carry the private_ attribute; without it every apply wants the mode back to
+# 755 and prompts ".config/karabiner has changed since chezmoi last wrote it".
+test -d home/dot_config/private_karabiner \
+  || fail "karabiner must live at home/dot_config/private_karabiner (private_ = mode 700, matching what the app enforces)"
+test ! -e home/dot_config/karabiner \
+  || fail "home/dot_config/karabiner must not exist alongside private_karabiner"
+# The modify script must pass a semantically settled config through
+# byte-for-byte — in Karabiner's own serialization (4-space, alphabetized
+# keys), not just its own: anything else rewrites the file and prompts on
+# every apply forever. JXA needs macOS, so this only runs where osascript is.
+if command -v osascript >/dev/null 2>&1; then
+  karabiner_fixture="$out_dir/karabiner-idempotence"
+  mkdir -p "$karabiner_fixture"
+  /bin/bash home/dot_config/private_karabiner/modify_karabiner.json \
+    </dev/null >"$karabiner_fixture/seeded.json" \
+    || fail "karabiner modify failed on an empty config"
+  grep -qF 'Groundwork: Caps Lock' "$karabiner_fixture/seeded.json" \
+    || fail "karabiner modify must add the Groundwork rule to an empty config"
+  python3 -c 'import json,sys
+config = json.load(open(sys.argv[1]))
+open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n")' \
+    "$karabiner_fixture/seeded.json" "$karabiner_fixture/app-format.json"
+  /bin/bash home/dot_config/private_karabiner/modify_karabiner.json \
+    <"$karabiner_fixture/app-format.json" >"$karabiner_fixture/app-format-out.json" \
+    || fail "karabiner modify failed on an app-formatted config"
+  cmp -s "$karabiner_fixture/app-format.json" "$karabiner_fixture/app-format-out.json" \
+    || fail "karabiner modify must pass an already-settled app-formatted config through byte-for-byte"
+  # A rule the user added themselves — even one Karabiner appended AFTER the
+  # Groundwork rule — must survive byte-for-byte and keep its position.
+  python3 -c 'import json,sys
+config = json.load(open(sys.argv[1]))
+profile = next(p for p in config["profiles"] if p.get("selected")) if any(p.get("selected") for p in config["profiles"]) else config["profiles"][0]
+profile["complex_modifications"]["rules"].append({"description": "user rule", "manipulators": []})
+open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n")' \
+    "$karabiner_fixture/seeded.json" "$karabiner_fixture/user-rule.json"
+  /bin/bash home/dot_config/private_karabiner/modify_karabiner.json \
+    <"$karabiner_fixture/user-rule.json" >"$karabiner_fixture/user-rule-out.json" \
+    || fail "karabiner modify failed on a config with a user rule"
+  cmp -s "$karabiner_fixture/user-rule.json" "$karabiner_fixture/user-rule-out.json" \
+    || fail "karabiner modify must preserve user rules byte-for-byte, in position"
+  # A corrupt existing file must FAIL the merge, never be silently replaced.
+  printf 'not json {' >"$karabiner_fixture/corrupt.json"
+  if /bin/bash home/dot_config/private_karabiner/modify_karabiner.json \
+    <"$karabiner_fixture/corrupt.json" >/dev/null 2>&1; then
+    fail "karabiner modify must refuse (exit nonzero) on a corrupt existing file"
+  fi
+fi
 test -f home/dot_local/bin/executable_groundwork-apps-start
 test -x home/dot_local/bin/executable_groundwork-apps-start
 grep -qF 'groundwork-apps-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
@@ -3544,6 +3885,11 @@ for os in darwin linux; do
     if [[ "$os" == "linux" || "$headless" == "true" ]]; then
       assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
     fi
+    # The tap-trust troubleshooting docs state categorically that Groundwork
+    # adds no third-party taps; keep that claim true. A tap line or a
+    # tap-qualified package would put Groundwork in the tap-trust business.
+    assert_not_contains '^tap |^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
+      "a third-party tap entered the $case_name Brewfile — the docs promise Groundwork adds none"
 
     check "rendered ignore ($case_name)"
     render "$os" "$headless" "amd64" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore"
@@ -3573,6 +3919,8 @@ render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl "$out_dir/darwi
 assert_not_contains '^\.config/karabiner/\*\*' "$out_dir/darwin-work/chezmoiignore" "Karabiner was ignored on work macOS"
 grep -q '^cask "karabiner-elements"$' "$out_dir/darwin-work/Brewfile"
 grep -q '^brew "colima"$' "$out_dir/darwin-work/Brewfile"
+assert_not_contains '^tap |^(brew|cask) "[^"]*/' "$out_dir/darwin-work/Brewfile" \
+  "a third-party tap entered the work Brewfile — the docs promise Groundwork adds none"
 assert_not_contains '^cask "docker-desktop"$' "$out_dir/darwin-work/Brewfile" "Docker Desktop leaked into work macOS"
 assert_not_contains '^cask "appcleaner"' "$out_dir/darwin-work/Brewfile" "AppCleaner leaked into work macOS"
 assert_not_contains '^mas "Xcode"' "$out_dir/darwin-work/Brewfile" "Xcode leaked into default work macOS"
@@ -3613,9 +3961,15 @@ grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1' "$o
 grep -q 'brew upgrade --require-sha' "$out_dir/darwin-beta/update-run"
 assert_not_contains '^[^#]*brew upgrade[^#]*--greedy' "$out_dir/darwin-beta/update-run" \
   "update-all must not use any --greedy flag (unchecked or re-quarantined casks)"
-# The safe lane must never silently fall back when a checksum check fails.
-assert_no_matches "a failed --require-sha upgrade must not be retried without it" \
-  rg -n 'require-sha.*\|\||\|\|.*brew upgrade' home/dot_local/bin/executable_groundwork-update-run.tmpl
+# The safe lane must never silently fall back when a checksum check fails:
+# every macOS `brew upgrade` invocation — including the post-repair retry —
+# must carry --require-sha. Capturing status with `|| upgrade_status=$?` is
+# fine; a flagless retry is the bypass this exists to block.
+# Command position only (optionally after env assignments): prose in error
+# messages may mention `brew upgrade <formula>` without being the cask lane.
+flagless_upgrade="$(grep -nE '^[[:space:]]*([A-Z_]+=[^[:space:]]*[[:space:]]+)*brew upgrade' "$out_dir/darwin-beta/update-run" | grep -v -- '--require-sha' || true)"
+[[ -z "$flagless_upgrade" ]] \
+  || fail "a macOS brew upgrade without --require-sha: $flagless_upgrade"
 
 check "rendered agent adapters"
 render darwin false arm64 home/dot_claude/CLAUDE.md.tmpl "$out_dir/CLAUDE.md"
@@ -3698,6 +4052,17 @@ if [[ -f .groundwork-public-denylist ]]; then
     assert_no_matches "local public denylist file pattern matched" rg -n "$pattern" . --hidden -g '!.git' -g '!node_modules' -g '!.groundwork-public-denylist'
   done < .groundwork-public-denylist
 fi
+
+check "update-flow safety contract"
+# `chezmoi apply --force` would turn the overwrite question into silent data
+# loss: local drift gets clobbered with no prompt. The drift preflight in
+# update-all names the files and chezmoi asks — force is never the answer.
+assert_no_matches "chezmoi apply --force silently clobbers local drift; the apply must ask" \
+  rg -n -g '!validate-groundwork' 'chezmoi (apply|update)[^#]*--force' home bootstrap-mac.sh docker scripts
+# Disabling Homebrew's tap-trust check would reopen the supply-chain gate it
+# exists to close; per-formula `brew trust` is the documented narrow path.
+assert_no_matches "never disable Homebrew tap trust; trust specific formulae instead" \
+  rg -n 'HOMEBREW_NO_REQUIRE_TAP_TRUST' home bootstrap-mac.sh docker
 
 check "old name residue"
 assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'

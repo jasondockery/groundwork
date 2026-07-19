@@ -150,10 +150,10 @@
       <table class="keytable">
         <tr><td><code>groundwork-help</code></td><td>Show the command catalog. Add a query to filter it.</td></tr>
         <tr><td><code>groundwork-help --pick</code></td><td>Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.</td></tr>
-        <tr><td><code>update-all</code></td><td>Run a visible batched refresh: synchronize Groundwork, resume in the freshly applied <code>groundwork-update-run</code> runner, attempt <code>brew update</code> up to three times with short backoff, then run <code>brew upgrade --greedy-latest</code>/cleanup against that refreshed metadata, <code>mise upgrade</code>, and latest-track AI updates. It stops before later stages when a required stage fails and records success only after the complete batch. With the beta channel on, it also prints the <code>xcodes</code> workflow without downloading a beta.</td></tr>
+        <tr><td><code>update-all</code></td><td>Run a visible batched refresh: synchronize Groundwork, resume in the freshly applied <code>groundwork-update-run</code> runner, attempt <code>brew update</code> up to three times with short backoff, then run <code>brew upgrade --require-sha</code>/cleanup against that refreshed metadata, <code>mise upgrade</code>, and latest-track AI updates. It stops before later stages when a required stage fails and records success only after the complete batch. With the beta channel on, it also prints the <code>xcodes</code> workflow without downloading a beta.</td></tr>
         <tr><td><code>chezmoi diff</code></td><td>Preview managed-file changes before applying them.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply this repo to your home directory.</td></tr>
-        <tr><td><code>chezmoi update</code></td><td>Pull the Groundwork repo and apply it. This syncs config; it does not upgrade already-installed tools to latest.</td></tr>
+        <tr><td><code>chezmoi update --init</code></td><td>Pull the Groundwork repo and apply it. <code>--init</code> also refreshes the setup answers when new questions were added — answers you already gave are kept, only new questions are asked. This syncs config; it does not upgrade already-installed tools to latest.</td></tr>
         <tr><td><code>chezmoi edit ~/.zshrc</code></td><td>Edit the source template for a managed file.</td></tr>
         <tr><td><code>chezmoi cd</code></td><td>Jump into the Groundwork source repo.</td></tr>
       </table>

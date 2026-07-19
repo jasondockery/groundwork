@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+input="$(mktemp)"
+trap 'rm -f "$input"' EXIT
+
+cat >"$input"
+
+/usr/bin/osascript -l JavaScript - "$input" <<'JXA'
+function readFile(path) {
+  const nsString = $.NSString.stringWithContentsOfFileEncodingError(
+    path,
+    $.NSUTF8StringEncoding,
+    null
+  );
+  return nsString ? nsString.js : "";
+}
+
+function selectedProfile(config) {
+  if (!Array.isArray(config.profiles) || config.profiles.length === 0) {
+    config.profiles = [{ name: "Default", selected: true }];
+  }
+
+  const selected = config.profiles.find(function(profile) {
+    return profile && profile.selected === true;
+  });
+
+  return selected || config.profiles[0];
+}
+
+function run(argv) {
+  const raw = readFile(argv[0]);
+  let config = {};
+
+  // An unreadable existing file is a reason to STOP, not to rebuild: silently
+  // replacing whatever is there would destroy the user's (or the app's) data
+  // behind a merge that promised to preserve it. A nonzero exit makes chezmoi
+  // report the error and leave the target untouched.
+  if (raw.trim()) {
+    try {
+      config = JSON.parse(raw);
+    } catch (error) {
+      throw new Error("karabiner.json is not valid JSON; refusing to replace it. Fix or remove the file, then re-run chezmoi apply.");
+    }
+    if (!config || Array.isArray(config) || typeof config !== "object") {
+      throw new Error("karabiner.json is not a JSON object; refusing to replace it.");
+    }
+  }
+
+  // Karabiner-Elements rewrites this file with its own key order and
+  // indentation whenever the user touches a setting. If the semantic state
+  // Groundwork wants is already present, the input must pass through
+  // byte-for-byte: re-serializing an unchanged config makes chezmoi rewrite
+  // the file on every apply and prompt "has changed since chezmoi last wrote
+  // it" forever. Snapshot before mutating; only serialize when something
+  // actually changed.
+  const before = JSON.stringify(config);
+
+  if (!config.global || typeof config.global !== "object") {
+    config.global = {};
+  }
+  // Keep Karabiner discoverable for permissions, driver status, and rule debugging.
+  config.global.show_in_menu_bar = true;
+
+  const profile = selectedProfile(config);
+
+  if (!profile.virtual_hid_keyboard || typeof profile.virtual_hid_keyboard !== "object") {
+    profile.virtual_hid_keyboard = {};
+  }
+  if (!profile.virtual_hid_keyboard.keyboard_type_v2) {
+    profile.virtual_hid_keyboard.keyboard_type_v2 = "ansi";
+  }
+
+  if (!profile.complex_modifications || typeof profile.complex_modifications !== "object") {
+    profile.complex_modifications = {};
+  }
+  if (!Array.isArray(profile.complex_modifications.rules)) {
+    profile.complex_modifications.rules = [];
+  }
+
+  const description = "Groundwork: Caps Lock -> Esc (tap) / Control (hold)";
+  const legacyDescriptions = [
+    description,
+    "Caps Lock \u2192 Esc (tap) / Control (hold)",
+    "Caps Lock -> Esc (tap) / Control (hold)"
+  ];
+
+  const desired = {
+    description: description,
+    manipulators: [
+      {
+        type: "basic",
+        from: {
+          key_code: "caps_lock",
+          modifiers: { optional: ["any"] }
+        },
+        to: [{ key_code: "left_control", lazy: true }],
+        to_if_alone: [{ key_code: "escape" }]
+      }
+    ]
+  };
+
+  // Key-order-independent equality: Karabiner-Elements re-serializes rules
+  // with alphabetized keys, so a plain stringify comparison would see a
+  // "different" rule on every apply and rewrite a semantically settled file.
+  function canonical(value) {
+    if (Array.isArray(value)) {
+      return "[" + value.map(canonical).join(",") + "]";
+    }
+    if (value && typeof value === "object") {
+      return "{" + Object.keys(value).sort().map(function(key) {
+        return JSON.stringify(key) + ":" + canonical(value[key]);
+      }).join(",") + "}";
+    }
+    return JSON.stringify(value);
+  }
+
+  const rules = profile.complex_modifications.rules;
+  const existing = rules.filter(function(rule) {
+    return rule && legacyDescriptions.indexOf(rule.description) !== -1;
+  });
+  const satisfied = existing.length === 1 && canonical(existing[0]) === canonical(desired);
+
+  if (!satisfied) {
+    profile.complex_modifications.rules = rules.filter(function(rule) {
+      return !rule || legacyDescriptions.indexOf(rule.description) === -1;
+    });
+    profile.complex_modifications.rules.push(desired);
+  }
+
+  // osascript prints the return value with a trailing newline of its own, so
+  // hand back the input minus its final newline to stay byte-identical, and
+  // never append a manual one to serialized output.
+  if (raw && JSON.stringify(config) === before) {
+    return raw.slice(-1) === "\n" ? raw.slice(0, -1) : raw;
+  }
+
+  // 4-space indentation matches what Karabiner-Elements itself writes, so a
+  // file the app reformats after this write still round-trips as a no-op.
+  return JSON.stringify(config, null, 4);
+}
+JXA
