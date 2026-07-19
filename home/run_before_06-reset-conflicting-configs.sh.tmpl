@@ -76,5 +76,7 @@ touch "$marker"
 
 echo "Groundwork reset: moved conflicting configs to $reset_dir"
 {{ else -}}
-echo "Groundwork reset: skipped"
+# Reset was declined at setup: that is the steady state on most machines, so
+# say nothing on routine updates instead of announcing a no-op every run.
+:
 {{- end }}
