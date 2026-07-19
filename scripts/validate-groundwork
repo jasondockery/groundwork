@@ -3166,6 +3166,51 @@ grep -qF $'project\tgroundwork-docker-build-scratch <purpose> <context>\tcommand
 
 check "groundwork-repos helper"
 test -x home/dot_local/bin/executable_groundwork-repos
+# file_mtime must emit ONLY a number under any stat variant. On GNU stat,
+# `-f` means "filesystem status" and can exit 0 printing a block that starts
+# with "File:" — which broke CI with "File: unbound variable" the moment it
+# reached arithmetic. Drive the extracted function with a GNU-like stub and
+# a pathological always-garbage stub.
+repos_stat_fixture="$out_dir/repos-stat"
+mkdir -p "$repos_stat_fixture/gnu-bin" "$repos_stat_fixture/bsd-bin" "$repos_stat_fixture/weird-bin"
+cat >"$repos_stat_fixture/gnu-bin/stat" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "-c" ]]; then echo 1752900000; exit 0; fi
+printf '  File: "/some/path"\n    ID: 100000 Namelen: 255\n'
+SH
+# BSD/macOS: -c is an invalid flag; -f %m answers. Stubbing it keeps the
+# test independent of whichever real stat this machine happens to have.
+cat >"$repos_stat_fixture/bsd-bin/stat" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "-c" ]]; then exit 1; fi
+if [[ "$1" == "-f" ]]; then echo 1752900001; exit 0; fi
+exit 1
+SH
+cat >"$repos_stat_fixture/weird-bin/stat" <<'SH'
+#!/usr/bin/env bash
+printf '  File: "/some/path"\n'
+SH
+chmod +x "$repos_stat_fixture/gnu-bin/stat" "$repos_stat_fixture/bsd-bin/stat" \
+  "$repos_stat_fixture/weird-bin/stat"
+sed -n '/^file_mtime()/,/^}/p' home/dot_local/bin/executable_groundwork-repos \
+  >"$repos_stat_fixture/file_mtime.sh"
+grep -q 'file_mtime()' "$repos_stat_fixture/file_mtime.sh" \
+  || fail "could not extract file_mtime from groundwork-repos for the stat-variant test"
+repos_mtime="$(PATH="$repos_stat_fixture/gnu-bin:/usr/bin:/bin" bash -uc \
+  ". '$repos_stat_fixture/file_mtime.sh'; file_mtime /tmp")" \
+  || fail "file_mtime failed under a GNU-like stat"
+[[ "$repos_mtime" == "1752900000" ]] \
+  || fail "file_mtime under GNU-like stat must return the -c %Y value, got: $repos_mtime"
+repos_mtime="$(PATH="$repos_stat_fixture/bsd-bin:/usr/bin:/bin" bash -uc \
+  ". '$repos_stat_fixture/file_mtime.sh'; file_mtime /tmp")" \
+  || fail "file_mtime failed under a BSD-like stat"
+[[ "$repos_mtime" == "1752900001" ]] \
+  || fail "file_mtime under BSD-like stat must fall back to -f %m, got: $repos_mtime"
+repos_mtime="$(PATH="$repos_stat_fixture/weird-bin:/usr/bin:/bin" bash -uc \
+  ". '$repos_stat_fixture/file_mtime.sh'; file_mtime /tmp")" \
+  || fail "file_mtime failed under a garbage-emitting stat"
+[[ "$repos_mtime" == "0" ]] \
+  || fail "file_mtime must emit 0 when no stat variant yields a number, got: $repos_mtime"
 test -f home/dot_config/groundwork/repos.conf.tmpl
 test -f home/dot_config/lazygit/config.yml
 # Discovery stays dynamic: the managed config configures ROOTS, never names.
@@ -3510,6 +3555,39 @@ assert_no_matches "--refresh still served the stale cache" \
 repos_run '' "$repos_path" list >"$repos_dir/list-after-refresh"
 assert_no_matches "--refresh did not rewrite the cache for the next run" \
   grep -nF "$repos_root/charlie" "$repos_dir/list-after-refresh"
+rm -f "$repos_xdg/groundwork/repos.local.conf" "$repos_cache/groundwork/repos.list"
+
+# The same cache path under a GNU-like stat — the exact CI failure: Ubuntu's
+# stat answered `-f %m` with a "File:" block and exit 0, which reached the
+# TTL arithmetic as "File: unbound variable". Shadow stat with a GNU-like
+# stub (delegating -c %Y to python for a real mtime) and run the REAL helper
+# twice: warm the cache, then evaluate its freshness end to end.
+repos_python="$(command -v python3)" || fail "groundwork-repos suite: python3 missing"
+repos_gnu_bin="$repos_dir/gnu-stat-bin"
+mkdir -p "$repos_gnu_bin"
+cat >"$repos_gnu_bin/stat" <<SH
+#!/bin/sh
+if [ "\$1" = "-c" ] && [ "\$2" = "%Y" ]; then
+  exec "$repos_python" -c 'import os,sys;print(int(os.stat(sys.argv[1]).st_mtime))' "\$3"
+fi
+printf '  File: "irrelevant"\n    ID: 100000 Namelen: 255\n'
+exit 0
+SH
+chmod +x "$repos_gnu_bin/stat"
+cat >"$repos_xdg/groundwork/repos.local.conf" <<'EOF'
+cache_ttl_seconds = 300
+EOF
+repos_run '' "$repos_gnu_bin:$repos_path" list >"$repos_dir/gnu-cache-warm" \
+  || fail "groundwork-repos failed discovery under a GNU-like stat"
+grep -qF "$repos_root/alpha"$'\t' "$repos_dir/gnu-cache-warm" \
+  || fail "discovery under a GNU-like stat lost a repository"
+repos_run '' "$repos_gnu_bin:$repos_path" list \
+  >"$repos_dir/gnu-cache-hit" 2>"$repos_dir/gnu-cache-err" \
+  || fail "groundwork-repos failed evaluating a warm cache under a GNU-like stat"
+grep -qF "$repos_root/alpha"$'\t' "$repos_dir/gnu-cache-hit" \
+  || fail "the warm-cache run under a GNU-like stat lost a repository"
+assert_no_matches "the GNU-stat cache path hit an unbound-variable error" \
+  grep -n 'unbound variable' "$repos_dir/gnu-cache-err"
 rm -f "$repos_xdg/groundwork/repos.local.conf" "$repos_cache/groundwork/repos.list"
 
 # Help and option hygiene, same contract as the other helpers.
@@ -4063,6 +4141,22 @@ assert_no_matches "chezmoi apply --force silently clobbers local drift; the appl
 # exists to close; per-formula `brew trust` is the documented narrow path.
 assert_no_matches "never disable Homebrew tap trust; trust specific formulae instead" \
   rg -n 'HOMEBREW_NO_REQUIRE_TAP_TRUST' home bootstrap-mac.sh docker
+# The declined-reset branch is the steady state on most machines and must be
+# SILENT on routine updates — a future template edit must not quietly bring
+# back per-run no-op chatter. (Static guard first: this render must be the
+# declined branch, so running it can never move real files.)
+render linux false amd64 home/run_before_06-reset-conflicting-configs.sh.tmpl \
+  "$out_dir/reset-declined.sh"
+if grep -qF 'move_path' "$out_dir/reset-declined.sh"; then
+  fail "the reset render unexpectedly produced the ACTIVE branch; refusing to run it"
+fi
+reset_declined_home="$out_dir/reset-declined-home"
+mkdir -p "$reset_declined_home"
+HOME="$reset_declined_home" bash "$out_dir/reset-declined.sh" \
+  >"$out_dir/reset-declined-out" 2>&1 \
+  || fail "the declined reset branch must exit 0"
+test ! -s "$out_dir/reset-declined-out" \
+  || fail "the declined reset branch must produce no output on routine updates"
 
 check "old name residue"
 assert_no_matches "old name residue found" rg -n "Primer|primer|mac-dev-primer|Mac Dev|MAC_DEV_PRIMER|validate-primer|jasondockery/mac-dev-primer|PRIMER" . --hidden -g '!.git' -g '!node_modules' -g '!scripts/validate-groundwork'
