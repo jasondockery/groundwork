@@ -64,6 +64,10 @@ Groundwork runs long external work — Homebrew, mise, chezmoi, git, downloads, 
 - Intentionally long-lived things — login shells, tmux sessions, watchers, dev servers — bound startup, readiness, individual requests, and shutdown rather than total lifetime.
 - Do not assume GNU `timeout` as a baseline. Bootstrap runs before Homebrew exists, and this repo has already been bitten by GNU/BSD `stat` differences. A bounded runner must use what is guaranteed at the point in bootstrap where it runs, and must be tested on macOS.
 
+## Mandatory skill triggers
+- **Mutating command safety.** Before adding or changing an installed command, launcher, runner, installer, updater, repair, cleanup, migration, or any script that changes machine state, load `skills/safe-mutating-cli`. Intent must be fully validated before the first side effect: `--help` and invalid arguments mutate nothing, unknown options and unexpected positional arguments fail, and a safety flag is never used as a selection filter.
+- **Update orchestration.** Before changing `update-all`, `groundwork-update-run`, Homebrew install/upgrade/repair logic, mise upgrades, chezmoi update/apply behavior, update policy, retries, or receipts, load `skills/system-update-orchestration`. Select and classify the exact update set before acting, and report only what the run proved.
+
 ## External material and provenance
 - Public visibility is not permission, and a missing copyright notice is not a license. Before copying code, configuration, shell snippets, assets, or distinctive UI, verify provenance, license terms, and attribution obligations. This includes generated output that closely resembles a known project.
 - External tools are research inputs, not requirements. "Work like Product X" is not a requirement; record the accepted implication as a neutral decision instead.

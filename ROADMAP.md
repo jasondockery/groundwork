@@ -339,3 +339,58 @@ these are the implementations that make them real.
       This requirement exists because a first attempt at this scan on
       2026-07-20 reported 198 of 200 files as containing NUL bytes — the
       pattern had collapsed to the empty string, matching everything.
+
+## update-all: honest scope and receipt
+
+`update-all` upgrades what Groundwork's safe lane covers and leaves
+self-updating applications to their vendors — a defensible policy reported
+dishonestly. It prints skipped casks and then `Groundwork tools refreshed.`,
+which reads as "nothing remains outdated" when three things do. That is the
+same class of defect as a piped command reporting exit 0: a receipt claiming
+more than the run proved.
+
+A first implementation attempt on 2026-07-20 was reverted before commit. It
+combined `--require-sha` with `--greedy-auto-updates`, and a real dry run
+showed the result planned to upgrade `google-chrome` — the one cask
+`scripts/audit-brew-casks` deliberately keeps out of every Brewfile. The safety
+flag is a failure policy, not a candidate filter, so widening scope that way
+either aborts the run or drags an excluded cask back under Homebrew management.
+The lesson is recorded in `skills/system-update-orchestration`.
+
+Do this work under `skills/safe-mutating-cli` and
+`skills/system-update-orchestration`, red-proving every branch.
+
+- [ ] Decide the ownership model and make name, help, implementation, and
+      receipt agree: Groundwork-declared packages only, or every eligible
+      Homebrew-installed package. An unqualified `brew upgrade` is the latter,
+      while the help says the former.
+- [ ] Parse arguments before any mutation, in BOTH the launcher and the runner.
+      The runner currently has no parser and is documented as directly
+      invocable; a direct `--help` must not run `chezmoi apply`.
+- [ ] Reject unknown options AND unexpected positional arguments in both layers.
+      `update-all --greedy` currently runs an ordinary refresh and silently
+      ignores the flag.
+- [ ] Add `--include-self-updating-casks` (macOS only; explicit off-platform
+      behavior, never a silent no-op). Build an explicit checksummed candidate
+      token list; never pass a global greedy flag and expect `--require-sha` to
+      filter. Keep `--greedy-latest` and bare `--greedy` banned.
+- [ ] Bulk-query cask metadata once (`brew info --json=v2 --cask <tokens...>`)
+      rather than one process per token, and record these calls in the
+      bounded-operation audit above.
+- [ ] Replace the final line with a receipt whose buckets match what was
+      established: no-longer-outdated, intentionally excluded (with the specific
+      reason: self-updating, no checksum, `:latest`, pinned, disabled), still
+      outdated unexpectedly, classification unavailable, receipt incomplete.
+      Compare before/after against the exact upgrade scope, never a broader
+      `--greedy` view. Never convert an unknown state into "vendor-owned", and
+      never let a failed state query become an empty successful one.
+- [ ] Label the cask bucket as casks. It is not a receipt for formulae, mise,
+      and every other stage; a comprehensive receipt needs structured status
+      from each stage and is a larger follow-up.
+- [ ] Drop hardcoded vendor claims from help. Checksum and auto-update status
+      are per-run facts, not durable documentation.
+- [ ] Add reusable fixture helpers so these are cheap to assert repo-wide:
+      `assert_command_has_no_side_effects_on_help`,
+      `assert_invalid_args_fail_before_mutation`,
+      `assert_retry_command_matches_initial_scope`,
+      `assert_receipt_contains_incomplete_observation`.
