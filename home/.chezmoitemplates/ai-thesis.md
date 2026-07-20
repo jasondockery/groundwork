@@ -4,6 +4,21 @@ Groundwork is an AI-native development foundation for Mac as the primary desktop
 
 Editors, multiplexers, launchers, and browsers are options to choose from, not tests of whether someone is doing development correctly. The terminal is foundational because it is the shared operating language between developers and agents: it keeps work fast, inspectable, reproducible, and easy to verify.
 
+## Release posture
+
+**Stable foundations. Current AI tools. Optional previews. Reproducible projects.**
+
+Groundwork targets AI-native developers, so it imposes no intentional delay on supported AI tools: it targets the newest Groundwork-supported release available through the configured official channel. Falling several releases behind can leave a user with incompatible MCP or hook behavior, delayed model support, and defects already corrected upstream, so a deliberately delayed posture is not offered. That freshness is a product invariant, not a preference a profile can turn off — but it is a promise about Groundwork's own behavior, not a claim to override organization policy or a vendor's staged rollout. When availability, compatibility, device policy, or external update ownership prevents an update, Groundwork says so rather than reporting the toolchain as current.
+
+Everything else is a choice about blast radius, made per surface rather than per personality. An environment declares how it is used — a personal machine, a managed work machine, a disposable container — and Groundwork derives its application release channels from that. Preview channels are never selected without explicit profile or per-tool consent.
+
+Four things stay true in every posture:
+
+- **Previews never weaken integrity.** Choosing Insiders or Twilight does not relax checksum requirements, provenance checks, or update ownership.
+- **Supply-chain floors are not stability settings.** The pnpm, Renovate, and mise release-age windows exist because an ecosystem allows anonymous instant publish into a deep transitive tree. They address a different risk than "how new do I want my editor," and a preview posture does not switch them off. Homebrew applications and AI CLIs carry no such floor: those packages are curated and hand-picked.
+- **Project pins win.** A workstation with a newer runtime available still runs the version a repository pins. Release posture governs available tools, never repository contracts.
+- **The operating system is the user's call.** Groundwork records and diagnoses the system channel so a deliberate OS beta is not reported as accidental drift, but it never enrolls a machine in one or downloads it.
+
 ## Who Groundwork is for
 
 Groundwork is for anyone who wants to build seriously, wherever they are starting from: brand new to development or deep into a career, new to the terminal or fluent in it, new to AI-native work or already practicing it. It does not define personas or gatekeep by background; the only assumption is a willingness to put in real hours. For every user it sets up a machine, image, or container quickly with everything needed to work — tools, shell, shortcuts, and agent instructions in place — and the docs meet each reader at their own starting point. Wherever that is, the destination is the same: a deeply skilled, technical agentic engineer — someone who understands the system, works the terminal confidently, and directs AI agents without depending on them. That is a long climb, not a weekend project, and every page should let any reader take what they need and move.
