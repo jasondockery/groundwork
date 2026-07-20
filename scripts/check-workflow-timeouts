@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Every CI job declares a bounded timeout.
+#
+# GitHub's default job timeout is 360 minutes, so an unbounded job turns a hang
+# into a six-hour silent burn. This is the OUTER envelope only: long child
+# commands still need their own deadline and recovery receipt, and any inner
+# deadline must expire before the job timeout so a failure names the real phase
+# rather than the wrapper.
+#
+# Policy:
+#   normal job                 must declare a positive integer timeout-minutes,
+#                              at or below MAX_TIMEOUT_MINUTES
+#   reusable-workflow call job exempt — a `uses:` job cannot carry
+#                              timeout-minutes; the CALLED workflow owns its own
+#                              job timeouts, and the call must be SHA-pinned
+#
+# The 60-minute ceiling is deliberate policy, not an incidental constant. A
+# future job that genuinely needs longer should get a recorded exception with a
+# rationale and review date rather than a silently raised global maximum.
+#
+# Usage: check-workflow-timeouts [workflow-directory]
+set -euo pipefail
+
+MAX_TIMEOUT_MINUTES="${MAX_TIMEOUT_MINUTES:-60}"
+workflow_dir="${1:-.github/workflows}"
+
+status=0
+found_any=0
+
+# Both extensions are valid GitHub workflow suffixes. Globbing one and silently
+# ignoring the other would let an unbounded job in a .yaml file pass the gate.
+shopt -s nullglob
+workflows=("$workflow_dir"/*.yml "$workflow_dir"/*.yaml)
+shopt -u nullglob
+
+if [[ ${#workflows[@]} -eq 0 ]]; then
+  echo "no workflow files found in $workflow_dir" >&2
+  exit 1
+fi
+
+for workflow in "${workflows[@]}"; do
+  found_any=1
+  awk -v file="$workflow" -v max="$MAX_TIMEOUT_MINUTES" '
+    function flush_job() {
+      if (job == "") return
+      if (reusable) {
+        # A `uses:` job may not declare timeout-minutes at all, and an unpinned
+        # call is its own supply-chain problem.
+        if (timeout_seen) {
+          printf "%s: job %s calls a reusable workflow and must not declare timeout-minutes\n", file, job
+          bad = 1
+        }
+        if (!sha_pinned) {
+          printf "%s: job %s calls a reusable workflow that is not pinned to a full 40-character SHA\n", file, job
+          bad = 1
+        }
+      } else if (!timeout_seen) {
+        printf "%s: job %s has no timeout-minutes\n", file, job
+        bad = 1
+      }
+    }
+    /^jobs:[ \t]*$/ { in_jobs = 1; next }
+    !in_jobs { next }
+    # Any new top-level key ends the jobs block.
+    /^[^ \t#]/ { flush_job(); job = ""; in_jobs = 0; next }
+    # Job keys sit at exactly two spaces.
+    /^  [A-Za-z_][A-Za-z0-9_-]*:[ \t]*(#.*)?$/ {
+      flush_job()
+      job = $1; sub(/:$/, "", job)
+      timeout_seen = 0; reusable = 0; sha_pinned = 0
+      next
+    }
+    job == "" { next }
+    /^    uses:[ \t]/ {
+      reusable = 1
+      if ($2 ~ /@[0-9a-f]{40}$/) sha_pinned = 1
+      next
+    }
+    /^    timeout-minutes:[ \t]/ {
+      value = $2
+      sub(/[ \t]*#.*$/, "", value)      # tolerate a trailing comment
+      if (value !~ /^[0-9]+$/) {
+        printf "%s: job %s timeout-minutes must be a positive integer, got \"%s\"\n", file, job, value
+        bad = 1
+      } else if (value + 0 <= 0) {
+        printf "%s: job %s timeout-minutes must be greater than zero, got %s\n", file, job, value
+        bad = 1
+      } else if (value + 0 > max) {
+        printf "%s: job %s timeout-minutes %s exceeds the %s-minute ceiling\n", file, job, value, max
+        bad = 1
+      }
+      timeout_seen = 1
+      next
+    }
+    END { flush_job(); exit bad ? 1 : 0 }
+  ' "$workflow" || status=1
+done
+
+if [[ $found_any -eq 1 && $status -eq 0 ]]; then
+  echo "ok: every job in $workflow_dir declares a bounded timeout"
+fi
+
+exit "$status"

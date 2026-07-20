@@ -4111,6 +4111,42 @@ for page in docs/*.html; do
   done < <(grep -Eo 'src="[^"]+"' "$page" | sed -E 's/^src="([^"]*)"$/\1/')
 done
 
+check "workflow timeout checker behaves as specified"
+# The checker is proven against fixtures rather than by mutating live workflow
+# files: an earlier red-proof did exactly that and left a workflow temporarily
+# broken when its own unbounded loop was killed. Each fixture pins one branch.
+timeout_fixtures="tests/fixtures/workflow-timeouts"
+expect_timeout_check() {
+  local want="$1" dir="$2" needle="$3" out rc
+  set +e
+  out="$(scripts/check-workflow-timeouts "$timeout_fixtures/$dir" 2>&1)"
+  rc=$?
+  set -e
+  if [[ "$rc" != "$want" ]]; then
+    echo "workflow-timeout checker: $dir exited $rc, expected $want" >&2
+    echo "$out" >&2
+    exit 1
+  fi
+  if [[ "$needle" != "-" && "$out" != *"$needle"* ]]; then
+    echo "workflow-timeout checker: $dir output missing \"$needle\"" >&2
+    echo "$out" >&2
+    exit 1
+  fi
+}
+expect_timeout_check 0 valid                 "ok: every job"
+expect_timeout_check 0 valid-yaml-ext        "ok: every job"
+expect_timeout_check 0 reusable              "ok: every job"
+expect_timeout_check 1 missing               "has no timeout-minutes"
+expect_timeout_check 1 noninteger            "must be a positive integer"
+expect_timeout_check 1 zero                  "must be greater than zero"
+expect_timeout_check 1 over-max              "exceeds the 60-minute ceiling"
+expect_timeout_check 1 reusable-unpinned     "not pinned to a full 40-character SHA"
+expect_timeout_check 1 reusable-with-timeout "must not declare timeout-minutes"
+expect_timeout_check 1 multi                 "has no timeout-minutes"
+
+check "every CI job declares a bounded timeout"
+scripts/check-workflow-timeouts >/dev/null
+
 check "line endings stay LF"
 grep -q '^\* text=auto eol=lf$' .gitattributes
 assert_no_matches "CRLF line endings found in tracked files" git grep -Il $'\r' -- .

@@ -1,0 +1,8 @@
+name: CI
+on: [push]
+jobs:
+  bad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 0
+    steps:
+      - run: echo hi

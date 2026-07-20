@@ -1,0 +1,8 @@
+name: A
+on: [push]
+jobs:
+  ok:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: echo hi

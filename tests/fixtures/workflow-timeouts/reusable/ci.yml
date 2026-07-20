@@ -1,0 +1,5 @@
+name: CI
+on: [push]
+jobs:
+  shared:
+    uses: owner/repo/.github/workflows/verify.yml@1234567890abcdef1234567890abcdef12345678

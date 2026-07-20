@@ -1,0 +1,12 @@
+name: CI
+on: [push]
+jobs:
+  bounded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: echo hi
+  unbounded:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi

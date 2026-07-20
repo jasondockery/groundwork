@@ -1,0 +1,14 @@
+name: CI
+on: [push]
+jobs:
+  first:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: echo hi
+  # A trailing comment on the value must not break parsing.
+  last:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5 # deliberately short
+    steps:
+      - run: echo bye
