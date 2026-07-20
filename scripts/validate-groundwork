@@ -208,7 +208,7 @@ run_shellcheck() {
 empty_config="$out_dir/empty-config.toml"
 : > "$empty_config"
 
-base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false'
+base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false,"profile_preset":"personal-current","environment_role":"personal","release_posture":"current"'
 
 render() {
   local os="$1" headless="$2" arch="${3:-arm64}" input="$4" output="$5"
@@ -4146,6 +4146,100 @@ expect_timeout_check 1 multi                 "has no timeout-minutes"
 
 check "every CI job declares a bounded timeout"
 scripts/check-workflow-timeouts >/dev/null
+
+check "environment profile: storage, reporting, and hostile arguments"
+# Phase 3 of specs/environment-profiles-and-release-posture.md: prove the
+# profile is stored, reported, and argument-safe BEFORE any application channel
+# depends on it. Per skills/safe-mutating-cli, help and invalid input must not
+# reach chezmoi at all.
+profile_dir="$out_dir/profile"
+mkdir -p "$profile_dir"
+render_profile() {
+  local posture="$1" work="$2" headless="$3" output="$4"
+  local role="$5" preset="$6"
+  local data="{${base_data%%,\"profile_preset\"*},\"profile_preset\":\"${preset}\",\"environment_role\":\"${role}\",\"release_posture\":\"${posture}\",\"work\":${work},\"headless\":${headless},\"xcode\":false,\"beta\":false,\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}"
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "$data" execute-template \
+    < home/dot_local/bin/executable_groundwork-profile.tmpl > "$output"
+  chmod +x "$output"
+}
+
+render_profile current false false "$profile_dir/personal-current" personal personal-current
+render_profile preview false false "$profile_dir/personal-preview" personal personal-preview
+render_profile current true false "$profile_dir/managed" managed work-managed
+render_profile preview false false "$profile_dir/disposable" disposable disposable-experimental
+render_profile current false true "$profile_dir/headless" personal personal-current
+
+# The role is derived from the existing `work` answer, never asked twice.
+# Role is stored, not derived: a bool could not express three roles.
+grep -q '^role="personal"' "$profile_dir/personal-current"
+grep -q '^role="managed"' "$profile_dir/managed"
+grep -q '^role="disposable"' "$profile_dir/disposable"
+grep -q '^posture="preview"' "$profile_dir/personal-preview"
+
+# `show` reports the stored posture and the invariants that posture cannot
+# change. Capture to a file first: `cmd | grep -q` closes the pipe on the first
+# match, and the SIGPIPE that kills the producer surfaces through pipefail.
+profile_out() {
+  "$1" "${@:2}" >"$profile_dir/output" 2>&1
+  cat "$profile_dir/output"
+}
+profile_out "$profile_dir/personal-preview" show | grep -Fq 'Release posture   preview'
+profile_out "$profile_dir/personal-current" show | grep -Fq 'Release posture   current'
+profile_out "$profile_dir/managed" show | grep -Fq 'Role              managed'
+profile_out "$profile_dir/disposable" show | grep -Fq 'Role              disposable'
+# A managed machine must say policy outranks the profile, never imply a bypass.
+profile_out "$profile_dir/managed" show | grep -Fq 'never works around policy'
+profile_out "$profile_dir/personal-current" show | grep -Fq 'Preset            personal-current'
+profile_out "$profile_dir/headless" show | grep -Fq 'no desktop apps, so posture has no effect'
+profile_out "$profile_dir/personal-preview" show | grep -Fq 'AI tools (no intentional release delay)'
+profile_out "$profile_dir/personal-preview" show | grep -Fq 'release-age floors'
+
+# Phase 3 stores only: `set` must not claim to move an application.
+profile_out "$profile_dir/personal-current" set preview | grep -Fq 'No application is installed, removed, or switched'
+# Idempotent: setting the active posture changes nothing.
+profile_out "$profile_dir/personal-preview" set preview | grep -Fq 'already preview'
+
+expect_profile_exit() {
+  local want="$1" name="$2"
+  shift 2
+  local rc=0
+  "$profile_dir/personal-current" "$@" >/dev/null 2>&1 || rc=$?
+  if [[ "$rc" != "$want" ]]; then
+    echo "groundwork-profile $name exited $rc, expected $want" >&2
+    exit 1
+  fi
+}
+expect_profile_exit 0 "--help" --help
+expect_profile_exit 0 "show" show
+expect_profile_exit 64 "unknown option" --bogus
+expect_profile_exit 64 "unknown command" frobnicate
+expect_profile_exit 64 "invalid posture" set sideways
+expect_profile_exit 64 "set with no posture" set
+expect_profile_exit 64 "no command"
+expect_profile_exit 64 "extra positional argument" show extra junk
+
+# Help and invalid input must not touch chezmoi. A stub that fails loudly if
+# called proves it, rather than reading the code.
+profile_stub_bin="$profile_dir/stub-bin"
+mkdir -p "$profile_stub_bin"
+cat >"$profile_stub_bin/chezmoi" <<'STUB'
+#!/usr/bin/env bash
+echo "chezmoi was invoked" >"${GROUNDWORK_PROFILE_STUB_LOG}"
+exit 0
+STUB
+chmod +x "$profile_stub_bin/chezmoi"
+profile_stub_log="$profile_dir/chezmoi-invoked"
+for profile_case in --help show "set preview" --bogus frobnicate; do
+  rm -f "$profile_stub_log"
+  # shellcheck disable=SC2086
+  PATH="$profile_stub_bin:$PATH" GROUNDWORK_PROFILE_STUB_LOG="$profile_stub_log" \
+    "$profile_dir/personal-current" $profile_case >/dev/null 2>&1 || true
+  if [[ -f "$profile_stub_log" ]]; then
+    echo "groundwork-profile $profile_case invoked chezmoi; only 'edit' may" >&2
+    exit 1
+  fi
+done
 
 check "line endings stay LF"
 grep -q '^\* text=auto eol=lf$' .gitattributes

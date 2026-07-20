@@ -49,6 +49,40 @@ weaker integrity path should be a decision someone makes on purpose. */ -}}
 {{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
 {{- $installChrome = promptBoolOnce . "install_chrome" "Google's Chrome cask ships without a checksum because Google's own updater owns the binary, unlike every other app Groundwork installs, which are all checksum-verified. Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)" false -}}
 {{- end -}}
+{{- /* One preset question, not a personality quiz. The preset seeds two stored
+fields: environment ROLE and release POSTURE. Posture seeds default application
+channels through the tool catalog; it never names a vendor channel itself and
+never touches AI-tool freshness, which is current by product contract, nor the
+pnpm/Renovate/mise supply-chain floors, which address a different risk.
+
+Personal Current is the recommended default: AI tools current on stable
+foundations. That is not caution — an AI-assisted workflow already introduces
+variance, and agents work best against a substrate whose behavior is
+documented. See specs/environment-profiles-and-release-posture.md.
+
+Headless machines install no desktop applications, so they are not asked and
+stay on the stable channel. A work machine defaults to work-managed. */ -}}
+{{- $profilePresets := list "personal-current" "personal-preview" "work-managed" "disposable-experimental" -}}
+{{- $defaultPreset := "personal-current" -}}
+{{- if $work -}}
+{{- $defaultPreset = "work-managed" -}}
+{{- end -}}
+{{- $profilePreset := $defaultPreset -}}
+{{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
+{{- $profilePreset = promptChoiceOnce . "profile_preset" (printf "Starting profile. personal-current (recommended) keeps AI tools current on the latest stable applications; personal-preview adds pre-release apps where one exists (VS Code Insiders, Zen Twilight, Chrome Beta) and accepts occasional breakage; work-managed never attempts to work around device policy; disposable-experimental suits a rebuildable container or VM. AI tools stay current in every profile (Enter keeps the default: %s)" $defaultPreset) $profilePresets $defaultPreset -}}
+{{- end -}}
+{{- /* Role and posture are stored separately so a user can later change one
+without the other, and so a preset is only ever a starting value. */ -}}
+{{- $environmentRole := "personal" -}}
+{{- $releasePosture := "current" -}}
+{{- if eq $profilePreset "personal-preview" -}}
+{{- $releasePosture = "preview" -}}
+{{- else if eq $profilePreset "work-managed" -}}
+{{- $environmentRole = "managed" -}}
+{{- else if eq $profilePreset "disposable-experimental" -}}
+{{- $environmentRole = "disposable" -}}
+{{- $releasePosture = "preview" -}}
+{{- end -}}
 {{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools, a large download (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development, large at ~15GB+ (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $beta := false -}}
@@ -70,6 +104,9 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     signingkey = {{ $signingKey | quote }}
     obsidian_vault_name = {{ $obsidianVault | quote }}
     install_chrome = {{ $installChrome }}
+    profile_preset = {{ $profilePreset | quote }}
+    environment_role = {{ $environmentRole | quote }}
+    release_posture = {{ $releasePosture | quote }}
     game_dev = {{ $gameDev }}
     xcode = {{ $xcode }}
     beta = {{ $beta }}
