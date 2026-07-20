@@ -394,3 +394,30 @@ Do this work under `skills/safe-mutating-cli` and
       `assert_invalid_args_fail_before_mutation`,
       `assert_retry_command_matches_initial_scope`,
       `assert_receipt_contains_incomplete_observation`.
+
+## Detect shadowed installs of Groundwork-managed tools
+
+Field-hit 2026-07-20: a work machine that had installed opencode before
+Groundwork kept getting `Error: agent coder not found`. Cause: a pre-Groundwork
+Go-era `opencode` binary was earlier on PATH than the Homebrew 1.18 Groundwork
+installs, and it read an old-format config whose agents were named `coder`.
+Groundwork had done nothing wrong — it installed alongside and never touched the
+user's config — but nothing told the user two binaries were competing, so the
+error looked like a Groundwork bug.
+
+`groundwork-doctor` cannot currently see this: every probe uses `command -v`,
+which returns only the first match.
+
+- [ ] Report duplicate installs of Groundwork-managed tools: run `command -v -a`
+      (or `which -a`) per managed command, and when more than one exists, name
+      every path, say which one wins, and say which one Groundwork installed.
+- [ ] Never auto-remove the other install. A pre-Groundwork binary may be
+      deliberate, and deleting it can orphan a configuration the user still
+      wants. Report, explain, and let the owner decide — the same rule as
+      unmanaged Homebrew packages.
+- [ ] Where a shadowed tool has a known legacy config path, name it so the user
+      can see their old settings were preserved rather than lost. The old
+      opencode used `~/.opencode.json`; the current one uses
+      `~/.config/opencode/`, so the two never collide.
+- [ ] Cover the reverse case too: a Groundwork-managed command that is missing
+      from PATH entirely because another installer removed or shadowed it.
