@@ -288,3 +288,54 @@ Roost.
 - [ ] First Renovate PR reviewed and merged.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).
+
+## Bounded, honestly-labeled operations
+
+Carried over from a field-hit in the Roost sibling on 2026-07-19: an unbounded
+child process with buffered output sat silent for roughly fifteen hours and was
+initially reported as a slow pass. The principles transfer; Roost's TypeScript
+runner and its exact timeout values do not. `AGENTS.md` now states the rules —
+these are the implementations that make them real.
+
+- [x] Explicit `timeout-minutes` on every CI job (2026-07-20). Previously zero
+      jobs declared one, so a hung job burned GitHub's 360-minute default
+      before failing. This is last-resort protection, not an operation bound.
+- [ ] Audit every finite external operation for a declared deadline,
+      cancellation, and recovery command: `brew update`/`install`/`bundle`/
+      `upgrade`, `mise install`/`upgrade`, chezmoi init/render/apply, git
+      clone/fetch/submodule, release-asset downloads and metadata checks, and
+      the macOS defaults pass. Report progress while waiting; a silent wait is
+      the failure mode.
+- [ ] Build a bounded runner usable from the earliest bootstrap stage. It must
+      not assume GNU `timeout`, Homebrew, or Node — none are guaranteed at that
+      point — and it must be tested on macOS, where this repo has already been
+      bitten by GNU/BSD `stat` differences. Distinguish hard deadline (abort),
+      stall threshold (diagnose, do not kill), and performance budget (report).
+- [ ] Make a failed or timed-out bootstrap unable to report the machine ready.
+- [ ] Validate every rendered profile, not the template source: render each
+      supported combination, format it under the target environment, then check
+      syntax, package/cask policy, and semantic invariants. Do not rely on byte
+      parity across differing formatter configurations, and leave headroom under
+      any line limit rather than targeting the cap exactly.
+- [ ] Split deterministic profile validation from live Brew/mise smoke. The
+      normal gate should use fixture metadata and command construction with no
+      live registry dependency; the live lane runs on a schedule or by dispatch
+      with explicit deadlines. Do not weaken checksum or supply-chain rules to
+      make the live lane faster.
+- [ ] Add a raw-byte NUL scan over tracked and non-ignored untracked files
+      (shell, chezmoi templates, TOML, Markdown, YAML, extensionless commands).
+      A literal NUL makes a file read as binary and vanish from diffs. Use exact
+      file-level binary exceptions, not directory exemptions. Verified
+      2026-07-20: only `docs/assets/social-card.png` is legitimately binary.
+      The scanner must red-prove itself before its result is trusted: a
+      temporary positive-control file containing a literal NUL must be detected
+      and a text control must not, and the check fails if the positive control
+      goes undetected. Enumerate paths NUL-delimited and inspect raw bytes;
+      never represent a NUL inside a shell variable or a grep pattern. Verify
+      each declared exception still exists, is a regular file, still contains at
+      least one literal NUL, and carries a recorded reason. "Still binary" is
+      the wrong invariant: a file that stays binary but loses its NUL bytes
+      becomes a stale exception that silently widens the guard.
+      This requirement exists because a first attempt at this scan on
+      2026-07-20 reported 198 of 200 files as containing NUL bytes — the
+      pattern had collapsed to the empty string, matching everything.

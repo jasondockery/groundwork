@@ -44,6 +44,7 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - Use small, focused changes.
 - Use conventional commit prefixes when committing: `feat`, `fix`, `refactor`, `docs`, `chore`, or `test`.
 - When a commit is due, propose 2–3 message candidates as full commands the user can pick from or edit — e.g. `git commit -m "docs: clarify tmux pane workflow"`, `git commit -m "feat: add shell drill for pipes"`, `git commit -m "chore: bump mise pins"` — including a split-commit option when the diff spans concerns. The user picks.
+- Commit scope must match staged scope. Read `git diff --cached --name-only` immediately before every commit and confirm the message covers every staged path. A pre-populated index is not authorization to commit what is already in it — `git commit` records the whole index, not the slice you just added.
 - Never commit secrets, keys, tokens, or `.env` contents.
 - Never revert user changes unless explicitly asked.
 
@@ -55,8 +56,24 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - Repository navigation is discovered dynamically from configured roots; never hardcode a user's current repository list into tmux, shell, lazygit, or docs (see `skills/developer-workspace-navigation`).
 - A build of this repo's Dockerfile made only to verify a change uses `groundwork-docker-build-scratch <purpose> <context>` (it owns the `dev.roost.ephemeral` label pair and a `groundwork/scratch:<purpose>` tag) and is removed in the same session or left for `groundwork-docker-tidy` to prune after its grace. Never tag a test build `groundwork` or `groundwork:latest`, and never `docker tag` a scratch image into a real tag — labels live on the image and survive a retag; promote by rebuilding.
 
+## Operations are bounded and observable
+Groundwork runs long external work — Homebrew, mise, chezmoi, git, downloads, macOS configuration — where a hang looks exactly like slow progress. Every finite operation declares four things: a completion deadline, how progress is observed, how it cancels, and what is true after it stops.
+- Distinguish the four bounds, because collapsing them causes both false kills and silent hangs. A **hard deadline** aborts and fails. A **stall threshold** reports that progress has gone quiet and triggers diagnostics — it never kills on its own, because a slow download is quiet but healthy. A **performance budget** means the operation finished but missed its target; that is a report, not a failure. A **workflow `timeout-minutes`** is last-resort protection, never the operation's real deadline.
+- A retry count without a cumulative deadline is still unbounded.
+- A timeout is a failure, never a slow success: exit nonzero, cancel the child tree, preserve evidence, and print the exact recovery command. A failed or timed-out bootstrap never reports that the machine is ready.
+- Intentionally long-lived things — login shells, tmux sessions, watchers, dev servers — bound startup, readiness, individual requests, and shutdown rather than total lifetime.
+- Do not assume GNU `timeout` as a baseline. Bootstrap runs before Homebrew exists, and this repo has already been bitten by GNU/BSD `stat` differences. A bounded runner must use what is guaranteed at the point in bootstrap where it runs, and must be tested on macOS.
+
+## External material and provenance
+- Public visibility is not permission, and a missing copyright notice is not a license. Before copying code, configuration, shell snippets, assets, or distinctive UI, verify provenance, license terms, and attribution obligations. This includes generated output that closely resembles a known project.
+- External tools are research inputs, not requirements. "Work like Product X" is not a requirement; record the accepted implication as a neutral decision instead.
+- Keep durable Groundwork decisions standing on their own in this repo. Detailed comparative research on named products belongs in an approved private location, not in tracked files.
+
 ## Done means verified
 - When build, test, lint, or validation commands exist, run the relevant ones and report results.
+- A piped command's exit status is not proof the primary command succeeded — `cmd | tee` reports `tee`'s status. Bash-compatible verification scripts set `set -euo pipefail`, and any pipeline through `tee`, `tail`, or a filter captures and reports the authoritative status explicitly.
+- Say what a green run actually exercised. Distinguish a unit/fixture proof, a rendered-artifact proof, a warm-cache integration run, an offline deterministic run, a cold-network smoke, and a real field receipt. A proof must not claim more than it ran; if caches were warm, the receipt says so.
+- A template that passes in this repo is not proven until its **rendered** output passes under the consumer's configuration. Validate each supported profile after rendering — syntax, package/cask policy, and semantic invariants — not the template source alone. Do not depend on byte parity between files that different formatter configurations touch: unify the settings or compare intended semantics.
 - For dotfile changes, prefer a focused `chezmoi diff` or targeted `chezmoi apply` check when practical.
 - For keyboard and terminal changes, verify the live binding or config where possible, not just the source file.
 - Classify every handoff as release-affecting or not, and treat delivery as part of "done." Groundwork releases are SemVer tags + GitHub Releases (`PLAYBOOK.md`, Versioning & Releases): a change that alters what a fresh install or `update-all` delivers is release-affecting. An unreleased feature reaches no user, so release-affecting work is not done until it ships — cut the release once `main` is green (see the `cut-release` skill), do not merely propose it and stop. Batching several release-affecting changes into one release is fine, but then name the pending batch and the version it will ship under so it is not silently deferred. Internal automation, docs-only cleanup, and dependency plumbing are not release-affecting — say "no release cut" and why. Never bump a version for a milestone; only for a changed consumable artifact.
