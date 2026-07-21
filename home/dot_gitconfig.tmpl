@@ -15,7 +15,26 @@
     autoSetupRemote = true
 
 [fetch]
+    # Prune remote-tracking refs whose branch was deleted upstream, so a
+    # squash-merged-then-deleted branch shows as [gone] locally. NOT pruneTags:
+    # Git warns tag pruning can delete local tags absent from the remote.
     prune = true
+
+[branch]
+    # Recent branches first everywhere (git branch, git branches). Agent work
+    # spawns many branches; recency ordering surfaces the active ones.
+    sort = -committerdate
+
+[tag]
+    sort = -version:refname
+
+[column]
+    ui = auto
+
+[rerere]
+    # Reuse recorded conflict resolutions — a real win for rebase-heavy AI work
+    # where the same conflict recurs across replays.
+    enabled = true
 {{- if lookPath "gh" }}
 
 # gh as git's HTTPS credential helper. Baked in because ~/.gitconfig is chezmoi-managed:
@@ -48,6 +67,19 @@
 
 [diff]
     colorMoved = default
+
+# Branch inspection, offline and non-mutating. `git branch --all` is a flat ref
+# inventory with no dates, tracking, or merged/gone state — these answer "what
+# is safe, what is active, what was deleted upstream". Run `git fetch -p` (auto
+# on any fetch here) to refresh [gone] status. Deletion stays a deliberate,
+# separate action — see the groundwork-branches roadmap item.
+[alias]
+    # Recent-first list with upstream track + gone marker + relative date + subject.
+    branches = "for-each-ref --sort=-committerdate refs/heads --format='%(color:yellow)%(refname:short)%(color:reset) %(color:red)%(upstream:track)%(color:reset) %(color:cyan)%(committerdate:relative)%(color:reset)  %(contents:subject)'"
+    # Branches whose upstream was deleted (squash-merged then removed on origin).
+    gone = "!git for-each-ref --format '%(refname:short) %(upstream:track)' refs/heads | awk '$2==\"[gone]\"{print $1}'"
+    # Compact recency table: relative date, tab, branch name.
+    recent = "for-each-ref --count=20 --sort=-committerdate refs/heads --format='%(color:cyan)%(committerdate:relative)%(color:reset)%09%(refname:short)'"
 
 [include]
     path = ~/.gitconfig.local
