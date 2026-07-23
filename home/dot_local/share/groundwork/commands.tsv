@@ -72,6 +72,9 @@ git	git diff	command	Show unstaged changes.
 git	git add -p	command	Interactively stage parts of a change.
 git	git commit -m <message>	command	Commit staged changes.
 git	git show --stat	command	Show the latest commit summary.
+git	git branches	command	List local branches, newest commit first, with upstream tracking, a [gone] marker for branches whose upstream is no longer on the remote, the relative date, and the last commit subject. Offline; run git fetch -p first to refresh [gone].
+git	git gone	command	List local branches whose upstream tracking ref has vanished since the last fetch/prune (merged, renamed, or deleted) — candidates to inspect, not proof of a merge. Offline and read-only.
+git	git recent	command	Compact table of local branches ordered by tip commit date: relative date then name. Offline.
 tmux	tmux new -s <name>	command	Start a named tmux session.
 tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
 tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.

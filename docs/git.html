@@ -341,8 +341,27 @@
         <pre><code><span class="prompt">$ </span>git fetch           <span class="comment"># download news; change nothing of yours</span>
 <span class="prompt">$ </span>git pull            <span class="comment"># fetch + bring it into your current branch</span>
 <span class="prompt">$ </span>git fetch --prune   <span class="comment"># also drop origin/* bookmarks for deleted branches</span>
-<span class="prompt">$ </span>git branch -a       <span class="comment"># see local branches and the origin/* bookmarks</span></code></pre>
+<span class="prompt">$ </span>git branches        <span class="comment"># local branches with state (see the next section)</span></code></pre>
       </div>
+
+      <h3>Seeing your branches clearly</h3>
+      <p>Plain <code>git branch -a</code> does mark the current branch with <code>*</code> (and branches checked out in other worktrees with <code>+</code>), but its default view doesn't combine recency, tracking health, merge evidence, unique work, worktree use, and pull-request state. When you're directing agents that spin up a branch per task, that flat list fills with noise fast. Groundwork adds three read-only aliases that answer the real questions. They never change anything — they only look.</p>
+      <table class="keytable">
+        <tr><td><code>git branches</code></td><td>Local branches, <strong>newest commit first</strong>, each with its upstream tracking, a red <code>[gone]</code> marker if its upstream branch is no longer on the remote, the relative date, and the last commit subject</td></tr>
+        <tr><td><code>git gone</code></td><td>Just the branches whose upstream tracking ref has vanished since your last fetch/prune. That often means the branch merged and was cleaned up — but it can equally mean it was renamed, force-deleted, or removed by hand — so these are <em>candidates to inspect</em>, never proof anything was merged</td></tr>
+        <tr><td><code>git recent</code></td><td>A compact table ordered by each branch's last commit date: relative date, then branch name</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Why not just delete the "gone" ones?</span>
+        <p>A squash-merge makes a <em>new</em> commit on <code>main</code>, so Git's own <code>--merged</code> check can't see that your branch's work is already in — that's why <code>git gone</code> leans on the upstream-tracking signal (the <code>[gone]</code> marker Git sets locally after a fetch with prune) instead. But "upstream is gone" still isn't proof of anything: a branch could be gone <em>and</em> still hold a commit you never pushed, or have vanished only because it was renamed or deleted by hand. So these aliases only <strong>show</strong>; deleting is always your deliberate call. Safe deletion (<code>git branch -d</code>, lowercase) refuses to remove a branch that isn't fully merged into its upstream — or into <code>HEAD</code> when it has no upstream — so note that "merged" and "pushed" are <em>not</em> the same test. Even a deleted branch's commits linger in <code>git reflog</code> for a while (Git's <em>default</em> expiry is 90 days for reachable entries, 30 for unreachable) — but the durable habit is to push important work (a draft PR is perfect) rather than trust the reflog.</p>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">read your own branch list</span></div>
+        <pre><code><span class="prompt">$ </span>git fetch --prune   <span class="comment"># refresh remote-tracking refs; drop upstreams gone from the remote</span>
+<span class="prompt">$ </span>git branches        <span class="comment"># the full picture, newest first</span>
+<span class="prompt">$ </span>git gone            <span class="comment"># just the safe-to-review candidates</span></code></pre>
+      </div>
+      <p>If <code>git gone</code> lists names, their configured upstream tracking refs are absent from your local remote-tracking refs after the latest fetch/prune — which does not by itself prove the work merged. Look at each with <code>git branches</code> before removing anything, or open the repo in <code>lazygit</code> (<code>lg</code>) to see them visually.</p>
 
       <h3>The sensible defaults</h3>
       <p>A handful of config choices that make day-to-day Git smoother and the history cleaner:</p>
@@ -352,6 +371,8 @@
         <tr><td><code>fetch.prune = true</code></td><td>Runs the prune from the section above on every fetch: stale <code>origin/*</code> bookmarks for branches already deleted on GitHub are dropped. Bookmarks only; local branches, edits, and commits are never touched</td></tr>
         <tr><td><code>init.defaultBranch = main</code></td><td>New repos start on <code>main</code>, matching GitHub</td></tr>
         <tr><td><code>merge.conflictstyle = zdiff3</code></td><td>When a merge conflicts, you see three sections — yours, theirs, <em>and the common ancestor</em> — which makes it far clearer <em>why</em> the conflict happened and how to resolve it</td></tr>
+        <tr><td><code>branch.sort = -committerdate</code></td><td>Branch lists are ordered by each branch's <strong>tip commit date, newest first</strong>, instead of alphabetically — the branch you committed to last is usually at the top (this sorts by commit date, not by when you last checked a branch out)</td></tr>
+        <tr><td><code>rerere.enabled = true</code></td><td>Git <em>records</em> how you resolved a conflict and reapplies that resolution if the same conflict recurs during a rebase — you still review and stage the result, since auto-staging is the separate <code>rerere.autoupdate</code> setting</td></tr>
       </table>
 
       <h3>Signed commits</h3>
