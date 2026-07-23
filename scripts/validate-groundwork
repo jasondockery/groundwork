@@ -1255,6 +1255,66 @@ preset_out="$(_preset_render personal-preview)" || fail "profile prompt did not 
 grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
   || fail "an existing stored profile_preset (personal-preview) must pass through unchanged, not be dropped as a non-digit"
 
+check "groundwork-configure settings editor"
+gc_bin=home/dot_local/bin/executable_groundwork-configure
+test -x "$gc_bin" || fail "groundwork-configure must exist and be executable"
+bash -n "$gc_bin" || fail "groundwork-configure must be valid bash"
+# Argument contract: parse before any side effect. --help exits 0; unknown
+# options and unexpected positionals exit 64; none of these mutate anything.
+gc_rc=0; bash "$gc_bin" --help >/dev/null 2>&1 || gc_rc=$?
+[[ "$gc_rc" -eq 0 ]] || fail "groundwork-configure --help must exit 0"
+gc_rc=0; bash "$gc_bin" --bogus >/dev/null 2>&1 || gc_rc=$?
+[[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject an unknown option with exit 64"
+gc_rc=0; bash "$gc_bin" extra arg >/dev/null 2>&1 || gc_rc=$?
+[[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject positional arguments with exit 64"
+# Safe machine-state handling: candidate via isolated init, no sed on TOML,
+# compare-before-swap + lock + atomic 0600 promotion, apply with the exact config.
+grep -qF 'init --config-path' "$gc_bin" || fail "groundwork-configure must render a candidate via 'init --config-path'"
+grep -qF -- '--persistent-state' "$gc_bin" || fail "groundwork-configure must isolate persistent-state for the candidate render"
+assert_no_matches "groundwork-configure must not edit TOML with sed" rg -n 'sed -i' "$gc_bin"
+grep -qF 'cksum' "$gc_bin" || fail "groundwork-configure must compare the config digest before swapping (no clobber of newer answers)"
+grep -qE 'mkdir .*lock_dir' "$gc_bin" || fail "groundwork-configure must take a promotion lock"
+grep -qF 'chmod 600' "$gc_bin" || fail "the promoted config must be written mode 0600"
+grep -qE 'mv -f .*config_path' "$gc_bin" || fail "config promotion must be an atomic rename"
+grep -qE 'config .*config_path.* apply' "$gc_bin" || fail "groundwork-configure must apply with the exact promoted config path"
+# Non-TTY: refuse and point at the manual path.
+gc_guard="$(bash "$gc_bin" </dev/null 2>&1 || true)"
+grep -qF 'interactive settings editor' <<<"$gc_guard" || fail "groundwork-configure must refuse non-TTY input with guidance"
+# End-to-end through a real pty against a SYNTHETIC config: change the profile,
+# reach the Apply confirmation (the P0 regression never did), DECLINE, and leave
+# the config untouched.
+if command -v tmux >/dev/null 2>&1; then
+  gc_dir="$out_dir/gw-configure"; mkdir -p "$gc_dir/xdg/chezmoi"
+  {
+    echo "sourceDir = \"$PWD/home\""
+    echo '[data]'
+    printf '    %s\n' 'work = false' 'headless = false' 'name = "Test User"' \
+      'email_personal = "test@example.com"' 'email_work = ""' 'code_dir = "~/code"' \
+      'reset_existing_configs = false' 'password_manager = "bitwarden"' 'signingkey = ""' \
+      'obsidian_vault_name = "test"' 'install_chrome = false' 'profile_preset = "personal-current"' \
+      'environment_role = "personal"' 'release_posture = "current"' 'game_dev = false' \
+      'xcode = false' 'beta = false'
+  } >"$gc_dir/xdg/chezmoi/chezmoi.toml"
+  gc_sock="groundwork-gc-$$"; gc_out="$gc_dir/out"
+  tmux -L "$gc_sock" new-session -d -x 115 -y 45 \
+    "XDG_CONFIG_HOME='$gc_dir/xdg' bash '$PWD/$gc_bin'; sleep 8"
+  tmux -L "$gc_sock" pipe-pane -t 0 -o "cat >> '$gc_out'"; sleep 2
+  tmux -L "$gc_sock" send-keys -t 0 1 Enter; sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 3 Enter; sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 12 Enter; sleep 3
+  tmux -L "$gc_sock" send-keys -t 0 n Enter; sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 n Enter; sleep 2
+  tmux -L "$gc_sock" kill-server 2>/dev/null || true
+  grep -aqF 'Proposed changes:' "$gc_out" \
+    || { cat "$gc_out" >&2; fail "groundwork-configure must print a structured receipt of the change"; }
+  grep -aqF 'Apply these changes?' "$gc_out" \
+    || { cat "$gc_out" >&2; fail "groundwork-configure must reach the Apply confirmation (P0: the diff logic once returned early)"; }
+  grep -aqF 'Not applied' "$gc_out" \
+    || fail "declining must report the configuration was not applied"
+  grep -qF 'profile_preset = "personal-current"' "$gc_dir/xdg/chezmoi/chezmoi.toml" \
+    || fail "declining must leave the live config unchanged"
+fi
+
 check "terminal copy model (effective tmux server + helper safety)"
 # Source greps accept a syntactically valid but wrong binding; assert the
 # EFFECTIVE behavior in a real isolated server, and prove the cwd helper cannot

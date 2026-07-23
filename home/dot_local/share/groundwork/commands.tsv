@@ -2,6 +2,7 @@
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
+daily	groundwork-configure	command	Review your Groundwork setup answers and change any of them safely: shows current values, changes only what you pick, previews the diff, applies after you confirm. This is how to change a setting — "chezmoi init" only regenerates, and "chezmoi init --prompt" replays the whole interview.
 tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.
 tmux	Ctrl+a then Ctrl+y	key	Copy the current pane's working directory to the clipboard (native OSC 52 via a helper that reads the path from tmux and never runs it through a shell).
 tmux	Ctrl+a then z	key	Zoom the active pane to fill the screen; press again to restore. The status line shows Z while zoomed — this is what happened if a pane suddenly took over the screen.

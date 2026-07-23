@@ -223,12 +223,13 @@
       </table>
 
       <h3>chezmoi warns: "config file template has changed, run chezmoi init"</h3>
-      <p>This appears after a bare <code>chezmoi update</code> when Groundwork&apos;s setup questions changed — usually because a new question was added. Running <code>chezmoi init</code> again is not starting over: every answer you already gave is kept (the questions are ask-once), so it asks only the new questions and regenerates the config file, and nothing is reinstalled. Skipping it means new features that depend on a new answer stay off until you do. <code>update-all</code> and <code>chezmoi update --init</code> handle this automatically, which is why they are the recommended forms:</p>
+      <p>This appears after a bare <code>chezmoi update</code> when Groundwork&apos;s setup template changed. Running <code>chezmoi init</code> again is not starting over: every answer you already gave is kept (the questions are ask-once), so it regenerates the config from your existing answers. If no new question was added, it <strong>returns silently</strong> — that is success, not a no-op: the config was rebuilt with your saved answers and nothing was reinstalled. <code>update-all</code> and <code>chezmoi update --init</code> handle this automatically, which is why they are the recommended forms:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">re-init</span></div>
-        <pre><code><span class="prompt">$ </span>chezmoi init     <span class="comment"># keeps existing answers, asks only new questions</span>
-<span class="prompt">$ </span>chezmoi apply    <span class="comment"># apply with the refreshed answers</span></code></pre>
+        <pre><code><span class="prompt">$ </span>chezmoi init     <span class="comment"># regenerate from existing answers (silent = success)</span>
+<span class="prompt">$ </span>chezmoi apply    <span class="comment"># apply with the refreshed config</span></code></pre>
       </div>
+      <p><strong>To change a setting</strong> (not just regenerate), use <code>groundwork-configure</code>: it shows your current answers, changes only the one you pick, previews the diff, and applies after you confirm. Plain <code>chezmoi init</code> never asks what to change, and <code>chezmoi init --prompt</code> replays the <em>entire</em> interview using template defaults — which can silently reset answers — so it is an advanced/debugging path, not the way to tweak one setting.</p>
 
       <h3>Windows &amp; WSL: scripts fail with <code>bad interpreter: ^M</code></h3>
       <p>That <code>^M</code> is a Windows carriage return: the clone was made with Git for Windows converting files to CRLF line endings, which breaks shell scripts and chezmoi templates the moment WSL runs them. Groundwork ships a <code>.gitattributes</code> that forces LF, so a fresh clone made <em>inside WSL</em> checks out correctly. If you hit this, re-clone from a WSL terminal, and tell Git to never introduce CRLF again:</p>

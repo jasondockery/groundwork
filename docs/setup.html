@@ -209,7 +209,7 @@
       </div>
 
       <h2><span class="hash">#</span>Customize without forking</h2>
-      <p>Groundwork is a shared base with a personal layer. For normal personal preferences, use the local override files that Groundwork intentionally loads last: <code>~/.zshrc.local</code>, <code>~/.gitconfig.local</code>, and <code>~/.config/tmux/tmux.local.conf</code>. For setup choices, edit <code>~/.config/chezmoi/chezmoi.toml</code> or re-run <code>chezmoi init</code>. See <a href="customizing.html">Customizing</a> for the full tiered model.</p>
+      <p>Groundwork is a shared base with a personal layer. For normal personal preferences, use the local override files that Groundwork intentionally loads last: <code>~/.zshrc.local</code>, <code>~/.gitconfig.local</code>, and <code>~/.config/tmux/tmux.local.conf</code>. For setup choices (your profile, work machine, password manager, and so on), run <code>groundwork-configure</code> — it shows your current answers, changes only what you pick, previews the diff, and applies after you confirm. (Plain <code>chezmoi init</code> only <em>regenerates</em> from your existing answers; it never asks what to change.) See <a href="customizing.html">Customizing</a> for the full tiered model.</p>
 
 
 <div class="callout note">
