@@ -62,14 +62,38 @@ documented. See specs/environment-profiles-and-release-posture.md.
 
 Headless machines install no desktop applications, so they are not asked and
 stay on the stable channel. A work machine defaults to work-managed. */ -}}
-{{- $profilePresets := list "personal-current" "personal-preview" "work-managed" "disposable-experimental" -}}
+{{- /* A NUMBERED menu, not a bare choice list. chezmoi's promptChoice is a
+type-to-match field that auto-submits on a unique abbreviation, and our own
+`personal-current`/`personal-preview` share a nine-character prefix, so the raw
+values needed ten keystrokes to disambiguate while `w`/`d` submitted on one.
+Numbers make every choice one keystroke and keep the stored `profile_preset`
+values unchanged. See specs/interactive-cli-and-chezmoi-interview.md. */ -}}
+{{- $presetByNum := dict "1" "personal-current" "2" "personal-preview" "3" "work-managed" "4" "disposable-experimental" -}}
+{{- $numByPreset := dict "personal-current" "1" "personal-preview" "2" "work-managed" "3" "disposable-experimental" "4" -}}
 {{- $defaultPreset := "personal-current" -}}
 {{- if $work -}}
 {{- $defaultPreset = "work-managed" -}}
 {{- end -}}
+{{- /* If a valid preset is already stored, offer ITS number as the default so a
+forced `chezmoi init --prompt` (which replays with template defaults, not the
+stored answer) never silently resets an existing choice. */ -}}
+{{- $defaultNum := index $numByPreset $defaultPreset -}}
+{{- if and (hasKey . "profile_preset") (hasKey $numByPreset (toString .profile_preset)) -}}
+{{- $defaultNum = index $numByPreset (toString .profile_preset) -}}
+{{- end -}}
 {{- $profilePreset := $defaultPreset -}}
 {{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
-{{- $profilePreset = promptChoiceOnce . "profile_preset" (printf "Starting profile. personal-current (recommended) keeps AI tools current on the latest stable applications; personal-preview adds pre-release apps where one exists (VS Code Insiders, Zen Twilight, Chrome Beta) and accepts occasional breakage; work-managed never attempts to work around device policy; disposable-experimental suits a rebuildable container or VM. AI tools stay current in every profile (Enter keeps the default: %s)" $defaultPreset) $profilePresets $defaultPreset -}}
+{{- $presetChoice := promptChoiceOnce . "profile_preset" (printf "Starting profile — type 1-4:\n  1. Personal current (recommended) — AI tools current on the latest stable apps\n  2. Personal preview — adds pre-release apps (VS Code Insiders, Zen Twilight, Chrome Beta); accepts occasional breakage\n  3. Work managed — never works around device policy\n  4. Disposable experimental — a rebuildable container or VM\nAI tools stay current in every profile (Enter keeps the default: %s)" $defaultNum) (list "1" "2" "3" "4") $defaultNum -}}
+{{- /* Dual return domain: a fresh or --prompt run yields a digit; an existing
+config has promptChoiceOnce return the stored value string directly. Accept both
+and normalize to exactly one stored value. */ -}}
+{{- if hasKey $presetByNum $presetChoice -}}
+{{- $profilePreset = index $presetByNum $presetChoice -}}
+{{- else if hasKey $numByPreset $presetChoice -}}
+{{- $profilePreset = $presetChoice -}}
+{{- else -}}
+{{- $profilePreset = $defaultPreset -}}
+{{- end -}}
 {{- end -}}
 {{- /* Role and posture are stored separately so a user can later change one
 without the other, and so a preset is only ever a starting value. */ -}}

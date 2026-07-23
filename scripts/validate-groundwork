@@ -1216,6 +1216,45 @@ if command -v tmux >/dev/null 2>&1; then
     || fail "the setup-UI check MUTATED the real chezmoi config at $real_chezmoi_config — its isolation is broken"
 fi
 
+check "chezmoi interview: numbered profile menu maps to stored values"
+# The starting-profile question is a NUMBERED menu (1-4) mapped to the stored
+# profile_preset values, so no two choices share a long type-to-match prefix
+# (personal-current/personal-preview otherwise needed ten keystrokes to
+# disambiguate while w/d submitted on one). The stored contract is unchanged; see
+# specs/interactive-cli-and-chezmoi-interview.md.
+grep -qF 'list "1" "2" "3" "4"' home/.chezmoi.toml.tmpl \
+  || fail "the profile prompt must offer a numbered 1-4 menu, not the raw preset strings"
+grep -qF 'Starting profile — type 1-4:' home/.chezmoi.toml.tmpl \
+  || fail "the profile prompt must present a numbered menu the user types 1-4 into"
+# chezmoi's Once prompt functions read the answer from data, so --override-data is
+# the deterministic driver for the rendered interview. Assert the digit maps to
+# the stored value AND the derived role/posture, and that an already-stored value
+# passes straight through (the dual return domain).
+_preset_render() {
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "{\"profile_preset\":\"$1\",\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}" \
+    execute-template --init \
+    --promptBool work=false,headless=false,reset_existing_configs=false,install_chrome=false,game_dev=false,xcode=false \
+    --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
+    --promptChoice password_manager=none \
+    < home/.chezmoi.toml.tmpl 2>&1
+}
+preset_out="$(_preset_render 2)" || { printf '%s\n' "$preset_out" >&2; fail "profile numbered menu did not render (choice 2)"; }
+grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
+  || { printf '%s\n' "$preset_out" >&2; fail "menu choice 2 must store profile_preset personal-preview"; }
+grep -qF 'release_posture = "preview"' <<<"$preset_out" \
+  || fail "menu choice 2 (personal-preview) must derive the preview posture"
+grep -qF 'environment_role = "personal"' <<<"$preset_out" \
+  || fail "menu choice 2 must keep the personal role"
+preset_out="$(_preset_render 3)" || fail "profile numbered menu did not render (choice 3)"
+grep -qF 'profile_preset = "work-managed"' <<<"$preset_out" \
+  || fail "menu choice 3 must store profile_preset work-managed"
+grep -qF 'environment_role = "managed"' <<<"$preset_out" \
+  || fail "menu choice 3 (work-managed) must derive the managed role"
+preset_out="$(_preset_render personal-preview)" || fail "profile prompt did not render a stored-value answer"
+grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
+  || fail "an existing stored profile_preset (personal-preview) must pass through unchanged, not be dropped as a non-digit"
+
 check "shell prompt convention (bootstrap and brew repair)"
 # Groundwork's own shell prompts follow one convention: a bracketed affordance
 # with the default capitalized, a blocking read on the controlling terminal
