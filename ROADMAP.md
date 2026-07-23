@@ -421,3 +421,77 @@ which returns only the first match.
       `~/.config/opencode/`, so the two never collide.
 - [ ] Cover the reverse case too: a Groundwork-managed command that is missing
       from PATH entirely because another installer removed or shadowed it.
+
+## chezmoi interview UX: navigable choices and re-run clarity
+
+Full design and acceptance contract in
+`specs/interactive-cli-and-chezmoi-interview.md` (numbered menu preserving the
+stored `profile_preset` contract, `chezmoi init --prompt` template-defaults
+warning, cancellation-safe candidate transaction, existing-template
+remediation). Procedures: `skills/interactive-cli-ux`, `skills/chezmoi-change`.
+
+- [ ] Implement the numbered profile menu + dual-domain normalization + fixture.
+- [ ] `groundwork-configure` selective reconfigure (candidate diff + confirm).
+- [ ] Remediate the existing bool/password-manager prompts to the UX contract.
+- [ ] Interview tests: fresh / existing-reuse / `--prompt` / EOF / cancel states,
+      one real pty.
+
+## Branch lifecycle: groundwork-branches (Slice A)
+
+Full design and acceptance contract in `specs/branch-lifecycle.md` (independent
+fact dimensions + disposition, `merged-pr-non-ancestor` over unproven
+`squash-merged`, PR-cache contract, default-branch fallback chain,
+compare-and-swap deletion, hardened recovery receipt). Implement under
+`skills/safe-mutating-cli`; extend `skills/developer-workspace-navigation`.
+
+Immediate relief already on LOCAL `main` (`9fe06b8`, not pushed, not released):
+`branch.sort=-committerdate`, `rerere.enabled`, and the `git branches` /
+`git gone` / `git recent` aliases.
+
+- [ ] Read-only offline status table (`--refresh` the only networked action).
+- [ ] `plan-clean` / `clean` with race protection and the recovery receipt.
+- [ ] Integrate branch health into `groundwork-repos`.
+
+## Terminal copy model: Ghostty + tmux coherence (Slice B)
+
+Full design in `specs/terminal-copy-model.md`: keyboard-first, mouse-assisted —
+one documented owner for selection/history/search/copy per context (Ghostty
+outside tmux, tmux inside), the mouse a convenience, not a second workflow.
+Implement under `skills/terminal-interaction`.
+
+- [ ] Owner sign-off on the six product decisions in the spec — they change
+      shipped muscle memory and clipboard/passthrough security posture.
+- [ ] tmux: persistent mouse selection (`y` to copy, accounting for tmux-yank
+      load order), remove the pane right-click menu (inert + hint, not
+      selection-aware copy), `set-clipboard external`, audit `allow-passthrough`.
+- [ ] Ghostty: migrate to `config.ghostty`; macOS `copy-on-select=false` +
+      `selection-clear-on-copy=true` + `mouse-shift-capture=never` + a verified
+      right-click action; require >= 1.3.1.
+- [ ] Update every teaching surface (tmux, keyboard, command-line, cheatsheet,
+      practice, troubleshooting, setup, game-dev-learn Module 5) and add the
+      keyboard competency gates A/B from the spec.
+- [ ] `groundwork-doctor --terminal` receipts + the real-tmux/pty validation
+      harness per the spec.
+
+## Community showcase for the learning guides (later milestone)
+
+Raised 2026-07-22 against the new FPS learn-dev page
+(`docs/game-dev-learn.html`). Worth doing, but it is a real feature — a
+discovery source, a scheduled Action, a moderation flow, and an analytics
+choice — so it is roadmapped rather than bolted on now, per the substantial-work
+rule. The trust-boundary and X-API notes are baked in here so nobody later
+reaches for tweet-scraping.
+
+- [ ] Discover projects by GitHub topic (e.g. a `groundwork-fps` topic authors
+      opt into), never by scraping social posts. As of 2026-07 the X/Twitter API
+      has no free tier and mention-search sits in Enterprise pricing (a
+      time-sensitive fact — revalidate when this milestone is picked up rather
+      than treating today's pricing as permanent); tweet-scraping stays off the
+      table as a discovery source regardless.
+- [ ] A weekly scheduled GitHub Action opens a REVIEW PR proposing showcase
+      additions; it never auto-publishes. Community-submitted content is
+      untrusted by default — the same trust boundary the guide itself teaches —
+      so a human approves every entry before it appears on the page.
+- [ ] Choose an analytics approach separately and privacy-first (cookie-free,
+      e.g. Plausible or GoatCounter) if weekly traffic needs measuring; keep it
+      independent of the showcase content pipeline.
