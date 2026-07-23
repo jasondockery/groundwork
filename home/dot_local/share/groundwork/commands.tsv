@@ -3,6 +3,7 @@ daily	groundwork-help [query]	command	Show this command catalog. Add a word to f
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
 tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.
+tmux	Ctrl+a then Ctrl+y	key	Copy the current pane's working directory to the clipboard (native OSC 52 via a helper that reads the path from tmux and never runs it through a shell).
 tmux	Ctrl+a then z	key	Zoom the active pane to fill the screen; press again to restore. The status line shows Z while zoomed — this is what happened if a pane suddenly took over the screen.
 tmux	Ctrl+a then Shift+R	key	Repo picker popup: fuzzy-search every repository discovered under your configured roots, preview its git status, and jump to (or open) its lazygit window.
 tmux	Ctrl+a then Shift+G	key	Open a lazygit window for every repository with uncommitted changes (groundwork-repos changed).

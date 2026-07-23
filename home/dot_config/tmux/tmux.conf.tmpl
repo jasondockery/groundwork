@@ -2,7 +2,11 @@ set -g mouse on
 set -g base-index 1
 setw -g pane-base-index 1
 set -g renumber-windows on
-set -g history-limit 100000
+# 50k lines/pane. Scrollback is a working buffer, not permanent storage: verbose
+# agent output across many long-lived panes is real memory. Important output
+# belongs in a log or a receipt (`tee` a long build, `Ctrl+a Y` to copy the last
+# command); raise this only for a session you have designated as a log.
+set -g history-limit 50000
 set -g escape-time 10
 
 set -g default-terminal "tmux-256color"
@@ -10,12 +14,52 @@ set -ga terminal-overrides ",xterm-256color:RGB,*:RGB"
 set-environment -g TMUX_PLUGIN_MANAGER_PATH "$HOME/.config/tmux/plugins/"
 
 setw -g mode-keys vi
-set -g set-clipboard on
+# external: tmux copies selections OUT to Ghostty via OSC 52, and (with
+# passthrough off, below) programs inside tmux cannot set the outer clipboard —
+# the right posture when panes run agents and untrusted scripts. Needs the outer
+# terminal's Ms capability. One native clipboard path (this + copy-selection
+# below); tmux-yank, which used an external pbcopy path, is not loaded.
+set -s set-clipboard external
 set -g detach-on-destroy off
-set -g allow-passthrough on
+# Global passthrough is OFF. Left on, a passthrough-wrapped escape sequence would
+# let a VISIBLE-pane program reach Ghostty directly (e.g. a wrapped OSC 52
+# clipboard write), defeating set-clipboard external. yazi needs passthrough for
+# its Kitty-graphics previews, so the `y` shell function enables it on ITS pane
+# only and restores the prior value on exit — the boundary stays closed
+# elsewhere. TERM/TERM_PROGRAM are propagated so yazi detects the protocol (its
+# documented tmux setup).
+set -g allow-passthrough off
+set -ga update-environment TERM
+set -ga update-environment TERM_PROGRAM
 bind -T copy-mode-vi v send -X begin-selection
 bind -T copy-mode-vi C-v send -X rectangle-toggle
 bind -T copy-mode-vi y send -X copy-selection-and-cancel
+# A mouse drag PLACES a selection but does not auto-copy or exit copy mode; you
+# complete the copy with y (tmux's default copies on drag-release).
+unbind -T copy-mode-vi MouseDragEnd1Pane
+# tmux-yank is no longer loaded, but a long-lived server that HAD it keeps its
+# bindings after a reload, leaving the external pbcopy path on keys Groundwork
+# does not re-bind. Clear those keys — all lack a tmux default, so it is safe on
+# a fresh server too. (copy-mode-vi D keeps its native default and is left alone;
+# copy-mode-vi y and prefix C-y are re-bound below and by the helper.)
+unbind -q y
+unbind -q -T copy-mode-vi Y
+unbind -q -T copy-mode-vi M-y
+unbind -q -T copy-mode Y
+unbind -q -T copy-mode M-y
+# Right-click stays useful to mouse-aware apps: forward it to a pane running one
+# (Neovim, lazygit) or already in copy mode; in an ordinary shell pane show the
+# copy hint instead of tmux's pane menu. The pane menu moves to Option+right.
+bind -n MouseDown3Pane if-shell -F -t = '#{mouse_any_flag}' \
+  'select-pane -t=; send-keys -M' \
+  "select-pane -t=; display-message 'copy pane history: prefix [ … v … y   ·   raw terminal selection: hold Shift while dragging'"
+bind -n M-MouseDown3Pane display-menu -t = -x M -y M \
+  'Horizontal split' h 'split-window -h -c "#{pane_current_path}"' \
+  'Vertical split'   v 'split-window -v -c "#{pane_current_path}"' '' \
+  'Swap up'          u 'swap-pane -U' \
+  'Swap down'        d 'swap-pane -D' '' \
+  'Kill pane'        X 'confirm-before -p "kill pane #P? [y/N] " kill-pane' \
+  'Zoom'             z 'resize-pane -Z'
 # Copy the last completed command + its output, selected by semantic prompt
 # marks (OSC 133, emitted by Groundwork's zsh) — running commands and
 # prompt-looking output can't fool it. Terminal-native "select last output"
@@ -112,7 +156,6 @@ bind -N "session switcher" T display-popup -E -w 40% -h 50% \
 
 set -g @plugin 'tmux-plugins/tpm'
 set -g @plugin 'tmux-plugins/tmux-sensible'
-set -g @plugin 'tmux-plugins/tmux-yank'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
 set -g @plugin 'tmux-plugins/tmux-cpu'
@@ -120,11 +163,12 @@ set -g @plugin 'tmux-plugins/tmux-battery'
 set -g @plugin 'christoomey/vim-tmux-navigator'
 set -g @plugin 'catppuccin/tmux#v2.3.0'
 
-# tmux-yank claims prefix+Y for "copy the pane's working directory", and
-# plugins load after this file, so it would silently win over the prefix+Y
-# copy-last-command binding above. Move its pwd copy to prefix+C-y (still
-# available, just not on the more valuable key).
-set -g @yank_pane_pwd 'C-y'
+# prefix+C-y: copy this pane's working directory (native, replacing tmux-yank's
+# @yank_pane_pwd). The helper reads the path from tmux and pipes it to
+# load-buffer -w — never through /bin/sh — so a directory name with shell
+# metacharacters cannot execute. Absolute path and -b for the same reason as
+# prefix+Y: don't trust a long-lived server's PATH, don't block the client.
+bind C-y run-shell -b '"$HOME/.local/bin/tmux-copy-cwd" "#{pane_id}" "#{client_name}"'
 
 set -g @vim_navigator_mapping_left 'M-h'
 set -g @vim_navigator_mapping_down 'M-j'

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Copy a tmux pane's current working directory to a tmux paste buffer and, when
+# the terminal supports it, the system clipboard. Bound to prefix+C-y.
+#
+# The path is read from tmux and piped through STDIN to load-buffer — it is
+# NEVER interpolated into a shell command — so a directory name containing shell
+# metacharacters (an apostrophe, ;, $(), a newline, control bytes) cannot escape
+# and execute. A stable named buffer is reused so repeated copies do not evict
+# other buffers when tmux hits buffer-limit.
+
+pane="${1:-}"
+client="${2:-}"
+buffer="groundwork-copy-cwd"
+
+if [[ -z "${TMUX:-}" && -z "$pane" ]]; then
+  echo "tmux-copy-cwd: not inside tmux." >&2
+  exit 1
+fi
+
+# -p prints the expanded format to stdout; the value is DATA, never evaluated.
+if [[ -n "$pane" ]]; then
+  cwd="$(tmux display-message -p -t "$pane" '#{pane_current_path}')"
+else
+  cwd="$(tmux display-message -p '#{pane_current_path}')"
+fi
+
+if [[ -z "$cwd" ]]; then
+  echo "tmux-copy-cwd: could not read the pane working directory." >&2
+  exit 1
+fi
+
+# Pipe via stdin: load-buffer treats it as opaque bytes with no shell parsing.
+# -w also forwards it to the outer clipboard via OSC 52 (set-clipboard external).
+# -t targets the invoking client so delivery is unambiguous with two clients
+# attached. Success is reported ONLY after the copy actually succeeds.
+load_args=(load-buffer -w -b "$buffer")
+[[ -n "$client" ]] && load_args+=(-t "$client")
+load_args+=(-)
+if ! printf '%s' "$cwd" | tmux "${load_args[@]}"; then
+  echo "tmux-copy-cwd: copy failed." >&2
+  exit 1
+fi
+
+# Fixed confirmation, no path echo: display-message expands #{...} formats in its
+# argument, so echoing an attacker-influenced path there is its own hazard. The
+# copied value (above) is exact; the status line just confirms it happened.
+tmux display-message "copied working directory to the clipboard"

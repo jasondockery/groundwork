@@ -1255,6 +1255,84 @@ preset_out="$(_preset_render personal-preview)" || fail "profile prompt did not 
 grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
   || fail "an existing stored profile_preset (personal-preview) must pass through unchanged, not be dropped as a non-digit"
 
+check "terminal copy model (effective tmux server + helper safety)"
+# Source greps accept a syntactically valid but wrong binding; assert the
+# EFFECTIVE behavior in a real isolated server, and prove the cwd helper cannot
+# be shell-injected. See specs/terminal-copy-model.md.
+test -x home/dot_local/bin/executable_tmux-copy-cwd \
+  || fail "tmux-copy-cwd helper must exist and be executable"
+grep -qF 'bind C-y run-shell -b' home/dot_config/tmux/tmux.conf.tmpl \
+  || fail "prefix+C-y must call the tmux-copy-cwd helper via run-shell -b"
+assert_no_matches "prefix+C-y must not interpolate the pane path through /bin/sh" \
+  rg -n "set-buffer -w '#\{pane_current_path\}'" home/dot_config/tmux/tmux.conf.tmpl
+# Ghostty copy model differs by platform: explicit copy on macOS, selection
+# convention preserved on Linux. Render both and assert they diverge.
+gcfg_mac="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"darwin"}}' execute-template < home/dot_config/ghostty/config.tmpl)"
+gcfg_lin="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"linux"}}' execute-template < home/dot_config/ghostty/config.tmpl)"
+grep -qxF 'copy-on-select = false' <<<"$gcfg_mac" \
+  || fail "Ghostty on macOS must set copy-on-select = false (explicit copy)"
+grep -qxF 'copy-on-select = true' <<<"$gcfg_lin" \
+  || fail "Ghostty on Linux must keep copy-on-select = true (selection convention)"
+grep -qxF 'mouse-shift-capture = never' <<<"$gcfg_lin" \
+  || fail "mouse-shift-capture = never must apply on every platform"
+if command -v tmux >/dev/null 2>&1; then
+  tcm_dir="$out_dir/terminal-copy-model"; mkdir -p "$tcm_dir"
+  chezmoi --config "$empty_config" --source "$PWD" \
+    --override-data '{"headless":false,"chezmoi":{"os":"darwin"}}' \
+    execute-template < home/dot_config/tmux/tmux.conf.tmpl > "$tcm_dir/full.conf" 2>/dev/null \
+    || fail "tmux.conf.tmpl must render"
+  grep -vE "run '.*tpm'|@plugin|@continuum|@resurrect|@catppuccin|@vim_navigator|source-file .*plugins|catppuccin|status-left|status-right|status-interval" \
+    "$tcm_dir/full.conf" > "$tcm_dir/core.conf"
+  tcm_sock="groundwork-tcm-$$"
+  if tmux -L "$tcm_sock" -f "$tcm_dir/core.conf" new-session -d -x 80 -y 24 2>"$tcm_dir/err"; then
+    [[ "$(tmux -L "$tcm_sock" show -sv set-clipboard)" == external ]] \
+      || fail "set-clipboard must resolve to external in a live server"
+    [[ "$(tmux -L "$tcm_sock" show -gv allow-passthrough)" == off ]] \
+      || fail "allow-passthrough must be off globally (pane-scoped for yazi via the y function)"
+    tmux -L "$tcm_sock" show -gv update-environment | grep -qw TERM_PROGRAM \
+      || fail "update-environment must propagate TERM_PROGRAM for yazi"
+    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qw MouseDragEnd1Pane \
+      && fail "MouseDragEnd1Pane must be unbound in copy-mode-vi (selection persists until y)" || true
+    tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw MouseDown3Pane \
+      || fail "the conditional right-click (MouseDown3Pane) must be bound"
+    tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw M-MouseDown3Pane \
+      || fail "the Option+right-click pane menu (M-MouseDown3Pane) must be bound"
+    # Stale tmux-yank keys must be cleared so an upgraded live server drops the
+    # external pbcopy path.
+    tmux -L "$tcm_sock" list-keys -T prefix 2>/dev/null | grep -qE ' -T prefix +y ' \
+      && fail "stale tmux-yank prefix y binding must be cleared" || true
+    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qE ' -T copy-mode-vi +M-y ' \
+      && fail "stale tmux-yank copy-mode-vi M-y binding must be cleared" || true
+    tmux -L "$tcm_sock" kill-server 2>/dev/null || true
+  else
+    fail "rendered tmux copy-model config must parse in a live server: $(cat "$tcm_dir/err")"
+  fi
+fi
+# Injection safety (hermetic, no real server needed): a pane path full of shell
+# metacharacters must be handled as DATA. A stub tmux returns a hostile path from
+# display-message; the helper must copy it literally and NEVER execute it.
+cwd_helper="$PWD/home/dot_local/bin/executable_tmux-copy-cwd"
+stub="$out_dir/tmux-copy-cwd-stub"; mkdir -p "$stub/bin"
+# shellcheck disable=SC2016,SC2006 # the metacharacters are literal attack payload, not expansions
+hostile_value='evil$(touch INJECTED-CMD)`touch INJECTED-BT`;${z};#end'
+printf '%s' "$hostile_value" > "$stub/hostile"
+cat >"$stub/bin/tmux" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+  display-message) [[ "$*" == *pane_current_path* ]] && cat "$STUB_HOSTILE" ;;
+  load-buffer) cat > "$STUB_LOADED" ;;
+  *) : ;;
+esac
+exit 0
+STUB
+chmod +x "$stub/bin/tmux"
+( cd "$stub" && PATH="$stub/bin:$PATH" TMUX=fake STUB_HOSTILE="$stub/hostile" STUB_LOADED="$stub/loaded" \
+    bash "$cwd_helper" '%9' 'c0' >/dev/null 2>&1 || true )
+{ [[ -e "$stub/INJECTED-CMD" ]] || [[ -e "$stub/INJECTED-BT" ]]; } \
+  && fail "tmux-copy-cwd executed shell code embedded in the pane path (injection)" || true
+[[ "$(cat "$stub/loaded" 2>/dev/null)" == "$hostile_value" ]] \
+  || fail "tmux-copy-cwd must copy the pane path literally (got: '$(cat "$stub/loaded" 2>/dev/null)')"
+
 check "shell prompt convention (bootstrap and brew repair)"
 # Groundwork's own shell prompts follow one convention: a bracketed affordance
 # with the default capitalized, a blocking read on the controlling terminal
@@ -3732,9 +3810,12 @@ assert_no_matches "tmux kill-pane must ask before destroying a pane" \
 test -x home/dot_local/bin/executable_tmux-copy-last
 grep -qF 'bind Y run-shell -b' home/dot_config/tmux/tmux.conf.tmpl
 grep -qF "\$HOME/.local/bin/tmux-copy-last" home/dot_config/tmux/tmux.conf.tmpl
-# tmux-yank claims prefix+Y for copy-pane-pwd and loads AFTER this config, so
-# without relocating its key the copy-last binding is silently dead.
-grep -qF "set -g @yank_pane_pwd" home/dot_config/tmux/tmux.conf.tmpl
+# One clipboard path: tmux-yank (external pbcopy) is deliberately NOT loaded, so
+# copy-mode y and tmux-copy-last both use tmux's native OSC 52 route. prefix+Y is
+# no longer contested; prefix+C-y is the native copy-pane-pwd replacement.
+assert_no_matches "tmux-yank must not be reintroduced (keep one native OSC 52 clipboard path)" \
+  rg -n 'tmux-plugins/tmux-yank' home/dot_config/tmux/tmux.conf.tmpl
+grep -qF "bind C-y run-shell" home/dot_config/tmux/tmux.conf.tmpl
 grep -qF $'tmux\tCtrl+a then Shift+Y\tkey\t' home/dot_local/share/groundwork/commands.tsv
 # Brew bundle streams progress so long fetches do not read as hangs and invite
 # a Ctrl+C.
@@ -3820,7 +3901,7 @@ tmux_declared_plugins="$(
   sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf.tmpl |
     sed -E 's/#.*$//; s|.*/||; s/\.git$//'
 )"
-for plugin in tpm tmux-sensible tmux-yank tmux-resurrect tmux-continuum tmux-cpu tmux-battery vim-tmux-navigator tmux; do
+for plugin in tpm tmux-sensible tmux-resurrect tmux-continuum tmux-cpu tmux-battery vim-tmux-navigator tmux; do
   grep -qx "$plugin" <<<"$tmux_declared_plugins" || { echo "tmux plugin parser missed $plugin" >&2; exit 1; }
 done
 grep -qF "\"\$tmux_plugin_dir/tpm/bin/install_plugins\" || true" home/run_after_20-tools.sh.tmpl

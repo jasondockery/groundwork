@@ -317,6 +317,7 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>S</kbd></span></td><td>Toggle "type into every pane at once" (great for many servers)</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span></td><td>Scroll/copy mode — <kbd>v</kbd> selects, <kbd>y</kbd> copies, <kbd>q</kbd> exits</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span></td><td>Copy the last <em>completed</em> command and its output. A terminal's own "select last output" can't see inside tmux panes, so tmux owns this move, and the selection uses semantic prompt marks (OSC 133) emitted by the shell — a still-running command or prompt-looking text in output can't confuse it; in a pane whose shell lacks the marks it says so and points at copy-mode instead of guessing. The copy always lands in a tmux paste buffer (<span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>]</kbd></span>) and also reaches the system clipboard when the terminal supports it. A context line with the platform and working directory is prepended so pasted output tells an AI agent where it ran; very large output is visibly truncated (5,000 lines / 512&nbsp;KiB). Review the copied text for secrets or personal/production data before pasting it into an AI tool.</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>y</kbd></span></td><td>Copy the current pane's <em>working directory</em> to the clipboard. A helper reads the path from tmux and pipes it to the buffer — it never runs the path through a shell, so a directory name with odd characters can't misbehave.</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span></td><td>Clear the shell screen</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>K</kbd></span></td><td>Clear the shell screen and tmux scrollback</td></tr>
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>r</kbd></span></td><td>Reload the tmux config after editing it</td></tr>
@@ -334,6 +335,29 @@
           <h3>Try it now: scroll back</h3>
           <p>Output flew past? Press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> to enter scroll mode and move with the arrow keys or <kbd>k</kbd>/<kbd>j</kbd>. Press <kbd>v</kbd> to start selecting, <kbd>y</kbd> to copy, and <kbd>q</kbd> to drop back to normal.</p>
         </div>
+      </div>
+
+      <h2><span class="hash">#</span>Selecting and copying: one owner per place</h2>
+      <p>Selection lives in layers, and knowing which one you're in is the whole trick. <strong>Outside tmux</strong>, Ghostty owns the scrollback and the selection. <strong>Inside a tmux pane</strong>, tmux owns the history, search, and selection — that's why a terminal's "select last output" can't reach into a pane, and why <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> is the way in. Inside a pane running a <strong>mouse-aware app</strong> (Neovim, lazygit), that app owns the mouse. The mouse is a convenience; the keyboard copy is the skill that travels — over SSH, on any terminal, from a trackpad or a keyboard.</p>
+      <div class="callout note">
+        <span class="label">Which layer am I in?</span>
+        <p>Inside tmux → tmux owns history, search, selection, and copy. Inside a mouse app in tmux → the app owns the mouse. Outside tmux → Ghostty owns it. Need a raw one-screen grab inside tmux → hold <kbd>Shift</kbd> while you drag, which hands the mouse to Ghostty for a visible-screen selection. That escape hatch can't scroll or search tmux's history, so it's the exception, not the main road.</p>
+      </div>
+      <h3>The keyboard copy</h3>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">copy from a pane's history</span></div>
+        <pre><code>Ctrl+a [        enter copy mode
+/error          search backward for a string  (n / N repeat)
+v               start selecting              (Ctrl+v = block)
+y               copy — to the tmux buffer and the system clipboard
+q               leave</code></pre>
+      </div>
+      <p>With the mouse you can still <em>place</em> a selection by dragging — but it now stays put when you release instead of vanishing, so you can adjust it or keep paging, then press <kbd>y</kbd>. Two shortcuts skip copy mode entirely: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span> grabs the last command and its output, and <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>y</kbd></span> grabs the current directory.</p>
+      <h3>Right-click, and the macOS copy feel</h3>
+      <p>Right-click does the sensible thing per layer: in an ordinary shell pane it shows a one-line copy hint (tmux's split/kill menu now lives on <kbd>Option</kbd>+right-click); in Neovim or lazygit it's handed straight to the app. On macOS, Ghostty uses an <strong>explicit</strong> copy — selecting text no longer auto-copies; press <kbd>Cmd</kbd><kbd>C</kbd> and the selection clears, matching every other Mac app. On Linux, Ghostty keeps the usual copy-on-select and middle-click-paste convention.</p>
+      <div class="callout note">
+        <span class="label">One clipboard path</span>
+        <p>Copies leave through tmux's own OSC 52 route (<code>set-clipboard external</code>), so the same key works locally and over SSH. Programs running inside tmux can't reach your clipboard on their own — the one exception, <code>yazi</code>'s inline image previews, is granted passthrough only on its own pane, then it's revoked.</p>
       </div>
 
       <div class="callout tip">

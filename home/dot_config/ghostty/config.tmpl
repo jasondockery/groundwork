@@ -1,0 +1,40 @@
+font-family = JetBrainsMono Nerd Font
+font-size = 14
+
+theme = dark:Catppuccin Mocha,light:Catppuccin Latte
+
+macos-titlebar-style = tabs
+macos-option-as-alt = true
+
+working-directory = home
+window-inherit-working-directory = true
+tab-inherit-working-directory = true
+split-inherit-working-directory = true
+window-save-state = never
+
+# No `term` override: Ghostty ships and auto-selects its own `xterm-ghostty`
+# terminfo, which advertises capabilities the generic `xterm-256color` entry
+# omits. Inside tmux, tmux sets `tmux-256color` itself. For remote hosts without
+# Ghostty's terminfo, use Ghostty's ssh-terminfo/ssh-env rather than downgrading
+# every local session.
+
+# Copy model. macOS: explicit copy — selection is NOT auto-copied; Cmd+C copies
+# and clears the selection (native muscle memory, no lingering gray block). Linux
+# keeps the X11/Wayland convention (copy-on-select, middle-click pastes the
+# selection) that users there expect; disabling it globally would leave
+# middle-click pasting a stale selection. Shift is reserved for Ghostty's own
+# selection on both, and right-click keeps the native context menu, never a
+# surprise paste.
+{{- if eq .chezmoi.os "darwin" }}
+copy-on-select = false
+selection-clear-on-copy = true
+{{- else }}
+copy-on-select = true
+selection-clear-on-copy = false
+{{- end }}
+mouse-shift-capture = never
+right-click-action = context-menu
+mouse-hide-while-typing = true
+
+window-padding-x = 8
+window-padding-y = 6

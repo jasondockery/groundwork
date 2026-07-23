@@ -473,6 +473,53 @@ Implement under `skills/terminal-interaction`.
 - [ ] `groundwork-doctor --terminal` receipts + the real-tmux/pty validation
       harness per the spec.
 
+## Terminal observability and performance diagnostics
+
+Raised 2026-07-23 from machine-slowdown reports during long agent sessions. The
+terminal CHOICE is settled: Ghostty stays the default (native macOS + Linux, text
+config, modern protocols, strong tmux compatibility). The gap is EVIDENCE — a
+system-wide `CPU 22% · RAM 73%` status bar cannot say whether pressure is
+Ghostty, Claude/Node, tmux history, a language server, or total workload. Ghostty
+before 1.3 had a real memory leak Claude Code was good at triggering (fixed in
+1.3; 1.3.1 fixed a separate macOS mouse regression) — which is exactly why 1.3.1
+is the floor and why the doctor must be able to distinguish causes rather than
+blame the terminal. Two done now on the terminal branch: dropped the
+`term = xterm-256color` override (Ghostty's own `xterm-ghostty` terminfo is
+richer; tmux sets `tmux-256color` inside), and lowered `history-limit` 100000 →
+50000 as an AI-native scrollback bound.
+
+- [ ] `groundwork-doctor --performance`: a bounded, timestamped snapshot — macOS
+      + hardware, Ghostty/tmux/Claude/Codex/OpenCode versions, per-process RSS/CPU/
+      threads/uptime for the terminal + tmux server + each agent tree, macOS
+      memory pressure + compressed + swap, top-20 by RSS and by CPU, tmux
+      history/panes, and any agent process no longer attached to a live pane.
+      Redact command arguments that may hold secrets.
+- [ ] `groundwork-watch --performance --duration <t> --interval <t>`: an explicit
+      temporary recorder to bounded JSONL that stops on its own and prints a peak/
+      growth summary (peak pressure, swap delta, largest RSS growth by process,
+      orphan-agent count). Far better than remembering Activity Monitor after
+      recovery.
+- [ ] Status line: replace the raw RAM percentage with macOS MEMORY-PRESSURE
+      state (green/warn/red — 73% allocated is not itself a problem), keep CPU and
+      battery, add a cached active-agent count and a swap-rising warning, and go
+      loud only when action is needed. Cache expensive process-tree walks (15–30s),
+      never per-second.
+- [ ] `btop` popup on a verified-FREE prefix key (btop is already in the
+      Brewfile; `prefix+U` is taken by TPM update, so pick another) with an
+      optional filter to Ghostty/tmux/claude/codex/opencode/node/LSP/build
+      processes.
+- [ ] Pane-border agent markers: a background-descendant count only when nonzero
+      and a warning when a pane has orphaned/detached agent descendants — not
+      permanent RSS/PID/thread columns that flicker.
+- [ ] Document iTerm2 as the macOS DIAGNOSTIC fallback (mature resource monitors;
+      attaches to plain tmux without `-CC`, which would hide the tmux skills) and
+      kitty as the cross-platform fallback; Ghostty stays the default. Add the A/B
+      procedure (quit Ghostty, reattach the same tmux session from iTerm2, compare
+      pressure/swap/RSS) and a pre-reboot capture script to troubleshooting.
+- [ ] Practice/Twelve: a drill on diagnosing system pressure (memory pressure vs
+      raw %, swap, per-process growth, orphan agents) instead of staring at a
+      percentage.
+
 ## Community showcase for the learning guides (later milestone)
 
 Raised 2026-07-22 against the new FPS learn-dev page

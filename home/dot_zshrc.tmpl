@@ -210,11 +210,26 @@ rgf() {
 # whatever folder you were browsing, so a visual detour ends where you looked
 # instead of back where you started. `command cat` bypasses the bat alias so
 # the cwd file reads as plain text. Image/PDF previews render inline in Ghostty.
+# tmux's allow-passthrough is off globally (clipboard safety); yazi needs it for
+# inline previews, so it is enabled on THIS pane only and restored on return —
+# the passthrough boundary stays closed for every other pane.
 y() {
   emulate -L zsh
-  local tmp cwd
+  local tmp cwd pt_prev pt_set
   tmp="$(mktemp -t yazi-cwd.XXXXXX)" || return
+  if [[ -n "${TMUX:-}" ]]; then
+    pt_prev="$(tmux show-options -p -qv allow-passthrough 2>/dev/null)"
+    pt_set=1
+    tmux set-option -p allow-passthrough on 2>/dev/null || pt_set=0
+  fi
   yazi "$@" --cwd-file="$tmp"
+  if [[ "${pt_set:-0}" == 1 ]]; then
+    if [[ -n "$pt_prev" ]]; then
+      tmux set-option -p allow-passthrough "$pt_prev" 2>/dev/null
+    else
+      tmux set-option -pu allow-passthrough 2>/dev/null
+    fi
+  fi
   if cwd="$(command cat -- "$tmp")" && [[ -n "$cwd" && "$cwd" != "$PWD" ]]; then
     builtin cd -- "$cwd"
   fi
