@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Train as a broadly employable software engineer who happens to build a game, rather than only as a game-engine specialist. The project is an educational…">
+<title>Learn dev by building a game · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/game-dev-learn.html">
+<meta property="og:title" content="Learn dev by building a game · Groundwork">
+<meta property="og:description" content="Train as a broadly employable software engineer who happens to build a game, rather than only as a game-engine specialist. The project is an educational…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Learn dev by building a game · Groundwork">
+<meta name="twitter:description" content="Train as a broadly employable software engineer who happens to build a game, rather than only as a game-engine specialist. The project is an educational…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/game-dev-learn.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Directing agents</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Interest tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="game-dev-learn.html" class="active">FPS &middot; Learn dev</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Track &middot; FPS &middot; Learn dev</p>
+      <h1>Learn AI-native software development by building an educational game.</h1>
+      <p class="lead">Train as a broadly employable software engineer who happens to build a game, rather than only as a game-engine specialist. The project is an educational first-person experience that teaches terminal, Linux, tmux, Git, testing, deployment, and responsible AI-assisted development. The game is the motivating product; the real objective is learning to design, build, test, secure, deploy, operate, and explain real software.</p>
+      <p><em>Last reviewed: 2026-07-22 &middot; reviewed quarterly. Employment and tooling signals change; the recommendations below are revisited on that cadence.</em></p>
+
+      <div class="callout note">
+        <span class="label">Where this fits in Groundwork</span>
+        <p>The two other FPS tracks &mdash; <a href="game-dev.html">FPS &middot; Browser</a> and <a href="game-dev-unity.html">FPS &middot; Unity</a> &mdash; are one-week sprints that build a finished game. This page is the longer, career-oriented arc that a sprint can grow into: a competency-based route from terminal literacy to full-stack delivery. It sits alongside the <a href="practice.html">Practice plan</a> and the <a href="groundwork-twelve.html">Groundwork Twelve</a> as a companion learning path, and it deliberately does not re-teach the fundamentals that already have canonical pages &mdash; it links them.</p>
+      </div>
+
+      <div class="callout warn">
+        <span class="label">A Groundwork alias is not a universal command</span>
+        <p>Groundwork ships opinionated aliases and customizations for Git, the shell, and tmux. When you are <em>learning</em> the underlying tool, work with the documented default behavior so you build a portable mental model. A learner should never mistake a Groundwork alias, function, or key binding for standard Git, shell, or tmux behavior &mdash; the curriculum clearly labels anything Groundwork-specific, and so should your own notes.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Purpose</h2>
+      <p>This is a practical route into modern software development for someone who enjoys first-person games but wants career options across the broader technology industry. The central idea is simple: <strong>train as a broadly employable engineer who builds a game, not only as a game-engine specialist.</strong></p>
+      <p>The path stays useful even if the learner never applies to a game studio. Its skills transfer to web development, full-stack development, developer tooling, quality engineering, platform engineering, technical support, cloud operations, solutions engineering, educational technology, and eventually systems programming.</p>
+      <p>This is a <strong>competency-based</strong> plan. Suggested timing assumes roughly 10&ndash;15 focused hours per week, but a learner should advance when they can demonstrate the exit criteria, not merely when a calendar says a phase is over.</p>
+
+      <h2><span class="hash">#</span>Executive recommendation</h2>
+      <p>Use the following stack as the default. It is deliberately decisive: the point is to keep moving, not to survey every option.</p>
+      <table class="keytable">
+        <tr><td><strong>Area</strong></td><td><strong>Primary choice</strong></td><td><strong>When to introduce it</strong></td></tr>
+        <tr><td>Programming foundation</td><td>JavaScript, then TypeScript</td><td>Immediately</td></tr>
+        <tr><td>User interface</td><td>HTML, CSS, accessible browser UI</td><td>Immediately</td></tr>
+        <tr><td>First-person 3D</td><td>Babylon.js</td><td>After basic JavaScript and TypeScript</td></tr>
+        <tr><td>Embedded terminal</td><td>xterm.js</td><td>With the first playable lesson</td></tr>
+        <tr><td>Early command execution</td><td>A simulated shell and virtual filesystem</td><td>First release</td></tr>
+        <tr><td>Backend</td><td>Node.js with a small, well-supported HTTP framework</td><td>After the offline vertical slice</td></tr>
+        <tr><td>Database</td><td>PostgreSQL</td><td>When accounts and saved progress are added</td></tr>
+        <tr><td>Testing</td><td>Vitest or the Node test runner, plus Playwright</td><td>From the first meaningful behavior</td></tr>
+        <tr><td>Packaging and local dev</td><td>Containers where they solve a real problem</td><td>After basic application development</td></tr>
+        <tr><td>Real Linux exercise environments</td><td>Short-lived, isolated sandboxes</td><td>Only after the simulated version is safe and useful</td></tr>
+        <tr><td>Native desktop distribution</td><td>Tauri</td><td>Later, after the browser product works</td></tr>
+        <tr><td>Systems language</td><td>Rust</td><td>Later, for a real bounded component</td></tr>
+        <tr><td>Existing game-engine study</td><td>Unity as a secondary prototyping tool</td><td>Optional and limited</td></tr>
+        <tr><td>High-end engine specialization</td><td>Unreal Engine</td><td>Only if later career goals require it</td></tr>
+      </table>
+
+      <h3>Why this route</h3>
+      <p>TypeScript is a strong first professional language because it starts with the reach of JavaScript and adds static checking and better tooling. A learner can use the same language for browser interfaces, game logic, servers, command-line tools, tests, automation, and many AI integrations.</p>
+      <p>GitHub reported that TypeScript became the most-used language on GitHub by contributor count in August 2025. The 2025 Stack Overflow Developer Survey also reported strong continued interest in TypeScript, Bash/Shell, and Rust. These signals do not guarantee a job, but they support a path that combines typed application development with command-line fluency.</p>
+      <p>The general software market is also substantially broader than the commercial game-studio market. The U.S. Bureau of Labor Statistics projects 15 percent employment growth from 2024 through 2034 for software developers, quality-assurance analysts, and testers. By contrast, GDC&apos;s 2026 industry survey reported that 28 percent of game-industry respondents had experienced a layoff during the preceding two years, including 33 percent of U.S. respondents. The lesson is not &ldquo;do not make games.&rdquo; It is &ldquo;make the game demonstrate skills that many kinds of employers can use.&rdquo;</p>
+
+      <h2><span class="hash">#</span>What this path is &mdash; and is not</h2>
+      <table class="keytable">
+        <tr><td><strong>It is</strong></td><td>A software-engineering curriculum organized around a motivating product; a path from terminal literacy to full-stack delivery; a way to learn AI-assisted development without becoming dependent on unverified generated code; a portfolio strategy that produces inspectable evidence of skill; a cross-platform, open-web-first approach; and a foundation that can later branch into Rust, native applications, game engines, cloud engineering, security, or developer tooling.</td></tr>
+        <tr><td><strong>It is not</strong></td><td>A promise that one project guarantees employment; a shortcut around programming fundamentals; a recommendation to generate an entire product from prompts without understanding it; a reason to learn every framework at once; a requirement to abandon Unity or other engines; or a plan to expose a real unrestricted shell to the public during the first release.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Career positioning</h2>
+      <p>The learner should be able to describe the completed work in language that applies beyond games:</p>
+      <div class="callout tip">
+        <span class="label">The framing that travels</span>
+        <p>&ldquo;I built and operated a cross-platform learning application that teaches terminal, Linux, tmux, Git, and AI-assisted engineering through an interactive first-person environment. I designed a deterministic lesson engine, embedded terminal interface, automated validation, accessible fallback experience, account and progress system, test suite, CI pipeline, deployment process, and security boundary for isolated exercises.&rdquo;</p>
+      </div>
+      <p>That story can support applications for roles such as: junior software developer; frontend developer; full-stack developer; TypeScript or Node.js developer; QA automation engineer or software development engineer in test; developer-tools engineer; technical support engineer; cloud support associate; junior platform or DevOps engineer; solutions engineer; educational-technology developer; technical content engineer; open-source contributor; and later, Rust or systems-tooling developer.</p>
+      <p>The project should not be presented only as &ldquo;a game.&rdquo; It should be presented as a complete software product with a game-based interface.</p>
+
+      <h2><span class="hash">#</span>Why TypeScript comes before Rust</h2>
+      <p>Rust is an excellent language for reliable and efficient software, but it combines several difficult ideas at once: ownership, borrowing, lifetimes, explicit error handling, traits, concurrency, and low-level resource control. Those ideas are valuable, but they can slow a new learner who is simultaneously trying to understand programming, Git, Linux, networking, databases, testing, deployment, and product design. TypeScript provides a shorter route to useful, visible results while still teaching type-driven development.</p>
+      <p>Start with JavaScript fundamentals so the learner understands the runtime language. Move to TypeScript early enough that types become normal rather than an afterthought. Introduce Rust only after the learner can independently:</p>
+      <ul>
+        <li>Build a working application feature from a written requirement.</li>
+        <li>Read compiler and test failures.</li>
+        <li>Use Git branches and review diffs.</li>
+        <li>Design and call an HTTP API.</li>
+        <li>Model data in a relational database.</li>
+        <li>Write unit and browser-level tests.</li>
+        <li>Diagnose a failing build or deployment.</li>
+        <li>Explain asynchronous execution.</li>
+        <li>Review AI-generated changes rather than accepting them blindly.</li>
+      </ul>
+      <p>Good first Rust components include a lesson-definition validator CLI, a content-pack compiler, a deterministic command parser, a replay or event-log processor, a local sandbox supervisor, a performance-sensitive simulation module compiled to WebAssembly, and native commands for a Tauri desktop application. Each Rust component should have a clear interface and reason to exist. Do not rewrite working TypeScript in Rust merely to claim that the project uses Rust.</p>
+
+      <h2><span class="hash">#</span>Where Unity, Unreal, and Godot fit</h2>
+      <h3>Unity</h3>
+      <p>Unity remains useful as a secondary learning and prototyping environment &mdash; see the parallel <a href="game-dev-unity.html">Unity FPS week</a>. Previous Unity study transfers into scene composition, collision, physics, animation, lighting, asset workflows, and game-loop reasoning. Use it for small gameplay prototypes, level-design experiments, understanding editor-driven development, comparing component models, short game jams, and exploring roles specifically tied to Unity. Do not allow Unity study to replace the broader engineering work in this plan. A reasonable default is roughly 80 percent of project time on the TypeScript product and 20 percent on optional engine experiments.</p>
+      <h3>Unreal Engine</h3>
+      <p>Unreal is appropriate when a learner later chooses high-end 3D, AAA production, virtual production, advanced rendering, or C++ engine work. It is not the default starting point. Learning Unreal, C++, TypeScript, Rust, Linux, cloud deployment, tmux, Git, and AI workflows simultaneously creates too much context switching. Defer Unreal until the learner has shipped at least one substantial product or has a specific role that requires it.</p>
+      <h3>Godot</h3>
+      <p>Godot is open source, approachable, and a good choice for a learner whose primary objective is conventional game development. For this curriculum, however, browser-first TypeScript development exposes the learner to more of the stack used by ordinary software products: browser APIs, accessibility, HTTP, authentication, databases, observability, deployment, and operations. Godot remains a valid alternative, but it shifts the emphasis from &ldquo;software engineer building a game-shaped product&rdquo; toward &ldquo;game developer building a game.&rdquo;</p>
+
+      <h2><span class="hash">#</span>Learning principles</h2>
+      <h3>1. Build vertical slices</h3>
+      <p>A vertical slice is a narrow feature that works from the user interaction through the underlying logic and tests. The first slice is not &ldquo;build the engine.&rdquo; It is:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">first vertical slice</span></div>
+        <pre><code>Load one small room &rarr; Walk to one terminal &rarr; Enter <span class="prompt">pwd</span>
+&rarr; Receive deterministic output &rarr; Validate the command
+&rarr; Unlock one door &rarr; Save completion locally &rarr; Prove it with a test</code></pre>
+      </div>
+      <p>That slice teaches more than months of disconnected tutorials.</p>
+      <h3>2. Prefer a simulated shell first</h3>
+      <p>The first release should not execute arbitrary user commands on a server. It should implement a small, deterministic command interpreter over a virtual filesystem. This approach can run entirely in the browser, is inexpensive to host, works offline, is deterministic and easy to test, avoids remote-code-execution risk, gives the learner time to understand security boundaries, can offer clear explanations and hints for supported commands, and reproduces the same lesson on macOS, Windows, Linux, and mobile browsers. Real Linux sandboxes belong in a later phase with strict isolation, quotas, timeouts, and abuse controls.</p>
+      <h3>3. Learn concepts, not command trivia</h3>
+      <p>A terminal curriculum should explain mental models &mdash; current working directory; paths and filesystem trees; standard input, output, and error; processes and signals; permissions and ownership; environment variables; streams and pipes; exit codes; shell expansion and quoting; sessions, terminals, shells, and multiplexers; and version-control state and history. Command memorization follows from understanding these models. Groundwork&apos;s <a href="command-line.html">Command line &amp; Unix</a> and <a href="shell.html">Shell &amp; CLI</a> pages already teach these; link them rather than re-explaining.</p>
+      <h3>4. Require evidence of understanding</h3>
+      <p>A feature is not complete merely because it runs. For every meaningful feature, the learner should be able to explain the requirement, identify the relevant files, describe the data flow, predict likely failure modes, demonstrate the tests, read the final diff, explain any AI-generated code, and state what remains uncertain.</p>
+      <h3>5. Separate learning mode from production mode</h3>
+      <p>A learner sometimes needs to write code without AI, while a production engineer should use effective tools. Use explicit work modes:</p>
+      <table class="keytable">
+        <tr><td><strong>Manual mode</strong></td><td>No generated implementation; documentation and compiler errors are allowed.</td></tr>
+        <tr><td><strong>Hint mode</strong></td><td>AI may explain concepts or suggest debugging questions.</td></tr>
+        <tr><td><strong>Pair mode</strong></td><td>AI may propose small changes that the learner reviews line by line.</td></tr>
+        <tr><td><strong>Agent mode</strong></td><td>AI may implement a bounded issue in a branch or worktree with required verification.</td></tr>
+        <tr><td><strong>Review mode</strong></td><td>The learner audits an AI-generated patch and identifies defects.</td></tr>
+      </table>
+      <p>The goal is not to avoid AI. The goal is to remain capable of checking it &mdash; the same discipline the <a href="agentic-engineering.html">vibe &rarr; agentic</a> path teaches.</p>
+      <h3>6. Keep the stack intentionally small</h3>
+      <p>Do not add a framework because it is popular. Add it because the current problem requires it. Early releases need a browser application, a 3D scene, a terminal component, lesson data, deterministic state, and tests. They do <em>not</em> initially need microservices, Kubernetes, event streaming, multiple databases, complex infrastructure-as-code, multiplayer networking, a plugin marketplace, a custom game engine, a native installer, or a real public shell.</p>
+
+      <h2><span class="hash">#</span>Target product concept</h2>
+      <p>The working title can remain generic until the project develops its own identity.</p>
+      <p><strong>Product promise:</strong> teach practical development skills through an interactive environment in which commands, code, tests, and debugging actions change the world.</p>
+      <p><strong>Core loop:</strong></p>
+      <ol>
+        <li>Explore a first-person environment.</li>
+        <li>Discover a technical problem.</li>
+        <li>Read contextual documentation and clues.</li>
+        <li>Use a terminal, editor, Git repository, logs, or test runner.</li>
+        <li>Form a hypothesis.</li>
+        <li>Perform an action.</li>
+        <li>Receive realistic feedback.</li>
+        <li>Verify the result.</li>
+        <li>Unlock the next area.</li>
+        <li>Review the concept in a non-game interface.</li>
+      </ol>
+      <p><strong>Example narrative frame:</strong> a facility, spacecraft, laboratory, data center, or remote research station has partially failed. Each system corresponds to a real software-development concept. Doors, power systems, communications, and machinery respond to correct technical actions. The narrative should support the curriculum rather than obscure it.</p>
+
+      <h2><span class="hash">#</span>Curriculum map inside the game</h2>
+
+      <h3>Module 0: Terminal orientation</h3>
+      <p>Concepts: terminal versus shell, prompt anatomy, commands and arguments, help output, keyboard navigation, copy and paste, command history, exit status.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>echo   printf   clear   history   man   help   which   type</code></pre>
+      </div>
+      <p>Outcome: the learner can open a terminal, identify the active shell, run a command, read help, edit a command, and describe what an exit code means.</p>
+
+      <h3>Module 1: Filesystem navigation</h3>
+      <p>Concepts: root directory, home directory, absolute and relative paths, current working directory, files versus directories, hidden files, safe deletion.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>pwd   ls   cd   mkdir   touch   cp   mv   rm   rmdir   file   stat</code></pre>
+      </div>
+      <p>Game scenario: a door controller has lost its configuration. The player navigates a virtual filesystem, finds a hidden backup, copies it to the expected path, and verifies the result.</p>
+
+      <h3>Module 2: Reading, searching, and transforming text</h3>
+      <p>Concepts: standard input, standard output, standard error, pipes, redirection, text streams, pattern matching.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>cat   less   head   tail   grep   sort   uniq   cut   wc   tee   find</code></pre>
+      </div>
+      <p>Game scenario: the player analyzes logs from several subsystems, isolates a repeated failure, and sends the relevant identifier to a repair process.</p>
+
+      <h3>Module 3: Processes and signals</h3>
+      <p>Concepts: process identifiers, foreground and background jobs, signals, long-running commands, resource use, graceful versus forced termination.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>ps   pgrep   kill   jobs   bg   fg   top</code></pre>
+      </div>
+      <p>Game scenario: a runaway process is consuming the station&apos;s power budget. The player identifies it, inspects it, sends an appropriate signal, and confirms recovery.</p>
+
+      <h3>Module 4: Permissions, users, and environment</h3>
+      <p>Concepts: users and groups, read/write/execute permissions, least privilege, environment variables, executable search paths, secrets versus configuration.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>id   whoami   chmod   chown   env   export   printenv</code></pre>
+      </div>
+      <p>Game scenario: a service cannot read its configuration. The player must diagnose the actual permission error instead of applying unsafe global permissions. The game should explicitly teach why <code>chmod 777</code> is usually not a responsible fix.</p>
+
+      <h3>Module 5: tmux and persistent terminal work</h3>
+      <p>Concepts: sessions, windows, panes, detach and reattach, long-running processes, remote-work continuity, copy mode. This is where Groundwork&apos;s <a href="tmux.html">tmux</a> page is the reference &mdash; the lesson should use the documented default configuration and clearly label any Groundwork-specific customization.</p>
+      <p>Exercises: create a named session; split a window into panes; run logs in one pane and a service in another; detach while work continues; reattach and diagnose an event that occurred while disconnected; use copy mode to retrieve an earlier error.</p>
+      <p>Game scenario: a control room has several systems that must be observed simultaneously. The player creates a tmux workspace and keeps a repair job running while moving between terminals.</p>
+
+      <h3>Module 6: Git fundamentals</h3>
+      <p>Concepts: working tree, index, commit history, branches, diffs, merge conflicts, restoration versus deletion, remote collaboration. Groundwork&apos;s <a href="git.html">Git</a> page owns this material.</p>
+      <div class="terminal small">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">commands introduced</span></div>
+        <pre><code>git status   git diff   git add   git commit   git log
+git switch   git branch   git restore   git show   git merge</code></pre>
+      </div>
+      <p>Game scenario: a configuration repository contains an incorrect change. The player inspects the diff, creates a branch, restores the intended behavior, runs checks, commits the repair, and resolves a controlled conflict. Avoid presenting Git as a list of magic commands. Visualize the working tree, index, current commit, branches, and remote state.</p>
+
+      <h3>Module 7: Programming and debugging</h3>
+      <p>Concepts: variables, functions, conditionals, loops, arrays and objects, modules, errors and stack traces, assertions, test-driven diagnosis, logging versus debugging.</p>
+      <p>Game scenario: a small TypeScript program controls an in-world device. The player reproduces a bug, reads a failing test, follows the data, fixes the smallest responsible unit, and confirms the result.</p>
+
+      <h3>Module 8: Web and API fundamentals</h3>
+      <p>Concepts: client and server, HTTP requests and responses, methods and status codes, JSON, validation, authentication versus authorization, browser developer tools, network failures.</p>
+      <p>Game scenario: a communications system calls an API with malformed data. The player inspects the request, corrects the contract, and handles a deliberate failure path.</p>
+
+      <h3>Module 9: Databases and data integrity</h3>
+      <p>Concepts: tables, primary and foreign keys, normalization basics, queries, transactions, constraints, migrations, backups, idempotency. See also Groundwork&apos;s <a href="data.html">Data &amp; storage</a> page.</p>
+      <p>Game scenario: the facility&apos;s inventory system contains conflicting records. The player identifies the broken invariant and adds a safe correction rather than manually editing symptoms.</p>
+
+      <h3>Module 10: CI/CD and production operations</h3>
+      <p>Concepts: automated checks, reproducible builds, artifacts, environments, deployment gates, rollback, logs, metrics, alerts, incident timelines.</p>
+      <p>Game scenario: a release passes locally but fails in CI. The player compares environments, identifies a hidden assumption, corrects the build, and writes a brief incident note.</p>
+
+      <h3>Module 11: Responsible AI-assisted development</h3>
+      <p>Concepts: prompt context, bounded tasks, plans and acceptance criteria, hallucinated APIs, stale assumptions, unsafe dependency changes, diff review, test selection, security and privacy, human accountability. This mirrors Groundwork&apos;s <a href="agents.html">AI agents &amp; rules</a> discipline.</p>
+      <p>Game scenario: an AI agent submits a plausible patch that fixes a visible symptom but weakens a security boundary and fails an edge case. The player must inspect the requirements, review the diff, run targeted tests, reject the unsafe portion, and produce a corrected change. The module should reward verification, not prompt cleverness.</p>
+
+      <h2><span class="hash">#</span>Proposed technical architecture</h2>
+
+      <h3>Stage 1: Browser-only vertical slice</h3>
+      <p>The earliest useful release can run entirely in the browser.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">stage 1 &middot; browser-only data flow</span></div>
+        <pre><code>Player input ─┬─&rarr; First-person game ──&rarr; Lesson state machine ─┬─&rarr; World changes, hints, assessment
+              └─&rarr; xterm.js terminal ─&rarr; Simulated command parser ─┬─&rarr; Virtual filesystem
+                                                                   └─&rarr; Lesson state machine
+Lesson state machine ──&rarr; Local saved progress</code></pre>
+      </div>
+      <p>Components: a TypeScript application; HTML and CSS shell around the game; a Babylon.js scene; an xterm.js terminal interface; a virtual filesystem; a supported-command parser; a lesson state machine; structured lesson definitions; local saved progress; and unit and browser tests. This stage should have no account system, no public command execution, and no mandatory cloud service.</p>
+
+      <h3>Stage 2: Product backend</h3>
+      <p>Add a backend only after the offline vertical slice is useful.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">stage 2 &middot; product backend</span></div>
+        <pre><code>Browser application ──&rarr; Node.js API ─┬─&rarr; PostgreSQL
+                                     ├─&rarr; Versioned lesson content
+                                     └─&rarr; Privacy-conscious product telemetry
+CI pipeline ──&rarr; Browser application  &amp;  Node.js API</code></pre>
+      </div>
+      <p>Backend responsibilities: account and session management, saved progress, content-pack versions, instructor or mentor views, anonymous aggregate product metrics, feature flags, and a supportable migration process. The backend should not yet run unrestricted shell commands.</p>
+
+      <h3>Stage 3: Isolated Linux exercises</h3>
+      <p>Only add real execution after the team has documented and tested the threat model.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">stage 3 &middot; isolated Linux exercises</span></div>
+        <pre><code>Browser ─&rarr; API ─&rarr; Sandbox request queue ─&rarr; Sandbox broker ─&rarr; Short-lived isolated environment
+Short-lived isolated environment ─&rarr; Bounded output and result ─&rarr; API ─&rarr; Browser</code></pre>
+      </div>
+      <p>The sandbox broker must be separate from the public application process. Treat all learner commands and lesson content as untrusted input.</p>
+
+      <h3>Stage 4: Optional native application</h3>
+      <p>Use Tauri when native distribution adds clear value: offline content packs, local filesystem exercises with explicit consent, local container integration, better keyboard and window integration, managed classroom or lab installations, and reduced dependence on browser limitations. The web application should remain the source of truth for most user interface and lesson logic. Native commands should be small, permission-scoped, and audited.</p>
+
+      <h2><span class="hash">#</span>Security requirements for real command execution</h2>
+      <p>A public terminal-learning product is an attractive abuse target. The following are minimum design expectations, not optional polish.</p>
+      <h3>Isolation</h3>
+      <ul>
+        <li>Run each exercise in a fresh, short-lived environment.</li>
+        <li>Never run learner commands in the API process.</li>
+        <li>Never mount application source, deployment credentials, or host home directories.</li>
+        <li>Use a non-root user inside the environment.</li>
+        <li>Use a read-only base filesystem where practical, providing only lesson-specific writable paths.</li>
+        <li>Apply CPU, memory, process-count, disk, output, and wall-clock limits, and kill and destroy the environment at timeout.</li>
+        <li>Deny privileged container settings, host networking, access to the container runtime socket, and access to cloud instance metadata.</li>
+        <li>Prefer deny-by-default outbound networking; permit only explicitly required destinations for a lesson.</li>
+        <li>Regularly rebuild and patch base images.</li>
+      </ul>
+      <h3>Application controls</h3>
+      <ul>
+        <li>Authenticate requests where persistent accounts are involved.</li>
+        <li>Use short-lived, single-purpose sandbox tokens.</li>
+        <li>Rate-limit sandbox creation and enforce concurrent-session limits.</li>
+        <li>Cap command and output sizes; normalize and validate lesson identifiers.</li>
+        <li>Prevent users from choosing arbitrary images or runtime options.</li>
+        <li>Record security-relevant events without collecting command content unnecessarily.</li>
+        <li>Keep secrets out of client code, lesson packs, logs, and generated AI context.</li>
+        <li>Provide an abuse-reporting and shutdown path before public launch.</li>
+      </ul>
+      <h3>Content safety</h3>
+      <p>Lesson authors are also a trust boundary. Validate lesson definitions against a versioned schema; review commands included in official lessons; digitally sign published content packs, or verify their digest through a separately trusted channel (a checksum shipped alongside compromised content authenticates nothing); separate community content from trusted official content; do not allow a lesson file to request arbitrary host capabilities; and require review for new network destinations or native permissions.</p>
+      <h3>AI safety</h3>
+      <ul>
+        <li>Do not send learner secrets, private repository contents, or terminal history to an AI provider by default.</li>
+        <li>Make AI data handling visible.</li>
+        <li>Allow AI-assisted lessons to operate with synthetic repositories and synthetic secrets.</li>
+        <li>Treat model output as untrusted text; validate tool calls and file paths.</li>
+        <li>Require human approval for destructive actions.</li>
+        <li>Prevent an AI agent from modifying its own policy, tests, or verification rules without review.</li>
+      </ul>
+
+      <h2><span class="hash">#</span>Cross-platform strategy</h2>
+      <h3>Browser first</h3>
+      <p>The browser provides the widest low-friction distribution: macOS, Windows, Linux, ChromeOS, many tablets, and managed lab environments. Use WebGL as the broad fallback and enable WebGPU only when supported. Avoid making a high-end GPU a prerequisite for the learning content.</p>
+      <h3>Development systems</h3>
+      <p>Support these developer paths: macOS with native terminal tools and a container runtime; Linux with native terminal tools; Windows with WSL2 for the Linux curriculum; and a remote Linux development environment when local hardware is constrained. Groundwork may optimize the macOS path, but the public curriculum and product should not imply that macOS is required.</p>
+      <h3>Performance budgets</h3>
+      <p>Treat these as product targets to validate, not assumptions: a low-quality preset that avoids expensive post-processing; keyboard-only operation for all required learning actions; playable operation on integrated graphics; a small initial download with later content loaded on demand; a 30 frames-per-second floor on the documented minimum target; a 60 frames-per-second goal on contemporary integrated hardware; and a non-3D lesson interface for devices or users that cannot use the first-person mode. Measure performance on actual lower-end hardware, not solely the developer&apos;s newest laptop.</p>
+
+      <h2><span class="hash">#</span>Accessibility requirements</h2>
+      <p>A learning product cannot claim broad accessibility if the curriculum is trapped inside a motion-heavy 3D interface. Provide a complete non-3D lesson mode; full keyboard navigation; remappable controls; adjustable mouse sensitivity; field-of-view settings; head-bob and camera-shake toggles; reduced-motion mode; pause at any time; captions and transcripts; high-contrast interface options; color-independent status indicators; scalable text; screen-reader-compatible lesson instructions and assessments; clear focus indicators; error messages that explain how to recover; generous or disabled time limits outside explicitly timed challenges; and input alternatives for users who cannot use standard first-person controls.</p>
+      <div class="callout note">
+        <span class="label">Accessibility is not a launch task</span>
+        <p>Accessibility tests belong in acceptance criteria from the first vertical slice. They are not a final pre-launch project.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Suggested repository evolution</h2>
+      <p>Start simple. Split the repository only when boundaries become real.</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">initial repository</span></div>
+        <pre><code>terminal-learning-game/
+├── docs/
+│   ├── product-brief.md
+│   ├── architecture.md
+│   └── learning-objectives.md
+├── public/
+├── src/
+│   ├── game/
+│   ├── lessons/
+│   ├── simulated-shell/
+│   ├── terminal/
+│   └── ui/
+├── tests/
+├── package.json
+├── tsconfig.json
+└── README.md</code></pre>
+      </div>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">later workspace</span></div>
+        <pre><code>terminal-learning-platform/
+├── apps/
+│   ├── web/
+│   ├── api/
+│   └── desktop/
+├── packages/
+│   ├── lesson-schema/
+│   ├── lesson-engine/
+│   ├── simulated-shell/
+│   ├── shared/
+│   ├── test-fixtures/
+│   └── ui/
+├── sandbox/
+│   ├── broker/
+│   ├── images/
+│   └── policies/
+├── docs/
+│   ├── architecture/
+│   ├── decisions/
+│   ├── learning/
+│   ├── operations/
+│   └── security/
+├── infra/
+└── tools/</code></pre>
+      </div>
+      <p>Do not create the larger structure on day one. Promote code into packages when at least two real consumers or a strong security boundary justify the separation.</p>
+
+      <h2><span class="hash">#</span>Twelve-month competency roadmap</h2>
+      <p>The timing below is illustrative. A learner with prior programming experience may move faster; a complete beginner may need longer. Advance on the exit criteria, not the calendar.</p>
+
+      <h3>Phase 0: Environment and learning habits &middot; 1&ndash;2 weeks</h3>
+      <p><strong>Objectives:</strong> set up a reproducible development environment; learn how to ask for help with useful evidence; understand files, processes, commands, and exit codes at a basic level; establish a work log and a Git repository.</p>
+      <p><strong>Work:</strong> install and verify the terminal, shell, Git, tmux, editor, Node.js, and package manager; learn the purpose of each tool rather than copying a dotfiles setup blindly; create a small repository with a README; practice creating, editing, comparing, and committing; keep a daily learning log in Markdown; learn to capture command output and error messages safely.</p>
+      <p><strong>Deliverable:</strong> an &ldquo;environment verification&rdquo; repository with setup notes, a simple command-line script, at least five intentional commits, a troubleshooting note for one real problem, and no secrets or machine-specific personal data.</p>
+      <p><strong>Exit criteria:</strong> the learner can open a terminal; explain the shell/terminal distinction; navigate to the repository; start and reattach to a tmux session; run the project; read a failed command&apos;s exit status; create a branch and commit a change; and explain every direct project dependency and the purpose of the major transitive toolchain pieces.</p>
+      <p><strong>AI rule:</strong> AI may explain errors, but the learner must type and understand the commands. No agent-generated repository setup.</p>
+
+      <h3>Phase 1: JavaScript and web foundations &middot; 4&ndash;6 weeks</h3>
+      <p><strong>Objectives:</strong> learn fundamental programming constructs; understand browser structure and events; build small interactive pages without a large framework.</p>
+      <p><strong>Topics:</strong> values and types; variables and scope; functions; arrays and objects; conditionals and loops; modules; errors; DOM; events; forms; semantic HTML; basic CSS; browser developer tools; network and console panels; accessibility fundamentals.</p>
+      <p><strong>Projects:</strong> command-history visualizer; virtual directory tree; text-based &ldquo;escape room&rdquo;; small quiz that saves progress locally; log-search exercise. <strong>Deliverable:</strong> a browser-based text adventure in which typed commands update a virtual filesystem.</p>
+      <p><strong>Exit criteria:</strong> the learner can write a function from a small requirement; trace data through several function calls; explain event handling; diagnose an error with browser tools; write and run unit tests; build a semantic form without copying a component library; and explain why an implementation is accessible or inaccessible.</p>
+      <p><strong>AI rule:</strong> use manual mode for at least one small feature each week. AI-generated code must be reviewed statement by statement.</p>
+
+      <h3>Phase 2: TypeScript and maintainable application design &middot; 4&ndash;6 weeks</h3>
+      <p><strong>Objectives:</strong> make types part of normal development; learn to model domain state; separate user interface, game state, and command interpretation.</p>
+      <p><strong>Topics:</strong> type inference; interfaces and type aliases; union types; generics; narrowing; discriminated unions; runtime validation versus compile-time types; pure functions; state machines; dependency boundaries; error modeling.</p>
+      <p><strong>Project work:</strong> refactor the text adventure into a typed virtual filesystem, a typed command result model, a lesson state machine, versioned lesson data, and unit tests for commands and lesson transitions.</p>
+      <p><strong>Exit criteria:</strong> the learner can explain why TypeScript cannot validate untrusted runtime data by itself; represent command success and failure without ambiguous nullable values; add a command without editing unrelated modules; write tests for edge cases; read and respond to compiler diagnostics; and explain the public interface of each major module.</p>
+      <p><strong>AI rule:</strong> AI may propose types, but the learner must identify which invariants are enforced at compile time and which require runtime checks.</p>
+
+      <h3>Phase 3: First playable 3D vertical slice &middot; 6&ndash;8 weeks</h3>
+      <p><strong>Objectives:</strong> learn a 3D engine without losing sight of application architecture; integrate the terminal, lesson engine, and game world; ship a complete browser experience.</p>
+      <p><strong>Scope:</strong> one room, one terminal, one objective, one door. The learner must walk to the terminal, activate it, run <code>pwd</code>, <code>ls</code>, <code>cd</code>, and <code>cat</code>, find a code or repair instruction, complete the objective, unlock the exit, view a concept review, and retain completion after a page reload.</p>
+      <p><strong>Engineering work:</strong> scene lifecycle; camera and input; collision; interactable objects; terminal overlay; mode switching between game and terminal; lesson events; save-state versioning; loading and error states; low-quality graphics preset; non-3D fallback; automated browser test for the critical path.</p>
+      <p><strong>Exit criteria:</strong> a new user can complete the lesson without developer assistance; it runs on at least macOS, Windows, and Linux browsers; keyboard-only completion is possible; progress survives reload; the command engine remains deterministic; the main path has an automated browser test; a performance profile has been recorded on lower-end hardware; and the learner can explain the scene, state, terminal, and lesson boundaries.</p>
+      <p><strong>AI rule:</strong> an agent may implement one bounded issue at a time. Every agent issue must include acceptance criteria and a verification command.</p>
+
+      <h3>Phase 4: Git, tmux, and debugging content pack &middot; 6&ndash;8 weeks</h3>
+      <p><strong>Objectives:</strong> expand the product without changing its core architecture; learn content authoring and schema evolution; teach tools the learner now uses in real development.</p>
+      <p><strong>Work:</strong> add filesystem, pipes, process, tmux, Git, and debugging modules; create a lesson schema and validation command; add fixtures for lesson scenarios; add deterministic replay for failed sessions; create author documentation; add hints that become progressively more specific; add assessments that test transfer, not memorized command sequences.</p>
+      <p><strong>Exit criteria:</strong> at least six small lessons share one engine; a malformed lesson fails validation before deployment; lessons can be tested without loading the 3D scene; the learner can author a lesson from a written objective; Git visualizations correctly distinguish working tree, index, commit, and branch state; and tmux material works with the documented default configuration and clearly labels any Groundwork-specific customization.</p>
+      <p><strong>AI rule:</strong> use AI to critique lesson clarity, generate test cases, and identify ambiguity. Do not use AI as the authority for command semantics; verify against primary documentation.</p>
+
+      <h3>Phase 5: Backend, accounts, and PostgreSQL &middot; 6&ndash;8 weeks</h3>
+      <p><strong>Objectives:</strong> learn HTTP, APIs, authentication, databases, migrations, and deployment; preserve offline or anonymous use where practical.</p>
+      <p><strong>Work:</strong> add a Node.js API; add PostgreSQL; add account creation or an external identity provider; store progress and content versions; define an authorization model; add request validation; add database constraints; add migrations; add structured logs; add API and integration tests; add a data-export and account-deletion path.</p>
+      <p><strong>Exit criteria:</strong> the learner can explain authentication versus authorization; invalid input is rejected at the API boundary; database constraints protect important invariants; migrations work against a fresh database and an existing test database; logs do not contain credentials or sensitive tokens; anonymous use still works for the first lesson unless product requirements explicitly reject it; and the learner can restore a local database from a documented backup.</p>
+      <p><strong>AI rule:</strong> AI may draft migrations, but the learner must review data-loss risk, rollback strategy, constraints, and transaction boundaries.</p>
+
+      <h3>Phase 6: CI, delivery, observability, and operations &middot; 4&ndash;6 weeks</h3>
+      <p><strong>Objectives:</strong> treat deployment and operation as part of software development; learn to diagnose environment differences.</p>
+      <p><strong>Work:</strong> add CI for formatting, linting, type checking, unit tests, integration tests, browser tests, and build; cache dependencies carefully; pin toolchains and dependencies; add dependency updates with controlled grouping; add preview deployments if affordable and maintainable; add health checks; add error reporting; add performance measurements; write an operations runbook; practice a failed deployment and rollback; write one blameless incident review.</p>
+      <p><strong>Exit criteria:</strong> a clean checkout can build from documented commands; CI and local required checks agree; a deliberately introduced failure is caught by the expected gate; the learner can identify whether a failure is code, configuration, dependency, network, or environment related; a rollback or recovery procedure has been exercised; and the product exposes enough signals to diagnose a failed user request without exposing private data.</p>
+      <p><strong>AI rule:</strong> AI may help inspect logs and may drive bounded preview or non-production deployments under policy, but promoting to production stays an explicit, accountable human decision with post-deployment verification. The learner remains responsible.</p>
+
+      <h3>Phase 7: Real isolated Linux labs &middot; 8&ndash;10 weeks</h3>
+      <p><strong>Objectives:</strong> learn security boundaries, queues, resource controls, and untrusted execution; replace selected simulated exercises with real Linux environments.</p>
+      <p><strong>Work:</strong> write a threat model; define which lessons actually require real execution; build a sandbox broker separate from the API; use purpose-built images; apply resource and network policies; add timeouts and cleanup; add abuse controls; add security tests; perform an internal review before any public exposure; keep simulated lessons as the default fallback.</p>
+      <p><strong>Exit criteria:</strong> no public request can directly select runtime images, mounts, privileges, or host paths; every sandbox is short-lived and attributable to a bounded session; network access is denied unless a lesson explicitly requires it; resource-exhaustion tests pass; cleanup works after success, failure, timeout, and process crash; the learner can explain the trust boundaries and residual risks; and a reviewer other than the implementation agent has examined the design.</p>
+      <p><strong>AI rule:</strong> do not delegate security approval to AI. AI can propose threats and tests; a human must validate the model and controls.</p>
+
+      <h3>Phase 8: Rust and Tauri extension &middot; 6&ndash;8 weeks</h3>
+      <p><strong>Objectives:</strong> learn Rust through a bounded production need; package the proven web application as an optional native app.</p>
+      <p><strong>Candidate first project:</strong> a Rust lesson-pack validator that reads versioned lesson files, validates their schema and semantic invariants, produces deterministic diagnostics, can run locally and in CI, has property-based or table-driven tests, and exposes a stable command-line interface. Then integrate selected native features with Tauri.</p>
+      <p><strong>Exit criteria:</strong> Rust is used for a clearly documented reason; the TypeScript/Rust boundary is small and tested; errors are handled without panics in normal user-input paths; the learner can explain ownership and borrowing in the component; native permissions are minimal; the web version remains functional; and install, update, and uninstall behavior is documented for supported platforms.</p>
+      <p><strong>AI rule:</strong> the learner should manually implement core Rust exercises before relying on agent-generated Rust. Compiler success is not evidence that ownership decisions are understood.</p>
+
+      <h3>Phase 9: Public beta and employment package &middot; 6&ndash;8 weeks</h3>
+      <p><strong>Objectives:</strong> turn the repository into credible public evidence; practice issue triage, maintenance, and technical communication; prepare for general software roles, not only game jobs.</p>
+      <p><strong>Work:</strong> run a small public beta; add contribution guidelines, a code of conduct, and issue templates; label good first issues honestly; publish architecture and security summaries; record a short product demonstration; write a case study; create a resume project section; practice explaining tradeoffs in interviews; contribute at least one meaningful fix or documentation improvement to an external open-source project.</p>
+      <p><strong>Exit criteria:</strong> the public project includes clear setup instructions, screenshots or a demonstration, an architecture diagram, automated checks, a test strategy, an accessibility statement, a security model, a roadmap, known limitations, decision records, issues with useful context, a stable demonstration deployment or reproducible local demo, and no leaked credentials, personal data, or copied proprietary assets.</p>
+
+      <h2><span class="hash">#</span>AI-native engineering workflow</h2>
+      <p>AI-native development should mean that AI is integrated into a disciplined engineering system. It should not mean the learner accepts whatever an agent produces. This is the same discipline as the <a href="agentic-engineering.html">vibe &rarr; agentic</a> path and the <a href="agents.html">agent rules</a>.</p>
+      <h3>Standard issue loop</h3>
+      <ol>
+        <li><strong>Define the problem.</strong> Write the user impact, observed behavior, expected behavior, constraints, and non-goals.</li>
+        <li><strong>Collect evidence.</strong> Reproduce the problem. Capture logs, tests, screenshots, or command output.</li>
+        <li><strong>Design the smallest responsible change.</strong> Identify boundaries, risks, and verification.</li>
+        <li><strong>Create an isolated branch or worktree.</strong> Keep unrelated work out of the diff.</li>
+        <li><strong>Ask AI for a plan before implementation when the task is nontrivial.</strong> Compare the plan to the actual repository.</li>
+        <li><strong>Allow bounded implementation.</strong> Give the agent explicit files, constraints, and acceptance criteria when possible.</li>
+        <li><strong>Review the diff before trusting test results.</strong> Look for deleted checks, weakened types, ignored errors, new dependencies, scope creep, and silent behavior changes.</li>
+        <li><strong>Run focused verification.</strong> Run tests closest to the change first.</li>
+        <li><strong>Run repository-required gates.</strong> Formatting, lint, types, tests, builds, security checks, and generated-file checks as applicable.</li>
+        <li><strong>Exercise the behavior manually.</strong> Automated tests can verify the wrong requirement.</li>
+        <li><strong>Document the decision.</strong> Update the issue, commit, or decision record with important tradeoffs.</li>
+        <li><strong>Commit intentionally.</strong> The final history should explain the change rather than expose agent chatter.</li>
+      </ol>
+      <h3>Mandatory learner questions before merging an AI-assisted change</h3>
+      <ul>
+        <li>What problem does this solve?</li>
+        <li>Which requirement proves the change is correct?</li>
+        <li>What files changed, and why?</li>
+        <li>What could still fail?</li>
+        <li>What test would fail if this implementation regressed?</li>
+        <li>Did the change weaken any validation, permission, or security boundary?</li>
+        <li>Did it introduce or upgrade a dependency?</li>
+        <li>Can I explain the code without asking the agent?</li>
+        <li>Did I inspect generated files and lockfile changes?</li>
+        <li>Is the final diff limited to the intended scope?</li>
+      </ul>
+      <h3>Common AI failure patterns to teach</h3>
+      <p>Calling APIs that do not exist; using documentation from the wrong version; replacing a precise error with a broad catch; silencing a type error instead of fixing the model; deleting a failing test; mocking the behavior that should be tested; adding a dependency for a small standard-library task; forgetting platform differences; applying an unsafe shell command; logging secrets; changing configuration globally to solve a local problem; implementing a plausible feature that was not requested; fixing the visible symptom while preserving the underlying race or invariant violation; and declaring completion without running the required checks.</p>
+      <div class="callout note">
+        <span class="label">Verification is the primary skill</span>
+        <p>The 2025 Stack Overflow Developer Survey reported that the most common frustration with AI tools was output that was &ldquo;almost right, but not quite,&rdquo; and that many respondents found debugging AI-generated code more time-consuming. This curriculum therefore makes verification a primary skill.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Testing strategy</h2>
+      <table class="keytable">
+        <tr><td><strong>Unit tests</strong></td><td>Command parsing, virtual filesystem operations, path normalization, lesson transitions, hint progression, progress migration, validation logic, authorization rules, sandbox policy generation.</td></tr>
+        <tr><td><strong>Integration tests</strong></td><td>API and database behavior, migrations, account and progress flows, content publication, sandbox broker requests, timeout and cleanup behavior.</td></tr>
+        <tr><td><strong>Browser tests</strong></td><td>A small number of critical journeys: start the first lesson, enter terminal mode, complete a command objective, unlock world state, save and restore progress, keyboard-only navigation, the non-3D equivalent, and recovery from a simulated network failure.</td></tr>
+        <tr><td><strong>Security tests</strong></td><td>Path traversal, command and output size limits, unauthorized progress access, lesson-schema abuse, sandbox timeout, process-count exhaustion, network denial, cleanup after failure, token reuse, secret redaction, cross-account data access.</td></tr>
+        <tr><td><strong>Performance tests</strong></td><td>Initial download, time to interactive, scene load, terminal input latency, memory growth over a lesson, frame time on documented minimum hardware, API latency, sandbox startup time, cleanup time.</td></tr>
+      </table>
+      <p>Do not attempt to test every 3D movement with brittle pixel-level assertions. Keep important game state testable outside the renderer.</p>
+
+      <h2><span class="hash">#</span>Documentation the project should maintain</h2>
+      <table class="keytable">
+        <tr><td><strong>User documentation</strong></td><td>Getting started, controls, accessibility options, supported platforms, privacy and AI data behavior, troubleshooting.</td></tr>
+        <tr><td><strong>Contributor documentation</strong></td><td>Environment setup, repository map, required checks, branch and commit expectations, how to add a lesson, how to add a command, testing guide, dependency policy, release process.</td></tr>
+        <tr><td><strong>Engineering documentation</strong></td><td>Product brief, architecture, threat model, data model, API contracts, lesson schema, sandbox design, operations runbook, incident reviews, architecture decision records.</td></tr>
+        <tr><td><strong>Learning documentation</strong></td><td>Curriculum map, learning objectives, prerequisites, mentor guide, assessment rubric, glossary, further reading.</td></tr>
+      </table>
+      <p>Documentation should be updated in the same change that changes the behavior or contract.</p>
+
+      <h2><span class="hash">#</span>Portfolio evidence and hiring preparation</h2>
+      <h3>Repository evidence</h3>
+      <p>A strong repository shows small, coherent commits; issues that explain why work is needed; pull requests with verification; tests that cover important behavior; decision records for meaningful tradeoffs; a readable architecture; a security model; dependency discipline; reproducible setup; and honest known limitations.</p>
+      <h3>Case-study outline</h3>
+      <ol>
+        <li>Problem and intended learner</li>
+        <li>Why a first-person learning environment</li>
+        <li>Why browser-first TypeScript</li>
+        <li>Why the first shell was simulated</li>
+        <li>Architecture evolution</li>
+        <li>Accessibility decisions</li>
+        <li>Testing strategy</li>
+        <li>AI-assisted workflow and safeguards</li>
+        <li>Most difficult failure</li>
+        <li>Security model for real execution</li>
+        <li>Performance work</li>
+        <li>What would change with more users</li>
+        <li>What the learner personally implemented and learned</li>
+      </ol>
+      <h3>Interview stories</h3>
+      <p>Prepare stories about diagnosing a bug that AI initially misidentified; simplifying an overengineered design; resolving a Git mistake without losing work; finding a local-versus-CI environment difference; improving accessibility after observing a user; adding a database invariant; handling a failed migration; rejecting an unsafe sandbox approach; measuring and improving a slow interaction; and receiving and acting on code-review feedback.</p>
+      <h3>Resume bullets</h3>
+      <p>Use measured facts only; adapt these once the metrics exist:</p>
+      <ul>
+        <li>Built a TypeScript and Babylon.js learning application that teaches terminal and Git concepts through an interactive first-person environment.</li>
+        <li>Designed a deterministic simulated shell and virtual filesystem with automated lesson validation and test coverage.</li>
+        <li>Implemented a Node.js and PostgreSQL progress service with runtime validation, migrations, and authorization checks.</li>
+        <li>Added CI gates for types, tests, browser journeys, builds, and dependency integrity.</li>
+        <li>Documented a deny-by-default security design for short-lived Linux exercise environments.</li>
+        <li>Packaged the web application with Tauri and added a bounded Rust validation tool.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="label">Do not invent metrics</span>
+        <p>Do not invent user counts, performance gains, coverage percentages, or adoption numbers. A portfolio&apos;s credibility depends on every claim being verifiable.</p>
+      </div>
+
+      <h2><span class="hash">#</span>Mentor and educator guidance</h2>
+      <h3>Weekly cadence</h3>
+      <ol>
+        <li>Learner demonstrates the current build.</li>
+        <li>Learner explains one technical concept without AI.</li>
+        <li>Mentor reviews one diff.</li>
+        <li>Mentor asks the learner to predict a failure.</li>
+        <li>Learner reproduces and diagnoses one failure.</li>
+        <li>Together they select the smallest next vertical slice.</li>
+        <li>Learner writes the issue and acceptance criteria.</li>
+      </ol>
+      <h3>Questions mentors should ask</h3>
+      <p>What did you expect to happen? What evidence shows what actually happened? Which layer owns this behavior? What is the smallest experiment that separates the possible causes? What would make this test pass for the wrong reason? Which input is untrusted? What happens on Windows, macOS, and Linux? What did the AI assume? Which part can you explain without looking at the code? What would you remove if the project had to become simpler?</p>
+      <h3>What mentors should avoid</h3>
+      <p>Taking over the keyboard for long periods; replacing the learner&apos;s project with the mentor&apos;s preferred architecture; requiring advanced infrastructure before a useful vertical slice; grading progress by hours or lines of code; allowing AI to conceal missing fundamentals; treating compiler success as understanding; treating a polished demo as proof of maintainability; and fixing every problem before the learner can investigate it.</p>
+      <h3>Assessment rubric</h3>
+      <p>Evaluate each milestone across five dimensions:</p>
+      <table class="keytable">
+        <tr><td><strong>Dimension</strong></td><td><strong>Emerging</strong></td><td><strong>Capable</strong></td><td><strong>Job-ready evidence</strong></td></tr>
+        <tr><td>Understanding</td><td>Can repeat steps</td><td>Can explain the local concept</td><td>Connects concept to architecture and failure modes</td></tr>
+        <tr><td>Implementation</td><td>Needs continuous guidance</td><td>Completes bounded issues</td><td>Designs and completes a vertical slice</td></tr>
+        <tr><td>Debugging</td><td>Guesses or restarts</td><td>Uses logs and tests</td><td>Forms hypotheses and isolates causes</td></tr>
+        <tr><td>AI use</td><td>Accepts output</td><td>Reviews and verifies</td><td>Defines bounded work and catches subtle defects</td></tr>
+        <tr><td>Communication</td><td>Reports &ldquo;it broke&rdquo;</td><td>Provides reproduction</td><td>Writes useful issues, reviews, and decision notes</td></tr>
+      </table>
+      <p>A learner does not need to be perfect in every dimension before applying for jobs. The portfolio should show a consistent upward trajectory and several examples at the capable or job-ready level.</p>
+
+      <h2><span class="hash">#</span>Cost-control strategy</h2>
+      <p>The project should be inexpensive while it is proving value. Track spend deliberately &mdash; the <a href="ai-budget.html">Know your AI budget</a> page applies directly to the AI-assisted parts of this work.</p>
+      <table class="keytable">
+        <tr><td><strong>Early stages</strong></td><td>Run locally; deploy the browser application as static assets; store progress locally; use open-source tools; use simple, low-polygon assets with clear licenses; avoid paid multiplayer, analytics, or game-backend services; avoid real sandboxes.</td></tr>
+        <tr><td><strong>Product stage</strong></td><td>Add one small application service and one relational database; set explicit budgets and usage alerts; keep telemetry narrow; make preview environments short-lived; use managed services only when they reduce operational burden enough to justify cost.</td></tr>
+        <tr><td><strong>Sandbox stage</strong></td><td>Real execution introduces variable cost and abuse risk. Control it with simulation for most beginner lessons, authentication for costly labs, small quotas, short timeouts, concurrency limits, pre-warmed capacity only after measuring need, per-lesson images, shutdown controls, and cost attribution by feature and environment.</td></tr>
+      </table>
+      <p>Do not subsidize unrestricted public compute.</p>
+
+      <h2><span class="hash">#</span>Open-source and content licensing</h2>
+      <p>Before publishing: choose an explicit code license; choose a content license separately if appropriate; record licenses for models, textures, sounds, fonts, and icons; avoid copying proprietary game assets or course content; prefer original, permissively licensed, or public-domain assets; preserve required attribution; document whether community lesson packs may be redistributed; and add a process for reporting copyright or trademark concerns. The project should not imply endorsement by terminal, engine, operating-system, or AI-tool vendors.</p>
+
+      <h2><span class="hash">#</span>Product metrics</h2>
+      <table class="keytable">
+        <tr><td><strong>Learning metrics</strong></td><td>Lesson completion rate, hint usage, time between attempts, common incorrect mental models, transfer-task success, return rate for the next lesson, accessibility-mode completion, learner confidence before and after a module.</td></tr>
+        <tr><td><strong>Engineering metrics</strong></td><td>Error rate, crash-free sessions, terminal input latency, scene load time, CI duration, deployment failure rate, recovery time, sandbox startup and cleanup time, cost per completed real-execution lab, percentage of failures with actionable diagnostic data.</td></tr>
+        <tr><td><strong>Avoid</strong></td><td>Treating time spent in the application as inherently positive, rewarding command memorization without transfer, collecting full terminal histories by default, ranking learners publicly without a strong educational reason, and optimizing engagement at the expense of understanding.</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Definition of done for the first public milestone</h2>
+      <p>The first milestone is complete when: one lesson can be completed from start to finish; the lesson teaches a real terminal mental model; the terminal is simulated and deterministic; the first-person mode and non-3D mode reach the same learning outcome; keyboard-only use works; progress can be saved locally; the critical path has an automated browser test; the project builds from a clean checkout; setup documentation has been tested by another person; no secret or private data is committed; assets have known licenses; known limitations are documented; and the learner can explain every major component. Anything beyond that is optional for the first public release.</p>
+
+      <h2><span class="hash">#</span>Primary resources</h2>
+      <p>Use primary documentation as the default source for technical behavior.</p>
+      <h3>Languages and web development</h3>
+      <ul>
+        <li><a href="https://www.typescriptlang.org/" target="_blank" rel="noopener">TypeScript</a></li>
+        <li><a href="https://www.typescriptlang.org/docs/handbook/intro.html" target="_blank" rel="noopener">TypeScript Handbook</a></li>
+        <li><a href="https://developer.mozilla.org/en-US/docs/Learn_web_development" target="_blank" rel="noopener">MDN Learn Web Development</a></li>
+        <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" target="_blank" rel="noopener">MDN JavaScript Guide</a></li>
+        <li><a href="https://nodejs.org/learn" target="_blank" rel="noopener">Node.js learning resources</a></li>
+      </ul>
+      <h3>Terminal, tmux, and Git</h3>
+      <ul>
+        <li><a href="https://github.com/tmux/tmux/wiki" target="_blank" rel="noopener">tmux project wiki</a></li>
+        <li><a href="https://github.com/tmux/tmux/wiki/Getting-Started" target="_blank" rel="noopener">tmux getting started</a></li>
+        <li><a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener">Pro Git book</a></li>
+        <li><a href="https://git-scm.com/docs" target="_blank" rel="noopener">Git reference</a></li>
+      </ul>
+      <h3>Recommended product stack</h3>
+      <ul>
+        <li><a href="https://www.babylonjs.com/" target="_blank" rel="noopener">Babylon.js</a></li>
+        <li><a href="https://playground.babylonjs.com/" target="_blank" rel="noopener">Babylon.js Playground</a></li>
+        <li><a href="https://xtermjs.org/" target="_blank" rel="noopener">xterm.js</a></li>
+        <li><a href="https://docs.docker.com/" target="_blank" rel="noopener">Docker documentation</a></li>
+        <li><a href="https://v2.tauri.app/" target="_blank" rel="noopener">Tauri 2</a></li>
+        <li><a href="https://rust-lang.org/" target="_blank" rel="noopener">Rust</a></li>
+        <li><a href="https://rust-lang.org/learn/" target="_blank" rel="noopener">Learn Rust</a></li>
+      </ul>
+      <h3>Market and workflow context</h3>
+      <ul>
+        <li><a href="https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/" target="_blank" rel="noopener">GitHub Octoverse 2025: TypeScript becomes the most-used language on GitHub</a></li>
+        <li><a href="https://survey.stackoverflow.co/2025/technology" target="_blank" rel="noopener">2025 Stack Overflow Developer Survey: Technology</a></li>
+        <li><a href="https://survey.stackoverflow.co/2025/ai" target="_blank" rel="noopener">2025 Stack Overflow Developer Survey: AI</a></li>
+        <li><a href="https://www.bls.gov/ooh/computer-and-information-technology/software-developers.htm" target="_blank" rel="noopener">U.S. Bureau of Labor Statistics: Software Developers, QA Analysts, and Testers</a></li>
+        <li><a href="https://gdconf.com/article/gdc-2026-state-of-the-game-industry-reveals-impact-of-layoffs-generative-ai-and-more/" target="_blank" rel="noopener">GDC 2026 State of the Game Industry summary</a></li>
+      </ul>
+
+      <h2><span class="hash">#</span>Final recommendation</h2>
+      <p>Build the learner&apos;s career foundation around TypeScript, the terminal, Linux concepts, Git, testing, databases, deployment, and responsible AI-assisted engineering. Use a browser-based first-person educational product to make that work motivating and visible. Keep Unity available for creative prototypes. Defer Unreal until a specific specialization requires it. Introduce Rust after the learner has shipped a complete TypeScript product, and use it for a bounded component with a real reason to exist.</p>
+      <p>The resulting developer should not be limited to saying, &ldquo;I know a game engine.&rdquo; The goal is to be able to say:</p>
+      <div class="callout tip">
+        <span class="label">The destination</span>
+        <p>&ldquo;I can enter an unfamiliar codebase, understand the problem, use modern tools responsibly, build a maintainable solution, verify it, deploy it, diagnose it when it fails, and explain my decisions.&rdquo;</p>
+      </div>
+
+      <div class="pagenav">
+        <a href="game-dev-unity.html"><span class="dir">← Prev</span>FPS &middot; Unity</a>
+        <a href="web-dev.html"><span class="dir">Next →</span>Web &amp; sites</a>
+      </div>
+      <footer class="site">Learn the craft; the game is the excuse. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
