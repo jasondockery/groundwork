@@ -64,12 +64,35 @@ case "$platform" in
     ;;
 esac
 
+# Preflight the SOURCE branch before `chezmoi update` runs git pull: a local
+# development branch with no upstream (or a detached HEAD) gets Groundwork's
+# two-lane guidance instead of a raw git error. The branch-state model lives in
+# the stable helper (installed like groundwork-platform); the launcher stays a
+# trampoline. Skip only when the helper is not yet present (a first install,
+# where the source is a fresh tracked clone anyway). The helper never mutates.
+gw_preflight="$HOME/.local/bin/groundwork-source-preflight"
+if [[ -x "$gw_preflight" ]]; then
+  "$gw_preflight" || exit $?
+fi
+
+# Snapshot the managed config so the discoverability nudge fires only when
+# regeneration actually changed it. Groundwork always uses chezmoi's default
+# config path.
+gw_config="${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml"
+gw_config_before=""
+[[ -f "$gw_config" ]] && gw_config_before="$(cksum < "$gw_config" 2>/dev/null || true)"
+
 # --init regenerates the config when .chezmoi.toml.tmpl changed; all prompts
 # are *Once, so existing answers are reused without asking again. Pull WITHOUT
-# applying: the preflight below inspects drift first, and the full apply runs
-# inside the freshly installed runner so long installs happen in a phase the
-# new implementation owns.
+# applying: the drift preflight below inspects status first, and the full apply
+# runs inside the freshly installed runner so long installs happen in a phase
+# the new implementation owns.
 chezmoi update --init --apply=false
+
+gw_config_after=""
+[[ -f "$gw_config" ]] && gw_config_after="$(cksum < "$gw_config" 2>/dev/null || true)"
+gw_regenerated=0
+[[ "$gw_config_before" != "$gw_config_after" ]] && gw_regenerated=1
 
 # The preflight must succeed before anything is applied: a status failure
 # means chezmoi cannot render this source against this machine, and applying
@@ -120,6 +143,17 @@ fi
 if [[ ! -x "$runner" ]]; then
   echo "Groundwork: chezmoi finished, but the update runner is missing or not executable: $runner" >&2
   exit 1
+fi
+
+# Discoverability nudge: emitted only after the launcher transaction succeeded
+# (source synced, config regenerated, runner verified) and only when the config
+# actually changed. A checksum change means the TEMPLATE regenerated the config;
+# it is not a claim about which stored answers changed. Never a prompt — an
+# update finishes the update.
+if [[ "$gw_regenerated" == 1 ]]; then
+  echo
+  echo "Groundwork configuration was regenerated from the current template."
+  echo "To review or change a setting: groundwork-configure"
 fi
 
 exec "$runner" "$@"

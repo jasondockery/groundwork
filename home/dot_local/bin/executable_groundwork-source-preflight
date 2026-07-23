@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Diagnose the Groundwork chezmoi SOURCE repository's branch state BEFORE
+# `chezmoi update` runs a tracked-branch `git pull`. This replaces a raw git
+# "no tracking information for the current branch" error with Groundwork's
+# two operating lanes. Exit codes:
+#   0  tracked branch — safe to run a tracked update
+#   2  local development state (untracked branch or detached HEAD) — use init/apply
+#   1  the source state could not be diagnosed (fail closed; no update)
+# It NEVER mutates: no push, no set-upstream, no branch switch.
+
+prog="groundwork-source-preflight"
+command -v chezmoi >/dev/null 2>&1 || { echo "$prog: chezmoi is not on PATH." >&2; exit 1; }
+
+# Fail closed: Groundwork expects a resolvable, Git-backed source.
+if ! src="$(chezmoi source-path 2>/dev/null)" || [[ -z "$src" ]]; then
+  echo "$prog: could not resolve the chezmoi source directory; no update was attempted." >&2
+  exit 1
+fi
+if ! repo="$(git -C "$src" rev-parse --show-toplevel 2>/dev/null)"; then
+  echo "$prog: the chezmoi source is not a Git working tree: $src" >&2
+  exit 1
+fi
+
+# Detached HEAD: no current branch, so there is no tracked pull.
+if ! branch_ref="$(git -C "$repo" symbolic-ref -q HEAD)"; then
+  cat >&2 <<'EOF'
+Groundwork's source repository is in detached-HEAD state.
+'chezmoi update' cannot do a normal tracked-branch pull here.
+
+Testing this checkout (no pull):
+  chezmoi init
+  chezmoi apply
+
+Return to a branch before using update-all.
+EOF
+  exit 2
+fi
+branch="${branch_ref#refs/heads/}"
+
+# A branch is TRACKED when branch.<name>.remote and .merge are configured. Read
+# the CONFIGURED relationship (upstream:remotename/remoteref), not whether the
+# remote-tracking ref currently resolves — a configured upstream can be [gone]
+# after a prune and still pull fine once fetched.
+up_remote="$(git -C "$repo" for-each-ref --format='%(upstream:remotename)' "$branch_ref" 2>/dev/null || true)"
+up_ref="$(git -C "$repo" for-each-ref --format='%(upstream:remoteref)' "$branch_ref" 2>/dev/null || true)"
+if [[ -n "$up_remote" && -n "$up_ref" ]]; then
+  exit 0
+fi
+
+# No tracking configuration → local development branch. Suggest publishing to the
+# single configured remote when unambiguous; otherwise show <remote>. Push HEAD
+# (never an interpolated branch name) and read the source path at run time.
+remote_count="$(git -C "$repo" remote 2>/dev/null | grep -c . || true)"
+if [[ "$remote_count" == "1" ]]; then
+  remote="$(git -C "$repo" remote)"
+else
+  remote="<remote>"
+fi
+{
+  echo "Groundwork's source repository is on local branch:"
+  echo "  $branch"
+  echo
+  echo "That branch has no upstream, so 'chezmoi update' cannot git-pull it."
+  echo
+  echo "Testing local Groundwork changes (no pull):"
+  echo "  chezmoi init"
+  echo "  chezmoi apply"
+  echo
+  echo "Publishing this branch:"
+  echo "  git -C \"\$(chezmoi source-path)\" push -u $remote HEAD"
+} >&2
+exit 2

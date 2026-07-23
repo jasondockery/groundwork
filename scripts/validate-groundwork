@@ -1315,6 +1315,61 @@ if command -v tmux >/dev/null 2>&1; then
     || fail "declining must leave the live config unchanged"
 fi
 
+check "groundwork-source-preflight branch-state model"
+pf_helper="$PWD/home/dot_local/bin/executable_groundwork-source-preflight"
+test -x "$pf_helper" || fail "groundwork-source-preflight must exist and be executable"
+bash -n "$pf_helper" || fail "groundwork-source-preflight must be valid bash"
+# It must classify configured tracking, never mutate, and read the CONFIGURED
+# upstream (for-each-ref), not @{u} (which fails when a tracked ref is [gone]).
+grep -qF 'upstream:remotename' "$pf_helper" || fail "preflight must read the configured upstream via for-each-ref, not @{u}"
+pf_root="$out_dir/preflight"; pf_bin="$pf_root/bin"; mkdir -p "$pf_bin"
+cat >"$pf_bin/chezmoi" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  source-path) [[ "${PF_SRC_FAIL:-0}" == 1 ]] && exit 1; printf '%s\n' "${PF_SRC:-}" ;;
+  *) exit 0 ;;
+esac
+SH
+chmod +x "$pf_bin/chezmoi"
+pf_git=(git -c user.email=t@example.com -c user.name=Test -c init.defaultBranch=main -c commit.gpgsign=false)
+pf_out=""
+pf_run() { # want-exit  src  [src-fail]
+  local want="$1" rc=0
+  pf_out="$(PATH="$pf_bin:$PATH" PF_SRC="${2:-}" PF_SRC_FAIL="${3:-0}" bash "$pf_helper" 2>&1)" || rc=$?
+  [[ "$rc" -eq "$want" ]] || { printf '%s\n' "$pf_out" >&2; fail "preflight exit $rc, expected $want"; }
+}
+# Fixtures: a seed repo with one commit, cloned so the clone tracks origin/main.
+"${pf_git[@]}" init -q "$pf_root/seed" || fail "preflight fixture: git init failed"
+( cd "$pf_root/seed" && "${pf_git[@]}" commit -q --allow-empty -m init ) || fail "preflight fixture: seed commit failed"
+"${pf_git[@]}" clone -q "$pf_root/seed" "$pf_root/clone" 2>/dev/null || fail "preflight fixture: clone failed"
+# tracked main -> 0
+pf_run 0 "$pf_root/clone"
+# untracked feature branch -> 2, with the local-dev lane
+( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q -b feature ) || fail "preflight fixture: feature branch"
+pf_run 2 "$pf_root/clone"
+grep -qF 'has no upstream' <<<"$pf_out" || fail "untracked branch must be diagnosed as having no upstream"
+grep -qF 'chezmoi init' <<<"$pf_out" || fail "untracked branch must offer the init/apply lane"
+grep -qF 'push -u origin HEAD' <<<"$pf_out" || fail "untracked branch must suggest pushing HEAD to the single remote"
+# Behavioral no-mutation: running the preflight must not switch or change the repo.
+[[ "$("${pf_git[@]}" -C "$pf_root/clone" symbolic-ref --short HEAD)" == feature ]] \
+  || fail "the preflight must be read-only (it changed the current branch)"
+# detached HEAD -> 2
+( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q --detach ) || fail "preflight fixture: detach"
+pf_run 2 "$pf_root/clone"
+grep -qiF 'detached' <<<"$pf_out" || fail "detached HEAD must be diagnosed as such"
+# configured upstream whose local remote-tracking ref is gone -> STILL 0 (not misclassified)
+( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q main && "${pf_git[@]}" update-ref -d refs/remotes/origin/main ) || fail "preflight fixture: gone upstream"
+pf_run 0 "$pf_root/clone"
+# untracked branch on a non-origin remote -> 2, guidance names that remote
+( cd "$pf_root/clone" && "${pf_git[@]}" remote rename origin upstream && "${pf_git[@]}" checkout -q -b feature2 ) || fail "preflight fixture: non-origin remote"
+pf_run 2 "$pf_root/clone"
+grep -qF 'push -u upstream HEAD' <<<"$pf_out" || fail "guidance must name the single configured remote"
+# source-path failure -> 1 (fail closed)
+pf_run 1 "" 1
+# non-Git source -> 1 (fail closed)
+mkdir -p "$pf_root/notgit"
+pf_run 1 "$pf_root/notgit"
+
 check "terminal copy model (effective tmux server + helper safety)"
 # Source greps accept a syntactically valid but wrong binding; assert the
 # EFFECTIVE behavior in a real isolated server, and prove the cwd helper cannot
@@ -3852,6 +3907,15 @@ grep -qF 'chezmoi update --init' home/dot_local/bin/executable_update-all
 grep -qF "exec \"\$runner\" \"\$@\"" home/dot_local/bin/executable_update-all
 assert_no_matches "update stages leaked into the stable update-all launcher" \
   rg -n 'brew upgrade|mise upgrade|groundwork-brew-update' home/dot_local/bin/executable_update-all
+# Reconfigure-vs-regenerate UX: the launcher runs the source-branch preflight
+# helper before git pull, and nudges (never prompts) to groundwork-configure
+# after the config regenerates. See specs/interactive-cli-and-chezmoi-interview.
+grep -qF 'groundwork-source-preflight' home/dot_local/bin/executable_update-all \
+  || fail "update-all must run the groundwork-source-preflight helper before syncing"
+grep -qF 'To review or change a setting: groundwork-configure' home/dot_local/bin/executable_update-all \
+  || fail "update-all must nudge to groundwork-configure after config regeneration"
+assert_no_matches "update-all must never prompt or launch a settings interview" \
+  rg -n 'change settings now|read -[a-z]* .*groundwork-configure|exec .*groundwork-configure' home/dot_local/bin/executable_update-all
 grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\"" home/dot_local/bin/executable_groundwork-update-run.tmpl
 assert_no_matches "substantive update-all shell function returned" rg -n '^update-all\(\) \{' home/dot_zshrc.tmpl
 grep -qF $'daily\tupdate-all\tcommand\t' home/dot_local/share/groundwork/commands.tsv
