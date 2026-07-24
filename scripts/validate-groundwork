@@ -1277,18 +1277,40 @@ grep -qE 'mkdir .*lock_dir' "$gc_bin" || fail "groundwork-configure must take a 
 grep -qF 'chmod 600' "$gc_bin" || fail "the promoted config must be written mode 0600"
 grep -qE 'mv -f .*config_path' "$gc_bin" || fail "config promotion must be an atomic rename"
 grep -qE 'config .*config_path.* apply' "$gc_bin" || fail "groundwork-configure must apply with the exact promoted config path"
-# Non-TTY: refuse with editor guidance BEFORE any config dependency. Isolate
-# XDG_CONFIG_HOME to an EMPTY dir so this is hermetic and matches a bare CI
-# runner — the guard must fire whether or not a chezmoi config exists. (This
-# check passed locally but failed in CI when it leaked the developer's real
-# config; the guard now runs before the environment checks.)
-gc_noconfig="$out_dir/gw-configure-noconfig"; mkdir -p "$gc_noconfig"
-gc_guard="$(XDG_CONFIG_HOME="$gc_noconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
-grep -qF 'interactive settings editor' <<<"$gc_guard" || fail "groundwork-configure must refuse non-TTY input with guidance"
+# Refusal is state-specific across the four TTY/config states, and every refusal
+# is environment-independent so it stays deterministic on a bare CI runner. Drive
+# the two NON-TTY states hermetically with an isolated XDG_CONFIG_HOME (the TTY
+# states run through a pty below). This class of check leaked the developer's
+# real config once and passed locally while failing in CI; isolating the config
+# dir is what keeps local == CI.
+gc_states="$out_dir/gw-configure-states"
+mkdir -p "$gc_states/noconfig" "$gc_states/withconfig/chezmoi"
+: >"$gc_states/withconfig/chezmoi/chezmoi.toml"   # existence is all these guards read
+# non-TTY + MISSING config: the missing config is the deeper problem; advising a
+# user to edit a file that does not exist is not actionable, so it must win.
+gc_out_noconf="$(XDG_CONFIG_HOME="$gc_states/noconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
+grep -qF 'no Groundwork configuration' <<<"$gc_out_noconf" \
+  || { printf '%s\n' "$gc_out_noconf" >&2; fail "groundwork-configure (non-TTY, no config) must report the missing configuration, not point at a nonexistent file"; }
+# non-TTY + PRESENT config: refuse as interactive, pointing at the real file.
+gc_out_conf="$(XDG_CONFIG_HOME="$gc_states/withconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
+grep -qF 'interactive settings editor' <<<"$gc_out_conf" \
+  || { printf '%s\n' "$gc_out_conf" >&2; fail "groundwork-configure (non-TTY, config present) must refuse with interactive-terminal guidance"; }
 # End-to-end through a real pty against a SYNTHETIC config: change the profile,
 # reach the Apply confirmation (the P0 regression never did), DECLINE, and leave
 # the config untouched.
 if command -v tmux >/dev/null 2>&1; then
+  # TTY + MISSING config: a real terminal but no config points at setup, NOT the
+  # interactive-terminal message (the terminal is already interactive). The lead
+  # `sleep 1` lets pipe-pane attach before the fast-exiting output prints.
+  gc_ttync="$out_dir/gw-configure-ttync"; mkdir -p "$gc_ttync/xdg"
+  gc_ncsock="groundwork-gcnc-$$"; gc_ncout="$gc_ttync/out"
+  tmux -L "$gc_ncsock" new-session -d -x 100 -y 30 \
+    "sleep 1; XDG_CONFIG_HOME='$gc_ttync/xdg' bash '$PWD/$gc_bin'; sleep 2"
+  tmux -L "$gc_ncsock" pipe-pane -t 0 -o "cat >> '$gc_ncout'"; sleep 3
+  tmux -L "$gc_ncsock" kill-server 2>/dev/null || true
+  grep -aqF 'no Groundwork configuration' "$gc_ncout" \
+    || { cat "$gc_ncout" >&2; fail "groundwork-configure (TTY, no config) must report the missing configuration and point at setup"; }
+  # TTY + PRESENT config: the full receipt / apply-decline flow.
   gc_dir="$out_dir/gw-configure"; mkdir -p "$gc_dir/xdg/chezmoi"
   {
     echo "sourceDir = \"$PWD/home\""
