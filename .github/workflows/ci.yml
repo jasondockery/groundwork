@@ -75,19 +75,11 @@ jobs:
           # contract; running the suite against 3.6+ does.
           sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
-          # shellcheck is NOT installed from apt: ubuntu ships an old 0.9.0 that
-          # flags idioms current shellcheck accepts, so this job would disagree
-          # with the macOS job and local dev (both current via Homebrew). Pin the
-          # current release by checksum so all three agree and a green local run
-          # predicts this job. Bump sc_ver + sc_sha together when shellcheck ships
-          # a new release.
-          sc_ver=v0.11.0
-          sc_sha=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
-          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${sc_ver}/shellcheck-${sc_ver}.linux.x86_64.tar.xz" -o /tmp/shellcheck.tar.xz
-          echo "${sc_sha}  /tmp/shellcheck.tar.xz" | sha256sum -c -
-          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
-          sudo install -m 0755 "/tmp/shellcheck-${sc_ver}/shellcheck" /usr/local/bin/shellcheck
-          shellcheck --version
+          # ShellCheck + shfmt are deliberately NOT installed here. The validator
+          # delegates to scripts/lint-shell, which resolves the pinned analyzers
+          # via scripts/ensure-shell-tools (one arch-aware, checksum-verified
+          # source for every platform). No apt/brew shellcheck to drift from the
+          # pin, and no download policy duplicated across workflow jobs.
 
       # The validation script emits gcc-format shellcheck output under
       # GITHUB_ACTIONS; this matcher turns those lines into file/line
@@ -127,7 +119,9 @@ jobs:
           filter: blob:none
 
       - name: Install validation tools
-        run: brew install tmux chezmoi ripgrep shellcheck jq
+        # No shellcheck/shfmt here: the validator resolves the pinned analyzers
+        # via scripts/ensure-shell-tools (same source as Linux + local).
+        run: brew install tmux chezmoi ripgrep jq
 
       - name: Verify tmux feature floor
         # Single source of truth: the helper's own --check-tmux-version runs the

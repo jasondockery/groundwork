@@ -129,7 +129,8 @@ three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
   permissions to the job that needs them with a same-line comment saying
   why.
 - `render-lint` — `scripts/validate-groundwork`: hermetic chezmoi template
-  rendering across OS/headless/work matrices, plus ShellCheck.
+  rendering across OS/headless/work matrices, plus the shell-quality gate
+  (`scripts/lint-shell` — see below).
 - `macos-validation` — the full validator on macOS: the tmux/pty suite
   (copy-model effective-server + injection checks, interactive-editor and
   prompt-render pty checks) plus render/profile checks and the Homebrew
@@ -157,6 +158,38 @@ Run zizmor locally before pushing workflow changes:
 ```bash
 uvx zizmor --persona pedantic --no-online-audits .github/workflows
 ```
+
+## Shell quality gate (ShellCheck + shfmt)
+
+`scripts/lint-shell` is the single entry point for shell quality: `bash -n`
+(syntax), pinned **shfmt** (formatting), and pinned **ShellCheck** (semantic
+lint), over every tracked or non-ignored untracked Bash file (found by shebang or
+a `# shellcheck shell=` directive, so misleadingly-named files like the
+`modify_*.toml`/`.json` chezmoi scripts are covered; chezmoi `.tmpl` sources are
+checked after rendering). `scripts/validate-groundwork` and both CI jobs call it,
+so a green local run predicts CI.
+
+- **Reproduce CI locally:** `scripts/lint-shell` (add `--write` to auto-apply
+  shfmt formatting, then it re-validates; `--list` prints the covered files).
+- **Pinned versions live in `tools/shell-tools.env`** (ShellCheck + shfmt, one
+  sha256 per OS/arch). `scripts/ensure-shell-tools` downloads and caches the exact
+  pinned binaries under `$XDG_CACHE_HOME/groundwork/shell-tools` (checksum-verified,
+  no sudo, Intel/Arm × Linux/macOS), so validation never depends on whatever
+  ShellCheck is first on `PATH`. A Homebrew ShellCheck can stay installed for
+  editor use; the gate ignores it.
+- **Bump a tool:** `scripts/update-shell-tool-pins shellcheck <version>` (or
+  `shfmt <version>`) — it rewrites the version AND every arch checksum together
+  from the real release assets. Never hand-edit the checksums, and never bump the
+  version alone (that would be a guaranteed-red state). Review the diff, then run
+  `scripts/lint-shell`.
+- **Renovate does NOT auto-manage these two pins** (a version-only PR would fail
+  on stale checksums). Treat them as manual/dashboard-approved via the command
+  above. This is `scripts/lint-shell`, not a learner command — keep it out of the
+  daily command catalog.
+- **shfmt style** is `-i 2 -ci -bn` (`tools/shell-tools.env`), chosen by measuring
+  churn against the existing hand-formatting: `-bn` preserves Groundwork's
+  operator-at-line-start idiom, and `-sr` is deliberately omitted (the tree uses
+  shfmt's default no-space redirects).
 
 ## Public Repo Hygiene (recurring)
 

@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2034  # The GW_* state variables below are this library's public API: it SETS them for scripts that source it (groundwork-doctor, groundwork-shell-adopt) to read. They are not unused locals.
 # Groundwork shell-runtime probe — READ-ONLY fact gathering, shared by
 # groundwork-shell-adopt, groundwork-doctor, and the one-time adoption notice.
 #

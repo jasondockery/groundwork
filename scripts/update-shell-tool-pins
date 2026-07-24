@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Update a pinned shell tool to a new version in tools/shell-tools.env, refreshing
+# the VERSION and ALL FOUR per-arch sha256 sums together from the actual release
+# assets. This is why the Renovate custom manager was NOT used for these pins: a
+# version-only bump would leave stale checksums and a guaranteed-red build. Run
+# this instead (a dashboard reminder can prompt it), review the diff, and commit.
+#
+# Usage:
+#   scripts/update-shell-tool-pins shellcheck <version>   # e.g. 0.12.0
+#   scripts/update-shell-tool-pins shfmt <version>        # e.g. 3.14.0
+
+if [[ $# -ne 2 ]]; then
+  echo "usage: update-shell-tool-pins <shellcheck|shfmt> <version>" >&2
+  exit 64
+fi
+tool="$1"
+version="$2"
+case "$tool" in
+  shellcheck | shfmt) ;;
+  *)
+    echo "update-shell-tool-pins: tool must be 'shellcheck' or 'shfmt', got '$tool'" >&2
+    exit 64
+    ;;
+esac
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "update-shell-tool-pins: version must look like 1.2.3, got '$version'" >&2
+  exit 64
+fi
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+env_file="tools/shell-tools.env"
+[[ -f "$env_file" ]] || {
+  echo "update-shell-tool-pins: $env_file not found" >&2
+  exit 1
+}
+
+tmp_root="$(mktemp -d)"
+trap 'rm -rf -- "$tmp_root"' EXIT
+
+sha_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+fetch() { # url dest — bounded, retrying
+  curl --fail --silent --show-error --location \
+    --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
+    --output "$2" "$1"
+}
+
+set_kv() { # file KEY VALUE — replace the whole `KEY=...` line in place
+  local file="$1" key="$2" val="$3"
+  grep -qE "^${key}=" "$file" || {
+    echo "update-shell-tool-pins: key $key not present in $file" >&2
+    return 1
+  }
+  sed "s|^${key}=.*|${key}=${val}|" "$file" >"$file.next"
+  mv -f "$file.next" "$file"
+}
+
+if [[ "$tool" == "shellcheck" ]]; then
+  ver_key="SHELLCHECK_VERSION"
+  sha_prefix="SHELLCHECK_SHA256_"
+  base="https://github.com/koalaman/shellcheck/releases/download/v${version}"
+  rows=(
+    "LINUX_X86_64|${base}/shellcheck-v${version}.linux.x86_64.tar.xz"
+    "LINUX_AARCH64|${base}/shellcheck-v${version}.linux.aarch64.tar.xz"
+    "DARWIN_X86_64|${base}/shellcheck-v${version}.darwin.x86_64.tar.xz"
+    "DARWIN_AARCH64|${base}/shellcheck-v${version}.darwin.aarch64.tar.xz"
+  )
+else
+  ver_key="SHFMT_VERSION"
+  sha_prefix="SHFMT_SHA256_"
+  base="https://github.com/mvdan/sh/releases/download/v${version}"
+  rows=(
+    "LINUX_AMD64|${base}/shfmt_v${version}_linux_amd64"
+    "LINUX_ARM64|${base}/shfmt_v${version}_linux_arm64"
+    "DARWIN_AMD64|${base}/shfmt_v${version}_darwin_amd64"
+    "DARWIN_ARM64|${base}/shfmt_v${version}_darwin_arm64"
+  )
+fi
+
+echo "update-shell-tool-pins: $tool -> $version (fetching ${#rows[@]} assets)" >&2
+work="$tmp_root/env"
+cp "$env_file" "$work"
+set_kv "$work" "$ver_key" "$version"
+for row in "${rows[@]}"; do
+  suffix="${row%%|*}"
+  url="${row#*|}"
+  fetch "$url" "$tmp_root/asset"
+  sha="$(sha_of "$tmp_root/asset")"
+  set_kv "$work" "${sha_prefix}${suffix}" "$sha"
+  printf '  %-40s %s\n' "${sha_prefix}${suffix}" "$sha" >&2
+done
+mv -f "$work" "$env_file"
+echo "update-shell-tool-pins: wrote $env_file — review the diff, then run: scripts/lint-shell" >&2

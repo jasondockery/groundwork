@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Authoritative shell-quality gate for Groundwork. Over every tracked or
+# non-ignored untracked Bash file (found by shebang, so misleading extensions
+# like .toml/.json are still covered), it runs: bash -n (syntax), the pinned
+# shfmt (formatting), and the pinned ShellCheck (semantic lint). CI and local dev
+# both call this ONE entry point with the SAME pinned tools (via
+# scripts/ensure-shell-tools), so a green local run predicts CI. Chezmoi .tmpl
+# sources are skipped here and checked after rendering by validate-groundwork.
+#
+# Usage:
+#   scripts/lint-shell            # check; fails on any finding or format drift
+#   scripts/lint-shell --write    # apply shfmt formatting, then validate
+#   scripts/lint-shell --list     # list the shell files it would check
+#   scripts/lint-shell --help
+
+# --- parse the FULL argument list before any dependency, config, or side effect.
+mode="check"
+if [[ $# -gt 1 ]]; then
+  echo "lint-shell: too many arguments (expected at most one); nothing done." >&2
+  exit 64
+fi
+case "${1:-}" in
+  "" | --check) mode="check" ;;
+  --write) mode="write" ;;
+  --list) mode="list" ;;
+  -h | --help)
+    sed -n 's/^# \{0,1\}//p' "$0" | sed -n '2,17p'
+    exit 0
+    ;;
+  *)
+    echo "lint-shell: unknown option: $1 (try --help); nothing done." >&2
+    exit 64
+    ;;
+esac
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
+# --- discover shell files (NUL-safe): every tracked or non-ignored untracked
+# file whose first line is a Bash shebang, minus chezmoi templates. ---
+declare -a files=()
+while IFS= read -r -d '' f; do
+  files+=("$f")
+done < <(
+  git ls-files -z --cached --others --exclude-standard \
+    | while IFS= read -r -d '' p; do
+      [[ -f "$p" ]] || continue
+      [[ "$p" == *.tmpl ]] && continue
+      # A Bash shebang, OR a `# shellcheck shell=bash` directive (sourced libs
+      # like docker-scan.sh have no shebang but declare their shell this way).
+      head -3 "$p" 2>/dev/null | grep -qE '^#!.*bash|^# *shellcheck shell=' || continue
+      printf '%s\0' "$p"
+    done | sort -zu
+)
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "lint-shell: no shell files discovered (unexpected)." >&2
+  exit 1
+fi
+
+# --list needs no analyzers.
+if [[ "$mode" == "list" ]]; then
+  printf '%s\n' "${files[@]}"
+  exit 0
+fi
+
+# --- resolve the pinned analyzers (downloads/caches on first use) ---
+if ! tools_out="$(scripts/ensure-shell-tools)"; then
+  echo "lint-shell: could not obtain the pinned shell tools (see above)." >&2
+  exit 1
+fi
+shellcheck_bin=""
+shfmt_bin=""
+while IFS='=' read -r k v; do
+  case "$k" in
+    SHELLCHECK_BIN) shellcheck_bin="$v" ;;
+    SHFMT_BIN) shfmt_bin="$v" ;;
+  esac
+done <<<"$tools_out"
+if [[ ! -x "$shellcheck_bin" || ! -x "$shfmt_bin" ]]; then
+  echo "lint-shell: pinned tool paths did not resolve to executables." >&2
+  exit 1
+fi
+
+# shellcheck source=/dev/null
+. tools/shell-tools.env
+read -ra shfmt_flags <<<"${SHFMT_FLAGS:?missing in tools/shell-tools.env}"
+
+run_checks() { # bash -n + shfmt drift + ShellCheck; echoes findings, returns 1 on any
+  local st=0 f
+  for f in "${files[@]}"; do
+    bash -n "$f" || st=1
+  done
+  if ! "$shfmt_bin" "${shfmt_flags[@]}" -d "${files[@]}"; then
+    echo "lint-shell: shfmt formatting drift above (fix with: scripts/lint-shell --write)" >&2
+    st=1
+  fi
+  # gcc format so GitHub's problem matcher turns findings into annotations.
+  "$shellcheck_bin" --format=gcc "${files[@]}" || st=1
+  return "$st"
+}
+
+if [[ "$mode" == "write" ]]; then
+  "$shfmt_bin" "${shfmt_flags[@]}" -w "${files[@]}"
+  echo "lint-shell: shfmt applied to ${#files[@]} files; validating the result..." >&2
+fi
+
+if run_checks; then
+  echo "lint-shell: clean (${#files[@]} files)."
+  exit 0
+fi
+exit 1
