@@ -1411,18 +1411,21 @@ if command -v tmux >/dev/null 2>&1; then
       || fail "allow-passthrough must be off globally (pane-scoped for yazi via the y function)"
     tmux -L "$tcm_sock" show -gv update-environment | grep -qw TERM_PROGRAM \
       || fail "update-environment must propagate TERM_PROGRAM for yazi"
-    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qw MouseDragEnd1Pane \
-      && fail "MouseDragEnd1Pane must be unbound in copy-mode-vi (selection persists until y)" || true
+    if tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qw MouseDragEnd1Pane; then
+      fail "MouseDragEnd1Pane must be unbound in copy-mode-vi (selection persists until y)"
+    fi
     tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw MouseDown3Pane \
       || fail "the conditional right-click (MouseDown3Pane) must be bound"
     tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw M-MouseDown3Pane \
       || fail "the Option+right-click pane menu (M-MouseDown3Pane) must be bound"
     # Stale tmux-yank keys must be cleared so an upgraded live server drops the
     # external pbcopy path.
-    tmux -L "$tcm_sock" list-keys -T prefix 2>/dev/null | grep -qE ' -T prefix +y ' \
-      && fail "stale tmux-yank prefix y binding must be cleared" || true
-    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qE ' -T copy-mode-vi +M-y ' \
-      && fail "stale tmux-yank copy-mode-vi M-y binding must be cleared" || true
+    if tmux -L "$tcm_sock" list-keys -T prefix 2>/dev/null | grep -qE ' -T prefix +y '; then
+      fail "stale tmux-yank prefix y binding must be cleared"
+    fi
+    if tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qE ' -T copy-mode-vi +M-y '; then
+      fail "stale tmux-yank copy-mode-vi M-y binding must be cleared"
+    fi
     tmux -L "$tcm_sock" kill-server 2>/dev/null || true
   else
     fail "rendered tmux copy-model config must parse in a live server: $(cat "$tcm_dir/err")"
@@ -1446,10 +1449,14 @@ esac
 exit 0
 STUB
 chmod +x "$stub/bin/tmux"
-( cd "$stub" && PATH="$stub/bin:$PATH" TMUX=fake STUB_HOSTILE="$stub/hostile" STUB_LOADED="$stub/loaded" \
-    bash "$cwd_helper" '%9' 'c0' >/dev/null 2>&1 || true )
-{ [[ -e "$stub/INJECTED-CMD" ]] || [[ -e "$stub/INJECTED-BT" ]]; } \
-  && fail "tmux-copy-cwd executed shell code embedded in the pane path (injection)" || true
+(
+  cd "$stub" || exit 0
+  PATH="$stub/bin:$PATH" TMUX=fake STUB_HOSTILE="$stub/hostile" STUB_LOADED="$stub/loaded" \
+    bash "$cwd_helper" '%9' 'c0' >/dev/null 2>&1 || true
+)
+if [[ -e "$stub/INJECTED-CMD" || -e "$stub/INJECTED-BT" ]]; then
+  fail "tmux-copy-cwd executed shell code embedded in the pane path (injection)"
+fi
 [[ "$(cat "$stub/loaded" 2>/dev/null)" == "$hostile_value" ]] \
   || fail "tmux-copy-cwd must copy the pane path literally (got: '$(cat "$stub/loaded" 2>/dev/null)')"
 
