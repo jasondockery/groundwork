@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
       fi
       max_file_bytes="$1"
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;
@@ -97,7 +97,7 @@ add_folder_with_rg() {
   fi
 
   list="$(mktemp)"
-  if ! rg "${rg_args[@]}" -- "$folder" > "$list"; then
+  if ! rg "${rg_args[@]}" -- "$folder" >"$list"; then
     rm -f "$list"
     echo "copy-context: rg failed while expanding folder: $folder" >&2
     return 1
@@ -105,7 +105,7 @@ add_folder_with_rg() {
 
   while IFS= read -r -d '' file; do
     add_file "$file"
-  done < "$list"
+  done <"$list"
   rm -f "$list"
 }
 
@@ -116,16 +116,16 @@ add_folder_with_find() {
   if [[ "$include_all" == false ]]; then
     find_args+=(
       '('
-        -name .git -o
-        -name node_modules -o
-        -name .venv -o
-        -name venv -o
-        -name .next -o
-        -name dist -o
-        -name build -o
-        -name target -o
-        -name vendor -o
-        -name __pycache__
+      -name .git -o
+      -name node_modules -o
+      -name .venv -o
+      -name venv -o
+      -name .next -o
+      -name dist -o
+      -name build -o
+      -name target -o
+      -name vendor -o
+      -name __pycache__
       ')'
       -prune -o
     )
@@ -179,7 +179,7 @@ is_text_file() {
 }
 
 file_size() {
-  wc -c < "$1" | tr -d '[:space:]'
+  wc -c <"$1" | tr -d '[:space:]'
 }
 
 copy_to_clipboard() {
@@ -251,14 +251,14 @@ skipped=0
       included=$((included + 1))
     done
   fi
-} > "$tmp"
+} >"$tmp"
 
 bytes="$(file_size "$tmp")"
 
 if [[ "$stdout" == true ]]; then
   cat "$tmp"
 else
-  if copy_to_clipboard < "$tmp"; then
+  if copy_to_clipboard <"$tmp"; then
     echo "copy-context: copied $included file(s), $bytes bytes to clipboard"
   else
     cat "$tmp"

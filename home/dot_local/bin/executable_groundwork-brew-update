@@ -15,7 +15,7 @@ for attempt in 1 2 3; do
 
   case "$status" in
     0) exit 0 ;;
-    130|143) exit "$status" ;;
+    130 | 143) exit "$status" ;;
   esac
 
   if [[ "$attempt" -lt 3 ]]; then

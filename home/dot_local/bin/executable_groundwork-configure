@@ -33,17 +33,34 @@ EOF
 case "$#" in
   0) ;;
   1) case "$1" in
-       -h|--help) usage; exit 0 ;;
-       *) echo "$prog: unknown argument: $1" >&2; usage >&2; exit 64 ;;
-     esac ;;
-  *) echo "$prog: unexpected arguments; this command takes none." >&2; usage >&2; exit 64 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "$prog: unknown argument: $1" >&2
+      usage >&2
+      exit 64
+      ;;
+  esac ;;
+  *)
+    echo "$prog: unexpected arguments; this command takes none." >&2
+    usage >&2
+    exit 64
+    ;;
 esac
 
-# --- interactive-only, checked BEFORE any environment work so the refusal is
-# deterministic regardless of setup state: a non-TTY run must be told this is an
-# interactive editor whether or not a chezmoi config exists yet. (Config-first
-# ordering hid this behind a "no config" error on a bare machine.) ---
+# --- state-specific refusal, most fundamental first. Both refusals below depend
+# only on the config file's existence and the TTY, so they stay deterministic on
+# a bare CI runner. A MISSING config is a deeper problem than a non-interactive
+# invocation: telling someone to edit a file that does not exist is not
+# actionable, so the missing-config message wins even when stdin is not a TTY. ---
 config_path="${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml"
+if [[ ! -f "$config_path" ]]; then
+  echo "$prog: no Groundwork configuration exists at $config_path." >&2
+  echo "Run the Groundwork setup from an interactive terminal first." >&2
+  exit 1
+fi
 if [[ ! -t 0 || ! -t 1 ]]; then
   echo "$prog: this is an interactive settings editor; run it in a terminal." >&2
   echo "To change a setting non-interactively, edit $config_path and run 'chezmoi apply'." >&2
@@ -51,15 +68,24 @@ if [[ ! -t 0 || ! -t 1 ]]; then
 fi
 
 # --- environment ---
-command -v chezmoi >/dev/null 2>&1 || { echo "$prog: chezmoi is not installed." >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "$prog: python3 is required." >&2; exit 1; }
-[[ -f "$config_path" ]] || { echo "$prog: no chezmoi config at $config_path — run the Groundwork setup first." >&2; exit 1; }
+command -v chezmoi >/dev/null 2>&1 || {
+  echo "$prog: chezmoi is not installed." >&2
+  exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+  echo "$prog: python3 is required." >&2
+  exit 1
+}
 config_dir="$(dirname "$config_path")"
 source_path="$(chezmoi --config "$config_path" source-path 2>/dev/null || true)"
-[[ -n "$source_path" && -d "$source_path" ]] || { echo "$prog: could not resolve the chezmoi source path." >&2; exit 1; }
+[[ -n "$source_path" && -d "$source_path" ]] || {
+  echo "$prog: could not resolve the chezmoi source path." >&2
+  exit 1
+}
 
 # --- one temp root, one cleanup trap ---
-tmp_root="$(mktemp -d)"; lock_dir=""
+tmp_root="$(mktemp -d)"
+lock_dir=""
 cleanup() {
   [[ -z "$tmp_root" ]] || rm -rf -- "$tmp_root"
   [[ -z "$lock_dir" ]] || rmdir -- "$lock_dir" 2>/dev/null || true
@@ -70,9 +96,12 @@ trap 'exit 143' TERM HUP
 
 data_json="$tmp_root/data.json"
 chezmoi --config "$config_path" data --format=json >"$data_json" 2>/dev/null \
-  || { echo "$prog: could not read the current configuration data." >&2; exit 1; }
+  || {
+    echo "$prog: could not read the current configuration data." >&2
+    exit 1
+  }
 # Digest at editor-open time; promotion aborts if the config changes under us.
-config_digest_open="$(cksum < "$config_path")"
+config_digest_open="$(cksum <"$config_path")"
 
 # --- field registry (parallel arrays: macOS ships Bash 3.2, no assoc arrays) ---
 # key                  label                 kind    clearable
@@ -95,11 +124,15 @@ PY
 }
 
 # pending overrides (parallel arrays); an entry exists only when it differs from persisted
-pending_key=(); pending_val=()
+pending_key=()
+pending_val=()
 pending_index() { # key -> echoes index or nothing; returns 1 if absent
   local i
   for ((i = 0; i < ${#pending_key[@]}; i++)); do
-    [[ "${pending_key[i]}" == "$1" ]] && { echo "$i"; return 0; }
+    [[ "${pending_key[i]}" == "$1" ]] && {
+      echo "$i"
+      return 0
+    }
   done
   return 1
 }
@@ -110,25 +143,44 @@ current_value() { # key -> pending value if present, else persisted
 stage_change() { # key newval — records only a real change; reverts drop the entry
   local key="$1" new="$2" idx
   if [[ "$new" == "$(persisted "$key")" ]]; then
-    if idx="$(pending_index "$key")"; then unset 'pending_key[idx]' 'pending_val[idx]'; pending_key=("${pending_key[@]}"); pending_val=("${pending_val[@]}"); fi
+    if idx="$(pending_index "$key")"; then
+      unset 'pending_key[idx]' 'pending_val[idx]'
+      pending_key=("${pending_key[@]}")
+      pending_val=("${pending_val[@]}")
+    fi
     return
   fi
-  if idx="$(pending_index "$key")"; then pending_val[idx]="$new"; else pending_key+=("$key"); pending_val+=("$new"); fi
+  if idx="$(pending_index "$key")"; then pending_val[idx]="$new"; else
+    pending_key+=("$key")
+    pending_val+=("$new")
+  fi
 }
 
 display_of() { # key kind -> human display of the effective value
-  local v; v="$(current_value "$1")"
+  local v
+  v="$(current_value "$1")"
   case "$2" in
     bool) [[ "$v" == "true" ]] && echo "Yes" || echo "No" ;;
     preset)
-      local i; for ((i = 0; i < ${#preset_values[@]}; i++)); do
-        [[ "${preset_values[i]}" == "$v" ]] && { echo "${preset_labels[i]%% (*}"; return; }; done; echo "$v" ;;
+      local i
+      for ((i = 0; i < ${#preset_values[@]}; i++)); do
+        [[ "${preset_values[i]}" == "$v" ]] && {
+          echo "${preset_labels[i]%% (*}"
+          return
+        }
+      done
+      echo "$v"
+      ;;
     *) [[ -z "$v" ]] && echo "(none)" || echo "$v" ;;
   esac
 }
 
 # --- prompts (re-prompt on invalid; Enter = stated default; EOF = cancel editor) ---
-cancel_editor() { echo; echo "Cancelled; nothing changed."; exit 130; }
+cancel_editor() {
+  echo
+  echo "Cancelled; nothing changed."
+  exit 130
+}
 
 edit_field() { # index
   local i="$1"
@@ -138,48 +190,81 @@ edit_field() { # index
   echo "Changing: ${fields_label[i]}  (currently: $(display_of "$key" "$kind"))"
   case "$kind" in
     bool)
-      local defword; [[ "$cur" == "true" ]] && defword="Yes" || defword="No"
+      local defword
+      [[ "$cur" == "true" ]] && defword="Yes" || defword="No"
       while true; do
         read -r -p "  New value [y/n] (Enter keeps ${defword}): " ans || cancel_editor
         case "$ans" in
-          "") new="$cur"; break ;;
-          y|Y|yes|YES|t|T|true|1) new=true; break ;;
-          n|N|no|NO|f|F|false|0) new=false; break ;;
+          "")
+            new="$cur"
+            break
+            ;;
+          y | Y | yes | YES | t | T | true | 1)
+            new=true
+            break
+            ;;
+          n | N | no | NO | f | F | false | 0)
+            new=false
+            break
+            ;;
           *) echo "  Please enter y or n." >&2 ;;
         esac
-      done ;;
+      done
+      ;;
     preset)
       for ((j = 0; j < ${#preset_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${preset_labels[j]}"; done
       while true; do
         read -r -p "  Choose 1-${#preset_values[@]} (Enter keeps current): " ans || cancel_editor
-        if [[ -z "$ans" ]]; then new="$cur"; break
-        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#preset_values[@]})); then new="${preset_values[$((ans - 1))]}"; break
+        if [[ -z "$ans" ]]; then
+          new="$cur"
+          break
+        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#preset_values[@]})); then
+          new="${preset_values[$((ans - 1))]}"
+          break
         else echo "  Enter a number between 1 and ${#preset_values[@]}." >&2; fi
-      done ;;
+      done
+      ;;
     pw)
       for ((j = 0; j < ${#pw_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${pw_values[j]}"; done
       while true; do
         read -r -p "  Choose 1-${#pw_values[@]} (Enter keeps current): " ans || cancel_editor
-        if [[ -z "$ans" ]]; then new="$cur"; break
-        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#pw_values[@]})); then new="${pw_values[$((ans - 1))]}"; break
+        if [[ -z "$ans" ]]; then
+          new="$cur"
+          break
+        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#pw_values[@]})); then
+          new="${pw_values[$((ans - 1))]}"
+          break
         else echo "  Enter a number between 1 and ${#pw_values[@]}." >&2; fi
-      done ;;
+      done
+      ;;
     string)
       if [[ "$clear" == "yes" ]]; then
         while true; do
-          echo "  1. Enter a new value"; echo "  2. Clear the value"; echo "  3. Keep the current value"
+          echo "  1. Enter a new value"
+          echo "  2. Clear the value"
+          echo "  3. Keep the current value"
           read -r -p "  Choose 1-3: " op || cancel_editor
           case "$op" in
-            1) read -r -p "  New value: " new || cancel_editor; break ;;
-            2) new=""; break ;;
-            3|"") new="$cur"; break ;;
+            1)
+              read -r -p "  New value: " new || cancel_editor
+              break
+              ;;
+            2)
+              new=""
+              break
+              ;;
+            3 | "")
+              new="$cur"
+              break
+              ;;
             *) echo "  Enter 1, 2, or 3." >&2 ;;
           esac
         done
       else
         read -r -p "  New value (Enter keeps '${cur}'): " ans || cancel_editor
         [[ -z "$ans" ]] && new="$cur" || new="$ans"
-      fi ;;
+      fi
+      ;;
   esac
   stage_change "$key" "$new"
 }
@@ -207,8 +292,8 @@ open(out, "w").write("\n".join(lines) + "\n")
 PY
   # </dev/null: a missing (newly-added) answer must fail fast, never open a TTY.
   if ! chezmoi --config "$input" --source "$source_path" \
-        --persistent-state "$tmp_root/state.boltdb" --cache "$tmp_root/cache" \
-        init --config-path "$out" </dev/null 2>"$tmp_root/render.err"; then
+    --persistent-state "$tmp_root/state.boltdb" --cache "$tmp_root/cache" \
+    init --config-path "$out" </dev/null 2>"$tmp_root/render.err"; then
     if grep -q '/dev/tty' "$tmp_root/render.err"; then
       echo "$prog: your configuration needs a new answer the template added." >&2
       echo "Run 'chezmoi init' once to answer it, then re-run $prog." >&2
@@ -226,63 +311,84 @@ print_receipt() { # structured, from the pending registry — no grepped TOML
   echo "Proposed changes:"
   for ((i = 0; i < ${#pending_key[@]}; i++)); do
     key="${pending_key[i]}"
-    local ki; for ((ki = 0; ki < ${#fields_key[@]}; ki++)); do [[ "${fields_key[ki]}" == "$key" ]] && break; done
+    local ki
+    for ((ki = 0; ki < ${#fields_key[@]}; ki++)); do [[ "${fields_key[ki]}" == "$key" ]] && break; done
     kind="${fields_kind[ki]}"
     local oldv newv
-    oldv="$(persisted "$key")"; newv="${pending_val[i]}"
+    oldv="$(persisted "$key")"
+    newv="${pending_val[i]}"
     printf '  %s:  %s → %s\n' "${fields_label[ki]}" "$(fmt "$oldv" "$kind")" "$(fmt "$newv" "$kind")"
   done
 }
 fmt() { # value kind -> display
   case "$2" in
     bool) [[ "$1" == "true" ]] && echo "Yes" || echo "No" ;;
-    preset) local i; for ((i = 0; i < ${#preset_values[@]}; i++)); do [[ "${preset_values[i]}" == "$1" ]] && { echo "${preset_labels[i]%% (*}"; return; }; done; echo "$1" ;;
+    preset)
+      local i
+      for ((i = 0; i < ${#preset_values[@]}; i++)); do [[ "${preset_values[i]}" == "$1" ]] && {
+        echo "${preset_labels[i]%% (*}"
+        return
+      }; done
+      echo "$1"
+      ;;
     *) [[ -z "$1" ]] && echo "(none)" || echo "$1" ;;
   esac
 }
 
 apply_changes() {
-  if [[ ${#pending_key[@]} -eq 0 ]]; then echo "No changes to apply."; return 0; fi
+  if [[ ${#pending_key[@]} -eq 0 ]]; then
+    echo "No changes to apply."
+    return 0
+  fi
   local candidate="$tmp_root/candidate.toml" ans
   render_candidate "$candidate" || return 1
-  echo; print_receipt; echo
+  echo
+  print_receipt
+  echo
   # Preview the dotfile changes; a failed preview ABORTS (never apply blind).
   read -r -p "Preview the dotfiles this would change? [Y/n] " ans || cancel_editor
   case "$ans" in
-    n|N|no|NO) : ;;
+    n | N | no | NO) : ;;
     *)
       echo
       if ! chezmoi --config "$candidate" --persistent-state "$tmp_root/diff-state.boltdb" \
-            --cache "$tmp_root/diff-cache" --no-pager diff; then
+        --cache "$tmp_root/diff-cache" --no-pager diff; then
         echo "$prog: could not compute the dotfile preview; nothing was applied." >&2
         return 1
       fi
-      echo ;;
+      echo
+      ;;
   esac
   read -r -p "Apply these changes? [y/N] " ans || cancel_editor
   case "$ans" in
-    y|Y|yes|YES) ;;
-    *) echo "Not applied; your configuration is unchanged."; return 0 ;;
+    y | Y | yes | YES) ;;
+    *)
+      echo "Not applied; your configuration is unchanged."
+      return 0
+      ;;
   esac
 
   # --- atomic promotion under a lock, compare-before-swap ---
   lock_dir="$config_dir/.$prog.lock"
   if ! mkdir "$lock_dir" 2>/dev/null; then
     echo "$prog: another $prog appears to be running (lock at $lock_dir)." >&2
-    lock_dir=""; return 1
+    lock_dir=""
+    return 1
   fi
-  if [[ "$(cksum < "$config_path")" != "$config_digest_open" ]]; then
+  if [[ "$(cksum <"$config_path")" != "$config_digest_open" ]]; then
     echo "$prog: $config_path changed since this editor opened; not overwriting newer answers." >&2
     echo "Re-run $prog to start from the current values." >&2
-    rmdir "$lock_dir" 2>/dev/null || true; lock_dir=""; return 1
+    rmdir "$lock_dir" 2>/dev/null || true
+    lock_dir=""
+    return 1
   fi
   local backup swap
   backup="$config_dir/chezmoi.toml.groundwork-bak.$(date +%Y%m%d-%H%M%S)"
   swap="$config_dir/.chezmoi.toml.$prog.$$"
-  cp -p "$config_path" "$backup"          # same-dir backup, original mode
-  cp "$candidate" "$swap"                 # same-dir temp
+  cp -p "$config_path" "$backup" # same-dir backup, original mode
+  cp "$candidate" "$swap"        # same-dir temp
   chmod 600 "$swap"
-  mv -f "$swap" "$config_path"            # atomic rename into place
+  mv -f "$swap" "$config_path" # atomic rename into place
   echo "Configuration updated (backup: $backup)."
   local rc=0
   if chezmoi --config "$config_path" apply; then
@@ -294,7 +400,8 @@ apply_changes() {
     echo "Retry:   chezmoi --config '$config_path' apply" >&2
     echo "Backup:  $backup" >&2
   fi
-  rmdir "$lock_dir" 2>/dev/null || true; lock_dir=""
+  rmdir "$lock_dir" 2>/dev/null || true
+  lock_dir=""
   return "$rc"
 }
 
@@ -305,7 +412,8 @@ while true; do
   echo
   n=${#fields_key[@]}
   for ((i = 0; i < n; i++)); do
-    marker=" "; pending_index "${fields_key[i]}" >/dev/null 2>&1 && marker="*"
+    marker=" "
+    pending_index "${fields_key[i]}" >/dev/null 2>&1 && marker="*"
     printf ' %s%2d. %-22s %s\n' "$marker" "$((i + 1))" "${fields_label[i]}" "$(display_of "${fields_key[i]}" "${fields_kind[i]}")"
   done
   echo "     ------"
@@ -315,9 +423,16 @@ while true; do
   echo
   read -r -p "Choose a setting to change [$((n + 2))]: " choice || cancel_editor
   [[ -z "$choice" ]] && choice="$((n + 2))"
-  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then echo "  Enter a number." >&2; continue; fi
-  if ((choice >= 1 && choice <= n)); then edit_field "$((choice - 1))"
-  elif ((choice == n + 1)); then if apply_changes; then break; fi
-  elif ((choice == n + 2)); then echo "Exited; nothing changed."; break
+  if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+    echo "  Enter a number." >&2
+    continue
+  fi
+  if ((choice >= 1 && choice <= n)); then
+    edit_field "$((choice - 1))"
+  elif ((choice == n + 1)); then
+    if apply_changes; then break; fi
+  elif ((choice == n + 2)); then
+    echo "Exited; nothing changed."
+    break
   else echo "  Out of range." >&2; fi
 done

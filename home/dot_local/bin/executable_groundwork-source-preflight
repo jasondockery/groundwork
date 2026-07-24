@@ -11,7 +11,10 @@ set -euo pipefail
 # It NEVER mutates: no push, no set-upstream, no branch switch.
 
 prog="groundwork-source-preflight"
-command -v chezmoi >/dev/null 2>&1 || { echo "$prog: chezmoi is not on PATH." >&2; exit 1; }
+command -v chezmoi >/dev/null 2>&1 || {
+  echo "$prog: chezmoi is not on PATH." >&2
+  exit 1
+}
 
 # Fail closed: Groundwork expects a resolvable, Git-backed source.
 if ! src="$(chezmoi source-path 2>/dev/null)" || [[ -z "$src" ]]; then

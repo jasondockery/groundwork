@@ -73,31 +73,46 @@ path=""
 
 while (($#)); do
   case "$1" in
-    -f|--files)
-      [[ "$mode" != "folders" ]] || { echo "largest: --files and --folders cannot be combined" >&2; exit 2; }
+    -f | --files)
+      [[ "$mode" != "folders" ]] || {
+        echo "largest: --files and --folders cannot be combined" >&2
+        exit 2
+      }
       mode="files"
       ;;
-    -d|--folders)
-      [[ "$mode" != "files" ]] || { echo "largest: --files and --folders cannot be combined" >&2; exit 2; }
+    -d | --folders)
+      [[ "$mode" != "files" ]] || {
+        echo "largest: --files and --folders cannot be combined" >&2
+        exit 2
+      }
       mode="folders"
       ;;
-    -n|--number)
+    -n | --number)
       shift
-      [[ $# -gt 0 ]] || { echo "largest: --number needs a value" >&2; exit 2; }
+      [[ $# -gt 0 ]] || {
+        echo "largest: --number needs a value" >&2
+        exit 2
+      }
       number="$1"
-      [[ "$number" =~ ^[1-9][0-9]*$ ]] || { echo "largest: --number must be a positive integer" >&2; exit 2; }
+      [[ "$number" =~ ^[1-9][0-9]*$ ]] || {
+        echo "largest: --number must be a positive integer" >&2
+        exit 2
+      }
       ;;
     --no-advice)
       show_advice=false
       ;;
-    -h|--help)
+    -h | --help)
       usage
       exit 0
       ;;
     --)
       shift
       if (($#)); then
-        [[ -z "$path" && $# -eq 1 ]] || { echo "largest: provide one path" >&2; exit 2; }
+        [[ -z "$path" && $# -eq 1 ]] || {
+          echo "largest: provide one path" >&2
+          exit 2
+        }
         path="$1"
         shift
       fi
@@ -109,7 +124,10 @@ while (($#)); do
       exit 2
       ;;
     *)
-      [[ -z "$path" ]] || { echo "largest: provide one path" >&2; exit 2; }
+      [[ -z "$path" ]] || {
+        echo "largest: provide one path" >&2
+        exit 2
+      }
       path="$1"
       ;;
   esac
@@ -117,7 +135,10 @@ while (($#)); do
 done
 
 path="${path:-.}"
-[[ -e "$path" ]] || { echo "largest: path does not exist: $path" >&2; exit 2; }
+[[ -e "$path" ]] || {
+  echo "largest: path does not exist: $path" >&2
+  exit 2
+}
 command -v dust >/dev/null 2>&1 || {
   echo "largest: dust is required; install or reapply Groundwork first" >&2
   exit 1

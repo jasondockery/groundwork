@@ -70,7 +70,7 @@ else
   exit "$EXIT_DECLINED"
 fi
 case "$answer" in
-  y|Y|yes|YES)
+  y | Y | yes | YES)
     while IFS= read -r cmd; do
       echo "Groundwork: running: $cmd"
       if ! $cmd; then

@@ -80,7 +80,7 @@ fi
 # config path.
 gw_config="${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml"
 gw_config_before=""
-[[ -f "$gw_config" ]] && gw_config_before="$(cksum < "$gw_config" 2>/dev/null || true)"
+[[ -f "$gw_config" ]] && gw_config_before="$(cksum <"$gw_config" 2>/dev/null || true)"
 
 # --init regenerates the config when .chezmoi.toml.tmpl changed; all prompts
 # are *Once, so existing answers are reused without asking again. Pull WITHOUT
@@ -90,7 +90,7 @@ gw_config_before=""
 chezmoi update --init --apply=false
 
 gw_config_after=""
-[[ -f "$gw_config" ]] && gw_config_after="$(cksum < "$gw_config" 2>/dev/null || true)"
+[[ -f "$gw_config" ]] && gw_config_after="$(cksum <"$gw_config" 2>/dev/null || true)"
 gw_regenerated=0
 [[ "$gw_config_before" != "$gw_config_after" ]] && gw_regenerated=1
 

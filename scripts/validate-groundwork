@@ -195,10 +195,17 @@ trap report_and_cleanup EXIT
 # (.github/problem-matchers/shellcheck-gcc.json) so findings surface as
 # file/line annotations; locally keep shellcheck's readable tty output.
 run_shellcheck() {
+  # Use the SAME pinned ShellCheck the shell-lint gate uses (resolved once, then
+  # memoized), so this rendered-template check can never disagree with it. Fall
+  # back to a PATH shellcheck only if the pinned resolver is unavailable.
+  if [[ -z "${_gw_shellcheck_bin:-}" ]]; then
+    _gw_shellcheck_bin="$(scripts/ensure-shell-tools 2>/dev/null | sed -n 's/^SHELLCHECK_BIN=//p')"
+    [[ -x "$_gw_shellcheck_bin" ]] || _gw_shellcheck_bin=shellcheck
+  fi
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    shellcheck --format=gcc "$@"
+    "$_gw_shellcheck_bin" --format=gcc "$@"
   else
-    shellcheck "$@"
+    "$_gw_shellcheck_bin" "$@"
   fi
 }
 
@@ -206,7 +213,7 @@ run_shellcheck() {
 # ~/.config/chezmoi data under --override-data, so keys a test omits on purpose
 # (like xcode) leak in from the local machine and pass/fail differs from CI.
 empty_config="$out_dir/empty-config.toml"
-: > "$empty_config"
+: >"$empty_config"
 
 base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"bitwarden","signingkey":"","obsidian_vault_name":"ci","game_dev":false,"profile_preset":"personal-current","environment_role":"personal","release_posture":"current"'
 
@@ -218,7 +225,7 @@ render() {
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
   local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
-  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template <"$input" >"$output"
 }
 
 render_without_xcode_key() {
@@ -227,7 +234,7 @@ render_without_xcode_key() {
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
   local data="{${base_data},\"work\":${work},\"headless\":${headless},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
-  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template < "$input" > "$output"
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template <"$input" >"$output"
 }
 
 assert_not_contains() {
@@ -275,26 +282,12 @@ line_number() {
   printf '%s\n' "$line"
 }
 
-check "bootstrap syntax"
-bash -n bootstrap-mac.sh
-
-check "helper script syntax"
-shellcheck_files=(bootstrap-mac.sh)
-# The shared docker-scan library is sourced, not executed, so the executable_*
-# glob misses it; lint it explicitly (bash -n needs a shell, so use bash).
-bash -n home/dot_local/share/groundwork/lib/docker-scan.sh
-shellcheck_files+=(home/dot_local/share/groundwork/lib/docker-scan.sh)
-for script in docker/*.sh home/dot_local/bin/executable_* home/dot_codex/modify_private_config.toml home/dot_config/private_karabiner/modify_karabiner.json scripts/*; do
-  [[ -f "$script" ]] || continue
-  [[ "$script" == *.tmpl ]] && continue
-  if head -n 1 "$script" | grep -q 'bash'; then
-    bash -n "$script"
-    shellcheck_files+=("$script")
-  fi
-done
-
-check "shellcheck"
-run_shellcheck "${shellcheck_files[@]}"
+check "shell scripts (syntax, format, lint)"
+# Single authoritative gate: bash -n + the pinned shfmt + the pinned ShellCheck
+# over every tracked/untracked Bash script (scripts/ensure-shell-tools supplies
+# the exact pinned analyzers). CI and local dev call this same entry point, so no
+# distro-packaged analyzer defines "clean" (see scripts/lint-shell).
+scripts/lint-shell
 
 check "Homebrew update retry helper"
 test -x home/dot_local/bin/executable_groundwork-brew-update
@@ -730,7 +723,7 @@ diff -u "$update_all_fixture/expected-success" "$update_all_log"
 test -f "$update_all_stamp"
 grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$update_all_stamp"
 update_all_temps=("${update_all_stamp}.tmp."*)
-(( ${#update_all_temps[@]} == 0 )) || fail "update-all runner left a temporary timestamp behind"
+((${#update_all_temps[@]} == 0)) || fail "update-all runner left a temporary timestamp behind"
 grep -qF 'managed separately by your distribution' "$update_all_fixture/success-output"
 : >"$update_all_log"
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -1041,7 +1034,7 @@ done
 # rendering a partial configuration.
 if chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
   --override-data '{"chezmoi":{"os":"windows","arch":"amd64"}}' \
-  execute-template --init < home/.chezmoi.toml.tmpl >"$out_dir/windows-init" 2>&1; then
+  execute-template --init <home/.chezmoi.toml.tmpl >"$out_dir/windows-init" 2>&1; then
   fail "chezmoi config template rendered on native Windows instead of failing closed"
 fi
 grep -qF 'requires macOS, Linux, or WSL2' "$out_dir/windows-init"
@@ -1051,7 +1044,7 @@ grep -qF 'install WSL2 with Ubuntu' "$out_dir/windows-init"
 # kernel renders past the guard.
 if chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
   --override-data '{"chezmoi":{"os":"linux","arch":"amd64","kernel":{"osrelease":"4.4.0-19041-Microsoft"}}}' \
-  execute-template --init < home/.chezmoi.toml.tmpl >"$out_dir/wsl1-init" 2>&1; then
+  execute-template --init <home/.chezmoi.toml.tmpl >"$out_dir/wsl1-init" 2>&1; then
   fail "chezmoi config template rendered on WSL1 instead of failing closed"
 fi
 grep -qF 'supports WSL2, not WSL1' "$out_dir/wsl1-init"
@@ -1062,7 +1055,7 @@ chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
   --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
   --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
   --promptChoice password_manager=none \
-  < home/.chezmoi.toml.tmpl >"$out_dir/wsl2-init" 2>&1 \
+  <home/.chezmoi.toml.tmpl >"$out_dir/wsl2-init" 2>&1 \
   || fail "chezmoi config template must render on a WSL2 kernel"
 grep -qF 'sourceDir' "$out_dir/wsl2-init"
 # Older WSL2 kernels carry microsoft-standard without any WSL2 suffix and are
@@ -1073,7 +1066,7 @@ chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
   --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
   --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
   --promptChoice password_manager=none \
-  < home/.chezmoi.toml.tmpl >"$out_dir/wsl2-old-init" 2>&1 \
+  <home/.chezmoi.toml.tmpl >"$out_dir/wsl2-old-init" 2>&1 \
   || fail "chezmoi config template must render on an older microsoft-standard WSL2 kernel"
 grep -qF 'sourceDir' "$out_dir/wsl2-old-init"
 
@@ -1237,11 +1230,17 @@ _preset_render() {
     --promptBool work=false,headless=false,reset_existing_configs=false,install_chrome=false,game_dev=false,xcode=false \
     --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
     --promptChoice password_manager=none \
-    < home/.chezmoi.toml.tmpl 2>&1
+    <home/.chezmoi.toml.tmpl 2>&1
 }
-preset_out="$(_preset_render 2)" || { printf '%s\n' "$preset_out" >&2; fail "profile numbered menu did not render (choice 2)"; }
+preset_out="$(_preset_render 2)" || {
+  printf '%s\n' "$preset_out" >&2
+  fail "profile numbered menu did not render (choice 2)"
+}
 grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
-  || { printf '%s\n' "$preset_out" >&2; fail "menu choice 2 must store profile_preset personal-preview"; }
+  || {
+    printf '%s\n' "$preset_out" >&2
+    fail "menu choice 2 must store profile_preset personal-preview"
+  }
 grep -qF 'release_posture = "preview"' <<<"$preset_out" \
   || fail "menu choice 2 (personal-preview) must derive the preview posture"
 grep -qF 'environment_role = "personal"' <<<"$preset_out" \
@@ -1261,11 +1260,14 @@ test -x "$gc_bin" || fail "groundwork-configure must exist and be executable"
 bash -n "$gc_bin" || fail "groundwork-configure must be valid bash"
 # Argument contract: parse before any side effect. --help exits 0; unknown
 # options and unexpected positionals exit 64; none of these mutate anything.
-gc_rc=0; bash "$gc_bin" --help >/dev/null 2>&1 || gc_rc=$?
+gc_rc=0
+bash "$gc_bin" --help >/dev/null 2>&1 || gc_rc=$?
 [[ "$gc_rc" -eq 0 ]] || fail "groundwork-configure --help must exit 0"
-gc_rc=0; bash "$gc_bin" --bogus >/dev/null 2>&1 || gc_rc=$?
+gc_rc=0
+bash "$gc_bin" --bogus >/dev/null 2>&1 || gc_rc=$?
 [[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject an unknown option with exit 64"
-gc_rc=0; bash "$gc_bin" extra arg >/dev/null 2>&1 || gc_rc=$?
+gc_rc=0
+bash "$gc_bin" extra arg >/dev/null 2>&1 || gc_rc=$?
 [[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject positional arguments with exit 64"
 # Safe machine-state handling: candidate via isolated init, no sed on TOML,
 # compare-before-swap + lock + atomic 0600 promotion, apply with the exact config.
@@ -1277,19 +1279,54 @@ grep -qE 'mkdir .*lock_dir' "$gc_bin" || fail "groundwork-configure must take a 
 grep -qF 'chmod 600' "$gc_bin" || fail "the promoted config must be written mode 0600"
 grep -qE 'mv -f .*config_path' "$gc_bin" || fail "config promotion must be an atomic rename"
 grep -qE 'config .*config_path.* apply' "$gc_bin" || fail "groundwork-configure must apply with the exact promoted config path"
-# Non-TTY: refuse with editor guidance BEFORE any config dependency. Isolate
-# XDG_CONFIG_HOME to an EMPTY dir so this is hermetic and matches a bare CI
-# runner — the guard must fire whether or not a chezmoi config exists. (This
-# check passed locally but failed in CI when it leaked the developer's real
-# config; the guard now runs before the environment checks.)
-gc_noconfig="$out_dir/gw-configure-noconfig"; mkdir -p "$gc_noconfig"
-gc_guard="$(XDG_CONFIG_HOME="$gc_noconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
-grep -qF 'interactive settings editor' <<<"$gc_guard" || fail "groundwork-configure must refuse non-TTY input with guidance"
+# Refusal is state-specific across the four TTY/config states, and every refusal
+# is environment-independent so it stays deterministic on a bare CI runner. Drive
+# the two NON-TTY states hermetically with an isolated XDG_CONFIG_HOME (the TTY
+# states run through a pty below). This class of check leaked the developer's
+# real config once and passed locally while failing in CI; isolating the config
+# dir is what keeps local == CI.
+gc_states="$out_dir/gw-configure-states"
+mkdir -p "$gc_states/noconfig" "$gc_states/withconfig/chezmoi"
+: >"$gc_states/withconfig/chezmoi/chezmoi.toml" # existence is all these guards read
+# non-TTY + MISSING config: the missing config is the deeper problem; advising a
+# user to edit a file that does not exist is not actionable, so it must win.
+gc_out_noconf="$(XDG_CONFIG_HOME="$gc_states/noconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
+grep -qF 'no Groundwork configuration' <<<"$gc_out_noconf" \
+  || {
+    printf '%s\n' "$gc_out_noconf" >&2
+    fail "groundwork-configure (non-TTY, no config) must report the missing configuration, not point at a nonexistent file"
+  }
+# non-TTY + PRESENT config: refuse as interactive, pointing at the real file.
+gc_out_conf="$(XDG_CONFIG_HOME="$gc_states/withconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
+grep -qF 'interactive settings editor' <<<"$gc_out_conf" \
+  || {
+    printf '%s\n' "$gc_out_conf" >&2
+    fail "groundwork-configure (non-TTY, config present) must refuse with interactive-terminal guidance"
+  }
 # End-to-end through a real pty against a SYNTHETIC config: change the profile,
 # reach the Apply confirmation (the P0 regression never did), DECLINE, and leave
 # the config untouched.
 if command -v tmux >/dev/null 2>&1; then
-  gc_dir="$out_dir/gw-configure"; mkdir -p "$gc_dir/xdg/chezmoi"
+  # TTY + MISSING config: a real terminal but no config points at setup, NOT the
+  # interactive-terminal message (the terminal is already interactive). The lead
+  # `sleep 1` lets pipe-pane attach before the fast-exiting output prints.
+  gc_ttync="$out_dir/gw-configure-ttync"
+  mkdir -p "$gc_ttync/xdg"
+  gc_ncsock="groundwork-gcnc-$$"
+  gc_ncout="$gc_ttync/out"
+  tmux -L "$gc_ncsock" new-session -d -x 100 -y 30 \
+    "sleep 1; XDG_CONFIG_HOME='$gc_ttync/xdg' bash '$PWD/$gc_bin'; sleep 2"
+  tmux -L "$gc_ncsock" pipe-pane -t 0 -o "cat >> '$gc_ncout'"
+  sleep 3
+  tmux -L "$gc_ncsock" kill-server 2>/dev/null || true
+  grep -aqF 'no Groundwork configuration' "$gc_ncout" \
+    || {
+      cat "$gc_ncout" >&2
+      fail "groundwork-configure (TTY, no config) must report the missing configuration and point at setup"
+    }
+  # TTY + PRESENT config: the full receipt / apply-decline flow.
+  gc_dir="$out_dir/gw-configure"
+  mkdir -p "$gc_dir/xdg/chezmoi"
   {
     echo "sourceDir = \"$PWD/home\""
     echo '[data]'
@@ -1300,20 +1337,33 @@ if command -v tmux >/dev/null 2>&1; then
       'environment_role = "personal"' 'release_posture = "current"' 'game_dev = false' \
       'xcode = false' 'beta = false'
   } >"$gc_dir/xdg/chezmoi/chezmoi.toml"
-  gc_sock="groundwork-gc-$$"; gc_out="$gc_dir/out"
+  gc_sock="groundwork-gc-$$"
+  gc_out="$gc_dir/out"
   tmux -L "$gc_sock" new-session -d -x 115 -y 45 \
     "XDG_CONFIG_HOME='$gc_dir/xdg' bash '$PWD/$gc_bin'; sleep 8"
-  tmux -L "$gc_sock" pipe-pane -t 0 -o "cat >> '$gc_out'"; sleep 2
-  tmux -L "$gc_sock" send-keys -t 0 1 Enter; sleep 1
-  tmux -L "$gc_sock" send-keys -t 0 3 Enter; sleep 1
-  tmux -L "$gc_sock" send-keys -t 0 12 Enter; sleep 3
-  tmux -L "$gc_sock" send-keys -t 0 n Enter; sleep 1
-  tmux -L "$gc_sock" send-keys -t 0 n Enter; sleep 2
+  tmux -L "$gc_sock" pipe-pane -t 0 -o "cat >> '$gc_out'"
+  sleep 2
+  tmux -L "$gc_sock" send-keys -t 0 1 Enter
+  sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 3 Enter
+  sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 12 Enter
+  sleep 3
+  tmux -L "$gc_sock" send-keys -t 0 n Enter
+  sleep 1
+  tmux -L "$gc_sock" send-keys -t 0 n Enter
+  sleep 2
   tmux -L "$gc_sock" kill-server 2>/dev/null || true
   grep -aqF 'Proposed changes:' "$gc_out" \
-    || { cat "$gc_out" >&2; fail "groundwork-configure must print a structured receipt of the change"; }
+    || {
+      cat "$gc_out" >&2
+      fail "groundwork-configure must print a structured receipt of the change"
+    }
   grep -aqF 'Apply these changes?' "$gc_out" \
-    || { cat "$gc_out" >&2; fail "groundwork-configure must reach the Apply confirmation (P0: the diff logic once returned early)"; }
+    || {
+      cat "$gc_out" >&2
+      fail "groundwork-configure must reach the Apply confirmation (P0: the diff logic once returned early)"
+    }
   grep -aqF 'Not applied' "$gc_out" \
     || fail "declining must report the configuration was not applied"
   grep -qF 'profile_preset = "personal-current"' "$gc_dir/xdg/chezmoi/chezmoi.toml" \
@@ -1327,7 +1377,9 @@ bash -n "$pf_helper" || fail "groundwork-source-preflight must be valid bash"
 # It must classify configured tracking, never mutate, and read the CONFIGURED
 # upstream (for-each-ref), not @{u} (which fails when a tracked ref is [gone]).
 grep -qF 'upstream:remotename' "$pf_helper" || fail "preflight must read the configured upstream via for-each-ref, not @{u}"
-pf_root="$out_dir/preflight"; pf_bin="$pf_root/bin"; mkdir -p "$pf_bin"
+pf_root="$out_dir/preflight"
+pf_bin="$pf_root/bin"
+mkdir -p "$pf_bin"
 cat >"$pf_bin/chezmoi" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
@@ -1341,16 +1393,19 @@ pf_out=""
 pf_run() { # want-exit  src  [src-fail]
   local want="$1" rc=0
   pf_out="$(PATH="$pf_bin:$PATH" PF_SRC="${2:-}" PF_SRC_FAIL="${3:-0}" bash "$pf_helper" 2>&1)" || rc=$?
-  [[ "$rc" -eq "$want" ]] || { printf '%s\n' "$pf_out" >&2; fail "preflight exit $rc, expected $want"; }
+  [[ "$rc" -eq "$want" ]] || {
+    printf '%s\n' "$pf_out" >&2
+    fail "preflight exit $rc, expected $want"
+  }
 }
 # Fixtures: a seed repo with one commit, cloned so the clone tracks origin/main.
 "${pf_git[@]}" init -q "$pf_root/seed" || fail "preflight fixture: git init failed"
-( cd "$pf_root/seed" && "${pf_git[@]}" commit -q --allow-empty -m init ) || fail "preflight fixture: seed commit failed"
+(cd "$pf_root/seed" && "${pf_git[@]}" commit -q --allow-empty -m init) || fail "preflight fixture: seed commit failed"
 "${pf_git[@]}" clone -q "$pf_root/seed" "$pf_root/clone" 2>/dev/null || fail "preflight fixture: clone failed"
 # tracked main -> 0
 pf_run 0 "$pf_root/clone"
 # untracked feature branch -> 2, with the local-dev lane
-( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q -b feature ) || fail "preflight fixture: feature branch"
+(cd "$pf_root/clone" && "${pf_git[@]}" checkout -q -b feature) || fail "preflight fixture: feature branch"
 pf_run 2 "$pf_root/clone"
 grep -qF 'has no upstream' <<<"$pf_out" || fail "untracked branch must be diagnosed as having no upstream"
 grep -qF 'chezmoi init' <<<"$pf_out" || fail "untracked branch must offer the init/apply lane"
@@ -1359,14 +1414,14 @@ grep -qF 'push -u origin HEAD' <<<"$pf_out" || fail "untracked branch must sugge
 [[ "$("${pf_git[@]}" -C "$pf_root/clone" symbolic-ref --short HEAD)" == feature ]] \
   || fail "the preflight must be read-only (it changed the current branch)"
 # detached HEAD -> 2
-( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q --detach ) || fail "preflight fixture: detach"
+(cd "$pf_root/clone" && "${pf_git[@]}" checkout -q --detach) || fail "preflight fixture: detach"
 pf_run 2 "$pf_root/clone"
 grep -qiF 'detached' <<<"$pf_out" || fail "detached HEAD must be diagnosed as such"
 # configured upstream whose local remote-tracking ref is gone -> STILL 0 (not misclassified)
-( cd "$pf_root/clone" && "${pf_git[@]}" checkout -q main && "${pf_git[@]}" update-ref -d refs/remotes/origin/main ) || fail "preflight fixture: gone upstream"
+(cd "$pf_root/clone" && "${pf_git[@]}" checkout -q main && "${pf_git[@]}" update-ref -d refs/remotes/origin/main) || fail "preflight fixture: gone upstream"
 pf_run 0 "$pf_root/clone"
 # untracked branch on a non-origin remote -> 2, guidance names that remote
-( cd "$pf_root/clone" && "${pf_git[@]}" remote rename origin upstream && "${pf_git[@]}" checkout -q -b feature2 ) || fail "preflight fixture: non-origin remote"
+(cd "$pf_root/clone" && "${pf_git[@]}" remote rename origin upstream && "${pf_git[@]}" checkout -q -b feature2) || fail "preflight fixture: non-origin remote"
 pf_run 2 "$pf_root/clone"
 grep -qF 'push -u upstream HEAD' <<<"$pf_out" || fail "guidance must name the single configured remote"
 # source-path failure -> 1 (fail closed)
@@ -1387,8 +1442,8 @@ assert_no_matches "prefix+C-y must not interpolate the pane path through /bin/sh
   rg -n "set-buffer -w '#\{pane_current_path\}'" home/dot_config/tmux/tmux.conf.tmpl
 # Ghostty copy model differs by platform: explicit copy on macOS, selection
 # convention preserved on Linux. Render both and assert they diverge.
-gcfg_mac="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"darwin"}}' execute-template < home/dot_config/ghostty/config.tmpl)"
-gcfg_lin="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"linux"}}' execute-template < home/dot_config/ghostty/config.tmpl)"
+gcfg_mac="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"darwin"}}' execute-template <home/dot_config/ghostty/config.tmpl)"
+gcfg_lin="$(chezmoi --config "$empty_config" --source "$PWD" --override-data '{"chezmoi":{"os":"linux"}}' execute-template <home/dot_config/ghostty/config.tmpl)"
 grep -qxF 'copy-on-select = false' <<<"$gcfg_mac" \
   || fail "Ghostty on macOS must set copy-on-select = false (explicit copy)"
 grep -qxF 'copy-on-select = true' <<<"$gcfg_lin" \
@@ -1396,13 +1451,14 @@ grep -qxF 'copy-on-select = true' <<<"$gcfg_lin" \
 grep -qxF 'mouse-shift-capture = never' <<<"$gcfg_lin" \
   || fail "mouse-shift-capture = never must apply on every platform"
 if command -v tmux >/dev/null 2>&1; then
-  tcm_dir="$out_dir/terminal-copy-model"; mkdir -p "$tcm_dir"
+  tcm_dir="$out_dir/terminal-copy-model"
+  mkdir -p "$tcm_dir"
   chezmoi --config "$empty_config" --source "$PWD" \
     --override-data '{"headless":false,"chezmoi":{"os":"darwin"}}' \
-    execute-template < home/dot_config/tmux/tmux.conf.tmpl > "$tcm_dir/full.conf" 2>/dev/null \
+    execute-template <home/dot_config/tmux/tmux.conf.tmpl >"$tcm_dir/full.conf" 2>/dev/null \
     || fail "tmux.conf.tmpl must render"
   grep -vE "run '.*tpm'|@plugin|@continuum|@resurrect|@catppuccin|@vim_navigator|source-file .*plugins|catppuccin|status-left|status-right|status-interval" \
-    "$tcm_dir/full.conf" > "$tcm_dir/core.conf"
+    "$tcm_dir/full.conf" >"$tcm_dir/core.conf"
   tcm_sock="groundwork-tcm-$$"
   if tmux -L "$tcm_sock" -f "$tcm_dir/core.conf" new-session -d -x 80 -y 24 2>"$tcm_dir/err"; then
     [[ "$(tmux -L "$tcm_sock" show -sv set-clipboard)" == external ]] \
@@ -1435,10 +1491,11 @@ fi
 # metacharacters must be handled as DATA. A stub tmux returns a hostile path from
 # display-message; the helper must copy it literally and NEVER execute it.
 cwd_helper="$PWD/home/dot_local/bin/executable_tmux-copy-cwd"
-stub="$out_dir/tmux-copy-cwd-stub"; mkdir -p "$stub/bin"
+stub="$out_dir/tmux-copy-cwd-stub"
+mkdir -p "$stub/bin"
 # shellcheck disable=SC2016,SC2006 # the metacharacters are literal attack payload, not expansions
 hostile_value='evil$(touch INJECTED-CMD)`touch INJECTED-BT`;${z};#end'
-printf '%s' "$hostile_value" > "$stub/hostile"
+printf '%s' "$hostile_value" >"$stub/hostile"
 cat >"$stub/bin/tmux" <<'STUB'
 #!/usr/bin/env bash
 case "$1" in
@@ -2292,7 +2349,10 @@ ann_rocket=$'\360\237\232\200'
 # And with no UTF-8 locale on the machine at all, bash counts bytes: the cap then
 # backs off the partial character rather than emitting half of it. Stricter than
 # the contract (the whole rocket is dropped), never broken output.
-ann_no_utf8="$(annotation_utf8_locale=""; annotation_escape_message "${ann_a498}${ann_rocket}zz")"
+ann_no_utf8="$(
+  annotation_utf8_locale=""
+  annotation_escape_message "${ann_a498}${ann_rocket}zz"
+)"
 [[ "$ann_no_utf8" == "${ann_a498}…" ]] \
   || fail "without a UTF-8 locale the annotation cap must drop the partial character, not split it"
 
@@ -3127,8 +3187,7 @@ grep -F 'fresh-exit' "$out_dir/tidy-yes" | grep -qF 'retained'
 grep -qF 'image rm sha256:old1000' "$tidy_state/argv.log"
 grep -qF 'image rm groundwork/scratch:b' "$tidy_state/argv.log"
 grep -qF 'image rm sha256:multi000' "$tidy_state/argv.log"
-if [[ "$(grep -n 'container rm c-eph00' "$tidy_state/argv.log" | cut -d: -f1)" \
-  -gt "$(grep -n 'image rm' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)" ]]; then
+if [[ "$(grep -n 'container rm c-eph00' "$tidy_state/argv.log" | cut -d: -f1)" -gt "$(grep -n 'image rm' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)" ]]; then
   fail "the labeled exited container must be removed BEFORE image deletion"
 fi
 for tidy_kept in hostile0 runref00 stopref0 young100 badts000 nots0000 dang1000; do
@@ -3907,7 +3966,10 @@ grep -qF 'groundwork-apps-start' home/dot_local/bin/executable_groundwork-update
 # cask upgrades and never brings them back.
 for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
   grep -qF "start_app \"$always_on_app\"" home/dot_local/bin/executable_groundwork-apps-start \
-    || { echo "groundwork-apps-start must relaunch $always_on_app" >&2; exit 1; }
+    || {
+      echo "groundwork-apps-start must relaunch $always_on_app" >&2
+      exit 1
+    }
 done
 grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
 # update-all is a stable disk-backed launcher that syncs and then execs the
@@ -3976,8 +4038,8 @@ check_tmux_floor() {
 check_tmux_floor "tmux 3.5" 1
 check_tmux_floor "tmux 3.6" 0
 check_tmux_floor "tmux 4.1" 0
-check_tmux_floor "garbage"  1
-check_tmux_floor ""         1
+check_tmux_floor "garbage" 1
+check_tmux_floor "" 1
 rm -rf "$tmux_floor_stub_dir"
 # One clipboard path: tmux-yank (external pbcopy) is deliberately NOT loaded, so
 # copy-mode y and tmux-copy-last both use tmux's native OSC 52 route. prefix+Y is
@@ -4039,10 +4101,10 @@ test -f home/dot_config/tmux/tmux.conf.tmpl
 test ! -f home/dot_config/tmux/tmux.conf
 grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" home/dot_config/tmux/tmux.conf.tmpl
 unexpected_tmux_templates="$(
-  grep -nE '\{\{|\}\}' home/dot_config/tmux/tmux.conf.tmpl |
-    grep -vF '{{- if not .headless }}' |
-    grep -vF '{{- else }}' |
-    grep -vF '{{- end }}' || true
+  grep -nE '\{\{|\}\}' home/dot_config/tmux/tmux.conf.tmpl \
+    | grep -vF '{{- if not .headless }}' \
+    | grep -vF '{{- else }}' \
+    | grep -vF '{{- end }}' || true
 )"
 if [[ -n "$unexpected_tmux_templates" ]]; then
   echo "unexpected Go template marker in tmux.conf.tmpl" >&2
@@ -4057,7 +4119,7 @@ grep -qF "set -agF status-right '#{E:@catppuccin_status_battery}'" home/dot_conf
 catppuccin_source_line="$(line_number "source-file -q ~/.config/tmux/plugins/tmux/catppuccin_tmux.conf" home/dot_config/tmux/tmux.conf.tmpl)"
 cpu_status_line="$(line_number "set -agF status-right '#{E:@catppuccin_status_cpu}'" home/dot_config/tmux/tmux.conf.tmpl)"
 tpm_run_line="$(line_number "run '~/.config/tmux/plugins/tpm/tpm'" home/dot_config/tmux/tmux.conf.tmpl)"
-if (( catppuccin_source_line >= cpu_status_line || cpu_status_line >= tpm_run_line )); then
+if ((catppuccin_source_line >= cpu_status_line || cpu_status_line >= tpm_run_line)); then
   echo "tmux status modules must source Catppuccin before set -agF modules, before TPM runs" >&2
   exit 1
 fi
@@ -4067,11 +4129,14 @@ if grep -qF 'tmux_required_plugins=' home/run_after_20-tools.sh.tmpl; then
   exit 1
 fi
 tmux_declared_plugins="$(
-  sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf.tmpl |
-    sed -E 's/#.*$//; s|.*/||; s/\.git$//'
+  sed -nE "s/^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin[[:space:]]+['\"]?([^'\"[:space:]]+)['\"]?.*$/\2/p" home/dot_config/tmux/tmux.conf.tmpl \
+    | sed -E 's/#.*$//; s|.*/||; s/\.git$//'
 )"
 for plugin in tpm tmux-sensible tmux-resurrect tmux-continuum tmux-cpu tmux-battery vim-tmux-navigator tmux; do
-  grep -qx "$plugin" <<<"$tmux_declared_plugins" || { echo "tmux plugin parser missed $plugin" >&2; exit 1; }
+  grep -qx "$plugin" <<<"$tmux_declared_plugins" || {
+    echo "tmux plugin parser missed $plugin" >&2
+    exit 1
+  }
 done
 grep -qF "\"\$tmux_plugin_dir/tpm/bin/install_plugins\" || true" home/run_after_20-tools.sh.tmpl
 grep -qF 'enable-atuin-ai' home/dot_zshrc.tmpl
@@ -4109,28 +4174,82 @@ for page in docs/*.html; do
   # Search-engine verification stubs (google*.html) live in docs/ but are
   # not pages; the same marker rule generate-discovery uses.
   grep -q 'property="og:site_name" content="Groundwork"' "$page" || continue
-  grep -q 'name="description"' "$page" || { echo "$page: missing description meta tag" >&2; exit 1; }
-  grep -q ' · Groundwork</title>' "$page" || { echo "$page: page title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
-  grep -q 'property="og:title"' "$page" || { echo "$page: missing Open Graph title" >&2; exit 1; }
-  grep -q 'property="og:title" content=".* · Groundwork"' "$page" || { echo "$page: Open Graph title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
-  grep -q 'property="og:url" content="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || { echo "$page: missing Open Graph URL" >&2; exit 1; }
-  grep -q 'name="twitter:title" content=".* · Groundwork"' "$page" || { echo "$page: Twitter title must use middle dot separator: Page · Groundwork" >&2; exit 1; }
-  grep -q 'property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png"' "$page" || { echo "$page: missing PNG Open Graph image" >&2; exit 1; }
-  grep -q 'rel="canonical" href="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || { echo "$page: missing canonical URL" >&2; exit 1; }
-  grep -q 'rel="icon"' "$page" || { echo "$page: missing favicon link" >&2; exit 1; }
-  grep -q '<a class="skip-link" href="#main">Skip to content</a>' "$page" || { echo "$page: missing skip link" >&2; exit 1; }
-  grep -q '<main id="main" class="main">' "$page" || { echo "$page: missing main landmark id" >&2; exit 1; }
-  grep -q 'data-nav-toggle aria-controls="site-sidebar" aria-expanded="false"' "$page" || { echo "$page: mobile nav toggle missing aria-controls/expanded" >&2; exit 1; }
-  grep -q '<aside id="site-sidebar" class="sidebar">' "$page" || { echo "$page: sidebar missing controlled id" >&2; exit 1; }
-  grep -q '<div class="scrim" aria-hidden="true"></div>' "$page" || { echo "$page: scrim missing aria-hidden" >&2; exit 1; }
-  grep -q 'localStorage.getItem("fg-theme")' "$page" || { echo "$page: missing early theme bootstrap" >&2; exit 1; }
+  grep -q 'name="description"' "$page" || {
+    echo "$page: missing description meta tag" >&2
+    exit 1
+  }
+  grep -q ' · Groundwork</title>' "$page" || {
+    echo "$page: page title must use middle dot separator: Page · Groundwork" >&2
+    exit 1
+  }
+  grep -q 'property="og:title"' "$page" || {
+    echo "$page: missing Open Graph title" >&2
+    exit 1
+  }
+  grep -q 'property="og:title" content=".* · Groundwork"' "$page" || {
+    echo "$page: Open Graph title must use middle dot separator: Page · Groundwork" >&2
+    exit 1
+  }
+  grep -q 'property="og:url" content="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || {
+    echo "$page: missing Open Graph URL" >&2
+    exit 1
+  }
+  grep -q 'name="twitter:title" content=".* · Groundwork"' "$page" || {
+    echo "$page: Twitter title must use middle dot separator: Page · Groundwork" >&2
+    exit 1
+  }
+  grep -q 'property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png"' "$page" || {
+    echo "$page: missing PNG Open Graph image" >&2
+    exit 1
+  }
+  grep -q 'rel="canonical" href="https://jasondockery.github.io/groundwork/'"$(basename "$page")"'"' "$page" || {
+    echo "$page: missing canonical URL" >&2
+    exit 1
+  }
+  grep -q 'rel="icon"' "$page" || {
+    echo "$page: missing favicon link" >&2
+    exit 1
+  }
+  grep -q '<a class="skip-link" href="#main">Skip to content</a>' "$page" || {
+    echo "$page: missing skip link" >&2
+    exit 1
+  }
+  grep -q '<main id="main" class="main">' "$page" || {
+    echo "$page: missing main landmark id" >&2
+    exit 1
+  }
+  grep -q 'data-nav-toggle aria-controls="site-sidebar" aria-expanded="false"' "$page" || {
+    echo "$page: mobile nav toggle missing aria-controls/expanded" >&2
+    exit 1
+  }
+  grep -q '<aside id="site-sidebar" class="sidebar">' "$page" || {
+    echo "$page: sidebar missing controlled id" >&2
+    exit 1
+  }
+  grep -q '<div class="scrim" aria-hidden="true"></div>' "$page" || {
+    echo "$page: scrim missing aria-hidden" >&2
+    exit 1
+  }
+  grep -q 'localStorage.getItem("fg-theme")' "$page" || {
+    echo "$page: missing early theme bootstrap" >&2
+    exit 1
+  }
   assert_not_contains 'data-theme="dark"' "$page" "$page: hardcoded dark theme causes light-theme flash"
-  grep -q 'href="platforms.html"' "$page" || { echo "$page: missing Platforms sidebar link" >&2; exit 1; }
+  grep -q 'href="platforms.html"' "$page" || {
+    echo "$page: missing Platforms sidebar link" >&2
+    exit 1
+  }
   for group in "Start here" "Set up" "Foundations" "Daily workflow" "Directing agents" "AI tools" "Interest tracks" "Mac desktop" "Reference"; do
-    grep -q "<h4>$group</h4>" "$page" || { echo "$page: missing sidebar group: $group" >&2; exit 1; }
+    grep -q "<h4>$group</h4>" "$page" || {
+      echo "$page: missing sidebar group: $group" >&2
+      exit 1
+    }
   done
   active_count="$(grep -c 'class="active"' "$page" || true)"
-  [[ "$active_count" == "1" ]] || { echo "$page: expected one active sidebar link, found $active_count" >&2; exit 1; }
+  [[ "$active_count" == "1" ]] || {
+    echo "$page: expected one active sidebar link, found $active_count" >&2
+    exit 1
+  }
 done
 # Every page carries its own copy of the sidebar; with the active marker
 # stripped they must be identical, or link order and grouping silently drift
@@ -4157,9 +4276,9 @@ assert_no_matches "old docs title separator found" rg -n '(<title>[^<]*( — | -
 assert_no_matches "old macOS windows label found" rg -n "macOS windows" docs README.md
 assert_no_matches "old sidebar group label found" rg -n '<h4>(The path|Workflows|Tracks)</h4>' docs
 commands_page_text="$(
-  sed -E 's/<[^>]+>/ /g; s/&lt;/</g; s/&gt;/>/g; s/&amp;/\\&/g; s/&quot;/\"/g; s/&#39;/'"'"'/g' docs/commands.html |
-    tr '\n' ' ' |
-    tr -s '[:space:]' ' '
+  sed -E 's/<[^>]+>/ /g; s/&lt;/</g; s/&gt;/>/g; s/&amp;/\\&/g; s/&quot;/\"/g; s/&#39;/'"'"'/g' docs/commands.html \
+    | tr '\n' ' ' \
+    | tr -s '[:space:]' ' '
 )"
 while IFS=$'\t' read -r _category command _kind _description; do
   [[ -n "$command" && "$command" != \#* ]] || continue
@@ -4173,8 +4292,11 @@ while IFS=$'\t' read -r _category command _kind _description; do
     "vim / vi") command_key="vim" ;;
     *update_plugins*) command_key="update_plugins" ;;
   esac
-  grep -Fq "$command_key" <<<"$commands_page_text" || { echo "docs/commands.html missing command catalog entry for: $command" >&2; exit 1; }
-done < home/dot_local/share/groundwork/commands.tsv
+  grep -Fq "$command_key" <<<"$commands_page_text" || {
+    echo "docs/commands.html missing command catalog entry for: $command" >&2
+    exit 1
+  }
+done <home/dot_local/share/groundwork/commands.tsv
 
 check "supply-chain guardrails"
 grep -qE '^FROM ubuntu:24\.04@sha256:[0-9a-f]{64}$' Dockerfile
@@ -4214,7 +4336,10 @@ check "template brace balance"
 while IFS= read -r template; do
   left=$(grep -o '{{' "$template" | wc -l | tr -d ' ' || true)
   right=$(grep -o '}}' "$template" | wc -l | tr -d ' ' || true)
-  [[ "$left" == "$right" ]] || { echo "unbalanced template braces: $template" >&2; exit 1; }
+  [[ "$left" == "$right" ]] || {
+    echo "unbalanced template braces: $template" >&2
+    exit 1
+  }
 done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
 
 shell_templates=(home/run_*.sh.tmpl home/dot_local/bin/*.tmpl)
@@ -4374,7 +4499,7 @@ for page in docs/*.html; do
   dir="$(dirname "$page")"
   while IFS= read -r href; do
     case "$href" in
-      http:*|https:*|mailto:*|"") continue ;;
+      http:* | https:* | mailto:* | "") continue ;;
     esac
     target="${href%%#*}"
     fragment=""
@@ -4391,7 +4516,7 @@ for page in docs/*.html; do
   done < <(grep -Eo 'href="[^"]+"' "$page" | sed -E 's/^href="([^"]*)"$/\1/')
   while IFS= read -r src; do
     case "$src" in
-      http:*|https:*|data:*|"") continue ;;
+      http:* | https:* | data:* | "") continue ;;
     esac
     if [[ ! -e "$dir/$src" ]]; then
       echo "missing asset $page: $src" >&2
@@ -4422,16 +4547,16 @@ expect_timeout_check() {
     exit 1
   fi
 }
-expect_timeout_check 0 valid                 "ok: every job"
-expect_timeout_check 0 valid-yaml-ext        "ok: every job"
-expect_timeout_check 0 reusable              "ok: every job"
-expect_timeout_check 1 missing               "has no timeout-minutes"
-expect_timeout_check 1 noninteger            "must be a positive integer"
-expect_timeout_check 1 zero                  "must be greater than zero"
-expect_timeout_check 1 over-max              "exceeds the 60-minute ceiling"
-expect_timeout_check 1 reusable-unpinned     "not pinned to a full 40-character SHA"
+expect_timeout_check 0 valid "ok: every job"
+expect_timeout_check 0 valid-yaml-ext "ok: every job"
+expect_timeout_check 0 reusable "ok: every job"
+expect_timeout_check 1 missing "has no timeout-minutes"
+expect_timeout_check 1 noninteger "must be a positive integer"
+expect_timeout_check 1 zero "must be greater than zero"
+expect_timeout_check 1 over-max "exceeds the 60-minute ceiling"
+expect_timeout_check 1 reusable-unpinned "not pinned to a full 40-character SHA"
 expect_timeout_check 1 reusable-with-timeout "must not declare timeout-minutes"
-expect_timeout_check 1 multi                 "has no timeout-minutes"
+expect_timeout_check 1 multi "has no timeout-minutes"
 
 check "every CI job declares a bounded timeout"
 scripts/check-workflow-timeouts >/dev/null
@@ -4449,7 +4574,7 @@ render_profile() {
   local data="{${base_data%%,\"profile_preset\"*},\"profile_preset\":\"${preset}\",\"environment_role\":\"${role}\",\"release_posture\":\"${posture}\",\"work\":${work},\"headless\":${headless},\"xcode\":false,\"beta\":false,\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}"
   chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
     --override-data "$data" execute-template \
-    < home/dot_local/bin/executable_groundwork-profile.tmpl > "$output"
+    <home/dot_local/bin/executable_groundwork-profile.tmpl >"$output"
   chmod +x "$output"
 }
 
@@ -4547,7 +4672,7 @@ if [[ -f .groundwork-public-denylist ]]; then
   while IFS= read -r pattern; do
     [[ -z "$pattern" || "$pattern" == \#* ]] && continue
     assert_no_matches "local public denylist file pattern matched" rg -n "$pattern" . --hidden -g '!.git' -g '!node_modules' -g '!.groundwork-public-denylist'
-  done < .groundwork-public-denylist
+  done <.groundwork-public-denylist
 fi
 
 check "update-flow safety contract"
@@ -4592,7 +4717,7 @@ shallow_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-shallow.XXXXXX")"
 git clone --quiet --depth 1 "file://$PWD/.git" "$shallow_dir/repo"
 cp scripts/generate-discovery "$shallow_dir/repo/scripts/generate-discovery"
 if (cd "$shallow_dir/repo" && python3 scripts/generate-discovery --check) \
-    >/dev/null 2>"$shallow_dir/err"; then
+  >/dev/null 2>"$shallow_dir/err"; then
   echo "generate-discovery did not fail closed in a shallow clone" >&2
   rm -rf "$shallow_dir"
   exit 1
@@ -4612,7 +4737,7 @@ check "discovery generator lastmod: committed date vs today for dirty/untracked"
 # idempotent (no metadata rewrite that would otherwise dirty a committed page).
 datefx_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-datefx.XXXXXX")"
 write_fixture_page() {
-  printf '%s' '<html><head><meta name="description" content="Lead."><meta property="og:site_name" content="Groundwork"><title>T</title></head><body><div class="content"><p class="lead">Lead.</p></div></body></html>' > "$1"
+  printf '%s' '<html><head><meta name="description" content="Lead."><meta property="og:site_name" content="Groundwork"><title>T</title></head><body><div class="content"><p class="lead">Lead.</p></div></body></html>' >"$1"
 }
 if ! (
   cd "$datefx_dir" || exit 1
@@ -4627,8 +4752,8 @@ if ! (
   git add -A
   git commit -qm init
   unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
-  printf '\n' >> docs/b.html       # tracked and dirty
-  write_fixture_page docs/c.html   # untracked
+  printf '\n' >>docs/b.html      # tracked and dirty
+  write_fixture_page docs/c.html # untracked
   python3 scripts/generate-discovery >/dev/null
   python3 - <<'PY'
 import datetime
