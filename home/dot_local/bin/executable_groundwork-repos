@@ -225,8 +225,7 @@ discover() {
       if [[ -f "$canonical/.git" ]]; then
         # A .git FILE means a linked worktree (or submodule): the real git
         # dir lives elsewhere. Linked worktrees have git-dir != common-dir.
-        if [[ "$(safe_git "$canonical" rev-parse --git-dir 2>/dev/null)" != \
-              "$(safe_git "$canonical" rev-parse --git-common-dir 2>/dev/null)" ]]; then
+        if [[ "$(safe_git "$canonical" rev-parse --git-dir 2>/dev/null)" != "$(safe_git "$canonical" rev-parse --git-common-dir 2>/dev/null)" ]]; then
           flag="wt"
         fi
       fi

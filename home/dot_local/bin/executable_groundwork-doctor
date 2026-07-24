@@ -43,9 +43,9 @@ EOF
 }
 
 heading() { printf '\n== %s ==\n' "$1"; }
-ok()      { printf '  ok    %s\n' "$1"; }
-warn()    { printf '  warn  %s\n' "$1"; }
-note()    { printf '  note  %s\n' "$1"; }
+ok() { printf '  ok    %s\n' "$1"; }
+warn() { printf '  warn  %s\n' "$1"; }
+note() { printf '  note  %s\n' "$1"; }
 
 docker_section() {
   heading "Docker"
@@ -150,7 +150,6 @@ EOF
     note "engine settings live in Docker Desktop -> Settings -> Docker Engine (work Macs: the managed Colima template already sets them). See the Platforms page for the exact JSON."
   fi
 }
-
 
 # The release floor Groundwork enforces in update-all. Keep this in step with
 # groundwork-update-run; the validator asserts they agree.
@@ -383,7 +382,10 @@ while (($#)); do
     --docker) section="docker" ;;
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
-    -h|--help) usage; exit 0 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
     *)
       echo "groundwork-doctor: unknown option: $1" >&2
       echo "Run 'groundwork-doctor --help' for usage." >&2

@@ -3,16 +3,27 @@ set -euo pipefail
 
 arch="$(uname -m)"
 case "$arch" in
-  x86_64) release_arch="x86_64"; deb_arch="amd64"; musl_arch="x86_64" ;;
-  aarch64|arm64) release_arch="arm64"; deb_arch="arm64"; musl_arch="aarch64" ;;
-  *) echo "unsupported arch: $arch" >&2; exit 1 ;;
+  x86_64)
+    release_arch="x86_64"
+    deb_arch="amd64"
+    musl_arch="x86_64"
+    ;;
+  aarch64 | arm64)
+    release_arch="arm64"
+    deb_arch="arm64"
+    musl_arch="aarch64"
+    ;;
+  *)
+    echo "unsupported arch: $arch" >&2
+    exit 1
+    ;;
 esac
 
 github_api_headers=()
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   github_api_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
 elif [[ -r /run/secrets/github_token ]]; then
-  github_token="$(< /run/secrets/github_token)"
+  github_token="$(</run/secrets/github_token)"
   if [[ -n "$github_token" ]]; then
     github_api_headers=(-H "Authorization: Bearer $github_token")
   fi
@@ -152,9 +163,9 @@ install_delta() (
 
 install_eza() {
   mkdir -p /etc/apt/keyrings
-  wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | gpg --dearmor > /etc/apt/keyrings/gierens.gpg.tmp
+  wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | gpg --dearmor >/etc/apt/keyrings/gierens.gpg.tmp
   mv /etc/apt/keyrings/gierens.gpg.tmp /etc/apt/keyrings/gierens.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] https://deb.gierens.de stable main" > /etc/apt/sources.list.d/gierens.list
+  echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] https://deb.gierens.de stable main" >/etc/apt/sources.list.d/gierens.list
   chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
   apt-get update
   apt-get install -y eza
