@@ -1277,8 +1277,13 @@ grep -qE 'mkdir .*lock_dir' "$gc_bin" || fail "groundwork-configure must take a 
 grep -qF 'chmod 600' "$gc_bin" || fail "the promoted config must be written mode 0600"
 grep -qE 'mv -f .*config_path' "$gc_bin" || fail "config promotion must be an atomic rename"
 grep -qE 'config .*config_path.* apply' "$gc_bin" || fail "groundwork-configure must apply with the exact promoted config path"
-# Non-TTY: refuse and point at the manual path.
-gc_guard="$(bash "$gc_bin" </dev/null 2>&1 || true)"
+# Non-TTY: refuse with editor guidance BEFORE any config dependency. Isolate
+# XDG_CONFIG_HOME to an EMPTY dir so this is hermetic and matches a bare CI
+# runner — the guard must fire whether or not a chezmoi config exists. (This
+# check passed locally but failed in CI when it leaked the developer's real
+# config; the guard now runs before the environment checks.)
+gc_noconfig="$out_dir/gw-configure-noconfig"; mkdir -p "$gc_noconfig"
+gc_guard="$(XDG_CONFIG_HOME="$gc_noconfig" bash "$gc_bin" </dev/null 2>&1 || true)"
 grep -qF 'interactive settings editor' <<<"$gc_guard" || fail "groundwork-configure must refuse non-TTY input with guidance"
 # End-to-end through a real pty against a SYNTHETIC config: change the profile,
 # reach the Apply confirmation (the P0 regression never did), DECLINE, and leave

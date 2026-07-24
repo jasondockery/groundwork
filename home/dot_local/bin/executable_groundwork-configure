@@ -39,20 +39,24 @@ case "$#" in
   *) echo "$prog: unexpected arguments; this command takes none." >&2; usage >&2; exit 64 ;;
 esac
 
-# --- environment ---
-command -v chezmoi >/dev/null 2>&1 || { echo "$prog: chezmoi is not installed." >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "$prog: python3 is required." >&2; exit 1; }
+# --- interactive-only, checked BEFORE any environment work so the refusal is
+# deterministic regardless of setup state: a non-TTY run must be told this is an
+# interactive editor whether or not a chezmoi config exists yet. (Config-first
+# ordering hid this behind a "no config" error on a bare machine.) ---
 config_path="${XDG_CONFIG_HOME:-$HOME/.config}/chezmoi/chezmoi.toml"
-[[ -f "$config_path" ]] || { echo "$prog: no chezmoi config at $config_path — run the Groundwork setup first." >&2; exit 1; }
-config_dir="$(dirname "$config_path")"
-source_path="$(chezmoi --config "$config_path" source-path 2>/dev/null || true)"
-[[ -n "$source_path" && -d "$source_path" ]] || { echo "$prog: could not resolve the chezmoi source path." >&2; exit 1; }
-
 if [[ ! -t 0 || ! -t 1 ]]; then
   echo "$prog: this is an interactive settings editor; run it in a terminal." >&2
   echo "To change a setting non-interactively, edit $config_path and run 'chezmoi apply'." >&2
   exit 1
 fi
+
+# --- environment ---
+command -v chezmoi >/dev/null 2>&1 || { echo "$prog: chezmoi is not installed." >&2; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "$prog: python3 is required." >&2; exit 1; }
+[[ -f "$config_path" ]] || { echo "$prog: no chezmoi config at $config_path — run the Groundwork setup first." >&2; exit 1; }
+config_dir="$(dirname "$config_path")"
+source_path="$(chezmoi --config "$config_path" source-path 2>/dev/null || true)"
+[[ -n "$source_path" && -d "$source_path" ]] || { echo "$prog: could not resolve the chezmoi source path." >&2; exit 1; }
 
 # --- one temp root, one cleanup trap ---
 tmp_root="$(mktemp -d)"; lock_dir=""
