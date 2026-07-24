@@ -3934,6 +3934,39 @@ assert_no_matches "tmux kill-pane must ask before destroying a pane" \
 test -x home/dot_local/bin/executable_tmux-copy-last
 grep -qF 'bind Y run-shell -b' home/dot_config/tmux/tmux.conf.tmpl
 grep -qF "\$HOME/.local/bin/tmux-copy-last" home/dot_config/tmux/tmux.conf.tmpl
+# tmux floor is enforced by the EXECUTABLE contract, not by matching prose. The
+# helper's --check-tmux-version runs require_tmux_version — the exact guard the
+# runtime and CI both use — so drive it with a stub `tmux` on PATH and assert the
+# real accept/reject behavior. This catches a floor change in EITHER direction
+# (helper raised to 3.7, or CI weakened to 3.5) that a comment-matching check
+# would miss. CI runs this same entry point, so nothing is kept in sync by hand.
+grep -qF 'tmux-copy-last --check-tmux-version' .github/workflows/ci.yml \
+  || fail "CI must verify the tmux floor via 'tmux-copy-last --check-tmux-version', not a re-encoded numeric compare in YAML"
+tmux_floor_stub_dir="$(mktemp -d "${TMPDIR:-/tmp}/gw-tmux-floor.XXXXXX")"
+check_tmux_floor() {
+  # $1 = fake `tmux -V` line (empty => a tmux that cannot report a version, i.e.
+  #      missing/broken); $2 = expected exit (0 accept / 1 reject).
+  if [[ -n "$1" ]]; then
+    # shellcheck disable=SC2016 # the $1 in the format is the stub's own literal arg, not ours
+    printf '#!/bin/sh\nif [ "$1" = -V ]; then echo "%s"; else exit 0; fi\n' "$1" >"$tmux_floor_stub_dir/tmux"
+  else
+    printf '#!/bin/sh\nexit 1\n' >"$tmux_floor_stub_dir/tmux"
+  fi
+  chmod +x "$tmux_floor_stub_dir/tmux"
+  if PATH="$tmux_floor_stub_dir:$PATH" /bin/bash home/dot_local/bin/executable_tmux-copy-last --check-tmux-version >/dev/null 2>&1; then
+    floor_exit=0
+  else
+    floor_exit=$?
+  fi
+  [[ "$floor_exit" -eq "$2" ]] \
+    || fail "tmux floor gate: '${1:-<no version>}' expected exit $2 but got $floor_exit"
+}
+check_tmux_floor "tmux 3.5" 1
+check_tmux_floor "tmux 3.6" 0
+check_tmux_floor "tmux 4.1" 0
+check_tmux_floor "garbage"  1
+check_tmux_floor ""         1
+rm -rf "$tmux_floor_stub_dir"
 # One clipboard path: tmux-yank (external pbcopy) is deliberately NOT loaded, so
 # copy-mode y and tmux-copy-last both use tmux's native OSC 52 route. prefix+Y is
 # no longer contested; prefix+C-y is the native copy-pane-pwd replacement.

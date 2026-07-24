@@ -16,6 +16,43 @@ set -euo pipefail
 # Review the copied text for secrets or personal/production data before pasting
 # it into an AI tool.
 
+# Version contract: tmux 3.6+, and the floor is set by the STRICTEST feature
+# used, not the first one. Semantic prompt navigation (previous-prompt /
+# next-prompt) arrived in 3.4 and copy-pipe-and-cancel in 3.5, but the -C/-P
+# flags — which are what keep the raw selection off the clipboard and out of the
+# buffer stack — only exist from 3.6. Advertising 3.4 would be false. Groundwork
+# installs a current tmux; this guards an older tmux sitting first on PATH.
+# Fail CLOSED: an unparseable or missing version is not permission to proceed.
+# Proving 3.6+ is the only way past this gate. This function is the ONE place the
+# floor is computed: CI runs it via --check-tmux-version instead of re-encoding
+# 3.6 in YAML, so the runtime guard and the CI gate cannot drift.
+require_tmux_version() {
+  tmux_version="$(tmux -V 2>/dev/null | awk '{print $2}' || true)"
+  tmux_major="${tmux_version%%.*}"
+  tmux_minor="${tmux_version#*.}"
+  tmux_minor="${tmux_minor%%[!0-9]*}"
+  if ! [[ "$tmux_major" =~ ^[0-9]+$ && "$tmux_minor" =~ ^[0-9]+$ ]] \
+    || ((tmux_major < 3 || (tmux_major == 3 && tmux_minor < 6))); then
+    echo "tmux-copy-last: needs tmux 3.6+ (the -C/-P copy flags that keep the raw selection off your clipboard); this reports '${tmux_version:-no version}'." >&2
+    echo "Upgrade tmux (Groundwork installs a current one: brew upgrade tmux), or use copy-mode: prefix+[" >&2
+    return 1
+  fi
+  return 0
+}
+
+# --check-tmux-version: run ONLY the floor guard — no pane, clipboard, or buffer
+# action — and exit 0 (supported) or nonzero (unsupported) with the same
+# guidance. CI invokes this so the 3.6 floor has a single executable source of
+# truth rather than a duplicated numeric comparison in YAML. Parsed before the
+# in-tmux requirement below so it works from any shell.
+if [[ "${1:-}" == "--check-tmux-version" ]]; then
+  if require_tmux_version; then
+    echo "tmux ${tmux_version} satisfies the tmux-copy-last 3.6+ floor (-C/-P copy flags)."
+    exit 0
+  fi
+  exit 1
+fi
+
 pane="${1:-}"
 client="${2:-}"
 max_lines="${GROUNDWORK_COPY_MAX_LINES:-5000}"
@@ -56,24 +93,11 @@ done
   exit 2
 }
 
-# Version contract: tmux 3.6+, and the floor is set by the STRICTEST feature
-# used, not the first one. Semantic prompt navigation (previous-prompt /
-# next-prompt) arrived in 3.4 and copy-pipe-and-cancel in 3.5, but the -C/-P
-# flags — which are what keep the raw selection off the clipboard and out of the
-# buffer stack — only exist from 3.6. Advertising 3.4 would be false. Groundwork
-# installs a current tmux; this guards an older tmux sitting first on PATH.
-# Fail CLOSED: an unparseable or missing version is not permission to proceed.
-# Proving 3.6+ is the only way past this gate.
-tmux_version="$(tmux -V 2>/dev/null | awk '{print $2}' || true)"
-tmux_major="${tmux_version%%.*}"
-tmux_minor="${tmux_version#*.}"
-tmux_minor="${tmux_minor%%[!0-9]*}"
-if ! [[ "$tmux_major" =~ ^[0-9]+$ && "$tmux_minor" =~ ^[0-9]+$ ]] \
-  || ((tmux_major < 3 || (tmux_major == 3 && tmux_minor < 6))); then
-  echo "tmux-copy-last: needs tmux 3.6+ (the -C/-P copy flags that keep the raw selection off your clipboard); this reports '${tmux_version:-no version}'." >&2
-  echo "Upgrade tmux (Groundwork installs a current one: brew upgrade tmux), or use copy-mode: prefix+[" >&2
-  exit 1
-fi
+# tmux 3.6+ before touching the pane. require_tmux_version (defined above) is
+# the single floor gate; --check-tmux-version and CI run the same function, so
+# there is nothing to keep in sync by hand. It sets $tmux_version for the -C/-P
+# rejection message later.
+require_tmux_version || exit 1
 
 tm() {
   local cmd="$1"

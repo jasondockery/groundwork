@@ -91,8 +91,18 @@ jobs:
   # so that suite would skip there forever and the gate would still be green.
   # This job supplies a current tmux via Homebrew and REQUIRES the suite to run:
   # GROUNDWORK_REQUIRE_TMUX=1 turns a skip into a failure.
-  tmux-behavior:
-    name: tmux-behavior (macOS)
+  macos-validation:
+    # The full Groundwork validator on macOS: the render/profile checks plus the
+    # tmux and PTY behavior suites and the Homebrew cask-integrity audit. It runs
+    # on macOS because the tmux suite needs a current tmux (at or above the floor
+    # tmux-copy-last enforces at runtime), which Homebrew supplies and the current
+    # Ubuntu runner's packaged tmux predates. tmux itself is Groundwork's
+    # cross-platform workspace layer, not a macOS feature — a portable
+    # `tmux-behavior` lane that proves the contract on a pinned minimum + current
+    # tmux under Linux is roadmapped. Naming this job for the platform (not
+    # "tmux-behavior") keeps it honest: a render-lint or cask failure legitimately
+    # reds macOS validation, and neither of those is tmux behavior.
+    name: macos-validation
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -104,26 +114,25 @@ jobs:
           filter: blob:none
 
       - name: Install validation tools
-        run: |
-          brew install tmux chezmoi ripgrep shellcheck jq
-          tmux_version="$(tmux -V | awk '{print $2}')"
-          tmux_major="${tmux_version%%.*}"
-          tmux_minor="${tmux_version#*.}"
-          tmux_minor="${tmux_minor%%[!0-9]*}"
-          if [ "$tmux_major" -lt 3 ] || { [ "$tmux_major" -eq 3 ] && [ "$tmux_minor" -lt 6 ]; }; then
-            echo "::error::tmux $tmux_version is below the 3.6 that tmux-copy-last requires (-C/-P copy flags)."
-            exit 1
-          fi
-          echo "tmux $tmux_version (>= 3.6 required)"
+        run: brew install tmux chezmoi ripgrep shellcheck jq
+
+      - name: Verify tmux feature floor
+        # Single source of truth: the helper's own --check-tmux-version runs the
+        # exact runtime guard (require_tmux_version), so there is no duplicate
+        # numeric comparison in this workflow to drift from it.
+        run: home/dot_local/bin/executable_tmux-copy-last --check-tmux-version
 
       - name: Validate Groundwork (tmux suite required)
         env:
           GROUNDWORK_REQUIRE_TMUX: "1"
         run: scripts/validate-groundwork
 
-      # The cask checksum policy is only real if it is a gate. This needs
-      # Homebrew and network metadata, so it cannot live in the offline
-      # validator — but "run it by hand sometimes" is not a policy either.
+      # The cask checksum policy is only real if it is a gate. It needs Homebrew
+      # and network metadata, so it cannot live in the offline validator — and
+      # "run it by hand sometimes" is not a policy. It belongs on this macOS job
+      # because that is where Homebrew already is; a cask failure reds
+      # macos-validation, which is correct — cask integrity IS part of a healthy
+      # macOS install, not a co-located stowaway.
       - name: Audit Homebrew cask integrity
         run: scripts/audit-brew-casks
 
