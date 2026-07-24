@@ -1,7 +1,22 @@
 # Environment Profiles and Release Posture
 
-Status: draft, not implemented. `AI_THESIS.md` → "Release posture" owns the
-product stance; this specifies how it becomes configuration.
+Status: partially implemented (2026-07-24, `origin/main`). Shipped:
+- profile/posture schema and storage, and the `groundwork-profile` reporting
+  command (`f46e3a7`); note `groundwork-profile set` prints a planned migration,
+  it does not itself persist the change;
+- the numbered-menu interview UX that writes `profile_preset` (`4bb48df`);
+- selective editing of the `profile_preset` seed via `groundwork-configure`
+  (`937ae11`).
+Open:
+- first-class, independent editing of `environment_role` and `release_posture`
+  (they are stored separately from the preset precisely so they can diverge from
+  the seed, but `groundwork-configure` today exposes only `profile_preset`);
+- the posture-DRIVEN behavior — `update-all` / the tool catalog selecting
+  application release channels by `release_posture` — plus migration and actual
+  channel switching.
+
+`AI_THESIS.md` → "Release posture" owns the product stance; this specifies how it
+becomes configuration.
 
 Implement under `skills/safe-mutating-cli` and
 `skills/system-update-orchestration`.
@@ -425,10 +440,11 @@ Enforced by `scripts/validate-groundwork`:
 ## Sequence
 
 1. **Done** — guardrail skills committed (`81bb40b`).
-2. Thesis stance + this specification. *(review)*
-3. Profile schema and persistence for role, posture, and system intent only.
-   Prove storage, argument safety, and rendering **before** any channel depends
-   on it.
+2. **Done** — thesis stance + this specification (`bc2ac88`).
+3. **Done** — profile schema and persistence for role, posture, and system
+   intent, with storage, argument safety, and rendering proven, plus the
+   `groundwork-profile` reporting command (`f46e3a7`); the numbered-menu
+   interview writes the fields (`4bb48df`). No channel depends on it yet.
 4. Machine-readable catalog for vscode, zen, chrome, and AI tools; then enable
    concrete per-tool variant selection and onboarding choices. Render the
    Brewfile from it. Test that channels never replace one another.

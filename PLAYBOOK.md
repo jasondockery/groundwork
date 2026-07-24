@@ -32,11 +32,12 @@ Operating notes:
 - Security PRs are immediate, labeled `security`, and automerge once CI is
   green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
   what a human check would, and a vulnerable Action or base image should not
-  wait on a manual merge. Automerge engages only if the repo has "Allow
-  auto-merge" enabled and the CI checks are required on `main` (see Main
-  Branch Protection below); otherwise Renovate merges on its own next run
-  after checks pass. Both conditions hold here: auto-merge was enabled
-  2026-07-09 and the four CI checks are required.
+  wait on a manual merge. "Allow auto-merge" is enabled (2026-07-09). If the
+  branch-protection baseline (Main Branch Protection below) is applied, the
+  required checks are the gate; until then Renovate merges on its own next run
+  once checks pass. Either way, green CI — not a human — is what releases a
+  security update. Whether protection is currently applied is tracked as an
+  owner action in ROADMAP, not restated in this evergreen prose.
 - Never add a `dependabot.yml`; Dependabot version updates would duplicate
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
@@ -88,25 +89,35 @@ distributed environment products (Omarchy v3.x, Omakub v1.x, LazyVim v16),
 as opposed to personal dotfiles which roll untagged. Adopted 2026-07-04 with
 three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
 
-- **Scheme:** `v0.MINOR.PATCH` while in early testing. Semver read loosely:
-  **major** = update requires user action (bootstrap flow, template data
-  schema, renamed scripts); **minor** = new tools, docs, or drills;
-  **patch** = fixes.
-- **1.0.0 criterion:** the bootstrap + `chezmoi update` path survives all
-  three user surfaces without manual fixes.
-- **Cadence:** release when a meaningful batch lands, not per commit.
-  `main` stays the rolling edge; tags are the known-good refs.
+- **Scheme:** `vMAJOR.MINOR.PATCH`. Groundwork is in the **v1.x** release line;
+  see GitHub Releases for the current known-good version (don't duplicate the
+  number here). Semver: **major** = an incompatible installed or configuration
+  contract (bootstrap flow, template data schema, renamed scripts); **minor** =
+  backward-compatible functionality — new tools, docs, or drills; **patch** =
+  backward-compatible fixes. A release may document an optional follow-up action
+  without that alone making it major.
+- **`v1.0.0` shipped** once the bootstrap + `chezmoi update` path survived all
+  three user surfaces without manual fixes; the v1 lane continues from there.
+- **Cadence:** release when a meaningful batch lands, not per commit. `main`
+  stays the rolling edge — installs that track `main` receive changes through
+  `chezmoi update` immediately, so a tag is the known-good ref, the SemVer
+  signal, and the user-facing notes, NOT the delivery mechanism.
 - **Release notes are for the actual users** (and are teaching artifacts):
   what changed, what to run after `chezmoi update`, and any manual step —
   written for a capable beginner, per the north star.
-- Cut a release: `gh release create v0.X.Y --title "v0.X.Y" --notes-file -`
-  (tag and release together; the tag must point at a green `main` SHA).
+- Cut a release (tag and release together; the tag must point at a green `main`
+  SHA). Set the version once so the command block is copy-run safe:
+
+  ```bash
+  version=v1.8.0
+  gh release create "$version" --title "$version" --notes-file -
+  ```
 - When the Docker image is published to a registry, image tags mirror the
-  release tags (`groundwork:v0.X.Y` + `latest`).
+  release tags (`groundwork:vX.Y.Z` + `latest`).
 
 ## CI Checks (what each job proves)
 
-`.github/workflows/ci.yml` runs four jobs on every push and PR:
+`.github/workflows/ci.yml` runs five jobs on every push and PR:
 
 - `workflow-lint` — zizmor (pedantic persona) statically audits the
   workflows themselves: unpinned actions, credential persistence,
@@ -119,6 +130,16 @@ three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
   why.
 - `render-lint` — `scripts/validate-groundwork`: hermetic chezmoi template
   rendering across OS/headless/work matrices, plus ShellCheck.
+- `macos-validation` — the full validator on macOS: the tmux/pty suite
+  (copy-model effective-server + injection checks, interactive-editor and
+  prompt-render pty checks) plus render/profile checks and the Homebrew
+  cask-integrity audit. It runs on a macOS runner because the tmux suite needs a
+  current tmux (the version `tmux-copy-last` needs — a dedicated step runs the
+  helper's own `--check-tmux-version` to enforce the exact floor), which Ubuntu's
+  package predates. The job is named for the platform, not "tmux-behavior": a
+  render or cask failure legitimately reds it, and neither is tmux behavior. tmux
+  itself is cross-platform; a pinned Linux `tmux-behavior` lane (minimum +
+  current tmux) is roadmapped so the portable contract is proven on Linux too.
 - `secret-scan` — gitleaks over the full git history.
 - `docker-build` — builds the container image and smoke-tests the
   installed toolchain.
@@ -156,9 +177,11 @@ Standing rules for a public repo:
   Pushing is publishing; deletion is not redaction.
 - Keep `README.md` install commands and `SECURITY.md` disclosure policy
   accurate.
-- Keep all four `.github/workflows/ci.yml` checks (`workflow-lint`,
-  `render-lint`, `secret-scan`, `docker-build`) required and green on
-  `main` — Renovate's security automerge trusts them as the gate.
+- Keep all five `.github/workflows/ci.yml` checks (`workflow-lint`,
+  `render-lint`, `macos-validation`, `secret-scan`, `docker-build`) green on
+  `main`. The branch-protection baseline (Main Branch Protection) can make them
+  required so Renovate's security automerge trusts them as the gate; whether it
+  is applied is an owner action tracked in ROADMAP.
 - Periodically confirm the fresh-shell install path still works:
 
   ```bash
@@ -167,22 +190,33 @@ Standing rules for a public repo:
 
 ## Main Branch Protection
 
-GitHub Free supports protected branches on public repos. Private repos require a paid plan for the same branch-protection features.
+GitHub Free supports protected branches on public repos (private repos need a
+paid plan for the same features). This section is the *desired baseline and the
+commands to apply, verify, and recover it*. Whether it is currently applied is
+an owner action tracked in ROADMAP, not a dated status restated in this prose.
 
-Use this baseline for `main` once the repo is public:
+The baseline requires the CI checks and a pull request but **zero approving
+reviews**. A solo author cannot approve their own PR, so requiring one approval
+alongside `enforce_admins` would deadlock every owner PR and block Renovate's
+security automerge (auto-merge waits on all required reviews). Zero approvals
+keeps the PR + green-checks gate without making a second human an enforced
+dependency; human review stays the normal practice, just not a hard gate.
+
+Apply it only AFTER the current job names have reported green at least once on
+`main` — a required context that has never run cannot be selected reliably:
 
 ```bash
 gh api --method PUT repos/jasondockery/groundwork/branches/main/protection --input - <<'JSON'
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["workflow-lint", "render-lint", "secret-scan", "docker-build"]
+    "contexts": ["workflow-lint", "render-lint", "macos-validation", "secret-scan", "docker-build"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
-    "dismiss_stale_reviews": true,
+    "dismiss_stale_reviews": false,
     "require_code_owner_reviews": false,
-    "required_approving_review_count": 1,
+    "required_approving_review_count": 0,
     "require_last_push_approval": false
   },
   "restrictions": null,
@@ -194,30 +228,47 @@ gh api --method PUT repos/jasondockery/groundwork/branches/main/protection --inp
 JSON
 ```
 
-Verify it:
+Verify it (and confirm direct pushes are rejected while a test PR merges with
+zero approvals):
 
 ```bash
 gh api repos/jasondockery/groundwork/branches/main/protection \
   --jq '{required_status_checks, enforce_admins, required_pull_request_reviews, required_linear_history, allow_force_pushes, allow_deletions, required_conversation_resolution}'
 ```
 
-## After The Repo Is Public
-
-Use pull requests for all changes to `main`:
+Recover / bypass (owner, deliberately) — lift protection to unblock a stuck
+`main`, then re-apply the baseline above:
 
 ```bash
-git checkout -b docs/update-topic
-scripts/validate-groundwork
-git add -A
-git commit -m "Update docs"
-git push -u origin docs/update-topic
-gh pr create --fill
+gh api --method DELETE repos/jasondockery/groundwork/branches/main/protection
 ```
 
-Keep these rules:
+Hardening (optional): the `contexts` array trusts any status provider with a
+matching name. GitHub's newer `checks` form binds each required check to the
+`app_id` that supplies it; after the first protected run, capture the providers
+and pin them if you want that stronger guarantee.
+
+## Working On `main`
+
+Groundwork is solo-maintained and moves fast, so the sanctioned workflow is to
+**commit to `main` directly once `scripts/validate-groundwork` is green**. A
+pull request is opened only when it would tell us something a local run cannot —
+surfacing the real CI check names before enabling protection, staging a risky
+change, or getting a second opinion. If the protection baseline above is applied,
+`main` becomes PR-only and this inverts; until then, direct-to-main is expected,
+not a lapse.
+
+```bash
+scripts/validate-groundwork
+git add -A
+git commit -m "..."
+git push
+```
+
+Keep these rules regardless:
 
 - Do not force-push `main` after public release.
 - Do not commit secrets or private local denylist patterns.
 - Keep AI-agent instructions centralized in `AGENTS.md`, `AI_THESIS.md`, and `skills/`.
 - Keep installation docs tied to `bootstrap-mac.sh` instead of duplicating long command blocks.
-- Update docs and cheatsheets in the same PR as config changes.
+- Update docs and cheatsheets in the same commit as config changes.

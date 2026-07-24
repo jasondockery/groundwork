@@ -1,10 +1,31 @@
 # Terminal Copy Model: Ghostty + tmux Coherence
 
-Status: accepted design, not implemented. The owner approved the 10 Product
-decisions (2026-07-23); implementation (config changes, migration, docs,
-fixtures) is a separate `feat(terminal)` change, gated on the `allow-passthrough`
-consumer inventory. Supersedes the ROADMAP "Terminal copy model (Slice B)"
-bullets, which point here.
+Status: **core runtime model shipped on `origin/main`** (`859dcfe`,
+review-hardened `8d7e517`); the acceptance contract is **partially complete**.
+The owner approved the 10 Product decisions (2026-07-23).
+
+| Area | Status |
+| --- | --- |
+| tmux clipboard architecture (`set-clipboard external`, single OSC 52 path) | Shipped |
+| `tmux-yank` removal + stale-binding cleanup | Shipped |
+| Persistent mouse selection | Shipped |
+| Conditional right-click bindings | Shipped (syntax + effective key table) |
+| Actual Ghostty Option-right-click event routing | Real-GUI receipt still required |
+| `tmux-copy-cwd` safe helper | Shipped |
+| yazi pane-scoped `allow-passthrough` | Shipped |
+| Ghostty platform-specific settings | Shipped |
+| Canonical `config.ghostty` filename migration | Open (deferred; kept `config.tmpl`) |
+| All teaching surfaces + competency gates A/B | Partial |
+| `groundwork-doctor --terminal` | Open |
+
+Shipped in full: the tmux/Ghostty copy model, the safe `tmux-copy-cwd` helper,
+the `allow-passthrough` decision (global off; kept on only for the yazi pane),
+effective-tmux-server + injection fixtures, and the `tmux.html`/cheat-sheet/
+practice teaching. Open follow-ups: the `config.ghostty` filename migration
+(kept `config.tmpl` to avoid the risky legacy-target removal), the remaining
+teaching surfaces + competency gates A/B, and `groundwork-doctor --terminal`.
+Supersedes the ROADMAP "Terminal copy model (Slice B)" bullets, which track
+those follow-ups.
 
 Implement under `skills/terminal-interaction` and `skills/chezmoi-change`.
 
@@ -55,11 +76,17 @@ mouse — it would not turn tmux's retained history into Ghostty scrollback anyw
 
 ## Configuration target
 
-Verified 2026-07-22/23 in `home/dot_config/tmux/tmux.conf.tmpl`,
-`home/dot_config/ghostty/config`: tmux has `mouse on`, `set-clipboard on`,
+**Implementation status: SHIPPED** (`859dcfe`, review-hardened `8d7e517`). The
+changes prescribed in this section are the DELIVERED contract, not a proposal —
+read them as "what ships." The only open items are in the ROADMAP (the deferred
+`config.ghostty` filename migration, the remaining teaching surfaces, and
+`groundwork-doctor --terminal`).
+
+Baseline this changed FROM (verified 2026-07-22/23 before implementation):
+`home/dot_config/tmux/tmux.conf.tmpl` had `mouse on`, `set-clipboard on`,
 `allow-passthrough on`, vi copy-mode `v`/`C-v`/`y`, `prefix+Y` copy-last, and the
-`tmux-yank` plugin loaded; Ghostty (installed 1.3.1) has `copy-on-select =
-clipboard`.
+`tmux-yank` plugin loaded; `home/dot_config/ghostty/config` (Ghostty 1.3.1) had
+`copy-on-select = clipboard`.
 
 ### One clipboard architecture — remove `tmux-yank`
 
@@ -81,13 +108,14 @@ Resulting single path: tmux selection → tmux paste buffer → native clipboard
 integration → outer terminal via OSC 52. More portable over SSH, and it deletes
 the plugin load-order problem.
 
-Before removing the plugin, inventory the extras it provides (copy current line,
-copy pane working directory, paste/yank combos) and re-add only the ones users
-demonstrably need as explicit Groundwork bindings — not a whole second clipboard
-subsystem. If the plugin must stay temporarily, the minimum safe interim is
-`set -g @yank_with_mouse off`, and the docs must state that ordinary `y` still
-uses an external clipboard command, not OSC 52 — never claim one model while
-shipping two.
+On removal, its extras were inventoried (copy current line, copy pane working
+directory, paste/yank combos); only `prefix+C-y` (pane working directory) was
+re-added, as a native Groundwork binding — not a whole second clipboard
+subsystem. (Rejected interim, recorded so it is not revived: keeping the plugin
+temporarily behind `set -g @yank_with_mouse off` was considered and dropped — it
+would ship two clipboard models at once, with ordinary `y` still using an
+external clipboard command instead of OSC 52. The plugin is simply gone, not
+half-kept.)
 
 `set-clipboard external`: tmux still copies selections outward via OSC 52, but
 programs inside tmux can no longer set tmux's clipboard — the right posture when
@@ -125,7 +153,12 @@ Copy pane history: Ctrl+A [ … v … y   ·   Raw terminal selection: hold Shif
 ```
 
 Exact bindings (`MouseDown3Pane`, the `#{mouse_any_flag}` condition, the
-Option-modified menu) need validation against the supported tmux version.
+Option-modified menu) were validated in the effective-tmux-server fixtures: the
+binding syntax parses, the effective copy-mode key table contains them, and the
+menu command is valid. That is the tmux-side proof. What an isolated tmux server
+cannot show is that Ghostty on macOS actually converts an Option-right-click into
+the expected tmux mouse key — that event routing remains a real-GUI receipt (see
+the validation section on Shift-drag / context-menu / clipboard behavior).
 
 ### Ghostty (macOS) — explicit copy model
 
@@ -167,17 +200,21 @@ Required migration:
 6. Back up any user-modified file before migrating.
 7. Verify final effective values with `ghostty +show-config`.
 
-### `allow-passthrough` — inventory, then decide
+### `allow-passthrough` — delivered: global off, scoped on for yazi
 
 `set -g allow-passthrough on` lets pane apps emit wrapped sequences through tmux
-to the outer terminal. Before changing it, search for real consumers: terminal
-image protocols, notification sequences, clipboard-forwarding assumptions,
-Ghostty-specific integrations, Neovim plugins, AI tools that render images or
-rich output. Then: no identified consumer → disable globally
-(`set -g allow-passthrough off`); identified consumer → document the exact
-protocol and enable narrowly for that pane/app. Do not keep `on` merely because
-it was present, and do not disable it without a regression inventory — otherwise
-`set-clipboard external` implies more isolation than the whole config delivers.
+to the outer terminal. The inventory was done and the decision is made: the one
+identified consumer is **yazi** (image previews), so passthrough is **off
+globally** and enabled **narrowly on the yazi pane only**. That keeps
+`set-clipboard external`'s isolation promise honest everywhere else — a global
+`on` would imply less isolation than the config delivers.
+
+Rationale preserved for the next change: the consumers to re-check before
+touching this are terminal image protocols, notification sequences,
+clipboard-forwarding assumptions, Ghostty-specific integrations, Neovim plugins,
+and AI tools that render images or rich output. Add a new consumer the same way
+yazi was — document the exact protocol and scope passthrough to that pane/app —
+never by flipping the global default back on.
 
 ## Required keyboard competencies
 
@@ -254,7 +291,7 @@ expected text; trackpad drag/scroll ergonomics.
 The skill must report which classes actually ran — a headless CI run must never
 claim it proved user-visible Ghostty GUI behavior.
 
-## Product decisions (need owner sign-off before any config lands)
+## Product decisions (approved 2026-07-23; implemented in `859dcfe`)
 
 1. Keyboard-first, mouse-assisted as the taught model.
 2. Keep tmux mouse support on.

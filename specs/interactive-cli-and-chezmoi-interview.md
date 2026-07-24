@@ -1,6 +1,10 @@
 # Interactive CLI UX and the chezmoi Interview
 
-Status: draft, not implemented. `skills/interactive-cli-ux` is the procedure an
+Status: partially implemented (2026-07-24, `origin/main`). Shipped: the numbered
+profile menu + dual-domain normalization (`4bb48df`) and `groundwork-configure`
+(`937ae11`). Open: the raw-interview prompt remediation (bool prompts still spell
+out `y/t = yes, n/f = no`; the password-manager prompt) and the full interactive
+test matrix — see the checklist. `skills/interactive-cli-ux` is the procedure an
 agent follows; `skills/chezmoi-change` (Configuration Interview section) covers
 the template specifics. This spec is the acceptance contract they point at.
 
@@ -93,13 +97,13 @@ above the stored value.
 
 ## Implementation checklist
 
-- [ ] Numbered profile menu + dual-domain normalization + forced-reprompt default
-      mapping + table-driven fixture.
-- [ ] `groundwork-configure`: show current answers, change only chosen fields
-      (current answer as default), explain consequences, render candidate, preview
-      `chezmoi diff`, apply after confirmation. Document `chezmoi init --prompt` as
-      the built-in full re-interview (with the template-defaults warning) and
-      manual editing as the advanced fallback.
+- [x] Numbered profile menu + dual-domain normalization + forced-reprompt default
+      mapping + validator fixture (`4bb48df`).
+- [x] `groundwork-configure`: show current answers, change only chosen fields
+      (current answer as default), render candidate, preview `chezmoi diff`, apply
+      after confirmation, with an atomic lock + compare-before-swap promotion
+      (`937ae11`). `chezmoi init --prompt` is documented as the advanced full
+      re-interview in `troubleshooting.html`/`setup.html`.
 - [ ] Every choice prompt states its behavior (unique-prefix auto-submits, bare
       Enter takes the named default, Ctrl+C cancels). Bool prompts already name
       the default; choice prompts must too.

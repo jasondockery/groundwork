@@ -1,7 +1,10 @@
 # Branch Lifecycle: groundwork-branches
 
-Status: draft, not implemented. Implement under `skills/safe-mutating-cli` (it
-deletes branches) and extend `skills/developer-workspace-navigation`.
+Status: draft. The immediate relief (recency-sort config + `git branches` /
+`git gone` / `git recent` aliases) shipped on `origin/main` (`9fe06b8`); the
+`groundwork-branches` command is unimplemented. Implement under
+`skills/safe-mutating-cli` (it deletes branches) and extend
+`skills/developer-workspace-navigation`.
 
 ## Problem
 
@@ -12,14 +15,15 @@ agents spawn many branches, that list fills with noise fast.
 
 ## Current status (the immediate relief)
 
-Implemented on LOCAL `main` only (commit `9fe06b8`, 2026-07-21) — NOT yet pushed
-to `origin/main` and NOT in a tagged release: `branch.sort=-committerdate`,
+Shipped on `origin/main` (commit `9fe06b8`, 2026-07-21) with the git.html /
+cheat-sheet / command-catalog docs (`b8fec14`): `branch.sort=-committerdate`,
 `rerere.enabled`, and the `git branches` / `git gone` / `git recent` aliases
-(`fetch.prune` and `push.autoSetupRemote` predate it). "Implemented locally",
-"merged to origin", and "shipped in a release" are different states; this is the
-first. When the docs land, that implementation commit must go up as their
-ancestor. Deliberately NOT enabling `fetch.pruneTags` (Git warns it can delete
-local tags absent from the remote).
+(`fetch.prune` and `push.autoSetupRemote` predate it). Landed on `main` in
+`9fe06b8`; release inclusion is recorded in GitHub Releases (not restated here so
+this line does not go stale at the next tag). Installations whose Groundwork
+source checkout tracks `main` receive it through `chezmoi update`. Deliberately
+NOT enabling `fetch.pruneTags` (Git warns it can delete local tags absent from
+the remote).
 
 ## The command
 

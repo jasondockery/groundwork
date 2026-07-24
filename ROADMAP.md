@@ -5,6 +5,42 @@ How Groundwork grows from here. `AI_THESIS.md` owns the north star,
 build-out. AI tools: keep these checkboxes current, and check a box only
 after the work is verified, never aspirationally.
 
+## Current execution order
+
+Reconciled 2026-07-24 against the then-current `origin/main`. Detailed acceptance
+criteria live in the specs — for the documentation audit specifically, in
+`specs/docs-truth-and-coverage.md`; this list is only sequence.
+
+1. **Doc-truth + small closers.** This reconciliation is the narrow first slice,
+   NOT the audit. Run the wider repository-truth audit to the acceptance contract
+   in `specs/docs-truth-and-coverage.md`: implementation vs the command catalog,
+   shortcuts vs the canonical teaching pages, troubleshooting completeness,
+   practice / Groundwork-Twelve competency coverage, platform vs profile
+   distinctions, orphan pages and internal links, and any stale behavior repeated
+   across pages. Then remediate the interview `[y/N]` / numbered password-manager
+   prompts and complete the terminal teaching surface + competency gates (see
+   "Terminal copy model"). A green reconciliation is not proof that all
+   documentation is current.
+2. **Cut v1.8.0** — a known-good checkpoint with release notes for the terminal
+   copy-behavior change and `groundwork-configure`. Not a deployment gate:
+   `main` is the rolling edge, so `chezmoi update` installs already have this;
+   the tag is the known-good ref, SemVer signal, and user-facing notes.
+3. **`groundwork-doctor --performance`** — the bounded one-time snapshot only
+   (see "Terminal observability"); not the watcher, status-line, or pane-border
+   work yet.
+4. **`update-all` structured receipt** — the honest per-stage receipt tranche
+   (see "update-all: honest scope").
+5. **Read-only `groundwork-branches`** — the offline status table only; no
+   deletion in the first tranche (see `specs/branch-lifecycle.md`).
+
+Owner action (a human enables this when ready, not code work):
+
+- [ ] Apply + verify branch protection on `main` with **zero** approving reviews
+      (see PLAYBOOK → Main Branch Protection), AFTER the renamed CI checks
+      (`macos-validation` and the rest) have reported green on `main` at least
+      once so the required contexts can be selected. Direct-to-main with green CI
+      is the sanctioned solo workflow until then — see PLAYBOOK → Working On `main`.
+
 ## Learning path (the product)
 
 - [ ] Overview arc reviewed and complete: what AI-native development is, the
@@ -68,25 +104,21 @@ after the work is verified, never aspirationally.
       install hooks moved under the verified fresh runner, karabiner
       ownership, brew repair with a real outcome contract, targeted serial
       re-fetch of failed downloads, no-op chatter removal — shipped on
-      `origin/main`). Item (c) below, the `groundwork-configure` wrapper, also
-      shipped (`937ae11`). The
-      remaining slice: (a) a phase-status summary at the end of every
-      `update-all` — completed / degraded / failed per stage, what to run
-      next, and a full log captured to `~/.local/state/groundwork/logs/`
-      with only concise output on the console by default; (b) elapsed-time
-      heartbeat for long quiet Homebrew stretches and an
-      `update-all --retry-failed` that re-fetches only failed casks at
-      reduced concurrency; (c) a `groundwork-configure` wrapper that owns
-      the re-init UX — show current answers, explain new questions and their
-      consequences, preview the resulting diff, then apply — so no user ever
-      needs to reason about raw `chezmoi init` semantics; (d) required-vs-
+      `origin/main`), and the `groundwork-configure` re-init wrapper shipped
+      (`937ae11`; the reconfigure/regenerate model + source preflight landed in
+      `62c30bd`). Remaining: (a) a phase-status summary at the end of every
+      `update-all` — completed / degraded / failed per stage, what to run next,
+      and a full log captured to `~/.local/state/groundwork/logs/` with only
+      concise output on the console by default; (b) elapsed-time heartbeat for
+      long quiet Homebrew stretches and an `update-all --retry-failed` that
+      re-fetches only failed casks at reduced concurrency; (c) required-vs-
       optional package classification with a stable exit contract (required
-      failure fails the run; an optional cask failure degrades it);
-      (e) temp-HOME + temp-XDG + local-bare-remote chezmoi integration tests
-      (fresh init, idempotent re-init, drift does not clobber, run_once /
-      run_onchange semantics) and stub-driven update-all failure/retry/hang
-      cases. Keep each phase honest: no phase may swallow another tool's
-      warnings, and the raw stream stays available under `--verbose`.
+      failure fails the run; an optional cask failure degrades it); (d) temp-HOME
+      + temp-XDG + local-bare-remote chezmoi integration tests (fresh init,
+      idempotent re-init, drift does not clobber, run_once / run_onchange
+      semantics) and stub-driven update-all failure/retry/hang cases. Keep each
+      phase honest: no phase may swallow another tool's warnings, and the raw
+      stream stays available under `--verbose`.
 - [ ] WSL2 release receipt: emulated WSL fixtures in the validator prove
       detection logic, not real WSL behavior. Each significant WSL-affecting
       change should get a small smoke pass on a real WSL2 Ubuntu LTS:
@@ -144,6 +176,26 @@ after the work is verified, never aspirationally.
       When a distro's job is green, promote its wording in AGENTS.md and
       docs/platforms.html from "targeted" to "supported"; that promotion is
       part of this task, not a separate cleanup.
+- [ ] Portable `tmux-behavior` Linux lane. The tmux copy suite is portable —
+      tmux is Groundwork's cross-platform workspace layer — but it currently runs
+      only inside `macos-validation` because that runner supplies a current tmux
+      via Homebrew (the current Ubuntu runner's packaged tmux is below the feature
+      floor the runtime contract asserts; the lane should inspect the installed
+      version and decide, not rely on that staying true). Add a pinned Linux
+      `tmux-behavior` lane (install or a purpose-built container with a supported
+      tmux) so the portable copy / selection / history / buffer contract is proven
+      on Linux, not just macOS, and test BOTH the minimum supported tmux AND a
+      current tmux — that catches an accidental floor increase and a forward-compat
+      regression, and both invoke the helper's own `--check-tmux-version` guard so
+      the floor stays single-sourced. Keep the Homebrew cask-integrity audit where
+      it is, inside `macos-validation`: a separate `homebrew-cask-integrity` check
+      would mean a second macOS job (another runner) purely for a more granular
+      green, which is not worth the cost — cask integrity legitimately belongs to
+      macOS validation. `docker-build` can add a headless no-system-clipboard
+      check that a tmux copy still lands in the tmux paste buffer; WSL2 and real
+      Ghostty GUI clipboard/trackpad behavior stay periodic real-machine release
+      receipts (a headless runner cannot prove them). Use a matrix only where a
+      check genuinely needs both platforms.
 - [x] mise release cooldown (2026-07-14): `update-all` now runs `mise upgrade
       --minimum-release-age 5d`, the same 5-day floor the shared
       `renovate-config` preset applies to repo dependencies. It filters
