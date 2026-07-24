@@ -67,8 +67,9 @@ after the work is verified, never aspirationally.
       stops before apply when no terminal can answer, the full apply and
       install hooks moved under the verified fresh runner, karabiner
       ownership, brew repair with a real outcome contract, targeted serial
-      re-fetch of failed downloads, no-op chatter removal — is implemented
-      and validated locally, pending review/commit). The
+      re-fetch of failed downloads, no-op chatter removal — shipped on
+      `origin/main`). Item (c) below, the `groundwork-configure` wrapper, also
+      shipped (`937ae11`). The
       remaining slice: (a) a phase-status summary at the end of every
       `update-all` — completed / degraded / failed per stage, what to run
       next, and a full log captured to `~/.local/state/groundwork/logs/`
@@ -430,11 +431,18 @@ stored `profile_preset` contract, `chezmoi init --prompt` template-defaults
 warning, cancellation-safe candidate transaction, existing-template
 remediation). Procedures: `skills/interactive-cli-ux`, `skills/chezmoi-change`.
 
-- [ ] Implement the numbered profile menu + dual-domain normalization + fixture.
-- [ ] `groundwork-configure` selective reconfigure (candidate diff + confirm).
-- [ ] Remediate the existing bool/password-manager prompts to the UX contract.
-- [ ] Interview tests: fresh / existing-reuse / `--prompt` / EOF / cancel states,
-      one real pty.
+- [x] Numbered profile menu + dual-domain normalization + validator fixture
+      (2026-07-23, `4bb48df`).
+- [x] `groundwork-configure` selective reconfigure — menu, structured receipt,
+      candidate diff, confirm, atomic promotion under a lock (2026-07-23,
+      `937ae11`). Plus the reconfigure-vs-regenerate model: `update-all` runs a
+      source-branch preflight before pull and nudges (never prompts) to
+      `groundwork-configure` after a real regeneration (`62c30bd`).
+- [ ] Remediate the existing bool/password-manager interview prompts to the UX
+      contract (they still spell out `y/t = yes, n/f = no` instead of `[y/N]`).
+- [ ] Full interview test matrix (fresh / existing-reuse / `--prompt` / EOF /
+      cancel) with one real pty. The numbered-menu and `groundwork-configure`
+      flows are covered; the raw `chezmoi init` interview states are not yet.
 
 ## Branch lifecycle: groundwork-branches (Slice A)
 
@@ -444,9 +452,9 @@ fact dimensions + disposition, `merged-pr-non-ancestor` over unproven
 compare-and-swap deletion, hardened recovery receipt). Implement under
 `skills/safe-mutating-cli`; extend `skills/developer-workspace-navigation`.
 
-Immediate relief already on LOCAL `main` (`9fe06b8`, not pushed, not released):
-`branch.sort=-committerdate`, `rerere.enabled`, and the `git branches` /
-`git gone` / `git recent` aliases.
+Immediate relief SHIPPED on `origin/main` (`9fe06b8`): `branch.sort=-committerdate`,
+`rerere.enabled`, and the `git branches` / `git gone` / `git recent` aliases,
+with the git.html / cheat-sheet / command-catalog docs (`b8fec14`).
 
 - [ ] Read-only offline status table (`--refresh` the only networked action).
 - [ ] `plan-clean` / `clean` with race protection and the recovery receipt.
@@ -459,19 +467,28 @@ one documented owner for selection/history/search/copy per context (Ghostty
 outside tmux, tmux inside), the mouse a convenience, not a second workflow.
 Implement under `skills/terminal-interaction`.
 
-- [ ] Owner sign-off on the six product decisions in the spec — they change
-      shipped muscle memory and clipboard/passthrough security posture.
-- [ ] tmux: persistent mouse selection (`y` to copy, accounting for tmux-yank
-      load order), remove the pane right-click menu (inert + hint, not
-      selection-aware copy), `set-clipboard external`, audit `allow-passthrough`.
-- [ ] Ghostty: migrate to `config.ghostty`; macOS `copy-on-select=false` +
-      `selection-clear-on-copy=true` + `mouse-shift-capture=never` + a verified
-      right-click action; require >= 1.3.1.
-- [ ] Update every teaching surface (tmux, keyboard, command-line, cheatsheet,
-      practice, troubleshooting, setup, game-dev-learn Module 5) and add the
-      keyboard competency gates A/B from the spec.
-- [ ] `groundwork-doctor --terminal` receipts + the real-tmux/pty validation
-      harness per the spec.
+- [x] Owner approved the product decisions (2026-07-23); implemented and merged
+      (`859dcfe`, review-hardened in `8d7e517`).
+- [x] tmux: persistent mouse selection, conditional right-click (hint in shell
+      panes, pane menu on Option+right, forwarded to mouse apps), one native
+      OSC 52 path (removed `tmux-yank` + its stale live-server bindings),
+      `set-clipboard external`, `allow-passthrough` audited (kept for yazi, now
+      pane-scoped via the `y` function), and a safe `prefix+C-y` cwd helper.
+- [x] Ghostty settings: macOS `copy-on-select=false` + `selection-clear-on-copy`
+      + `mouse-shift-capture=never` + `right-click-action=context-menu` (Linux
+      keeps the selection convention); >= 1.3.1 floor; dropped the `term`
+      override for `xterm-ghostty`.
+- [ ] Migrate the Ghostty source to `config.ghostty`. Deliberately deferred —
+      kept `config.tmpl` (same target path) to fix the platform bug without the
+      risky legacy-target removal; the migration transaction in the spec is still
+      to build.
+- [ ] Finish the teaching surface: `tmux.html` (copy-model section), the cheat
+      sheet, and a practice copy drill are done; keyboard, command-line,
+      troubleshooting, setup, and game-dev-learn Module 5, plus the full
+      competency gates A/B, remain.
+- [ ] `groundwork-doctor --terminal` receipts. The effective-tmux-server + pty
+      copy-model validation harness already ships in `validate-groundwork`; the
+      doctor module does not.
 
 ## Terminal observability and performance diagnostics
 
@@ -483,7 +500,7 @@ Ghostty, Claude/Node, tmux history, a language server, or total workload. Ghostt
 before 1.3 had a real memory leak Claude Code was good at triggering (fixed in
 1.3; 1.3.1 fixed a separate macOS mouse regression) — which is exactly why 1.3.1
 is the floor and why the doctor must be able to distinguish causes rather than
-blame the terminal. Two done now on the terminal branch: dropped the
+blame the terminal. Two already shipped (`859dcfe`): dropped the
 `term = xterm-256color` override (Ghostty's own `xterm-ghostty` terminfo is
 richer; tmux sets `tmux-256color` inside), and lowered `history-limit` 100000 →
 50000 as an AI-native scrollback bound.
