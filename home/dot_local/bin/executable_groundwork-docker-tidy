@@ -72,9 +72,9 @@ EOF
 }
 
 heading() { printf '\n== %s ==\n' "$1"; }
-item()    { printf '  %-11s %s\n' "$1" "$2"; }
-detail()  { printf '  %-11s %s\n' "" "$1"; }
-note()    { printf '  note  %s\n' "$1"; }
+item() { printf '  %-11s %s\n' "$1" "$2"; }
+detail() { printf '  %-11s %s\n' "" "$1"; }
+note() { printf '  note  %s\n' "$1"; }
 
 lib="${GROUNDWORK_DOCKER_LIB:-$HOME/.local/share/groundwork/lib/docker-scan.sh}"
 if [[ ! -r "$lib" ]]; then

@@ -40,12 +40,12 @@ enabled_file="$vault/.obsidian/community-plugins.json"
 
 mkdir -p "$plugins_dir"
 mkdir -p "$(dirname "$enabled_file")"
-[[ -f "$enabled_file" ]] || echo "[]" > "$enabled_file"
+[[ -f "$enabled_file" ]] || echo "[]" >"$enabled_file"
 
 enable_plugin() {
   local id="$1" tmp
   tmp="$(mktemp)"
-  jq --arg id "$id" '. + [$id] | unique' "$enabled_file" > "$tmp"
+  jq --arg id "$id" '. + [$id] | unique' "$enabled_file" >"$tmp"
   mv "$tmp" "$enabled_file"
 }
 

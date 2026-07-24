@@ -89,12 +89,12 @@ ensure_github_auth() {
     echo "Choose 'login' to add or refresh a GitHub account."
     choice="$(prompt "GitHub account choice [KEEP/switch/login]: " "keep")"
     case "$choice" in
-      keep|k|"")
+      keep | k | "")
         ;;
-      switch|s)
+      switch | s)
         gh auth switch --hostname github.com || gh auth login --hostname github.com --git-protocol https --web
         ;;
-      login|l|add|a)
+      login | l | add | a)
         gh auth login --hostname github.com --git-protocol https --web
         ;;
       *)
@@ -148,7 +148,7 @@ ensure_repo_access() {
       ensure_github_auth
       can_read_repo || die "Could not read ${repo_url}. Confirm the URL is correct and the active GitHub account can access ${repo_owner}/${repo_name}."
       ;;
-    git@github.com:*|ssh://git@github.com/*)
+    git@github.com:* | ssh://git@github.com/*)
       die "Could not read ${repo_url} over SSH. Confirm this Mac has the right SSH key loaded and that key is added to the GitHub account with repo access."
       ;;
     *)

@@ -29,8 +29,8 @@ if [[ "$pick" == true ]]; then
     exit 1
   fi
   selection="$(
-    grep -v '^#' "$catalog" |
-      fzf --delimiter '\t' --with-nth 1,2,4 --query "$query" \
+    grep -v '^#' "$catalog" \
+      | fzf --delimiter '\t' --with-nth 1,2,4 --query "$query" \
         --prompt 'groundwork> ' --layout reverse --border \
         --preview 'printf "%s\n\n%s" {2} {4}' --preview-window 'down,4,wrap'
   )" || exit 0

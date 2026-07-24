@@ -71,7 +71,7 @@ write() {
     return
   fi
   mkdir -p "$(dirname "$path")"
-  cat > "$path"
+  cat >"$path"
   echo "create $path"
 }
 
@@ -123,11 +123,11 @@ Anything specific to Claude Code that doesn't belong in the shared AGENTS.md.
 EOF
 
 # Every vendor points at the canonical .agents/ tree
-link .claude/agents   ../.agents/agents
-link .claude/skills   ../.agents/skills
+link .claude/agents ../.agents/agents
+link .claude/skills ../.agents/skills
 link .claude/commands ../.agents/commands
-link .codex/prompts   ../.agents/commands
-link .codex/skills    ../.agents/skills
+link .codex/prompts ../.agents/commands
+link .codex/skills ../.agents/skills
 
 write .vscode/settings.json <<'EOF'
 {
