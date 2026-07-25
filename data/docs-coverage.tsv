@@ -1,0 +1,150 @@
+surface	item	kind	origin	source	canonical_page	cheat_sheet	troubleshooting	availability
+daily	chezmoi apply	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	chezmoi cd	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	no	no	all
+daily	chezmoi diff	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	chezmoi edit <file>	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	chezmoi update --init	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	groundwork-configure	command	executable	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	groundwork-distro [--family]	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	Linux/WSL
+daily	groundwork-docker-cache-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-docker-cache-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-docker-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-docker-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-doctor	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-doctor --docker	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-doctor --runtimes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-doctor --shell	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-help --pick [query]	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	yes	no	all; requires fzf
+daily	groundwork-help [query]	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	yes	no	all
+daily	groundwork-platform	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-profile edit	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-profile set <current|preview>	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-profile show	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-restore	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
+daily	update-all	command	executable	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+dev	mise upgrade	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all; requires mise
+dev	mise use <tool@version>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	yes	all; requires mise
+dev	pnpm	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all; requires pnpm
+dev	python	command	external-command	home/dot_local/share/groundwork/commands.tsv	development.html	no	yes	all; requires python
+dev	uv	command	external-command	home/dot_local/share/groundwork/commands.tsv	development.html	no	yes	all; requires uv
+git	git add -p	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
+git	git branches	command	git-alias	home/dot_local/share/groundwork/commands.tsv	git.html	yes	no	all; requires git
+git	git commit -m <message>	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	yes	no	all; requires git
+git	git diff	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
+git	git gone	command	git-alias	home/dot_local/share/groundwork/commands.tsv	git.html	yes	no	all; requires git
+git	git recent	command	git-alias	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
+git	git show --stat	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
+git	git status	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	yes	no	all; requires git
+groundwork-twelve	Gate 01: without the cheat sheet: navigate anywhere and back; create, move, and delete a file; recall a command with CtrlR; start, split, detach, and reattach tmux; a commit in your log for every day so far.	competency	docs-competency	docs/groundwork-twelve.html	command-line.html	n/a	n/a	all
+groundwork-twelve	Gate 02: find any file by name and any string by content in a repo you've never seen; jump between three projects with z; resurrect yesterday's commands without retyping them.	competency	docs-competency	docs/groundwork-twelve.html	shell.html	n/a	n/a	all
+groundwork-twelve	Gate 03: cold start to full workspace in one command; move between editor, terminal, and browser without touching the mouse; survive a detach in the middle of real work.	competency	docs-competency	docs/groundwork-twelve.html	tmux.html	n/a	n/a	all
+groundwork-twelve	Gate 04: stage half a file with add -p; explain what HEAD is in one sentence; undo an unstaged change, a staged change, and a bad commit; branch and merge without consulting anything.	competency	docs-competency	docs/groundwork-twelve.html	git.html	n/a	n/a	all
+groundwork-twelve	Gate 05: make five common edits without arrow keys or mouse; open any file by fuzzy name; move between editor and terminal panes without thinking about it.	competency	docs-competency	docs/groundwork-twelve.html	neovim.html	n/a	n/a	all
+groundwork-twelve	Gate 06: compose a pipeline from scratch to answer a question; write, run, and lint a script; push a branch and open a PR without looking anything up.	competency	docs-competency	docs/groundwork-twelve.html	command-line.html	n/a	n/a	all
+groundwork-twelve	Gate 07: write a loop, a dict lookup, and a function from a blank file; make a failing test pass; read a traceback bottom-up and say what it means before fixing it.	competency	docs-competency	docs/groundwork-twelve.html	development.html	n/a	n/a	all
+groundwork-twelve	Gate 08: create a table and query it with WHERE/GROUP BY from memory; run the SELECT-before-UPDATE ritual unprompted; explain tables-vs-documents in two sentences using your own data as the example.	competency	docs-competency	docs/groundwork-twelve.html	data.html	n/a	n/a	all
+groundwork-twelve	Gate 09: explain request/response and a status code in plain words; fetch, store, and serve the same piece of data; find your way around a codebase you've never seen well enough to describe one file's job.	competency	docs-competency	docs/groundwork-twelve.html	web-dev.html	n/a	n/a	all
+groundwork-twelve	Gate 10: run the full loop without skipping review; produce a red test an agent can work from; notice a polluted context before it costs you an hour.	competency	docs-competency	docs/groundwork-twelve.html	workflow.html	n/a	n/a	all
+groundwork-twelve	Gate 11: a fresh agent session follows your AGENTS.md without coaching; you catch a plan-reality divergence before merge; the SELECT-before-write and risk-naming habits fire without prompting.	competency	docs-competency	docs/groundwork-twelve.html	agents.html	n/a	n/a	all
+groundwork-twelve	Stage 12: Capstone build	competency	docs-competency	docs/groundwork-twelve.html	workflow.html	n/a	n/a	all
+mac	zen	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop; requires zen
+mac	betterdisplaycli	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop; requires betterdisplay
+mac	browser-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop
+mac	defaultbrowser	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
+mac	open -a <App>	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop
+mac	raycast-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop; requires raycast
+practice	Practice drill: Agent drill	competency	docs-competency	docs/practice.html	workflow.html	n/a	n/a	all
+practice	Practice drill: Copy drill (keyboard-only)	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all
+practice	Practice drill: Git drill	competency	docs-competency	docs/practice.html	git.html	n/a	n/a	all
+practice	Practice drill: Learn the Mac modifier names	competency	docs-competency	docs/practice.html	keyboard.html	n/a	n/a	macOS
+practice	Practice drill: Mac layer drill	competency	docs-competency	docs/practice.html	macos.html	n/a	n/a	macOS
+practice	Practice drill: Neovim drill	competency	docs-competency	docs/practice.html	neovim.html	n/a	n/a	all
+practice	Practice drill: Open Ghostty and read the prompt	competency	docs-competency	docs/practice.html	command-line.html	n/a	n/a	all
+practice	Practice drill: Shell drill	competency	docs-competency	docs/practice.html	shell.html	n/a	n/a	all
+practice	Practice drill: Start tmux	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all
+practice	Practice drill: tmux drill	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all
+project	copy-context <paths>	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
+project	gh auth login	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	yes	all; requires gh
+project	gh auth setup-git	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	yes	all; requires gh
+project	groundwork-docker-build-scratch <purpose> <context>	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+project	groundwork-repos	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all
+project	groundwork-repos changed	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all
+project	groundwork-repos pick	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all; requires fzf
+project	new-project <path>	command	executable	home/dot_local/share/groundwork/commands.tsv	new-project.html	yes	no	all
+project	obsidian-plugins <vault>	command	executable	home/dot_local/share/groundwork/commands.tsv	knowledge.html	yes	no	macOS desktop; requires obsidian
+project	new-twelve-log [path]	function	shell-function	home/dot_local/share/groundwork/commands.tsv	groundwork-twelve.html	no	no	all
+project	new-wiki <path>	function	shell-function	home/dot_local/share/groundwork/commands.tsv	knowledge.html	yes	no	all
+shell	cat	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	lg	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	lazygit.html	yes	no	all; requires lazygit
+shell	ll	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
+shell	ls	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	no	yes	all
+shell	lt	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
+shell	ltt	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	rga <text>	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires ripgrep
+shell	vim / vi	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	neovim.html	no	no	all; requires neovim
+shell	atuin ai inline	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all; requires atuin
+shell	fd <name>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	yes	all; requires fd
+shell	groundwork-shell-adopt	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	groundwork-shell-adopt --revert	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	groundwork-shell-adopt --revert-to <shell>	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	groundwork-shell-adopt --status	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	largest --files [path]	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	largest --folders [path]	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	largest [path]	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all
+shell	mkdir -p <folder>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
+shell	open .	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	yes	macOS desktop
+shell	pwd	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
+shell	rg <text>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	yes	all; requires ripgrep
+shell	z <folder>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires zoxide
+shell	rgf [text]	function	shell-function	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires ripgrep
+shell	y	function	shell-function	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires yazi
+shell	Alt+C	key	shell-binding	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires fzf
+shell	Ctrl+R	key	shell-binding	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	yes	all; requires atuin
+shell	Ctrl+T	key	shell-binding	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all; requires fzf
+tmux	tmux attach -t <name>	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	no	all; requires tmux
+tmux	tmux kill-server	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	yes	all; requires tmux
+tmux	tmux kill-session -t <name>	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	no	all; requires tmux
+tmux	tmux new -s <name>	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	no	all; requires tmux
+tmux	tmux-fresh	command	executable	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	yes	all; requires tmux
+tmux	tmuxp freeze > .tmuxp.yaml	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	no	all; requires tmuxp
+tmux	tmuxp load .tmuxp.yaml	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	no	all; requires tmuxp
+tmux	~/.config/tmux/plugins/tpm/bin/update_plugins all	command	external-command	home/dot_local/share/groundwork/commands.tsv	tmux.html	no	yes	all; requires tmux
+tmux	Alt+h/j/k/l	key	tmux-plugin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then $	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then &	key	tmux-builtin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then ,	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then -	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then <	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then >	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then Ctrl+a	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then Ctrl+k	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then Ctrl+r	key	tmux-plugin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	yes	all; requires tmux
+tmux	Ctrl+a then Ctrl+s	key	tmux-plugin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then Ctrl+y	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then H	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then J	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then K	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then L	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then P	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then S	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then Shift+G	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	repo-navigation.html	no	no	all; requires tmux
+tmux	Ctrl+a then Shift+I	key	tmux-plugin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	yes	all; requires tmux
+tmux	Ctrl+a then Shift+R	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	repo-navigation.html	no	no	all; requires tmux
+tmux	Ctrl+a then Shift+U	key	tmux-plugin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	yes	all; requires tmux
+tmux	Ctrl+a then Shift+Y	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then T	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	yes	all; requires tmux
+tmux	Ctrl+a then c	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then g	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then h	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then j	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then k	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then l	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	Ctrl+a then r	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	yes	all; requires tmux
+tmux	Ctrl+a then x	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then z	key	tmux-builtin	home/dot_local/share/groundwork/commands.tsv	tmux.html	yes	no	all; requires tmux
+tmux	Ctrl+a then |	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
+tmux	tmux Option+right-click	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	tmux copy-mode-vi: Ctrl+v	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	tmux copy-mode-vi: v	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	tmux copy-mode-vi: y	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
+tmux	tmux right-click	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	yes	all; requires tmux

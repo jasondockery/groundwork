@@ -1,9 +1,11 @@
 # Documentation Truth and Coverage
 
-Status: proposed (2026-07-24). Not yet implemented — this is the acceptance
-contract that turns ROADMAP execution-order step 1 ("the wider repository-truth
-audit") from an open-ended prompt into a checkable finish line. Nothing here
-ships until the audit and its machine-readable inventory land.
+Status: audit machinery implemented; human truth review in progress
+(2026-07-25). This is the acceptance contract that turns ROADMAP execution-order
+step 1 ("the wider repository-truth audit") from an open-ended prompt into a
+checkable finish line. `scripts/audit-docs-coverage` and its generated inventory
+now provide the mechanical floor; the judgment checks below still decide when
+the wider audit is complete.
 
 Implement under `skills/docs-alignment`.
 
@@ -62,21 +64,44 @@ enrichment with a reason (see "Blockers vs deferred"). Silence is not coverage.
     reflect the current pages. `validate-groundwork` already fails on staleness;
     the audit must not land with these stale.
 
-## Machine-readable inventory (planned)
+## Machine-readable inventory
 
 - `data/docs-coverage.tsv` — one row per (surface, command/binding/competency)
   with its canonical page, cheat-sheet presence, troubleshooting presence, and
-  platform/profile qualifier. Generated from the rendered dotfiles and the
-  command catalog, not hand-maintained.
+  validated platform/profile availability. Generated from rendered
+  macOS/Linux dotfiles, the command catalog, practice drills, and Groundwork
+  Twelve gates; never hand-edited.
+- `data/docs-command-surfaces.tsv` — the reviewed metadata for every catalog
+  identity: exact kind, implementation origin, supported platforms, profile
+  scope, required capability, and canonical teaching page. Origins distinguish
+  repo-rendered shell/Git/tmux surfaces from tmux built-ins, plugin bindings,
+  executables, and external commands, so rendered-owned surfaces are checked in
+  both directions. Availability is product data here, never inferred from a
+  display category.
+- `data/render-profiles.tsv` — the canonical representative profile matrix used
+  by both `scripts/validate-groundwork` and the docs audit. It covers Apple
+  Silicon and Intel macOS plus Linux, desktop/headless, role/posture, Xcode, and
+  game-development differences. Every profile renders shell, Git, and tmux
+  configuration; their union and per-profile receipts are compared with the
+  catalog, declared origin, and availability.
 - `scripts/audit-docs-coverage` — regenerates the inventory and fails on any
-  contract violation above that can be checked mechanically (missing catalog
-  rows, dangling links, orphan pages, stale discovery artifacts, a command with
-  no canonical page). Judgment items (inclusion-rule calls, "teaches it well")
-  stay human review, but the mechanical floor is enforced in CI.
+  contract violation above that can be checked mechanically: a public installed
+  executable, rendered shell alias/function, Git alias, or explicit tmux binding
+  missing from the catalog; an unmapped practice drill or Groundwork Twelve
+  gate; a dangling internal link or heading fragment; a duplicate anchor; a
+  public page unreachable from `index.html`; page-set drift against sitemap or
+  AI discovery; stale discovery artifacts; or a stale inventory. Command and
+  alias coverage requires a contiguous explicit `<code>` surface; key coverage
+  requires a narrowly accepted `<kbd>` rendering. Judgment items (the
+  cheat-sheet/troubleshooting inclusion calls and "teaches it well") stay human
+  review, but availability and canonical-page existence are enforced.
+- `tests/test_audit_docs_coverage.py` — mutation fixtures for false substrings,
+  scattered tokens, profile-only surfaces, marker loss, unreachable islands,
+  single-quoted links, duplicate identities/anchors/drills/gates/tmux labels,
+  qualifier conflicts, missing competency pages, and stale generated output.
 
-Until `scripts/audit-docs-coverage` exists, the audit is done by hand against
-this contract and its completion is asserted, not proven — so building the script
-is part of closing step 1, not a later nicety.
+Groundwork Twelve has eleven numbered gates followed by a Stage 12 capstone.
+The capstone is a separate competency row, not a missing Gate 12.
 
 ## Blockers vs deferred
 

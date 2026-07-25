@@ -197,6 +197,7 @@ esac
 # Beta channel is opt-in and only meaningful with Xcode. update-all never
 # downloads betas because they require the developer's Apple Account.
 if command -v xcodes >/dev/null 2>&1; then
+  # shellcheck disable=SC2016 # Backticks are literal command formatting for the user.
   echo 'Groundwork: beta channel on. Xcode betas: `xcodes list` to see them, `xcodes install "<version>"` to add one, and `xcodes select` to switch.'
 fi
 {{- end }}

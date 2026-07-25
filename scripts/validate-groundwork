@@ -222,9 +222,14 @@ render() {
   local work="${6:-false}"
   local xcode="${7:-false}"
   local beta="${8:-false}"
+  local game_dev="${9:-false}"
+  local password_manager="${10:-bitwarden}"
+  local profile_preset="${11:-personal-current}"
+  local environment_role="${12:-personal}"
+  local release_posture="${13:-current}"
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
-  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"game_dev\":${game_dev},\"password_manager\":\"${password_manager}\",\"profile_preset\":\"${profile_preset}\",\"environment_role\":\"${environment_role}\",\"release_posture\":\"${release_posture}\",\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
   chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template <"$input" >"$output"
 }
 
@@ -4044,8 +4049,11 @@ rm -rf "$tmux_floor_stub_dir"
 # One clipboard path: tmux-yank (external pbcopy) is deliberately NOT loaded, so
 # copy-mode y and tmux-copy-last both use tmux's native OSC 52 route. prefix+Y is
 # no longer contested; prefix+C-y is the native copy-pane-pwd replacement.
-assert_no_matches "tmux-yank must not be reintroduced (keep one native OSC 52 clipboard path)" \
-  rg -n 'tmux-plugins/tmux-yank' home/dot_config/tmux/tmux.conf.tmpl
+assert_no_matches "current docs must not claim tmux-yank is installed" \
+  rg -n 'tmux-yank' docs
+assert_no_matches "tmux-yank must not be declared as a current plugin" \
+  rg -n '^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+@plugin.*tmux-yank' \
+  home/dot_config/tmux/tmux.conf.tmpl
 grep -qF "bind C-y run-shell" home/dot_config/tmux/tmux.conf.tmpl
 grep -qF $'tmux\tCtrl+a then Shift+Y\tkey\t' home/dot_local/share/groundwork/commands.tsv
 # Brew bundle streams progress so long fetches do not read as hangs and invite
@@ -4343,66 +4351,64 @@ while IFS= read -r template; do
 done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
 
 shell_templates=(home/run_*.sh.tmpl home/dot_local/bin/*.tmpl)
-for os in darwin linux; do
-  for headless in false true; do
-    case_name="${os}-${headless}"
-    mkdir -p "$out_dir/$case_name"
-    check "rendered shell templates ($case_name)"
-    for script in "${shell_templates[@]}"; do
-      rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
-      render "$os" "$headless" "amd64" "$script" "$rendered"
-      bash -n "$rendered"
-      run_shellcheck "$rendered"
-    done
-
-    check "rendered zsh ($case_name)"
-    render "$os" "$headless" "amd64" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc"
-    render "$os" "$headless" "amd64" home/dot_zprofile.tmpl "$out_dir/$case_name/zprofile"
-    zsh -n "$out_dir/$case_name/zshrc"
-    zsh -n "$out_dir/$case_name/zprofile"
-
-    check "rendered tmux ($case_name)"
-    render "$os" "$headless" "amd64" home/dot_config/tmux/tmux.conf.tmpl "$out_dir/$case_name/tmux.conf"
-    grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" "$out_dir/$case_name/tmux.conf"
-    if [[ "$headless" == "true" ]]; then
-      grep -qF "set -g @continuum-restore 'off'" "$out_dir/$case_name/tmux.conf"
-      assert_not_contains "@continuum-restore 'on'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore leaked into $case_name tmux config"
-    else
-      grep -qF "set -g @continuum-restore 'on'" "$out_dir/$case_name/tmux.conf"
-      assert_not_contains "@continuum-restore 'off'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore disabled in $case_name tmux config"
-    fi
-
-    check "rendered Brewfile ($case_name)"
-    render "$os" "$headless" "amd64" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile"
-    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
-      assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
-    fi
-    # The tap-trust troubleshooting docs state categorically that Groundwork
-    # adds no third-party taps; keep that claim true. A tap line or a
-    # tap-qualified package would put Groundwork in the tap-trust business.
-    assert_not_contains '^tap |^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
-      "a third-party tap entered the $case_name Brewfile — the docs promise Groundwork adds none"
-
-    check "rendered ignore ($case_name)"
-    render "$os" "$headless" "amd64" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore"
-    if [[ "$os" != "darwin" || "$headless" == "true" ]]; then
-      grep -q '^Library/\*\*' "$out_dir/$case_name/chezmoiignore"
-      grep -q '^\.config/karabiner/\*\*' "$out_dir/$case_name/chezmoiignore"
-    fi
-
-    if [[ "$os" == "linux" || "$headless" == "true" ]]; then
-      render "$os" "$headless" "amd64" home/run_onchange_after_30-macos-defaults.sh.tmpl "$out_dir/$case_name/macos-defaults.sh"
-      assert_not_contains 'defaults write' "$out_dir/$case_name/macos-defaults.sh" "macOS defaults leaked into $case_name"
-      render "$os" "$headless" "amd64" home/run_after_40-obsidian-vault.sh.tmpl "$out_dir/$case_name/obsidian-vault.sh"
-      assert_not_contains 'Obsidian|Library/Mobile Documents|obsidian.json' "$out_dir/$case_name/obsidian-vault.sh" "Obsidian vault body leaked into $case_name"
-      render "$os" "$headless" "amd64" home/run_after_45-obsidian-plugins.sh.tmpl "$out_dir/$case_name/obsidian-plugins.sh"
-      assert_not_contains 'obsidian-plugins|Library/Mobile Documents' "$out_dir/$case_name/obsidian-plugins.sh" "Obsidian plugins body leaked into $case_name"
-      render "$os" "$headless" "amd64" home/run_after_55-zen-bitwarden-biometrics.sh.tmpl "$out_dir/$case_name/zen-bitwarden.sh"
-      assert_not_contains 'NativeMessagingHosts|zen' "$out_dir/$case_name/zen-bitwarden.sh" "Zen biometrics body leaked into $case_name"
-      assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
-    fi
+while IFS=$'\t' read -r case_name os arch headless work xcode beta game_dev password_manager profile_preset environment_role release_posture; do
+  [[ -n "$case_name" && "$case_name" != \#* ]] || continue
+  mkdir -p "$out_dir/$case_name"
+  check "rendered shell templates ($case_name)"
+  for script in "${shell_templates[@]}"; do
+    rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
+    render "$os" "$headless" "$arch" "$script" "$rendered" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    bash -n "$rendered"
+    run_shellcheck "$rendered"
   done
-done
+
+  check "rendered zsh ($case_name)"
+  render "$os" "$headless" "$arch" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+  render "$os" "$headless" "$arch" home/dot_zprofile.tmpl "$out_dir/$case_name/zprofile" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+  zsh -n "$out_dir/$case_name/zshrc"
+  zsh -n "$out_dir/$case_name/zprofile"
+
+  check "rendered tmux ($case_name)"
+  render "$os" "$headless" "$arch" home/dot_config/tmux/tmux.conf.tmpl "$out_dir/$case_name/tmux.conf" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+  grep -qF "set-environment -g TMUX_PLUGIN_MANAGER_PATH \"\$HOME/.config/tmux/plugins/\"" "$out_dir/$case_name/tmux.conf"
+  if [[ "$headless" == "true" ]]; then
+    grep -qF "set -g @continuum-restore 'off'" "$out_dir/$case_name/tmux.conf"
+    assert_not_contains "@continuum-restore 'on'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore leaked into $case_name tmux config"
+  else
+    grep -qF "set -g @continuum-restore 'on'" "$out_dir/$case_name/tmux.conf"
+    assert_not_contains "@continuum-restore 'off'" "$out_dir/$case_name/tmux.conf" "continuum auto-restore disabled in $case_name tmux config"
+  fi
+
+  check "rendered Brewfile ($case_name)"
+  render "$os" "$headless" "$arch" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+  if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+    assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
+  fi
+  # The tap-trust troubleshooting docs state categorically that Groundwork
+  # adds no third-party taps; keep that claim true. A tap line or a
+  # tap-qualified package would put Groundwork in the tap-trust business.
+  assert_not_contains '^tap |^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
+    "a third-party tap entered the $case_name Brewfile — the docs promise Groundwork adds none"
+
+  check "rendered ignore ($case_name)"
+  render "$os" "$headless" "$arch" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+  if [[ "$os" != "darwin" || "$headless" == "true" ]]; then
+    grep -q '^Library/\*\*' "$out_dir/$case_name/chezmoiignore"
+    grep -q '^\.config/karabiner/\*\*' "$out_dir/$case_name/chezmoiignore"
+  fi
+
+  if [[ "$os" == "linux" || "$headless" == "true" ]]; then
+    render "$os" "$headless" "$arch" home/run_onchange_after_30-macos-defaults.sh.tmpl "$out_dir/$case_name/macos-defaults.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    assert_not_contains 'defaults write' "$out_dir/$case_name/macos-defaults.sh" "macOS defaults leaked into $case_name"
+    render "$os" "$headless" "$arch" home/run_after_40-obsidian-vault.sh.tmpl "$out_dir/$case_name/obsidian-vault.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    assert_not_contains 'Obsidian|Library/Mobile Documents|obsidian.json' "$out_dir/$case_name/obsidian-vault.sh" "Obsidian vault body leaked into $case_name"
+    render "$os" "$headless" "$arch" home/run_after_45-obsidian-plugins.sh.tmpl "$out_dir/$case_name/obsidian-plugins.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    assert_not_contains 'obsidian-plugins|Library/Mobile Documents' "$out_dir/$case_name/obsidian-plugins.sh" "Obsidian plugins body leaked into $case_name"
+    render "$os" "$headless" "$arch" home/run_after_55-zen-bitwarden-biometrics.sh.tmpl "$out_dir/$case_name/zen-bitwarden.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    assert_not_contains 'NativeMessagingHosts|zen' "$out_dir/$case_name/zen-bitwarden.sh" "Zen biometrics body leaked into $case_name"
+    assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
+  fi
+done <data/render-profiles.tsv
 
 check "rendered work macOS profile"
 mkdir -p "$out_dir/darwin-work"
@@ -4494,36 +4500,11 @@ grep -q '^inherit = "core"$' "$codex_config_once"
 test "$(grep -c '^\[shell_environment_policy\]$' "$codex_config_once")" = 1
 test "$(grep -c '^experimental_use_profile = true$' "$codex_config_once")" = 1
 
-check "docs links"
-for page in docs/*.html; do
-  dir="$(dirname "$page")"
-  while IFS= read -r href; do
-    case "$href" in
-      http:* | https:* | mailto:* | "") continue ;;
-    esac
-    target="${href%%#*}"
-    fragment=""
-    [[ "$href" == *#* ]] && fragment="${href#*#}"
-    target_path="$dir/${target:-$(basename "$page")}"
-    if [[ ! -e "$target_path" ]]; then
-      echo "missing $page: $href" >&2
-      exit 1
-    fi
-    if [[ -n "$fragment" ]] && ! grep -Eq "(id|name)=\"$fragment\"" "$target_path"; then
-      echo "missing fragment $page: $href" >&2
-      exit 1
-    fi
-  done < <(grep -Eo 'href="[^"]+"' "$page" | sed -E 's/^href="([^"]*)"$/\1/')
-  while IFS= read -r src; do
-    case "$src" in
-      http:* | https:* | data:* | "") continue ;;
-    esac
-    if [[ ! -e "$dir/$src" ]]; then
-      echo "missing asset $page: $src" >&2
-      exit 1
-    fi
-  done < <(grep -Eo 'src="[^"]+"' "$page" | sed -E 's/^src="([^"]*)"$/\1/')
-done
+check "docs coverage audit mutation tests"
+python3 tests/test_audit_docs_coverage.py
+
+check "docs links and coverage"
+scripts/audit-docs-coverage --check
 
 check "workflow timeout checker behaves as specified"
 # The checker is proven against fixtures rather than by mutating live workflow

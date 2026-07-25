@@ -1,0 +1,128 @@
+# item	kind	origin	platforms	profiles	requires	canonical_page
+groundwork-help [query]	command	executable	all	all	-	commands.html
+groundwork-help --pick [query]	command	executable	all	all	fzf	commands.html
+update-all	command	executable	all	all	-	setup.html
+groundwork-configure	command	executable	all	all	-	setup.html
+groundwork-platform	command	executable	all	all	-	platforms.html
+groundwork-distro [--family]	command	executable	linux-wsl	all	-	platforms.html
+groundwork-profile show	command	executable	all	all	-	platforms.html
+groundwork-profile set <current|preview>	command	executable	all	all	-	platforms.html
+groundwork-profile edit	command	executable	all	all	-	platforms.html
+Ctrl+a then Shift+Y	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then Ctrl+y	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then z	key	tmux-builtin	all	all	tmux	tmux.html
+Ctrl+a then Shift+R	key	tmux-binding	all	all	tmux	repo-navigation.html
+Ctrl+a then Shift+G	key	tmux-binding	all	all	tmux	repo-navigation.html
+Ctrl+a then x	key	tmux-binding	all	all	tmux	tmux.html
+tmux copy-mode-vi: v	key	tmux-binding	all	all	tmux	tmux.html
+tmux copy-mode-vi: Ctrl+v	key	tmux-binding	all	all	tmux	tmux.html
+tmux copy-mode-vi: y	key	tmux-binding	all	all	tmux	tmux.html
+tmux right-click	key	tmux-binding	all	all	tmux	tmux.html
+tmux Option+right-click	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then Ctrl+a	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then $	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then |	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then -	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then c	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then h	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then j	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then k	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then l	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then Ctrl+k	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then H	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then J	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then K	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then L	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then <	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then >	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then S	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then g	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then T	key	tmux-binding	all	all	tmux	tmux.html
+chezmoi diff	command	external-command	all	all	-	setup.html
+chezmoi apply	command	external-command	all	all	-	setup.html
+chezmoi update --init	command	external-command	all	all	-	setup.html
+chezmoi edit <file>	command	external-command	all	all	-	setup.html
+chezmoi cd	command	external-command	all	all	-	setup.html
+groundwork-restore	command	executable	all	all	-	troubleshooting.html
+groundwork-doctor	command	executable	all	all	-	platforms.html
+groundwork-doctor --docker	command	executable	all	all	docker	platforms.html
+groundwork-doctor --shell	command	executable	all	all	-	platforms.html
+groundwork-doctor --runtimes	command	executable	all	all	-	platforms.html
+groundwork-docker-tidy	command	executable	all	all	docker	platforms.html
+groundwork-docker-tidy --yes	command	executable	all	all	docker	platforms.html
+groundwork-docker-cache-tidy	command	executable	all	all	docker	platforms.html
+groundwork-docker-cache-tidy --yes	command	executable	all	all	docker	platforms.html
+groundwork-docker-build-scratch <purpose> <context>	command	executable	all	all	docker	platforms.html
+groundwork-shell-adopt	command	executable	all	all	-	shell.html
+groundwork-shell-adopt --status	command	executable	all	all	-	shell.html
+groundwork-shell-adopt --revert	command	executable	all	all	-	shell.html
+groundwork-shell-adopt --revert-to <shell>	command	executable	all	all	-	shell.html
+groundwork-repos	command	executable	all	all	-	repo-navigation.html
+groundwork-repos pick	command	executable	all	all	fzf	repo-navigation.html
+groundwork-repos changed	command	executable	all	all	-	repo-navigation.html
+new-project <path>	command	executable	all	all	-	new-project.html
+new-twelve-log [path]	function	shell-function	all	all	-	groundwork-twelve.html
+new-wiki <path>	function	shell-function	all	all	-	knowledge.html
+copy-context <paths>	command	executable	all	all	-	shell.html
+obsidian-plugins <vault>	command	executable	macos	desktop	obsidian	knowledge.html
+gh auth login	command	external-command	all	all	gh	git.html
+gh auth setup-git	command	external-command	all	all	gh	git.html
+ll	alias	shell-alias	all	all	-	shell.html
+ls	alias	shell-alias	all	all	-	shell.html
+lt	alias	shell-alias	all	all	-	shell.html
+ltt	alias	shell-alias	all	all	-	shell.html
+lg	alias	shell-alias	all	all	lazygit	lazygit.html
+vim / vi	alias	shell-alias	all	all	neovim	neovim.html
+cat	alias	shell-alias	all	all	-	shell.html
+z <folder>	command	external-command	all	all	zoxide	shell.html
+Alt+C	key	shell-binding	all	all	fzf	shell.html
+Ctrl+T	key	shell-binding	all	all	fzf	shell.html
+y	function	shell-function	all	all	yazi	shell.html
+largest [path]	command	executable	all	all	-	shell.html
+largest --files [path]	command	executable	all	all	-	shell.html
+largest --folders [path]	command	executable	all	all	-	shell.html
+mkdir -p <folder>	command	external-command	all	all	-	shell.html
+pwd	command	external-command	all	all	-	shell.html
+open .	command	external-command	macos	desktop	-	shell.html
+rg <text>	command	external-command	all	all	ripgrep	shell.html
+rga <text>	alias	shell-alias	all	all	ripgrep	shell.html
+rgf [text]	function	shell-function	all	all	ripgrep	shell.html
+fd <name>	command	external-command	all	all	fd	shell.html
+Ctrl+R	key	shell-binding	all	all	atuin	shell.html
+atuin ai inline	command	external-command	all	all	atuin	shell.html
+defaultbrowser	command	external-command	macos	desktop	-	apps.html
+browser-extensions [--open]	command	executable	macos	desktop	-	apps.html
+raycast-extensions [--open]	command	executable	macos	desktop	raycast	apps.html
+betterdisplaycli	command	external-command	macos	desktop	betterdisplay	apps.html
+open -a <App>	command	external-command	macos	desktop	-	apps.html
+zen	alias	shell-alias	macos	desktop	zen	apps.html
+mise use <tool@version>	command	external-command	all	all	mise	shell.html
+mise upgrade	command	external-command	all	all	mise	shell.html
+pnpm	command	external-command	all	all	pnpm	shell.html
+python	command	external-command	all	all	python	development.html
+uv	command	external-command	all	all	uv	development.html
+git status	command	external-command	all	all	git	git.html
+git diff	command	external-command	all	all	git	git.html
+git add -p	command	external-command	all	all	git	git.html
+git commit -m <message>	command	external-command	all	all	git	git.html
+git show --stat	command	external-command	all	all	git	git.html
+git branches	command	git-alias	all	all	git	git.html
+git gone	command	git-alias	all	all	git	git.html
+git recent	command	git-alias	all	all	git	git.html
+tmux new -s <name>	command	external-command	all	all	tmux	tmux.html
+tmux attach -t <name>	command	external-command	all	all	tmux	tmux.html
+tmuxp load .tmuxp.yaml	command	external-command	all	all	tmuxp	tmux.html
+tmuxp freeze > .tmuxp.yaml	command	external-command	all	all	tmuxp	tmux.html
+tmux-fresh	command	executable	all	all	tmux	tmux.html
+~/.config/tmux/plugins/tpm/bin/update_plugins all	command	external-command	all	all	tmux	tmux.html
+Ctrl+a then Ctrl+s	key	tmux-plugin	all	all	tmux	tmux.html
+Ctrl+a then Ctrl+r	key	tmux-plugin	all	all	tmux	tmux.html
+Ctrl+a then Shift+U	key	tmux-plugin	all	all	tmux	tmux.html
+Ctrl+a then Shift+I	key	tmux-plugin	all	all	tmux	tmux.html
+Ctrl+a then r	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then P	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then ,	key	tmux-binding	all	all	tmux	tmux.html
+Ctrl+a then &	key	tmux-builtin	all	all	tmux	tmux.html
+tmux kill-session -t <name>	command	external-command	all	all	tmux	tmux.html
+tmux kill-server	command	external-command	all	all	tmux	tmux.html
+Alt+h/j/k/l	key	tmux-plugin	all	all	tmux	tmux.html

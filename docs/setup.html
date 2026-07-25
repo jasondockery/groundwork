@@ -185,6 +185,10 @@
         <span class="label">The repo wins</span>
         <p>For files managed by chezmoi, the repo is the source of truth: <code>chezmoi diff</code> shows what would change, and <code>chezmoi apply</code> puts managed files back to the repo version. That is powerful, but it also means this setup intentionally changes the Mac.</p>
       </div>
+      <table class="keytable">
+        <tr><td><code>chezmoi edit &lt;file&gt;</code></td><td>Edit a managed file at its source instead of changing the generated copy that the next apply will replace.</td></tr>
+        <tr><td><code>chezmoi cd</code></td><td>Open a shell in the Groundwork source checkout when you want to inspect or work on the setup as a repository.</td></tr>
+      </table>
 
       <h2><span class="hash">#</span>First-time setup</h2>
       <div class="callout warn">

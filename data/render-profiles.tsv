@@ -1,0 +1,11 @@
+# name	os	arch	headless	work	xcode	beta	game_dev	password_manager	profile_preset	environment_role	release_posture
+darwin-personal-current	darwin	arm64	false	false	false	false	false	bitwarden	personal-current	personal	current
+darwin-personal-preview	darwin	arm64	false	false	false	false	false	bitwarden	personal-preview	personal	preview
+darwin-work-managed	darwin	arm64	false	true	false	false	false	1password	work-managed	managed	current
+darwin-xcode-preview	darwin	arm64	false	false	true	true	false	bitwarden	personal-preview	personal	preview
+darwin-game-dev	darwin	arm64	false	false	false	false	true	bitwarden	personal-current	personal	current
+darwin-headless	darwin	arm64	true	false	false	false	false	none	personal-current	personal	current
+darwin-intel-current	darwin	amd64	false	false	false	false	false	bitwarden	personal-current	personal	current
+linux-personal-current	linux	amd64	false	false	false	false	false	bitwarden	personal-current	personal	current
+linux-headless	linux	amd64	true	false	false	false	false	none	personal-current	personal	current
+linux-disposable-preview	linux	amd64	true	false	false	false	false	none	disposable-experimental	disposable	preview

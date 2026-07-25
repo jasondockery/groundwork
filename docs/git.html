@@ -184,12 +184,13 @@
       <p>That's the whole model: four places. Three live on any machine doing the writing: the <strong>working files</strong> being edited, the <strong>staging area</strong> where the next snapshot is assembled, and the <strong>history</strong> of saved snapshots. The fourth, <strong>GitHub</strong>, is the shared copy every machine pushes to and pulls from. Every command on this page just moves change between these four places, and when it's your project, you're the one on the laptop at the top of the diagram.</p>
 
       <h2><span class="hash">#</span>The daily loop</h2>
-      <p>Ninety percent of Git is five commands. Check what changed, stage it, commit it with a message, and sync with GitHub.</p>
+      <p>Ninety percent of Git is five commands. Check what changed, stage it, commit it with a message, and sync with GitHub. When an agent changed more than one concern in a file, use <code>git add -p</code> to review and stage one hunk at a time instead of accepting the whole file.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">daily</span></div>
         <pre><code><span class="prompt">$ </span>git status              <span class="comment"># what changed?</span>
 <span class="prompt">$ </span>git add .               <span class="comment"># stage everything</span>
 <span class="prompt">$ </span>git commit -m "message" <span class="comment"># save a snapshot</span>
+<span class="prompt">$ </span>git show --stat         <span class="comment"># verify what the snapshot actually contains</span>
 <span class="prompt">$ </span>git push                <span class="comment"># send it to GitHub</span>
 <span class="prompt">$ </span>git pull                <span class="comment"># get others' changes</span></code></pre>
       </div>
@@ -384,6 +385,7 @@
 
       <h3>Pulling without prompts — the gh credential helper</h3>
       <p>GitHub stopped accepting passwords years ago, so Git authenticates through <strong>gh</strong> for HTTPS remotes. The setup bakes <code>gh</code> in as Git's credential helper (in the managed git config, so it survives every <code>chezmoi apply</code>) for your own GitHub repos after you run <code>gh auth login --git-protocol https</code>. SSH remotes are still fine when your <code>~/.ssh/config</code> clearly maps the right key to the right GitHub account.</p>
+      <p>You may see <code>gh auth setup-git</code> in GitHub CLI guidance. It writes the same kind of credential-helper block for an unmanaged Git config; Groundwork already renders that block, so running it here is normally unnecessary and the next apply would restore the managed version.</p>
 
       <h2><span class="hash">#</span>Going deeper: a ladder, not a pile</h2>
       <p>Pick your entry point by where you are, not by what looks most authoritative. The classic mistake is starting with Pro Git (the "Git bible"): it is the definitive reference and a rough first week, because it covers internals, hooks, and server setup alongside the basics. This ladder runs from first hour to deep mechanics. Step on at your level, step off when you have what you need, and come back a rung higher later.</p>

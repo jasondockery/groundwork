@@ -3,12 +3,41 @@ daily	groundwork-help [query]	command	Show this command catalog. Add a word to f
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
 daily	groundwork-configure	command	Review your Groundwork setup answers and change any of them safely: shows current values, changes only what you pick, previews the diff, applies after you confirm. This is how to change a setting — "chezmoi init" only regenerates, and "chezmoi init --prompt" replays the whole interview.
+daily	groundwork-platform	command	Report the current platform as darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported.
+daily	groundwork-distro [--family]	command	On Linux or WSL, report the distribution ID; --family reports its bootstrap family (debian, fedora, arch, opensuse, or unknown).
+daily	groundwork-profile show	command	Show the saved environment role, application release posture, headless state, and detected operating-system channel.
+daily	groundwork-profile set <current|preview>	command	Record a new application release posture after showing the plan and previewing the chezmoi diff. No application is installed, removed, or switched by this phase.
+daily	groundwork-profile edit	command	Open the chezmoi config when the role, preset, or another profile field needs direct review.
 tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.
 tmux	Ctrl+a then Ctrl+y	key	Copy the current pane's working directory to the clipboard (native OSC 52 via a helper that reads the path from tmux and never runs it through a shell).
 tmux	Ctrl+a then z	key	Zoom the active pane to fill the screen; press again to restore. The status line shows Z while zoomed — this is what happened if a pane suddenly took over the screen.
 tmux	Ctrl+a then Shift+R	key	Repo picker popup: fuzzy-search every repository discovered under your configured roots, preview its git status, and jump to (or open) its lazygit window.
 tmux	Ctrl+a then Shift+G	key	Open a lazygit window for every repository with uncommitted changes (groundwork-repos changed).
 tmux	Ctrl+a then x	key	Close the active pane. It asks first, because x sits next to z (zoom).
+tmux	tmux copy-mode-vi: v	key	Start a selection while browsing tmux pane history.
+tmux	tmux copy-mode-vi: Ctrl+v	key	Toggle a rectangular selection while browsing tmux pane history.
+tmux	tmux copy-mode-vi: y	key	Copy the selection to the tmux buffer and supported system clipboard, then leave copy mode.
+tmux	tmux right-click	key	In a mouse-aware app, forward right-click to the app; in an ordinary shell pane, show the copy-model hint.
+tmux	tmux Option+right-click	key	Open tmux's pane menu without taking ordinary right-click away from mouse-aware apps.
+tmux	Ctrl+a then Ctrl+a	key	Send a literal Ctrl+a to the program inside the active pane.
+tmux	Ctrl+a then $	key	Rename the active tmux session.
+tmux	Ctrl+a then |	key	Split the active pane left and right in its current directory.
+tmux	Ctrl+a then -	key	Split the active pane top and bottom in its current directory.
+tmux	Ctrl+a then c	key	Create a new window in the active pane's current directory.
+tmux	Ctrl+a then h	key	Move to the pane on the left.
+tmux	Ctrl+a then j	key	Move to the pane below.
+tmux	Ctrl+a then k	key	Move to the pane above.
+tmux	Ctrl+a then l	key	Move to the pane on the right.
+tmux	Ctrl+a then Ctrl+k	key	Clear the visible shell screen and tmux's retained history for the active pane.
+tmux	Ctrl+a then H	key	Resize the active pane five cells to the left.
+tmux	Ctrl+a then J	key	Resize the active pane five cells downward.
+tmux	Ctrl+a then K	key	Resize the active pane five cells upward.
+tmux	Ctrl+a then L	key	Resize the active pane five cells to the right.
+tmux	Ctrl+a then <	key	Move the active window one position to the left.
+tmux	Ctrl+a then >	key	Move the active window one position to the right.
+tmux	Ctrl+a then S	key	Toggle synchronized input across every pane in the active window.
+tmux	Ctrl+a then g	key	Open lazygit for the active pane's current repository.
+tmux	Ctrl+a then T	key	Open the session switcher; inside it, Ctrl+x closes the highlighted live session.
 daily	chezmoi diff	command	Preview dotfile changes before applying them to your home directory.
 daily	chezmoi apply	command	Apply the source repo to your home directory.
 daily	chezmoi update --init	command	Git pull the Groundwork repo and apply it; --init keeps every setup answer and asks only newly added questions. Syncs config, not already-installed tool upgrades.
@@ -32,12 +61,14 @@ project	groundwork-repos	command	Table of every Git repository discovered under 
 project	groundwork-repos pick	command	Fuzzy-pick a discovered repository (fzf) with a live git-status preview, then open or reuse its lazygit tmux window. Inside tmux it becomes a window; outside, it creates or attaches the repos session.
 project	groundwork-repos changed	command	Open one lazygit tmux window per repository with uncommitted work — the fastest way to see everything your agents left unreviewed.
 project	new-project <path>	command	Scaffold AGENTS.md, agent folders, editor settings, and .gitignore for a new repo.
+project	new-twelve-log [path]	function	Scaffold a Groundwork Twelve learning log, initialize it as a Git repo, and enter it; defaults to ~/groundwork-log.
 project	new-wiki <path>	function	Scaffold a private agent-maintained knowledge wiki with raw/wiki layers and Obsidian setup.
 project	copy-context <paths>	command	Copy selected files or folders to the clipboard with path headers and contents for AI review.
 project	obsidian-plugins <vault>	command	Install the Groundwork-managed Obsidian plugin set into a vault.
 project	gh auth login	command	Sign in to GitHub for gh and HTTPS Git operations.
-project	gh auth setup-git	command	Install gh as Git's HTTPS credential helper.
+project	gh auth setup-git	command	Configure gh as Git's HTTPS credential helper in an unmanaged Git config. Groundwork already renders the equivalent helper block, so this is normally unnecessary here.
 shell	ll	alias	List files with details, hidden files, Git status, and directories first.
+shell	ls	alias	List files with eza, grouping directories first.
 shell	lt	alias	Tree view of the current folder, two levels deep; the quick shape-of-a-repo view.
 shell	ltt	alias	Tree view, three levels deep, when lt is not enough.
 shell	lg	alias	Open lazygit.
@@ -64,6 +95,7 @@ mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia/
 mac	raycast-extensions [--open]	command	List or open the recommended Raycast Store extension links.
 mac	betterdisplaycli	command	BetterDisplay command-line interface for display automation.
 mac	open -a <App>	command	Open a macOS app from the shell.
+mac	zen	alias	Open Zen Browser on macOS.
 dev	mise use <tool@version>	command	Pin a runtime/tool version in the current project.
 dev	mise upgrade	command	Upgrade globally managed mise tools, including floating baselines such as Node LTS. Takes effect at your next prompt, even in already-open terminals.
 dev	pnpm	command	Package manager installed through mise for JavaScript projects.

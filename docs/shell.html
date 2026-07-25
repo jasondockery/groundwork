@@ -392,6 +392,19 @@
         <p>Don't try to absorb the whole table today. Pick <code>rg</code> and <code>z</code> this week — they pay off immediately — and let the rest arrive as you need them. Every tool answers <code>--help</code>.</p>
       </div>
 
+      <h2><span class="hash">#</span>The managed zsh runtime</h2>
+      <p>Groundwork installs and updates Homebrew&apos;s current zsh so the interactive shell behaves consistently across macOS, Linux, and WSL2. Applying the dotfiles does not silently change your account&apos;s login shell; adoption is a separate, explicit action, and the operating system&apos;s shell remains installed as the recovery path.</p>
+      <table class="keytable">
+        <tr><td><code>groundwork-shell-adopt</code></td><td>Record the current login shell, register Homebrew zsh when needed, select it for the account, and verify the account record.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --status</code></td><td>Report the managed zsh path, account login shell, current <code>$SHELL</code>, and recorded previous shell without changing anything.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --revert</code></td><td>Restore the recorded previous login shell. The shell itself was never removed.</td></tr>
+        <tr><td><code>groundwork-shell-adopt --revert-to &lt;shell&gt;</code></td><td>Choose a specific recovery shell when no previous value was recorded.</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Proof status</span>
+        <p>The validator drives adoption, status, failure, and revert branches against isolated account-command fixtures. Fresh Apple Silicon, Intel Mac, native Ubuntu, and WSL2 account receipts are still pending, so treat the cross-machine adoption proof as provisional rather than assuming a fixture changed a real login record.</p>
+      </div>
+
       <h2><span class="hash">#</span>Under the hood: the zsh setup</h2>
       <p>The shell you're typing into is <strong>zsh</strong>, and a few small pieces make it feel modern. You don't configure any of this by hand — it's all in <code>~/.zshrc</code> and managed by the setup — but here's what's running and why.</p>
 

@@ -181,7 +181,7 @@ alias lt="eza --tree --level=2 --group-directories-first"
 alias ltt="eza --tree --level=3 --group-directories-first"
 alias cat="bat"
 alias lg="lazygit"
-{{ if eq .chezmoi.os "darwin" -}}
+{{ if and (eq .chezmoi.os "darwin") (not .headless) -}}
 alias zen="open -a Zen"
 {{- end }}
 alias rga="rg -uu"

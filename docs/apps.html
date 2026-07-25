@@ -163,7 +163,7 @@
         <p>chezmoi writes <code>zen.workspaces.wrap-around-navigation=false</code> into each Zen profile's <code>user.js</code>. That makes Space navigation stop at the leftmost and rightmost Space instead of cycling around. Swipe navigation is left alone; restart Zen after applying Groundwork if the change does not show up immediately.</p>
       </div>
       <h3>Browser extensions</h3>
-      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links. On macOS, add <code>--open</code> to open them in Zen, Chrome, or Dia. Chrome and Dia use Chrome Web Store links; Zen uses Firefox Add-ons.</p>
+      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links, or <code>browser-extensions --open</code> on macOS to open them in Zen, Chrome, or Dia. Chrome and Dia use Chrome Web Store links; Zen uses Firefox Add-ons.</p>
       <table class="keytable">
         <tr><td><strong>Core</strong></td><td>Password manager, uBlock Origin Lite / uBlock Origin, Anybox Browser Extension, and Obsidian Web Clipper.</td></tr>
         <tr><td><strong>Privacy</strong></td><td>Privacy.com is included as the official virtual-card service link. I could not verify a current official browser extension, so it is not treated as an extension install.</td></tr>
@@ -186,6 +186,7 @@
 
       <h2><span class="hash">#</span>Raycast — the launcher</h2>
       <p>Raycast is the single biggest quality-of-life app here. One keystroke opens a search box that launches apps, does math, manages windows, remembers your clipboard, and runs little commands — so your hands stay off the mouse. It's meant to take over <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> from Spotlight.</p>
+      <p>From a shell, <code>open -a &lt;App&gt;</code> is the direct macOS path when the app name is already known. Groundwork&apos;s <code>zen</code> alias is the short form for <code>open -a Zen</code>; Raycast remains the better path when you want to search rather than remember the exact name.</p>
       <table class="keytable">
         <tr><td>Launch &amp; search</td><td>Hit the hotkey, type an app or file name, <kbd>Enter</kbd></td></tr>
         <tr><td>Clipboard history</td><td>Everything you've copied, searchable — no more losing what you copied two things ago</td></tr>
@@ -274,7 +275,7 @@
         <tr><td><strong>Resolution menu</strong></td><td>Switch between favorite scaled resolutions without digging through System Settings</td></tr>
         <tr><td><strong>External monitor controls</strong></td><td>Adjust brightness, volume, inputs, and color modes on many supported displays</td></tr>
         <tr><td><strong>Layout protection</strong></td><td>Keep laptop and external monitor arrangements stable after sleep, docks, and reconnects</td></tr>
-        <tr><td><strong>Automation</strong></td><td>Use CLI, URL schemes, Shortcuts, or Raycast commands for repeatable display setups</td></tr>
+        <tr><td><code>betterdisplaycli</code></td><td>Use BetterDisplay&apos;s CLI, URL schemes, Shortcuts, or Raycast commands for repeatable display setups after the app configuration is stable</td></tr>
       </table>
       <p>Groundwork does not seed BetterDisplay presets or hotkeys. Those depend on the exact laptop, dock, monitor IDs, refresh rates, and licensing state in front of you. Pick favorites in the app first, then automate with BetterDisplay's supported CLI, Shortcuts, URL schemes, or Raycast only after you know the display setup is stable.</p>
       <div class="callout warn">

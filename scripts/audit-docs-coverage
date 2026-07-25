@@ -1,0 +1,1133 @@
+#!/usr/bin/env python3
+"""Generate and verify Groundwork's documentation coverage inventory.
+
+The audit derives user-facing surfaces from every profile in the shared render
+matrix, joins them to explicit documentation metadata, and checks the rendered
+site graph. The generated inventory is a mechanical floor; whether a page
+teaches a workflow well remains a human docs-alignment review.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import html
+import json
+import pathlib
+import posixpath
+import re
+import shlex
+import subprocess
+import tempfile
+import urllib.parse
+import xml.etree.ElementTree as ET
+from collections import Counter, defaultdict, deque
+from html.parser import HTMLParser
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+DOCS = ROOT / "docs"
+CATALOG = ROOT / "home/dot_local/share/groundwork/commands.tsv"
+METADATA = ROOT / "data/docs-command-surfaces.tsv"
+PROFILES = ROOT / "data/render-profiles.tsv"
+INVENTORY = ROOT / "data/docs-coverage.tsv"
+NON_SITE_HTML = {"google6981ccb57c5e5a37.html"}
+SITE_BASE = "https://jasondockery.github.io/groundwork"
+
+ALLOWED_CATEGORIES = {"daily", "project", "shell", "git", "tmux", "mac", "dev"}
+ALLOWED_KINDS = {"command", "alias", "function", "key"}
+ALLOWED_PLATFORMS = {"all", "macos", "linux-wsl"}
+ALLOWED_PROFILE_SCOPES = {"all", "desktop", "headless"}
+ALLOWED_ORIGINS = {
+    "executable",
+    "external-command",
+    "git-alias",
+    "shell-alias",
+    "shell-binding",
+    "shell-function",
+    "tmux-binding",
+    "tmux-builtin",
+    "tmux-plugin",
+}
+
+# These executables support another public command or an automatic hook. They
+# are not standalone learner interfaces.
+INTERNAL_EXECUTABLES = {
+    "groundwork-apps-start",
+    "groundwork-brew-refetch",
+    "groundwork-brew-repair",
+    "groundwork-brew-update",
+    "groundwork-source-preflight",
+    "groundwork-update-run",
+    "tmux-copy-cwd",
+    "tmux-copy-last",
+}
+INTERNAL_SHELL_FUNCTIONS = {
+    "groundwork-repo-dir",
+    "groundwork-update-reminder",
+}
+
+PRACTICE_DRILL_PAGES = {
+    "Open Ghostty and read the prompt": ("command-line.html", "all", "prompt"),
+    "Learn the Mac modifier names": ("keyboard.html", "macOS", "modifier"),
+    "Start tmux": ("tmux.html", "all", "tmux"),
+    "Shell drill": ("shell.html", "all", "shell"),
+    "tmux drill": ("tmux.html", "all", "tmux"),
+    "Copy drill (keyboard-only)": ("tmux.html", "all", "copy"),
+    "Neovim drill": ("neovim.html", "all", "neovim"),
+    "Git drill": ("git.html", "all", "git"),
+    "Agent drill": ("workflow.html", "all", "agent"),
+    "Mac layer drill": ("macos.html", "macOS", "macOS"),
+}
+
+# Groundwork Twelve intentionally has eleven numbered gates. Stage 12 is the
+# capstone build, represented separately below rather than as a missing gate.
+TWELVE_GATE_PAGES = {
+    1: ("command-line.html", "command"),
+    2: ("shell.html", "shell"),
+    3: ("tmux.html", "tmux"),
+    4: ("git.html", "git"),
+    5: ("neovim.html", "neovim"),
+    6: ("command-line.html", "pipeline"),
+    7: ("development.html", "python"),
+    8: ("data.html", "data"),
+    9: ("web-dev.html", "request"),
+    10: ("workflow.html", "review"),
+    11: ("agents.html", "AGENTS.md"),
+}
+
+
+class AuditError(RuntimeError):
+    """A user-facing audit failure without a Python traceback."""
+
+
+def fail(message: str) -> None:
+    raise AuditError(message)
+
+
+def run(*args: str, input_text: str | None = None, root: pathlib.Path = ROOT) -> str:
+    result = subprocess.run(
+        args,
+        cwd=root,
+        input=input_text,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip()
+        fail(f"{' '.join(args)} failed: {detail}")
+    return result.stdout
+
+
+def parse_bool(value: str, context: str) -> bool:
+    if value not in {"true", "false"}:
+        fail(f"{context}: expected true or false, got {value!r}")
+    return value == "true"
+
+
+def read_profiles(path: pathlib.Path = PROFILES) -> list[dict[str, object]]:
+    columns = (
+        "name",
+        "os",
+        "arch",
+        "headless",
+        "work",
+        "xcode",
+        "beta",
+        "game_dev",
+        "password_manager",
+        "profile_preset",
+        "environment_role",
+        "release_posture",
+    )
+    profiles: list[dict[str, object]] = []
+    names: set[str] = set()
+    with path.open(newline="") as handle:
+        for number, raw in enumerate(csv.reader(handle, delimiter="\t"), 1):
+            if not raw or raw[0].startswith("#"):
+                continue
+            if len(raw) != len(columns):
+                fail(f"{path}: line {number}: expected {len(columns)} TSV columns")
+            row: dict[str, object] = dict(zip(columns, raw))
+            name = str(row["name"])
+            if name in names:
+                fail(f"{path}: duplicate profile name {name!r}")
+            names.add(name)
+            if row["os"] not in {"darwin", "linux"}:
+                fail(f"{path}: {name}: unsupported os {row['os']!r}")
+            for field in ("headless", "work", "xcode", "beta", "game_dev"):
+                row[field] = parse_bool(str(row[field]), f"{path}: {name}: {field}")
+            profiles.append(row)
+    if not profiles:
+        fail(f"{path}: profile matrix is empty")
+    os_values = {profile["os"] for profile in profiles}
+    if os_values != {"darwin", "linux"}:
+        fail(f"{path}: matrix must cover darwin and linux, got {sorted(os_values)}")
+    return profiles
+
+
+def profile_data(profile: dict[str, object]) -> dict[str, object]:
+    os_name = str(profile["os"])
+    return {
+        "name": "Docs Audit",
+        "email_personal": "docs@example.com",
+        "email_work": "",
+        "code_dir": "~/code",
+        "reset_existing_configs": False,
+        "password_manager": profile["password_manager"],
+        "signingkey": "",
+        "obsidian_vault_name": "docs",
+        "game_dev": profile["game_dev"],
+        "profile_preset": profile["profile_preset"],
+        "environment_role": profile["environment_role"],
+        "release_posture": profile["release_posture"],
+        "work": profile["work"],
+        "headless": profile["headless"],
+        "xcode": profile["xcode"],
+        "beta": profile["beta"],
+        "chezmoi": {
+            "os": os_name,
+            "arch": profile["arch"],
+            "osRelease": {} if os_name == "darwin" else {"ID": "ubuntu"},
+        },
+    }
+
+
+def render_template(
+    template: pathlib.Path,
+    profile: dict[str, object],
+    empty_config: pathlib.Path,
+    root: pathlib.Path = ROOT,
+) -> str:
+    return run(
+        "chezmoi",
+        "--config",
+        str(empty_config),
+        "--source",
+        str(root),
+        "--destination",
+        str(empty_config.parent / "home"),
+        "--override-data",
+        json.dumps(profile_data(profile), separators=(",", ":")),
+        "execute-template",
+        input_text=template.read_text(),
+        root=root,
+    )
+
+
+def surface_roots(item: str, kind: str) -> list[str]:
+    if kind == "alias" and " / " in item:
+        return [part.strip().split()[0] for part in item.split(" / ")]
+    return [item.split()[0]]
+
+
+def validate_placeholders(item: str, kind: str, context: str) -> None:
+    if kind == "key":
+        return
+    without_angles = re.sub(r"<[A-Za-z][^<>]*>", "", item)
+    if re.search(r"<[A-Za-z]", without_angles):
+        fail(f"{context}: malformed angle placeholder in {item!r}")
+    without_optional = re.sub(r"\[[^][\r\n]+\]", "", item)
+    if "[" in without_optional or "]" in without_optional:
+        fail(f"{context}: malformed optional placeholder in {item!r}")
+
+
+def read_catalog(path: pathlib.Path = CATALOG) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    identities: set[tuple[str, str]] = set()
+    root_kinds: dict[str, str] = {}
+    with path.open(newline="") as handle:
+        for number, raw in enumerate(csv.reader(handle, delimiter="\t"), 1):
+            if not raw or raw[0].startswith("#"):
+                continue
+            if len(raw) != 4:
+                fail(f"{path}: line {number}: expected 4 TSV columns")
+            category, item, kind, description = (field.strip() for field in raw)
+            context = f"{path}: line {number}"
+            if category not in ALLOWED_CATEGORIES:
+                fail(f"{context}: unknown category {category!r}")
+            if kind not in ALLOWED_KINDS:
+                fail(f"{context}: unknown kind {kind!r}")
+            if not item or not description:
+                fail(f"{context}: item and description must be non-empty")
+            identity = (kind, item)
+            if identity in identities:
+                fail(f"{context}: duplicate catalog item {kind}:{item}")
+            identities.add(identity)
+            validate_placeholders(item, kind, context)
+            if kind != "key":
+                for root in surface_roots(item, kind):
+                    prior = root_kinds.setdefault(root, kind)
+                    if prior != kind:
+                        fail(
+                            f"{context}: user-facing token {root!r} has "
+                            f"conflicting kinds {prior!r} and {kind!r}"
+                        )
+            rows.append(
+                {
+                    "category": category,
+                    "item": item,
+                    "kind": kind,
+                    "description": description,
+                }
+            )
+    return rows
+
+
+def read_metadata(
+    catalog_rows: list[dict[str, str]],
+    path: pathlib.Path = METADATA,
+) -> dict[tuple[str, str], dict[str, str]]:
+    result: dict[tuple[str, str], dict[str, str]] = {}
+    with path.open(newline="") as handle:
+        for number, raw in enumerate(csv.reader(handle, delimiter="\t"), 1):
+            if not raw or raw[0].startswith("#"):
+                continue
+            if len(raw) != 7:
+                fail(f"{path}: line {number}: expected 7 TSV columns")
+            item, kind, origin, platforms, profiles, requires, canonical_page = (
+                field.strip() for field in raw
+            )
+            identity = (kind, item)
+            if identity in result:
+                fail(f"{path}: line {number}: duplicate metadata item {kind}:{item}")
+            if kind not in ALLOWED_KINDS:
+                fail(f"{path}: line {number}: unknown kind {kind!r}")
+            if origin not in ALLOWED_ORIGINS:
+                fail(f"{path}: line {number}: unknown origin {origin!r}")
+            expected_kind = {
+                "executable": "command",
+                "git-alias": "command",
+                "shell-alias": "alias",
+                "shell-binding": "key",
+                "shell-function": "function",
+                "tmux-binding": "key",
+                "tmux-builtin": "key",
+                "tmux-plugin": "key",
+            }.get(origin)
+            if expected_kind is not None and kind != expected_kind:
+                fail(
+                    f"{path}: line {number}: origin {origin!r} requires "
+                    f"kind {expected_kind!r}, got {kind!r}"
+                )
+            if platforms not in ALLOWED_PLATFORMS:
+                fail(f"{path}: line {number}: invalid platforms {platforms!r}")
+            if profiles not in ALLOWED_PROFILE_SCOPES:
+                fail(f"{path}: line {number}: invalid profiles {profiles!r}")
+            if not requires or not re.fullmatch(r"[a-z0-9-]+|-", requires):
+                fail(f"{path}: line {number}: invalid requires value {requires!r}")
+            if not re.fullmatch(r"[A-Za-z0-9._-]+\.html", canonical_page):
+                fail(f"{path}: line {number}: invalid canonical page {canonical_page!r}")
+            result[identity] = {
+                "origin": origin,
+                "platforms": platforms,
+                "profiles": profiles,
+                "requires": requires,
+                "canonical_page": canonical_page,
+            }
+    catalog_identities = {(row["kind"], row["item"]) for row in catalog_rows}
+    metadata_identities = set(result)
+    missing = sorted(catalog_identities - metadata_identities)
+    stale = sorted(metadata_identities - catalog_identities)
+    if missing or stale:
+        detail = []
+        if missing:
+            detail.append("missing metadata: " + ", ".join(f"{k}:{i}" for k, i in missing))
+        if stale:
+            detail.append("stale metadata: " + ", ".join(f"{k}:{i}" for k, i in stale))
+        fail("command surface metadata drift:\n  " + "\n  ".join(detail))
+    return result
+
+
+def expected_profile_names(
+    metadata: dict[str, str],
+    profiles: list[dict[str, object]],
+) -> set[str]:
+    expected = set()
+    for profile in profiles:
+        os_matches = (
+            metadata["platforms"] == "all"
+            or (metadata["platforms"] == "macos" and profile["os"] == "darwin")
+            or (metadata["platforms"] == "linux-wsl" and profile["os"] == "linux")
+        )
+        scope_matches = (
+            metadata["profiles"] == "all"
+            or (metadata["profiles"] == "desktop" and not profile["headless"])
+            or (metadata["profiles"] == "headless" and profile["headless"])
+        )
+        if os_matches and scope_matches:
+            expected.add(str(profile["name"]))
+    return expected
+
+
+def shipped_executables(root: pathlib.Path = ROOT) -> set[str]:
+    names = set()
+    for path in (root / "home/dot_local/bin").glob("executable_*"):
+        name = path.name.removeprefix("executable_").removesuffix(".tmpl")
+        if name not in INTERNAL_EXECUTABLES:
+            names.add(name)
+    return names
+
+
+def parse_shell_surfaces(text: str) -> tuple[set[str], set[str]]:
+    aliases = set(re.findall(r"^alias ([A-Za-z0-9_-]+)=", text, re.M))
+    functions = set(re.findall(r"^([A-Za-z][A-Za-z0-9_-]*)\(\) \{", text, re.M))
+    functions.difference_update(INTERNAL_SHELL_FUNCTIONS)
+    return aliases, functions
+
+
+def parse_git_aliases(text: str) -> set[str]:
+    aliases: set[str] = set()
+    in_aliases = False
+    for line in text.splitlines():
+        if re.match(r"^\[[^]]+\]$", line):
+            in_aliases = line == "[alias]"
+            continue
+        if in_aliases and re.match(r"^\s+[A-Za-z0-9-]+\s*=", line):
+            aliases.add(f"git {line.split('=', 1)[0].strip()}")
+    return aliases
+
+
+def tmux_key_label(table: str, no_prefix: bool, key: str) -> str:
+    display = {
+        "C-a": "Ctrl+a",
+        "C-k": "Ctrl+k",
+        "C-v": "Ctrl+v",
+        "C-y": "Ctrl+y",
+        "Y": "Shift+Y",
+        "R": "Shift+R",
+        "G": "Shift+G",
+        "M-MouseDown3Pane": "Option+right-click",
+        "MouseDown3Pane": "right-click",
+    }.get(key, key)
+    if table != "prefix":
+        return f"tmux {table}: {display}"
+    if no_prefix:
+        return f"tmux {display}"
+    return f"Ctrl+a then {display}"
+
+
+def parse_tmux_bindings(text: str, context: str = "rendered tmux config") -> set[str]:
+    bindings: set[str] = set()
+    for number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if not stripped.startswith("bind "):
+            continue
+        try:
+            words = shlex.split(stripped.rstrip("\\"))
+        except ValueError as error:
+            fail(f"{context} line {number}: {error}")
+        table = "prefix"
+        no_prefix = False
+        index = 1
+        while index < len(words) and words[index] in {"-T", "-N", "-n", "-r"}:
+            option = words[index]
+            if option in {"-T", "-N"}:
+                if index + 1 >= len(words):
+                    fail(f"{context} line {number}: {option} has no value")
+                if option == "-T":
+                    table = words[index + 1]
+                index += 2
+            else:
+                no_prefix = no_prefix or option == "-n"
+                index += 1
+        if index >= len(words):
+            fail(f"{context} line {number}: binding has no key")
+        label = tmux_key_label(table, no_prefix, words[index])
+        if label in bindings:
+            fail(f"{context}: duplicate normalized binding label {label!r}")
+        bindings.add(label)
+    return bindings
+
+
+def rendered_surface_receipts(
+    profiles: list[dict[str, object]],
+    empty_config: pathlib.Path,
+    root: pathlib.Path = ROOT,
+) -> tuple[dict[tuple[str, str], set[str]], dict[str, str]]:
+    receipts: dict[tuple[str, str], set[str]] = defaultdict(set)
+    sources: dict[str, str] = {}
+    for profile in profiles:
+        profile_name = str(profile["name"])
+        zsh = render_template(root / "home/dot_zshrc.tmpl", profile, empty_config, root)
+        aliases, functions = parse_shell_surfaces(zsh)
+        for alias in aliases:
+            receipts[("alias", alias)].add(profile_name)
+        for function in functions:
+            receipts[("function", function)].add(profile_name)
+
+        git = render_template(root / "home/dot_gitconfig.tmpl", profile, empty_config, root)
+        for alias in parse_git_aliases(git):
+            receipts[("git-alias", alias)].add(profile_name)
+
+        tmux = render_template(
+            root / "home/dot_config/tmux/tmux.conf.tmpl",
+            profile,
+            empty_config,
+            root,
+        )
+        for label in parse_tmux_bindings(tmux, f"rendered tmux profile {profile_name}"):
+            receipts[("key", label)].add(profile_name)
+            sources[label] = "home/dot_config/tmux/tmux.conf.tmpl"
+    return receipts, sources
+
+
+def declared_rendered_identities(
+    rows: list[dict[str, str]],
+    metadata: dict[tuple[str, str], dict[str, str]],
+) -> dict[tuple[str, str], tuple[str, str]]:
+    identities: dict[tuple[str, str], tuple[str, str]] = {}
+    for row in rows:
+        metadata_identity = (row["kind"], row["item"])
+        origin = metadata[metadata_identity]["origin"]
+        rendered: list[tuple[str, str]] = []
+        if origin == "shell-alias":
+            rendered = [("alias", root) for root in surface_roots(row["item"], "alias")]
+        elif origin == "shell-function":
+            rendered = [("function", row["item"].split()[0])]
+        elif origin == "git-alias":
+            rendered = [("git-alias", row["item"])]
+        elif origin == "tmux-binding":
+            rendered = [("key", row["item"])]
+        for receipt_identity in rendered:
+            if receipt_identity in identities:
+                fail(f"multiple metadata rows own rendered surface {receipt_identity!r}")
+            identities[receipt_identity] = metadata_identity
+    return identities
+
+
+def validate_source_catalog_parity(
+    rows: list[dict[str, str]],
+    metadata: dict[tuple[str, str], dict[str, str]],
+    profiles: list[dict[str, object]],
+    receipts: dict[tuple[str, str], set[str]],
+    root: pathlib.Path = ROOT,
+) -> None:
+    declared_executables = {
+        row["item"].split()[0]
+        for row in rows
+        if metadata[(row["kind"], row["item"])]["origin"] == "executable"
+    }
+    actual_executables = shipped_executables(root)
+    missing_executables = sorted(actual_executables - declared_executables)
+    stale_executables = sorted(declared_executables - actual_executables)
+    declared_receipts = declared_rendered_identities(rows, metadata)
+    missing_surfaces = sorted(set(receipts) - declared_receipts.keys())
+    stale_surfaces = sorted(declared_receipts.keys() - set(receipts))
+    if missing_executables or stale_executables or missing_surfaces or stale_surfaces:
+        detail = []
+        detail.extend(f"executable {name}" for name in missing_executables)
+        detail.extend(f"stale executable {name}" for name in stale_executables)
+        detail.extend(f"{kind} {name}" for kind, name in missing_surfaces)
+        detail.extend(f"stale {kind} {name}" for kind, name in stale_surfaces)
+        fail("command catalog/rendered surface parity failed:\n  " + "\n  ".join(detail))
+
+    for receipt_identity, actual_profiles in receipts.items():
+        metadata_identity = declared_receipts[receipt_identity]
+        declared = expected_profile_names(metadata[metadata_identity], profiles)
+        if actual_profiles != declared:
+            fail(
+                f"{metadata_identity[1]}: declared availability does not match renders; "
+                f"declared={sorted(declared)}, rendered={sorted(actual_profiles)}"
+            )
+
+
+class GroundworkHTML(HTMLParser):
+    """Structural HTML facts used by both coverage and graph checks."""
+
+    BLOCK_TAGS = {"p", "td", "li", "h1", "h2", "h3", "div"}
+    VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+    def __init__(self, source: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.source = source
+        self.links: list[str] = []
+        self.assets: list[str] = []
+        self.ids: set[str] = set()
+        self.code_texts: list[str] = []
+        self.kbd_texts: list[str] = []
+        self.key_groups: list[str] = []
+        self.blocks: list[str] = []
+        self.block_details: list[tuple[str, list[str]]] = []
+        self.visible_parts: list[str] = []
+        self.has_site_marker = False
+        self._captures: list[tuple[str, str, list[str]]] = []
+        self._elements: list[tuple[str, tuple[str, str, list[str]] | None]] = []
+        self._block_kbd: dict[int, list[str]] = {}
+
+    def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
+        attrs = {name: value or "" for name, value in attrs_list}
+        for attr in ("id", "name"):
+            value = attrs.get(attr)
+            if value:
+                if value in self.ids:
+                    fail(f"{self.source}: duplicate id/name {value!r}")
+                self.ids.add(value)
+        if tag == "a" and "href" in attrs:
+            self.links.append(attrs["href"])
+        if tag in {"img", "script", "source", "video"} and "src" in attrs:
+            self.assets.append(attrs["src"])
+        if (
+            tag == "meta"
+            and attrs.get("property") == "og:site_name"
+            and attrs.get("content") == "Groundwork"
+        ):
+            self.has_site_marker = True
+        capture = None
+        if tag == "code":
+            capture = (tag, "code", [])
+        elif tag == "kbd":
+            capture = (tag, "kbd", [])
+        elif tag == "span" and "keys" in attrs.get("class", "").split():
+            capture = (tag, "keys", [])
+        elif tag in self.BLOCK_TAGS:
+            capture = (tag, "block", [])
+            self._block_kbd[id(capture)] = []
+        if capture is not None:
+            self._captures.append(capture)
+        if tag not in self.VOID_TAGS:
+            self._elements.append((tag, capture))
+
+    def handle_data(self, data: str) -> None:
+        self.visible_parts.append(data)
+        for _, _, parts in self._captures:
+            parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        element_index = next(
+            (index for index in range(len(self._elements) - 1, -1, -1) if self._elements[index][0] == tag),
+            None,
+        )
+        if element_index is None:
+            return
+        closing = self._elements[element_index:]
+        del self._elements[element_index:]
+        for _, capture in reversed(closing):
+            if capture is None:
+                continue
+            capture_index = next(
+                (
+                    index
+                    for index, active in enumerate(self._captures)
+                    if active is capture
+                ),
+                None,
+            )
+            if capture_index is None:
+                continue
+            del self._captures[capture_index]
+            _, kind, parts = capture
+            value = " ".join(" ".join(parts).split())
+            if not value:
+                continue
+            if kind == "code":
+                self.code_texts.append(value)
+            elif kind == "kbd":
+                self.kbd_texts.append(value)
+                for active in self._captures:
+                    if active[1] == "block":
+                        self._block_kbd[id(active)].append(value)
+            elif kind == "keys":
+                self.key_groups.append(value)
+            elif kind == "block":
+                self.blocks.append(value)
+                self.block_details.append((value, self._block_kbd.pop(id(capture), [])))
+
+    @property
+    def visible_text(self) -> str:
+        return " ".join(" ".join(self.visible_parts).split())
+
+
+def parse_html(text: str, source: str = "<html>") -> GroundworkHTML:
+    parser = GroundworkHTML(source)
+    parser.feed(text)
+    parser.close()
+    return parser
+
+
+ANGLE_PLACEHOLDER_RE = re.compile(r"<[A-Za-z][^>]*>")
+OPTIONAL_PLACEHOLDER_RE = re.compile(r"\[([^]]+)\]")
+TOKEN_RE = re.compile(
+    r"--?[a-z0-9][a-z0-9-]*|"
+    r"~?(?:[a-z0-9._-]+/)+[a-z0-9._-]+|"
+    r"[a-z0-9][a-z0-9._-]*|"
+    r"[$|&<>,-]"
+)
+KEY_TOKEN_RE = re.compile(
+    r"--?[A-Za-z0-9][A-Za-z0-9-]*|"
+    r"[A-Za-z0-9][A-Za-z0-9._-]*|"
+    r"[$|&<>,-]"
+)
+
+
+def normalized_tokens(value: str, strip_placeholders: bool = False) -> tuple[str, ...]:
+    value = html.unescape(value).casefold().replace("→", " then ")
+    if strip_placeholders:
+        value = ANGLE_PLACEHOLDER_RE.sub(" ", value)
+        value = OPTIONAL_PLACEHOLDER_RE.sub(
+            lambda match: match.group(1) if match.group(1).startswith("-") else " ",
+            value,
+        )
+    return tuple(TOKEN_RE.findall(value))
+
+
+def contains_tokens(haystack: str, needle: tuple[str, ...]) -> bool:
+    if not needle:
+        return False
+    tokens = normalized_tokens(haystack)
+    width = len(needle)
+    return any(tokens[index : index + width] == needle for index in range(len(tokens) - width + 1))
+
+
+def normalized_key_tokens(value: str) -> tuple[str, ...]:
+    value = html.unescape(value).replace("→", " then ")
+    tokens = KEY_TOKEN_RE.findall(value)
+    normalized: list[str] = []
+    for token in tokens:
+        if len(token) == 1 and token.isalpha():
+            normalized.append(token.casefold() if normalized[-1:] == ["ctrl"] else token)
+        else:
+            normalized.append(token.casefold())
+    return tuple(normalized)
+
+
+def contains_key_tokens(haystack: str, needle: tuple[str, ...]) -> bool:
+    if not needle:
+        return False
+    tokens = normalized_key_tokens(haystack)
+    width = len(needle)
+    return any(tokens[index : index + width] == needle for index in range(len(tokens) - width + 1))
+
+
+def key_candidates(item: str) -> list[tuple[str, ...]]:
+    if item.startswith("Ctrl+a then "):
+        tail = item.removeprefix("Ctrl+a then ")
+        tail_tokens = normalized_key_tokens(tail)
+        without_shift = tuple(token for token in tail_tokens if token != "shift")
+        candidates = [
+            ("ctrl", "a", "then", *tail_tokens),
+            ("prefix", *tail_tokens),
+            ("prefix", *without_shift),
+        ]
+        if without_shift in {("h",), ("j",), ("k",), ("l",)}:
+            candidates.extend(
+                [
+                    ("ctrl", "a", "then", "h", "j", "k", "l"),
+                    ("prefix", "h", "j", "k", "l"),
+                ]
+            )
+        if without_shift in {("H",), ("J",), ("K",), ("L",)}:
+            candidates.extend(
+                [
+                    ("ctrl", "a", "then", "H", "J", "K", "L"),
+                    ("prefix", "H", "J", "K", "L"),
+                ]
+            )
+        if without_shift in {("<",), (">",)}:
+            candidates.extend(
+                [
+                    ("ctrl", "a", "then", "<", ">"),
+                    ("prefix", "<", ">"),
+                ]
+            )
+        return candidates
+    if item == "tmux copy-mode-vi: v":
+        return [("copy", "mode", "v"), ("scroll", "copy", "mode", "v")]
+    if item == "tmux copy-mode-vi: Ctrl+v":
+        return [("copy", "mode", "ctrl", "v"), ("rectangular", "selection", "ctrl", "v")]
+    if item == "tmux copy-mode-vi: y":
+        return [("copy", "mode", "y"), ("copy", "mode", "v", "y")]
+    if item.startswith("tmux "):
+        return [normalized_key_tokens(item.removeprefix("tmux "))]
+    if item == "Alt+h/j/k/l":
+        return [("alt", "h", "j", "k", "l")]
+    return [normalized_key_tokens(item)]
+
+
+def item_is_mentioned(item: str, kind: str, document: GroundworkHTML) -> bool:
+    if kind != "key":
+        candidates = [item]
+        if kind == "alias" and " / " in item:
+            candidates.extend(part.strip() for part in item.split(" / "))
+        needles = [normalized_tokens(candidate, strip_placeholders=True) for candidate in candidates]
+        return any(
+            contains_tokens(code, needle)
+            for code in document.code_texts
+            for needle in needles
+            if needle
+        )
+    if item.startswith("tmux copy-mode-vi: "):
+        tail = normalized_key_tokens(item.split(": ", 1)[1])
+        return any(
+            contains_tokens(block, ("copy", "mode"))
+            and contains_key_tokens(" ".join(kbd_values), tail)
+            for block, kbd_values in document.block_details
+        )
+    contexts = document.key_groups + document.blocks
+    return any(
+        contains_key_tokens(context, candidate)
+        for context in contexts
+        for candidate in key_candidates(item)
+        if candidate
+    )
+
+
+def resolve_local_reference(
+    source_name: str,
+    raw: str,
+    docs: pathlib.Path,
+) -> tuple[pathlib.Path | None, str]:
+    parsed = urllib.parse.urlsplit(raw)
+    if parsed.scheme in {"http", "https", "mailto", "tel", "data"} or parsed.netloc:
+        return None, ""
+    if parsed.scheme:
+        fail(f"docs/{source_name}: unsupported link scheme in {raw!r}")
+    path_text = urllib.parse.unquote(parsed.path)
+    if path_text.startswith("/groundwork/"):
+        path_text = path_text.removeprefix("/groundwork/")
+    elif path_text == "/groundwork" or path_text == "/":
+        path_text = "index.html"
+    elif path_text.startswith("/"):
+        fail(f"docs/{source_name}: root-relative link escapes the project site: {raw}")
+    if not path_text:
+        path_text = source_name
+    normalized = posixpath.normpath(posixpath.join(posixpath.dirname(source_name), path_text))
+    if normalized == ".":
+        normalized = "index.html"
+    if normalized.startswith("../") or normalized == "..":
+        fail(f"docs/{source_name}: link escapes docs/: {raw}")
+    return docs / normalized, urllib.parse.unquote(parsed.fragment)
+
+
+def discovery_page_names(docs: pathlib.Path) -> tuple[set[str], set[str]]:
+    try:
+        tree = ET.parse(docs / "sitemap.xml")
+    except (ET.ParseError, OSError) as error:
+        fail(f"{docs / 'sitemap.xml'}: cannot parse: {error}")
+    sitemap = set()
+    for loc in tree.findall(".//{http://www.sitemaps.org/schemas/sitemap/0.9}loc"):
+        url = urllib.parse.urlsplit(loc.text or "")
+        if f"{url.scheme}://{url.netloc}" + url.path.rstrip("/") == SITE_BASE:
+            sitemap.add("index.html")
+        elif url.path.startswith("/groundwork/"):
+            sitemap.add(pathlib.PurePosixPath(url.path).name)
+    llms_text = (docs / "llms.txt").read_text()
+    llms = set()
+    for url in re.findall(r"https://jasondockery\.github\.io/groundwork(?:/[A-Za-z0-9._-]+\.html)?", llms_text):
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.path.rstrip("/") == "/groundwork":
+            llms.add("index.html")
+        else:
+            llms.add(pathlib.PurePosixPath(parsed.path).name)
+    return sitemap, llms
+
+
+def validate_site_graph(
+    docs: pathlib.Path = DOCS,
+    exemptions: set[str] = NON_SITE_HTML,
+    check_discovery: bool = True,
+) -> dict[str, GroundworkHTML]:
+    html_paths = {path.name: path for path in docs.glob("*.html")}
+    missing_exemptions = exemptions - html_paths.keys()
+    if missing_exemptions:
+        fail(f"docs HTML exemption does not exist: {sorted(missing_exemptions)}")
+    public_paths = {name: path for name, path in html_paths.items() if name not in exemptions}
+    if "index.html" not in public_paths:
+        fail(f"{docs}: public site is missing index.html")
+    documents: dict[str, GroundworkHTML] = {}
+    for name, path in public_paths.items():
+        document = parse_html(path.read_text(), f"docs/{name}")
+        if not document.has_site_marker:
+            fail(f"docs/{name}: missing Groundwork site marker")
+        documents[name] = document
+
+    edges: dict[str, set[str]] = defaultdict(set)
+    for source_name, document in documents.items():
+        for raw in document.links:
+            target_path, fragment = resolve_local_reference(source_name, raw, docs)
+            if target_path is None:
+                continue
+            if not target_path.exists():
+                fail(f"docs/{source_name}: missing link target {raw}")
+            try:
+                target_name = target_path.relative_to(docs).as_posix()
+            except ValueError:
+                fail(f"docs/{source_name}: link escapes docs/: {raw}")
+            if target_name in documents:
+                edges[source_name].add(target_name)
+                if fragment and fragment not in documents[target_name].ids:
+                    fail(f"docs/{source_name}: missing link fragment {raw}")
+            elif target_path.suffix == ".html" and target_name not in exemptions:
+                fail(f"docs/{source_name}: linked HTML is not a public page: {raw}")
+        for raw in document.assets:
+            target_path, _ = resolve_local_reference(source_name, raw, docs)
+            if target_path is not None and not target_path.exists():
+                fail(f"docs/{source_name}: missing asset {raw}")
+
+    reachable = {"index.html"}
+    queue = deque(["index.html"])
+    while queue:
+        source = queue.popleft()
+        for target in edges[source] - reachable:
+            reachable.add(target)
+            queue.append(target)
+    unreachable = sorted(documents.keys() - reachable)
+    if unreachable:
+        fail("docs pages are unreachable from index.html:\n  " + "\n  ".join(unreachable))
+
+    if check_discovery:
+        sitemap, llms = discovery_page_names(docs)
+        public = set(documents)
+        if sitemap != public:
+            fail(
+                "sitemap public-page set drift: "
+                f"missing={sorted(public - sitemap)}, stale={sorted(sitemap - public)}"
+            )
+        if llms != public:
+            fail(
+                "llms.txt public-page set drift: "
+                f"missing={sorted(public - llms)}, stale={sorted(llms - public)}"
+            )
+    return documents
+
+
+def require_unique(values: list[object], context: str) -> None:
+    duplicates = sorted(value for value, count in Counter(values).items() if count > 1)
+    if duplicates:
+        fail(f"{context}: duplicate values: {duplicates}")
+
+
+def parse_practice_drills(text: str) -> list[str]:
+    titles = [
+        " ".join(html.unescape(re.sub(r"<[^>]+>", "", title)).split())
+        for title in re.findall(r'<div class="drill">.*?<h3>(.*?)</h3>', text, re.S)
+    ]
+    require_unique(titles, "practice drills")
+    return titles
+
+
+def parse_twelve_gates(text: str) -> dict[int, str]:
+    matches = re.findall(
+        r"<p><strong>Gate check (\d+)(?::)?</strong>(.*?)</p>",
+        text,
+        re.S,
+    )
+    numbers = [int(number) for number, _ in matches]
+    require_unique(numbers, "Groundwork Twelve gates")
+    return {
+        int(number): " ".join(html.unescape(re.sub(r"<[^>]+>", "", body)).split()).lstrip(" —:")
+        for number, body in matches
+    }
+
+
+def validate_competency_page(
+    docs: pathlib.Path,
+    documents: dict[str, GroundworkHTML],
+    page: str,
+    evidence: str,
+    item: str,
+) -> None:
+    if not (docs / page).exists() or page not in documents:
+        fail(f"{item}: canonical competency page does not exist: {page}")
+    if not contains_tokens(documents[page].visible_text, normalized_tokens(evidence)):
+        fail(f"{item}: canonical page {page} lacks competency evidence {evidence!r}")
+
+
+def competency_rows(
+    docs: pathlib.Path,
+    documents: dict[str, GroundworkHTML],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    practice_text = (docs / "practice.html").read_text()
+    drill_titles = parse_practice_drills(practice_text)
+    drill_set = set(drill_titles)
+    unmapped_drills = sorted(drill_set - PRACTICE_DRILL_PAGES.keys())
+    missing_drills = sorted(PRACTICE_DRILL_PAGES.keys() - drill_set)
+    if unmapped_drills or missing_drills:
+        fail(
+            "practice competency mapping drift: "
+            f"unmapped={unmapped_drills}, missing={missing_drills}"
+        )
+    for title in drill_titles:
+        page, qualifier, evidence = PRACTICE_DRILL_PAGES[title]
+        validate_competency_page(docs, documents, page, evidence, f"Practice drill: {title}")
+        rows.append(
+            {
+                "surface": "practice",
+                "item": f"Practice drill: {title}",
+                "kind": "competency",
+                "origin": "docs-competency",
+                "source": "docs/practice.html",
+                "canonical_page": page,
+                "cheat_sheet": "n/a",
+                "troubleshooting": "n/a",
+                "availability": qualifier,
+            }
+        )
+
+    twelve_text = (docs / "groundwork-twelve.html").read_text()
+    gates = parse_twelve_gates(twelve_text)
+    if set(gates) != set(TWELVE_GATE_PAGES):
+        fail(
+            "Groundwork Twelve gate mapping drift: "
+            f"unmapped={sorted(set(gates) - set(TWELVE_GATE_PAGES))}, "
+            f"missing={sorted(set(TWELVE_GATE_PAGES) - set(gates))}"
+        )
+    if not contains_tokens(parse_html(twelve_text).visible_text, ("stage", "12", "capstone")):
+        fail("Groundwork Twelve: expected Stage 12 capstone after eleven numbered gates")
+    for number, claim in sorted(gates.items()):
+        page, evidence = TWELVE_GATE_PAGES[number]
+        validate_competency_page(docs, documents, page, evidence, f"Gate {number:02d}")
+        rows.append(
+            {
+                "surface": "groundwork-twelve",
+                "item": f"Gate {number:02d}: {claim}",
+                "kind": "competency",
+                "origin": "docs-competency",
+                "source": "docs/groundwork-twelve.html",
+                "canonical_page": page,
+                "cheat_sheet": "n/a",
+                "troubleshooting": "n/a",
+                "availability": "all",
+            }
+        )
+    rows.append(
+        {
+            "surface": "groundwork-twelve",
+            "item": "Stage 12: Capstone build",
+            "kind": "competency",
+            "origin": "docs-competency",
+            "source": "docs/groundwork-twelve.html",
+            "canonical_page": "workflow.html",
+            "cheat_sheet": "n/a",
+            "troubleshooting": "n/a",
+            "availability": "all",
+        }
+    )
+    return rows
+
+
+def availability_label(metadata: dict[str, str]) -> str:
+    if metadata["platforms"] == "all" and metadata["profiles"] == "all":
+        label = "all"
+    elif metadata["platforms"] == "macos" and metadata["profiles"] == "desktop":
+        label = "macOS desktop"
+    elif metadata["platforms"] == "linux-wsl":
+        label = "Linux/WSL"
+        if metadata["profiles"] != "all":
+            label += f" {metadata['profiles']}"
+    else:
+        label = f"{metadata['platforms']} {metadata['profiles']}"
+    if metadata["requires"] != "-":
+        label += f"; requires {metadata['requires']}"
+    return label
+
+
+def build_inventory(
+    rows: list[dict[str, str]],
+    metadata: dict[tuple[str, str], dict[str, str]],
+    documents: dict[str, GroundworkHTML],
+    tmux_sources: dict[str, str],
+    docs: pathlib.Path = DOCS,
+) -> str:
+    cheat = documents["cheatsheet.html"]
+    troubleshoot = documents["troubleshooting.html"]
+    output_rows: list[dict[str, str]] = []
+    for row in rows:
+        identity = (row["kind"], row["item"])
+        item_metadata = metadata[identity]
+        teaching_page = item_metadata["canonical_page"]
+        if teaching_page not in documents:
+            fail(f"{row['item']}: canonical teaching page does not exist: {teaching_page}")
+        if not item_is_mentioned(row["item"], row["kind"], documents[teaching_page]):
+            fail(
+                f"{row['item']}: no explicit contiguous teaching surface on "
+                f"{teaching_page}"
+            )
+        source = str(CATALOG.relative_to(ROOT))
+        if row["item"] in tmux_sources:
+            source = tmux_sources[row["item"]]
+        output_rows.append(
+            {
+                "surface": row["category"],
+                "item": row["item"],
+                "kind": row["kind"],
+                "origin": item_metadata["origin"],
+                "source": source,
+                "canonical_page": teaching_page,
+                "cheat_sheet": (
+                    "yes" if item_is_mentioned(row["item"], row["kind"], cheat) else "no"
+                ),
+                "troubleshooting": (
+                    "yes"
+                    if item_is_mentioned(row["item"], row["kind"], troubleshoot)
+                    else "no"
+                ),
+                "availability": availability_label(item_metadata),
+            }
+        )
+    output_rows.extend(competency_rows(docs, documents))
+    output_rows.sort(key=lambda row: (row["surface"], row["kind"], row["item"]))
+    columns = [
+        "surface",
+        "item",
+        "kind",
+        "origin",
+        "source",
+        "canonical_page",
+        "cheat_sheet",
+        "troubleshooting",
+        "availability",
+    ]
+    lines = ["\t".join(columns)]
+    lines.extend("\t".join(row[column] for column in columns) for row in output_rows)
+    return "\n".join(lines) + "\n"
+
+
+def check_inventory(current: str | None, generated: str) -> None:
+    if current is None:
+        fail(f"{INVENTORY.relative_to(ROOT)} is missing; run scripts/audit-docs-coverage")
+    if current != generated:
+        fail(
+            f"{INVENTORY.relative_to(ROOT)} is stale; "
+            "run scripts/audit-docs-coverage"
+        )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--write", action="store_true")
+    mode.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+
+    rows = read_catalog()
+    metadata = read_metadata(rows)
+    profiles = read_profiles()
+    run("scripts/generate-discovery", "--check")
+    documents = validate_site_graph()
+    with tempfile.TemporaryDirectory(prefix="groundwork-docs-audit-") as temp:
+        empty_config = pathlib.Path(temp) / "empty-config.toml"
+        empty_config.touch()
+        receipts, tmux_sources = rendered_surface_receipts(profiles, empty_config)
+    validate_source_catalog_parity(rows, metadata, profiles, receipts)
+    generated = build_inventory(rows, metadata, documents, tmux_sources)
+    inventory_rows = generated.count("\n") - 1
+
+    if args.check:
+        check_inventory(INVENTORY.read_text() if INVENTORY.exists() else None, generated)
+        print(
+            f"docs coverage: {inventory_rows} inventory rows, exact surfaces, "
+            f"{len(profiles)} rendered profiles, reachable pages, and discovery current"
+        )
+        return
+
+    INVENTORY.parent.mkdir(parents=True, exist_ok=True)
+    INVENTORY.write_text(generated)
+    print(f"wrote {INVENTORY.relative_to(ROOT)} ({inventory_rows} rows)")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except AuditError as error:
+        raise SystemExit(str(error)) from None
