@@ -323,8 +323,18 @@ Roost.
       the `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
 - [x] `workflow-lint` CI job added: zizmor (pedantic) audits the workflows,
       mirroring roost's job; existing findings fixed in the same change
-      (2026-07-04). CI is now four required checks (`PLAYBOOK.md`, CI
-      Checks).
+      (2026-07-04). CI now has five checks (`workflow-lint`, `render-lint`,
+      `macos-validation`, `secret-scan`, `docker-build`; `PLAYBOOK.md`, CI
+      Checks); making them *required* is the pending branch-protection owner
+      action (`PLAYBOOK.md`, Main Branch Protection).
+- [x] Shell-quality gate unified and pinned (2026-07-25): `scripts/lint-shell`
+      runs `bash -n` + pinned shfmt + pinned ShellCheck over every tracked or
+      non-ignored untracked Bash file; `validate-groundwork` and both CI jobs
+      delegate to it. Tools are resolved by `scripts/ensure-shell-tools`
+      (checksum-verified, cached, Intel/Arm × Linux/macOS), pinned in
+      `tools/shell-tools.env`, and bumped by `scripts/update-shell-tool-pins`
+      (deliberately not Renovate-auto-managed). See `PLAYBOOK.md`, Shell quality
+      gate.
 - [x] Versioning decided (2026-07-04): SemVer tags + GitHub Releases,
       v0.x during testing, 1.0.0 when bootstrap + update survive all three
       user surfaces unaided (`PLAYBOOK.md`, Versioning & Releases).
