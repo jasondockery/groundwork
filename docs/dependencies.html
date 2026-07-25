@@ -173,7 +173,7 @@
         <p>So the accurate picture, and the transferable habit — know which of your paths are gated by what, and never assume a floor you have not configured:</p>
         <table class="keytable">
           <tr><td><strong>Repo dependencies</strong> (Renovate)</td><td>5-day age floor; integrity via the registry/ecosystem</td></tr>
-          <tr><td><strong>mise runtimes</strong></td><td>5-day age floor (<code>--minimum-release-age 5d</code>); pinned versions exempt, which is the security escape hatch. If a mise is too old to enforce the floor, Groundwork skips the runtime stage rather than upgrading without it</td></tr>
+          <tr><td><strong>mise runtimes</strong></td><td>5-day age floor (<code>--minimum-release-age 5d</code>); pinned versions exempt, which is the security escape hatch. If a mise is too old to enforce the floor, Groundwork stops the run there — printing the fix, <code>brew upgrade mise</code> — rather than upgrading without it</td></tr>
           <tr><td><strong>Homebrew casks</strong></td><td>Checksum required (<code>--require-sha</code>, at install <em>and</em> upgrade); <em>no</em> age floor</td></tr>
           <tr><td><strong>Homebrew formulae</strong></td><td>Homebrew's own formula/bottle integrity; <em>no</em> age floor. <code>--require-sha</code> is cask-specific — it does not speak to formulae</td></tr>
         </table>

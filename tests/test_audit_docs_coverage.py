@@ -74,6 +74,15 @@ class ExplicitSurfaceTests(unittest.TestCase):
         self.assertTrue(audit.item_is_mentioned("Ctrl+a then H", "key", upper))
         self.assertFalse(audit.item_is_mentioned("Ctrl+a then h", "key", upper))
 
+    def test_pane_split_cluster_covers_both_keys(self) -> None:
+        cluster = audit.parse_html(
+            "<p><span class='keys'><kbd>prefix</kbd> <kbd>|</kbd> / <kbd>-</kbd></span></p>"
+        )
+        self.assertTrue(audit.item_is_mentioned("Ctrl+a then |", "key", cluster))
+        self.assertTrue(audit.item_is_mentioned("Ctrl+a then -", "key", cluster))
+        bare_dash = audit.parse_html("<p>Use a dash (-) to split down.</p>")
+        self.assertFalse(audit.item_is_mentioned("Ctrl+a then -", "key", bare_dash))
+
     def test_short_copy_key_requires_kbd_in_copy_mode_context(self) -> None:
         prose_only = audit.parse_html("<p>In copy mode, y copies the selection.</p>")
         explicit = audit.parse_html(

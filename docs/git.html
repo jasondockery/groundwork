@@ -195,11 +195,12 @@
 <span class="prompt">$ </span>git pull                <span class="comment"># get others' changes</span></code></pre>
       </div>
       <p>Write commit messages that say <em>what changed and why</em>, not "stuff" or "fix". Future-you reads them constantly.</p>
+      <p><code>git add -p</code> walks the changes one <strong>hunk</strong> at a time — a hunk is one contiguous block of changed lines — and asks about each: <kbd>y</kbd> stages it, <kbd>n</kbd> skips it, <kbd>s</kbd> splits a big hunk into smaller ones, <kbd>q</kbd> stops. Two views keep you honest while you pick: <code>git diff --cached</code> shows what's staged so far, <code>git diff</code> shows what still isn't.</p>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
           <h3>Try it now: your first commits</h3>
-          <p>You already have a repo to practice on: the knowledge wiki from <code>new-wiki</code>. Add a line to its <code>README.md</code>, then run <code>git status</code>, <code>git add .</code>, and <code>git commit -m "edit readme"</code>. Do it twice so you have a small history, then read it back with <code>git log --oneline</code>. You just ran steps 1 to 3 of the diagram above; in this repo, you're the maintainer.</p>
+          <p>You already have a repo to practice on: the knowledge wiki from <code>new-wiki</code>. Add a line to its <code>README.md</code>, then run <code>git status</code>, <code>git add .</code>, and <code>git commit -m "edit readme"</code>. Do it twice so you have a small history, then read it back with <code>git log --oneline</code>. Now the reviewer's move: change two <em>separate</em> lines in the file, run <code>git add -p</code>, stage one hunk with <kbd>y</kbd> and skip the other with <kbd>n</kbd>, and compare <code>git diff --cached</code> against <code>git diff</code> before committing — you just staged half a file, the exact skill for accepting part of an agent's change. You ran steps 1 to 3 of the diagram above; in this repo, you're the maintainer.</p>
         </div>
       </div>
 
@@ -265,11 +266,13 @@
       </div>
 
       <h2><span class="hash">#</span>When something goes wrong</h2>
-      <p>Committed work is very hard to truly lose — Git keeps almost everything. Most "mistakes" have a calm fix:</p>
+      <p>Committed work is very hard to truly lose — Git keeps almost everything. One term first, because every undo is described relative to it: <strong>HEAD</strong> is Git's name for the commit you currently have checked out — normally the tip of your current branch, the snapshot your next commit will build on. (In the rare "detached HEAD" state Git warns about, it points at a commit directly instead of through a branch — inspect-only territory until you understand it.) Most "mistakes" have a calm fix:</p>
       <table class="keytable">
         <tr><td><code>git restore &lt;file&gt;</code></td><td>Throw away <em>uncommitted</em> edits to a file and go back to the last commit</td></tr>
         <tr><td><code>git restore --staged &lt;file&gt;</code></td><td>Unstage something you added by mistake (keeps your edits)</td></tr>
         <tr><td><code>git commit --amend</code></td><td>Fix the message or contents of the commit you just made</td></tr>
+        <tr><td><code>git revert &lt;commit&gt;</code></td><td>Undo a <em>committed</em> change by adding a new commit that reverses it — existing commits are never rewritten, so it's safe even after you've pushed</td></tr>
+        <tr><td><code>git reset --soft HEAD~1</code></td><td>Un-commit the last commit and keep everything staged — your files aren't touched. Safe while the commit is only on your machine; once it's pushed, use <code>revert</code> instead</td></tr>
       </table>
       <div class="callout warn">
         <span class="label">Ask before "force" or "hard"</span>
@@ -279,7 +282,7 @@
         <div class="num">5</div>
         <div class="body">
           <h3>Try it now: break something on purpose</h3>
-          <p>In your practice repo, edit a file and confirm the damage with <code>git status</code>, then throw the edit away with <code>git restore &lt;file&gt;</code>. Next, stage a change with <code>git add .</code> and unstage it with <code>git restore --staged &lt;file&gt;</code>. Notice that nothing committed was ever at risk; that safety is why you commit early and often.</p>
+          <p>In your practice repo, edit a file and confirm the damage with <code>git status</code>, then throw the edit away with <code>git restore &lt;file&gt;</code>. Next, stage a change with <code>git add .</code> and unstage it with <code>git restore --staged &lt;file&gt;</code>. Finally, make a deliberately bad commit and reverse it with <code>git revert --no-edit HEAD</code> (<code>--no-edit</code> keeps the generated message; without it, Git opens your editor to let you change it) — then read <code>git log --oneline</code> and notice the fix is itself a commit, sitting on top of the mistake. Nothing committed was ever at risk; that safety is why you commit early and often.</p>
         </div>
       </div>
 

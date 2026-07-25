@@ -130,6 +130,7 @@
       <h1>Troubleshooting: the calm fixes for the usual snags.</h1>
       <p class="lead">Most "it's broken" moments after a fresh install are one of a dozen known things — a permission macOS won't let a script grant, a step that needs a restart, a tool that just needs re-applying. Here's the map, roughly in the order you'll hit them.</p>
       <p>The inclusion rule is a supported-path failure a learner can encounter during bootstrap, <code>chezmoi update</code>, <code>update-all</code>, profile changes, or daily terminal use. Internal maintainer failures belong beside their validation command or in the <a href="https://github.com/jasondockery/groundwork/blob/main/PLAYBOOK.md">playbook</a>; speculative failures are not presented as known fixes.</p>
+      <p class="muted">A few supported-path refusals are deliberately not listed below because the command's own message is the complete, current fix: <code>groundwork-configure</code>'s error paths (missing config, non-interactive terminal, lock contention), the WSL1/unverifiable-WSL refusal (documented on <a href="platforms.html">Platforms</a>), <code>update-all</code>'s non-interactive stop when drift needs answers, and its refusal to run a locally edited runner. Each prints exactly what to run next; duplicating that here would only drift.</p>
 
       <div class="callout tip">
         <span class="label">The one move that fixes most things</span>

@@ -67,7 +67,7 @@ INTERNAL_SHELL_FUNCTIONS = {
 }
 
 PRACTICE_DRILL_PAGES = {
-    "Open Ghostty and read the prompt": ("command-line.html", "all", "prompt"),
+    "Open Ghostty and read the prompt": ("getting-started.html", "all", "prompt"),
     "Learn the Mac modifier names": ("keyboard.html", "macOS", "modifier"),
     "Start tmux": ("tmux.html", "all", "tmux"),
     "Shell drill": ("shell.html", "all", "shell"),
@@ -729,6 +729,13 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
                     ("prefix", "<", ">"),
                 ]
             )
+        if without_shift in {("|",), ("-",)}:
+            candidates.extend(
+                [
+                    ("ctrl", "a", "then", "|", "-"),
+                    ("prefix", "|", "-"),
+                ]
+            )
         return candidates
     if item == "tmux copy-mode-vi: v":
         return [("copy", "mode", "v"), ("scroll", "copy", "mode", "v")]
@@ -1113,17 +1120,20 @@ def main() -> None:
     generated = build_inventory(rows, metadata, documents, tmux_sources)
     inventory_rows = generated.count("\n") - 1
 
-    if args.check:
-        check_inventory(INVENTORY.read_text() if INVENTORY.exists() else None, generated)
-        print(
-            f"docs coverage: {inventory_rows} inventory rows, exact surfaces, "
-            f"{len(profiles)} rendered profiles, reachable pages, and discovery current"
-        )
+    if args.write:
+        INVENTORY.parent.mkdir(parents=True, exist_ok=True)
+        INVENTORY.write_text(generated)
+        print(f"wrote {INVENTORY.relative_to(ROOT)} ({inventory_rows} rows)")
         return
 
-    INVENTORY.parent.mkdir(parents=True, exist_ok=True)
-    INVENTORY.write_text(generated)
-    print(f"wrote {INVENTORY.relative_to(ROOT)} ({inventory_rows} rows)")
+    # Default is --check: running this with no flag must never silently mutate the
+    # tracked inventory (a "just checking" run would otherwise regenerate it).
+    # Pass --write explicitly to regenerate data/docs-coverage.tsv.
+    check_inventory(INVENTORY.read_text() if INVENTORY.exists() else None, generated)
+    print(
+        f"docs coverage: {inventory_rows} inventory rows, exact surfaces, "
+        f"{len(profiles)} rendered profiles, reachable pages, and discovery current"
+    )
 
 
 if __name__ == "__main__":

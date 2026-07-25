@@ -1,7 +1,9 @@
 # Documentation Truth and Coverage
 
-Status: audit machinery implemented; human truth review in progress
-(2026-07-25). This is the acceptance contract that turns ROADMAP execution-order
+Status: audit machinery implemented; human truth review complete (2026-07-26).
+Release blockers found by the review are fixed in the same tranche that
+records this section (pending v1.8.0); the remaining gaps are recorded under
+"Human truth review — findings" below as deferred enrichments with reasons. This is the acceptance contract that turns ROADMAP execution-order
 step 1 ("the wider repository-truth audit") from an open-ended prompt into a
 checkable finish line. `scripts/audit-docs-coverage` and its generated inventory
 now provide the mechanical floor; the judgment checks below still decide when
@@ -116,3 +118,103 @@ The audit distinguishes two outcomes so "green" stays honest:
 
 An audit that cannot tell these apart will either over-block (nothing ships) or
 under-block (falsehoods ship). Every finding is classified as one or the other.
+
+## Human truth review — findings (2026-07-25/26)
+
+The judgment half of the contract (cheat-sheet inclusion, troubleshooting
+completeness, competency teaching quality) was reviewed against the rendered
+pages, the generated inventory, and the shipped implementations, then the
+resulting diff went through a second external review pass. Every finding is
+classified per "Blockers vs deferred". Zero blockers remain open in this
+tranche.
+
+### Release blockers — fixed
+
+- Platform-neutral cheat-sheet sections carried macOS-only commands with no
+  qualifier (`open .`, `obsidian-plugins`, `browser-extensions`,
+  `raycast-extensions`, `defaultbrowser`). Fixed: `(macOS)` markers added.
+- The cheat sheet taught `Ctrl+A` as "line start" with no tmux caveat, while
+  the adjacent callout implied shell keys are unaffected inside tmux — wrong in
+  the default posture, where `Ctrl+A` is the prefix. Fixed: callout now states
+  the exception and the `Ctrl+A Ctrl+A` escape.
+- Gate 9 tests explaining HTTP request/response and status codes, but no page
+  taught them (`web-dev.html` covered `fetch`/JSON only; Stage 9 was the only
+  stage with no Reading line). Fixed: "The web underneath" section added to
+  `web-dev.html` (request/response, status codes, localhost/ports, `curl`,
+  minimal local serve, with a try-it) and Stage 9 now points at it.
+- Gate 4 tests explaining HEAD and undoing a bad commit; Session 19 names
+  `git revert` and "when reset is safe" as New material — none were taught.
+  Fixed: `git.html` now defines HEAD, teaches `revert` and `reset --soft`
+  (with what each does and does not touch), and drill 5 recovers a bad commit.
+- The Twelve's session template claimed all New material is "a section of a
+  Groundwork page"; false for stages whose material is a named external
+  resource. Fixed: reworded to "or the session's named resource".
+- `dependencies.html` said an old mise makes Groundwork "skip the runtime
+  stage"; the runner actually fails closed and stops the whole run. Fixed:
+  wording now matches the fail-closed behavior.
+- (Second pass) The new teaching server example ran `python3 -m http.server`
+  unbound, which listens on every interface — on shared Wi-Fi that exposes
+  the folder to other machines. Fixed: `--bind 127.0.0.1` in the command and
+  drill, with the exposure named in prose.
+- (Second pass) Truth-wording corrections: HEAD is defined as the checked-out
+  commit ("normally the tip of your current branch", with the detached state
+  named) rather than flatly "the tip of the branch"; `revert` is described as
+  never rewriting existing commits rather than leaving "history untouched";
+  the drill uses `git revert --no-edit HEAD` so beginners aren't dropped into
+  an editor; prefix-twice is described as sending the literal key through to
+  the shell; status codes are taught as `2xx`/`3xx`/`4xx`/`5xx` families, and
+  Session 42's "not 200" became "not a success".
+- (Second pass, promoted from deferred) The cheat-sheet rule now states the
+  setup-helpers carve-out; the "Open Ghostty and read the prompt" drill maps
+  to `getting-started.html`, which teaches it; the troubleshooting page
+  carries the "command's own message is the fix" note for the self-contained
+  refusals; `git add -p` is taught hunk-by-hunk (with `git diff --cached`)
+  and drilled on `git.html`; and the five inventory misses were closed in the
+  contract's own terms — the `--open` rows now render the full invocation,
+  the copy-mode row names copy mode, and the pane-split `| -` cluster joined
+  the audit's accepted-cluster whitelist (with a pinning test) alongside the
+  existing `h/j/k/l` and `< >` forms. The conservative matcher itself was
+  deliberately not loosened: `test_literal_optional_flag_is_not_stripped`
+  pins that a bracketed optional flag never matches a bare command.
+
+Reviewed and refuted (recorded so it is not re-flagged): the lazygit
+`z / Z — undo / redo` rows on `cheatsheet.html`, `lazygit.html`, and
+`git.html` are correct — verified against the shipped lazygit default config
+(`undo: z`, `redo: Z`), which Groundwork's managed config does not override.
+
+### Deferred enrichments — real gaps, no falsehoods, non-blocking
+
+Cheat sheet (accurate entries, absence or taste — not falsehood):
+
+- Daily-recall commands inside the stated rule but absent as sheet rows:
+  `git diff`, `git add -p` (now taught and drilled on `git.html`, but the
+  sheet still shows only `git add .`), `tmux new -s` / `tmux attach -t`, and
+  the repo-navigation keys (prefix `Shift+R` / `Shift+G`).
+
+Troubleshooting (every runtime message involved is self-contained — the user
+is confused at worst, never stranded):
+
+- A quick-triage row for chezmoi's `[y,n,a,q,d]` overwrite prompt, which the
+  page's own universal remedy (`chezmoi apply` / `chezmoi update`) can raise
+  on a hand-edited managed file.
+- Rows for the remaining cases outside the "command's own message" note: a
+  source repo on an untracked branch/detached HEAD under bare
+  `chezmoi update`, and the copy-model cases (`prefix+Y` with no marks, the
+  tmux 3.6 floor) — the latter belong to the ROADMAP copy-model teaching set.
+
+Competency coverage (taught somewhere or accurately delegated — mapping
+quality, not falsehood):
+
+- Gate 7's Python teaching is deliberately delegated to the external ladder on
+  `development.html`; record that delegation in coverage notes or add a small
+  first-Python / read-a-traceback section.
+- Gate 10 is taught across `workflow.html`, `editors-ai.html`, `specs.html`,
+  and `ai-budget.html`; cross-link at the gate-relevant points or note
+  multi-page coverage in the inventory.
+- Gate 1 is composite (command-line, getting-started, shell, tmux, git); note
+  composite coverage or split the row.
+- The terminal copy-model set is already tracked at ROADMAP → "Terminal copy
+  model": competency rows for spec Gates A/B, copy-model teaching on
+  `keyboard.html` / `command-line.html` / `troubleshooting.html` /
+  `setup.html` / game-dev-learn Module 5, copy-mode paging keys on
+  `tmux.html`, and `groundwork-doctor --terminal`.

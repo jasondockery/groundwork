@@ -129,7 +129,7 @@
       <p class="eyebrow">Reference</p>
       <h1>Cheat sheet: the keys that matter, all on one page.</h1>
       <p class="lead">Every shortcut and daily helper worth memorizing, pulled together for quick scanning or printing. Each section links to the page that teaches it in full.</p>
-      <p>The inclusion rule is daily recall: this page carries commands and keys a learner is expected to reach for during normal work. One-time setup, repair-only paths, diagnostics, and internal runners stay in the <a href="commands.html">command catalog</a> or their teaching page instead of crowding the memory aid.</p>
+      <p>The inclusion rule is daily recall: this page carries commands and keys a learner is expected to reach for during normal work. One-time setup, repair-only paths, diagnostics, and internal runners stay in the <a href="commands.html">command catalog</a> or their teaching page instead of crowding the memory aid — with one named exception: the Groundwork &amp; setup helpers section keeps the per-install helpers (extensions, default browser) that people come back for after adding a browser or a machine, so they're findable without the full catalog.</p>
 
       <h2><span class="hash">#</span>Keyboard &amp; launcher <span class="muted">— <a href="keyboard.html">Keyboard</a></span></h2>
       <div class="quickref">
@@ -247,7 +247,7 @@
             <h3>Tools &amp; scrollback</h3>
             <div class="quickref-grid">
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>g</kbd></span> <span class="act">lazygit popup</span></div>
-              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>[</kbd> · <kbd>v</kbd> · <kbd>y</kbd></span> <span class="act">select &amp; copy from history</span></div>
+              <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>[</kbd> · <kbd>v</kbd> · <kbd>y</kbd></span> <span class="act">copy mode: select &amp; copy from history</span></div>
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Shift</kbd><kbd>Y</kbd></span> <span class="act">copy last command + output</span></div>
               <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>Ctrl</kbd><kbd>y</kbd></span> <span class="act">copy the pane's directory</span></div>
               <div class="qr"><span class="keys"><kbd>Shift</kbd>+drag</span> <span class="act">raw terminal selection (in tmux)</span></div>
@@ -292,7 +292,8 @@
           <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>C</kbd></span> <span class="act">stop a command</span></div>
           <div class="qr"><span class="keys"><code>z</code> name</span> <span class="act">jump to a folder</span></div>
           <div class="qr"><span class="keys"><code>mkdir -p</code> dir</span> <span class="act">add a folder</span></div>
-          <div class="qr"><span class="keys"><code>pwd</code> / <code>open .</code></span> <span class="act">show / open folder</span></div>
+          <div class="qr"><span class="keys"><code>pwd</code></span> <span class="act">show current folder</span></div>
+          <div class="qr"><span class="keys"><code>open .</code></span> <span class="act">open folder in Finder <span class="muted">(macOS)</span></span></div>
           <div class="qr"><span class="keys"><code>cd ..</code> / <code>cd -</code></span> <span class="act">up / previous folder</span></div>
           <div class="qr"><span class="keys"><code>rg</code> / <code>fd</code></span> <span class="act">search text / find files</span></div>
           <div class="qr"><span class="keys"><code>rga</code></span> <span class="act">search hidden + ignored files</span></div>
@@ -306,7 +307,7 @@
       </div>
       <div class="callout note">
         <span class="label">Inside tmux, shell keys stay shell keys</span>
-        <p><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> moves between panes and Neovim splits, so <kbd>Ctrl</kbd><kbd>L</kbd>, <kbd>Ctrl</kbd><kbd>K</kbd>, <kbd>Backspace</kbd>, and <kbd>Enter</kbd> keep their normal shell behavior.</p>
+        <p><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> moves between panes and Neovim splits, so <kbd>Ctrl</kbd><kbd>L</kbd>, <kbd>Ctrl</kbd><kbd>K</kbd>, <kbd>Backspace</kbd>, and <kbd>Enter</kbd> keep their normal shell behavior. The one exception is <kbd>Ctrl</kbd><kbd>A</kbd>: inside tmux it's the prefix, so press it twice (<kbd>Ctrl</kbd><kbd>A</kbd> <kbd>Ctrl</kbd><kbd>A</kbd>) to send the key through to the shell — which moves to line start.</p>
       </div>
 
       <h2><span class="hash">#</span>Groundwork &amp; setup helpers <span class="muted">— <a href="commands.html">Commands</a> · <a href="setup.html">Setup</a></span></h2>
@@ -323,10 +324,10 @@
           <div class="qr"><span class="keys"><code>new-project</code></span> <span class="act">scaffold a repo</span></div>
           <div class="qr"><span class="keys"><code>new-wiki</code></span> <span class="act">scaffold an LLM wiki</span></div>
           <div class="qr"><span class="keys"><code>copy-context</code></span> <span class="act">copy selected code context</span></div>
-          <div class="qr"><span class="keys"><code>obsidian-plugins</code></span> <span class="act">install vault plugins</span></div>
-          <div class="qr"><span class="keys"><code>browser-extensions</code></span> <span class="act">open vetted browser links</span></div>
-          <div class="qr"><span class="keys"><code>raycast-extensions</code></span> <span class="act">open Raycast Store links</span></div>
-          <div class="qr"><span class="keys"><code>defaultbrowser</code></span> <span class="act">set Zen as default</span></div>
+          <div class="qr"><span class="keys"><code>obsidian-plugins</code></span> <span class="act">install vault plugins <span class="muted">(macOS)</span></span></div>
+          <div class="qr"><span class="keys"><code>browser-extensions --open</code></span> <span class="act">open vetted browser links <span class="muted">(macOS)</span></span></div>
+          <div class="qr"><span class="keys"><code>raycast-extensions --open</code></span> <span class="act">open Raycast Store links <span class="muted">(macOS)</span></span></div>
+          <div class="qr"><span class="keys"><code>defaultbrowser</code></span> <span class="act">set Zen as default <span class="muted">(macOS)</span></span></div>
           <div class="qr"><span class="keys"><code>update-all</code></span> <span class="act">upgrade brew, mise, AI tools</span></div>
         </div>
       </div>
@@ -354,8 +355,8 @@
       <h2><span class="hash">#</span>Browsers, extensions &amp; link capture <span class="muted">— <a href="apps.html">Apps</a> · <a href="knowledge.html">Knowledge</a></span></h2>
       <div class="quickref">
         <div class="quickref-grid">
-          <div class="qr"><span class="keys"><code>browser-extensions</code></span> <span class="act">list recommended extensions</span></div>
-          <div class="qr"><span class="keys"><code>--open</code></span> <span class="act">open extension install pages</span></div>
+          <div class="qr"><span class="keys"><code>browser-extensions</code></span> <span class="act">list recommended extensions <span class="muted">(macOS)</span></span></div>
+          <div class="qr"><span class="keys"><code>browser-extensions --open</code></span> <span class="act">open extension install pages</span></div>
           <div class="qr"><span class="keys">Zen Sync</span> <span class="act">bookmarks/history/tabs, not Spaces</span></div>
           <div class="qr"><span class="keys">Zen Spaces</span> <span class="act">wraparound disabled by Groundwork</span></div>
           <div class="qr"><span class="keys">Anybox extension</span> <span class="act">save pages/selections to Anybox</span></div>
