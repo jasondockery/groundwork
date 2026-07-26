@@ -1495,7 +1495,10 @@ grep -qF '[ssh.github.com]:443' "$gh_home/.ssh/groundwork/github-known-hosts" \
   || fail "host keys must use the [ssh.github.com]:443 identity"
 test -f "$gh_home/.local/state/groundwork/github-ssh-443/post_config_sha256" \
   || fail "enable must write the per-field receipt"
-gh_perm="$(stat -f '%Lp' "$gh_home/.ssh/config" 2>/dev/null || stat -c '%a' "$gh_home/.ssh/config")"
+# GNU first: BSD stat rejects -c and fails cleanly, but GNU stat treats -f as
+# "filesystem status" and SUCCEEDS with the wrong output, so -f must be the
+# fallback, never the first attempt.
+gh_perm="$(stat -c '%a' "$gh_home/.ssh/config" 2>/dev/null || stat -f '%Lp' "$gh_home/.ssh/config")"
 [[ "$gh_perm" == "600" ]] || fail "the rewritten config must stay 0600 (got $gh_perm)"
 run_ghssh revert-443 --yes >"$gh_dir/out.revert1" || fail "revert-443 --yes must succeed"
 [[ ! -e "$gh_home/.ssh/config" ]] \
