@@ -566,6 +566,8 @@ class GroundworkHTML(HTMLParser):
             self.links.append(attrs["href"])
         if tag in {"img", "script", "source", "video"} and "src" in attrs:
             self.assets.append(attrs["src"])
+        if tag == "link" and "href" in attrs:
+            self.assets.append(attrs["href"])
         if (
             tag == "meta"
             and attrs.get("property") == "og:site_name"

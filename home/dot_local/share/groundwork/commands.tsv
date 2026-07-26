@@ -111,7 +111,7 @@ git	git gone	command	List local branches whose upstream tracking ref has vanishe
 git	git recent	command	Compact table of local branches ordered by tip commit date: relative date then name. Offline.
 git	groundwork-github-ssh status	command	Probe GitHub SSH on port 22 and ssh.github.com on 443 with a bounded deadline, and report which route git currently uses. Read-only.
 git	groundwork-github-ssh enable-443	command	Route github.com SSH via ssh.github.com:443 for networks that stall port 22. Shows the exact change, asks [y/N], backs up ~/.ssh/config, installs a Groundwork-owned snippet plus one marked Include line, and fingerprint-checks GitHub's published host keys. --yes consents non-interactively.
-git	groundwork-github-ssh revert-443	command	Remove the managed port-443 fallback and return github.com SSH to port 22. Asks [y/N] first; backups are kept. --yes consents non-interactively.
+git	groundwork-github-ssh revert-443	command	Remove the managed port-443 fallback — Groundwork's override only; other SSH configuration of yours that selects 443 stays in force. Asks [y/N] first; backups are kept. --yes consents non-interactively.
 tmux	tmux new -s <name>	command	Start a named tmux session.
 tmux	tmux attach -t <name>	command	Attach to an existing tmux session.
 tmux	tmuxp load .tmuxp.yaml	command	Start a project layout from a checked-in tmuxp config.

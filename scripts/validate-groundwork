@@ -1405,13 +1405,28 @@ cat >"$gh_dir/bin/ssh" <<'SH'
 #!/bin/sh
 if [ "$1" = "-G" ]; then exec /usr/bin/ssh "$@"; fi
 port=22
+fcfg=/dev/null
 prev=""
 transport=0
 for a in "$@"; do
   [ "$prev" = "-p" ] && port="$a"
+  [ "$prev" = "-F" ] && fcfg="$a"
   [ "$a" = "PreferredAuthentications=none" ] && transport=1
   prev="$a"
 done
+if [ "$transport" = 1 ] && [ "$fcfg" != "/dev/null" ]; then
+  # auth-disabled probe through a real config file = the live route check
+  case "${GH_SSH_STUB_ROUTE:-ok}" in
+    hostkey)
+      echo "Host key verification failed." >&2
+      exit 255
+      ;;
+    *)
+      echo "git@stub: Permission denied (none)." >&2
+      exit 255
+      ;;
+  esac
+fi
 if [ "$transport" = 1 ]; then
   if [ "$port" = 443 ]; then v="${GH_SSH_STUB_443:-reachable}"; else v="${GH_SSH_STUB_22:-reachable}"; fi
   case "$v" in
@@ -1553,6 +1568,14 @@ grep -qx 'hostname ssh.github.com' "$gh_dir/after.github" \
   || fail "real ssh -G must route github.com to ssh.github.com after enable"
 grep -qx 'stricthostkeychecking true' "$gh_dir/after.github" \
   || fail "the managed stanza must enforce strict host-key checking"
+# Regression, real parser, overridden HOME: UserKnownHostsFile ~ resolves
+# against the passwd home while Include follows $HOME, so the snippet must pin
+# the absolute path or ssh reads keys from a different account's directory.
+grep -q "^userknownhostsfile $gh_home/.ssh/groundwork/github-known-hosts" "$gh_dir/after.github" \
+  || fail "real ssh -G must resolve the FIRST known-hosts file to the fixture HOME's managed key file (tilde/passwd-home leak)"
+grep -qF "UserKnownHostsFile \"$gh_home/.ssh/groundwork/github-known-hosts\" \"$gh_home/.ssh/known_hosts\"" \
+  "$gh_home/.ssh/groundwork/github-443.conf" \
+  || fail "the snippet must pin absolute quoted known-hosts paths, never the ~ form"
 tail -n +4 "$gh_home/.ssh/config" | diff -q - "$gh_dir/complex.orig" >/dev/null \
   || fail "enable must preserve the existing config verbatim below the managed block"
 run_ghssh enable-443 --yes >"$gh_dir/out.idem"
@@ -1620,6 +1643,14 @@ gh_rc=0
 run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
 [[ "$gh_rc" -eq 1 ]] || fail "enable must refuse while another run holds the lock (got $gh_rc)"
 rmdir "$gh_home/.ssh/groundwork/.lock"
+# --- Scenario 4: a failed live route check rolls the whole transaction back ---
+gh_home="$gh_dir/home4"
+mkdir -p "$gh_home"
+gh_rc=0
+GH_SSH_STUB_ROUTE=hostkey run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 1 ]] || fail "enable must fail when the live route check reports a host-key failure (got $gh_rc)"
+[[ ! -e "$gh_home/.ssh/config" && ! -e "$gh_home/.ssh/groundwork/github-443.conf" && ! -e "$gh_home/.local/state/groundwork/github-ssh-443" ]] \
+  || fail "a failed route check must roll the whole transaction back (no config, snippet, or receipt may survive)"
 
 check "groundwork-source-preflight branch-state model"
 pf_helper="$PWD/home/dot_local/bin/executable_groundwork-source-preflight"

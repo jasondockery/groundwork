@@ -309,7 +309,7 @@
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">github ssh</span></div>
         <pre><code><span class="prompt">$ </span>groundwork-github-ssh status      <span class="comment"># bounded probes: is port 22 stalling? does 443 work?</span>
 <span class="prompt">$ </span>groundwork-github-ssh enable-443  <span class="comment"># shows the exact change, asks, backs up, then routes via ssh.github.com:443</span>
-<span class="prompt">$ </span>groundwork-github-ssh revert-443  <span class="comment"># back to plain port 22; backups are kept</span></code></pre>
+<span class="prompt">$ </span>groundwork-github-ssh revert-443  <span class="comment"># remove Groundwork's override; backups are kept</span></code></pre>
       </div>
       <p>It changes only the <code>Host github.com</code> route — other hosts, SSH aliases, and your keys are untouched — and requires GitHub's host keys, fetched over TLS, to match the fingerprints GitHub publishes in the same metadata before trusting them. Two honest caveats: some proxies interfere with SSH over 443 too (so <code>status</code> probes both ports, offering no key, before anything changes), and <code>revert-443</code> removes Groundwork's override only — other configuration of yours that selects port 443 stays in force.</p>
 

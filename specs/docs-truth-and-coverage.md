@@ -213,6 +213,17 @@ quality, not falsehood):
   multi-page coverage in the inventory.
 - Gate 1 is composite (command-line, getting-started, shell, tmux, git); note
   composite coverage or split the row.
+- Audit machinery strictness (2026-07-27 external review): the shell/tmux/git
+  exhaustiveness parsers accept one syntax per surface (`bind` but not
+  `bind-key`, one alias form, the exact `[alias]` header), so a
+  plausible-but-unrecognized future form escapes the audit silently — consider
+  failing on unrecognized-but-plausible forms; separately, any `name`
+  attribute counts as an anchor identity, which would false-positive a valid
+  radio group sharing a name. Green today; neither is a falsehood.
+- Catalog-description parity: the audit requires a contiguous `<code>` surface
+  for each catalog item but never compares the page's prose description with
+  the catalog's, so a corrected catalog claim can coexist with the stale
+  wording on a page (caught once by review on `gh auth setup-git`).
 - The terminal copy-model set is already tracked at ROADMAP → "Terminal copy
   model": competency rows for spec Gates A/B, copy-model teaching on
   `keyboard.html` / `command-line.html` / `troubleshooting.html` /

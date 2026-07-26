@@ -322,7 +322,7 @@ on_exit() {
   if [[ "$rollback_needed" -eq 1 ]]; then
     echo "groundwork-github-ssh: rolling the interrupted change back…" >&2
     if [[ "$rollback_config_existed" == "true" && -f "$rollback_backup" ]]; then
-      cp -p "$rollback_backup" "$ssh_config" 2>/dev/null || true
+      write_atomic "$ssh_config" <"$rollback_backup" 2>/dev/null || true
     elif [[ "$rollback_config_existed" == "false" ]]; then
       rm -f "$ssh_config"
     fi
@@ -368,7 +368,7 @@ write_atomic() { # $1 dest; content on stdin. Same-directory temp, then rename.
 # instead of installing junk.
 stage_github_keys() { # writes validated "[ssh.github.com]:443 <key>" lines to $1
   local dest="$1" json keys fingerprints
-  json="$(curl -fsS -m 10 "$meta_url")" \
+  json="$(curl -fsS -m "$probe_deadline" "$meta_url")" \
     || fail "could not fetch GitHub's host keys from $meta_url (network?). Nothing was changed."
   keys="$(printf '%s\n' "$json" | tr ',' '\n' \
     | sed -n 's/.*"\(ssh-[a-z0-9-]* [A-Za-z0-9+/=]*\)".*/\1/p;s/.*"\(ecdsa-[a-z0-9-]* [A-Za-z0-9+/=]*\)".*/\1/p')"
@@ -376,19 +376,20 @@ stage_github_keys() { # writes validated "[ssh.github.com]:443 <key>" lines to $
     | sed -n 's/.*"SHA256_[A-Z0-9]*": *"\([A-Za-z0-9+/=]*\)".*/\1/p')"
   [[ -n "$keys" && -n "$fingerprints" ]] \
     || fail "no SSH host keys plus fingerprints found in the $meta_url response. Nothing was changed."
-  local key tmp fp
+  local key tmp one fp
   tmp="$(mktemp)"
+  one="$(mktemp)"
   while IFS= read -r key; do
-    printf '[ssh.github.com]:443 %s\n' "$key" >"$tmp.one"
-    fp="$(ssh-keygen -lf "$tmp.one" 2>/dev/null | awk '{ print $2 }')" || fp=""
+    printf '[ssh.github.com]:443 %s\n' "$key" >"$one"
+    fp="$(ssh-keygen -lf "$one" 2>/dev/null | awk '{ print $2 }')" || fp=""
     fp="${fp#SHA256:}"
     if [[ -z "$fp" ]] || ! grep -qxF "$fp" <<<"$fingerprints"; then
-      rm -f "$tmp" "$tmp.one"
+      rm -f "$tmp" "$one"
       fail "a fetched host key does not match GitHub's published fingerprints; refusing to install it. Nothing was changed."
     fi
-    cat "$tmp.one" >>"$tmp"
+    cat "$one" >>"$tmp"
   done <<<"$keys"
-  rm -f "$tmp.one"
+  rm -f "$one"
   write_atomic "$dest" <"$tmp"
   rm -f "$tmp"
 }
@@ -402,7 +403,10 @@ Host github.com
   Port 443
   User git
   StrictHostKeyChecking yes
-  UserKnownHostsFile ~/.ssh/groundwork/github-known-hosts ~/.ssh/known_hosts
+  # Absolute, quoted: unlike Include, UserKnownHostsFile resolves ~ against the
+  # passwd-database home, NOT \$HOME — the relative form silently reads the
+  # wrong file in containers, headless agents, and sudo-without--H sessions.
+  UserKnownHostsFile "$known_hosts" "$HOME/.ssh/known_hosts"
 
 # Scope reset: without this, the stanza above would stay active while OpenSSH
 # reads the rest of the user's config through the include boundary.
@@ -435,13 +439,44 @@ strip_managed_block() { # config on stdin → stdout without the single marked b
 }
 
 verify_effective() { # post-mutation check of the values the stanza promises
-  local out
+  local out kh_line
   out="$(effective_values)"
+  # The first known-hosts entry must be OUR file by exact resolved path, not a
+  # substring: a ~-resolution mismatch produces a plausible-looking wrong path.
+  kh_line="$(awk '$1 == "userknownhostsfile" { sub(/^userknownhostsfile /, ""); print; exit }' <<<"$out")"
   grep -qx 'hostname ssh.github.com' <<<"$out" \
     && grep -qx 'port 443' <<<"$out" \
     && grep -qx 'user git' <<<"$out" \
     && grep -qx 'stricthostkeychecking true' <<<"$out" \
-    && grep -q 'groundwork/github-known-hosts' <<<"$out"
+    && [[ "$kh_line" == "$known_hosts"* ]]
+}
+
+# Prove the route end to end through the managed config BEFORE declaring
+# success: with every authentication method disabled, GitHub answering
+# "Permission denied" means transport AND host-key acceptance both worked,
+# while "Host key verification failed" is exactly the failure class that
+# ssh -G value inspection cannot see.
+verify_route() { # prints ok | hostkey | timed-out | failed
+  local tmp out rc verdict=failed
+  tmp="$(mktemp)"
+  sed "s|^$block_include\$|Include $snippet|" "$ssh_config" >"$tmp"
+  out="$(mktemp)"
+  rc=0
+  run_bounded "$probe_deadline" "$out" \
+    ssh -F "$tmp" -o BatchMode=yes -o ConnectTimeout=5 \
+    -o ConnectionAttempts=1 -o NumberOfPasswordPrompts=0 \
+    -o PreferredAuthentications=none -o PubkeyAuthentication=no \
+    -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no \
+    -o LogLevel=ERROR git@github.com || rc=$?
+  if grep -qi 'permission denied' "$out"; then
+    verdict=ok
+  elif grep -qi 'host key verification failed' "$out"; then
+    verdict=hostkey
+  elif [[ "$rc" -eq 124 ]]; then
+    verdict=timed-out
+  fi
+  rm -f "$tmp" "$out"
+  echo "$verdict"
 }
 
 cmd_status() {
@@ -600,7 +635,12 @@ cmd_enable() {
   rm -f "$staged_config"
   write_receipt "$original_existed" "$original_sha" "$backup" "$(sha256_file "$ssh_config")"
   if ! verify_effective; then
-    fail "the enabled config did not evaluate to ssh.github.com:443 with strict host keys ('ssh -G github.com'); rolled back. A Match block or include of yours may conflict — see 'groundwork-github-ssh status'."
+    fail "the enabled config did not evaluate to ssh.github.com:443 with strict host keys and the managed key file ('ssh -G github.com'); rolled back. A Match block or include of yours may conflict — see 'groundwork-github-ssh status'."
+  fi
+  local route_verdict
+  route_verdict="$(verify_route)"
+  if [[ "$route_verdict" != "ok" ]]; then
+    fail "the live route check through the new config failed ($route_verdict; with auth disabled, GitHub should answer 'Permission denied' — 'hostkey' means host-key acceptance broke); rolled back."
   fi
   rollback_needed=0
 
@@ -669,7 +709,7 @@ cmd_revert() {
     elif [[ -n "$post_sha" && "$post_sha" == "$(sha256_file "$ssh_config")" &&
     "$original_existed" == "true" && -f "$recorded_backup" &&
     "$(sha256_file "$recorded_backup")" == "$original_sha" ]]; then
-      cp -p "$recorded_backup" "$ssh_config"
+      write_atomic "$ssh_config" <"$recorded_backup"
       config_outcome="exact (byte-for-byte from the SHA-256-verified enable-time backup)"
     else
       local stripped

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.machinery
+import importlib.util
 import pathlib
 import sys
 import tempfile
@@ -11,10 +12,14 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
-audit = importlib.machinery.SourceFileLoader(
+_audit_path = str(ROOT / "scripts/audit-docs-coverage")
+_spec = importlib.util.spec_from_file_location(
     "audit_docs_coverage",
-    str(ROOT / "scripts/audit-docs-coverage"),
-).load_module()
+    _audit_path,
+    loader=importlib.machinery.SourceFileLoader("audit_docs_coverage", _audit_path),
+)
+audit = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(audit)
 
 MARKER = '<meta property="og:site_name" content="Groundwork">'
 
@@ -239,6 +244,25 @@ class SiteGraphTests(unittest.TestCase):
             )
             documents = audit.validate_site_graph(docs, set(), check_discovery=False)
             self.assertEqual(set(documents), {"index.html", "other.html"})
+
+    def test_missing_asset_fails_including_link_hrefs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            docs = pathlib.Path(temp)
+            (docs / "index.html").write_text(
+                page("<img src='gone.svg'><a href='index.html'>Home</a>")
+            )
+            with self.assertRaisesRegex(audit.AuditError, "missing asset gone.svg"):
+                audit.validate_site_graph(docs, set(), check_discovery=False)
+        with tempfile.TemporaryDirectory() as temp:
+            docs = pathlib.Path(temp)
+            (docs / "index.html").write_text(
+                "<!doctype html><html><head>"
+                + MARKER
+                + "<link rel='stylesheet' href='assets/style.css'>"
+                + "</head><body><a href='index.html'>Home</a></body></html>"
+            )
+            with self.assertRaisesRegex(audit.AuditError, "missing asset assets/style.css"):
+                audit.validate_site_graph(docs, set(), check_discovery=False)
 
     def test_duplicate_ids_fail(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
