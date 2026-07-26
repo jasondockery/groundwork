@@ -1,0 +1,696 @@
+#!/usr/bin/env bash
+# GitHub SSH port-443 fallback: probe, enable, or revert SSH over the HTTPS
+# port for networks that stall SSH on port 22 (GitHub's documented workaround).
+# Owns only ~/.ssh/groundwork/ and one marked Include block at the TOP of
+# ~/.ssh/config (OpenSSH takes the first value per setting, so a bottom include
+# would lose to existing Host rules; the snippet ends with a "Host *" scope
+# reset so the stanza cannot leak onto the rest of the user's config). Never
+# touches private keys or the user's known_hosts; GitHub's keys live in a
+# separate managed file. Never runs from bootstrap, apply, or update-all —
+# enabling is always an explicit user action.
+set -euo pipefail
+umask 077
+
+ssh_dir="$HOME/.ssh"
+ssh_config="$ssh_dir/config"
+own_dir="$ssh_dir/groundwork"
+snippet="$own_dir/github-443.conf"
+known_hosts="$own_dir/github-known-hosts"
+backup_dir="$own_dir/backups"
+receipt_dir="$HOME/.local/state/groundwork/github-ssh-443"
+lock_dir="$own_dir/.lock"
+block_begin="# >>> groundwork-github-ssh >>>"
+block_include="Include ~/.ssh/groundwork/github-443.conf"
+block_end="# <<< groundwork-github-ssh <<<"
+probe_deadline="${GROUNDWORK_GITHUB_SSH_PROBE_DEADLINE:-10}"
+meta_url="https://api.github.com/meta"
+
+usage() {
+  cat <<'EOF'
+groundwork-github-ssh — GitHub SSH over port 443 for networks that block port 22
+
+Usage:
+  groundwork-github-ssh status              Probe both ports without offering any
+                                            key, check auth through your real SSH
+                                            config, and report the current route
+                                            and managed-state health. Read-only.
+  groundwork-github-ssh enable-443 [--yes]  Route github.com SSH via
+                                            ssh.github.com:443. Shows the exact
+                                            change and asks [y/N] first; --yes
+                                            answers for non-interactive runs.
+                                            On a healthy install it reconciles
+                                            instead: refreshes GitHub's host keys
+                                            when they changed, otherwise no-op.
+  groundwork-github-ssh revert-443 [--yes]  Remove the managed fallback. Your
+                                            config is restored byte-for-byte when
+                                            neither it nor the backup changed
+                                            since enable (verified by SHA-256);
+                                            otherwise only the marked block is
+                                            removed. Managed files you edited are
+                                            preserved with a .user-modified name,
+                                            never deleted.
+
+What enable-443 changes, exactly:
+  ~/.ssh/groundwork/github-443.conf         the Host github.com stanza, ending in
+                                            a "Host *" scope reset so nothing
+                                            leaks onto the rest of your config
+  ~/.ssh/groundwork/github-known-hosts      GitHub's published host keys for the
+                                            [ssh.github.com]:443 identity, fetched
+                                            over TLS from api.github.com/meta and
+                                            required to match the fingerprints
+                                            published in the same metadata
+  ~/.ssh/config                             one marked Include block at the top;
+                                            the previous config is backed up to
+                                            ~/.ssh/groundwork/backups/ first
+  ~/.local/state/groundwork/github-ssh-443/ the change receipt (SHA-256 digests,
+                                            backup path) that makes revert exact
+
+Only the literal Host github.com route is affected; multi-account aliases
+(github-work and friends), other hosts, and every private key are preserved and
+never rewritten. Reverting removes Groundwork's override — if other SSH
+configuration of yours also selects port 443, that remains in force. Some
+proxies interfere with SSH over 443 too, so the fallback is not guaranteed on
+every restricted network — status probes both ports first.
+
+Exit codes: 0 done or nothing to do · 1 operational failure · 2 refused
+(precondition or no consent path) · 64 usage error · 130 cancelled at the prompt
+EOF
+}
+
+fail() {
+  echo "groundwork-github-ssh: $1" >&2
+  exit "${2:-1}"
+}
+
+usage_error() {
+  echo "groundwork-github-ssh: $1" >&2
+  echo "Run: groundwork-github-ssh --help" >&2
+  exit 64
+}
+
+subcommand=""
+assume_yes=0
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --yes) assume_yes=1 ;;
+    -*) usage_error "unknown option: $arg" ;;
+    status | enable-443 | revert-443)
+      [[ -z "$subcommand" ]] || usage_error "expected one subcommand, got '$subcommand' and '$arg'"
+      subcommand="$arg"
+      ;;
+    *) usage_error "unexpected argument: $arg" ;;
+  esac
+done
+[[ -n "$subcommand" ]] || usage_error "missing subcommand (status, enable-443, or revert-443)"
+if [[ "$assume_yes" -eq 1 && "$subcommand" == "status" ]]; then
+  usage_error "--yes does not apply to status (status never prompts)"
+fi
+[[ "$probe_deadline" =~ ^[0-9]+$ && "$probe_deadline" -ge 1 ]] \
+  || fail "GROUNDWORK_GITHUB_SSH_PROBE_DEADLINE must be a positive integer (seconds)"
+
+require_tools() { # revert needs no network tool; keep its requirements minimal
+  local tool missing=""
+  for tool in "$@"; do
+    command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+  done
+  [[ -z "$missing" ]] || fail "missing required tool(s):$missing"
+}
+case "$subcommand" in
+  status) require_tools ssh awk sed grep mktemp curl ssh-keygen ;;
+  enable-443) require_tools ssh awk sed grep mktemp curl ssh-keygen ;;
+  revert-443) require_tools ssh awk sed grep mktemp ;;
+esac
+
+sha256_file() { # SHA-256 hex of a file, or "-" when it does not exist
+  [[ -f "$1" ]] || {
+    echo "-"
+    return 0
+  }
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 -r "$1" | awk '{ print $1 }'
+  else
+    fail "no SHA-256 tool found (need shasum, sha256sum, or openssl)"
+  fi
+}
+
+# A stalled SSH handshake is exactly the failure this command exists for, and
+# ConnectTimeout does not bound it (the TCP connect can succeed first). Every
+# probe runs under this watchdog: TERM, a short grace, then KILL, bounded reap.
+run_bounded() {
+  local deadline="$1" out="$2"
+  shift 2
+  "$@" >"$out" 2>&1 &
+  local pid=$!
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if ((waited >= deadline * 10)); then
+      kill "$pid" 2>/dev/null || true
+      local grace=0
+      while kill -0 "$pid" 2>/dev/null && ((grace < 10)); do
+        sleep 0.1
+        grace=$((grace + 1))
+      done
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      return 124
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  wait "$pid"
+}
+
+# Transport only: no key, agent, or password is ever offered, so nothing about
+# the developer's identity reaches an unverified endpoint. A server that answers
+# at all replies "Permission denied" — that IS the reachable verdict. A watchdog
+# timeout is reported as exactly that: this probe cannot see which stage (DNS,
+# connect, or handshake) went quiet, so it does not claim to.
+transport_probe() { # reachable | timed-out | unreachable
+  local host="$1" port="$2" out rc
+  out="$(mktemp)"
+  rc=0
+  run_bounded "$probe_deadline" "$out" \
+    ssh -F /dev/null -o BatchMode=yes -o ConnectTimeout=5 \
+    -o ConnectionAttempts=1 -o NumberOfPasswordPrompts=0 \
+    -o PreferredAuthentications=none -o PubkeyAuthentication=no \
+    -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -p "$port" "git@$host" || rc=$?
+  if [[ "$rc" -eq 124 ]]; then
+    echo timed-out
+  elif grep -qi 'permission denied' "$out"; then
+    echo reachable
+  else
+    echo unreachable
+  fi
+  rm -f "$out"
+}
+
+describe_transport() {
+  case "$1" in
+    reachable) echo "reachable (SSH answered)" ;;
+    timed-out) echo "timed out (no SSH answer within ${probe_deadline}s — DNS, connect, or a mid-path block)" ;;
+    unreachable) echo "unreachable (connection failed)" ;;
+  esac
+}
+
+# Authentication is a separate question, asked through the user's REAL SSH
+# configuration (identities, agent, aliases all honored), never through -F
+# /dev/null. GitHub's success banner arrives with a nonzero exit by design (no
+# shell), so the verdict reads the response text, never just the exit code. No
+# remote command is passed: with one, GitHub answers "Invalid command" instead
+# of the documented ssh -T banner.
+auth_check() { # authenticated | denied | unknown
+  local out rc
+  out="$(mktemp)"
+  rc=0
+  run_bounded "$probe_deadline" "$out" \
+    ssh -o BatchMode=yes -o ConnectTimeout=5 -o ConnectionAttempts=1 \
+    -o NumberOfPasswordPrompts=0 -o LogLevel=ERROR git@github.com || rc=$?
+  if [[ "$rc" -eq 0 ]] || grep -qi 'successfully authenticated' "$out"; then
+    echo authenticated
+  elif grep -qi 'permission denied' "$out"; then
+    echo denied
+  else
+    echo unknown
+  fi
+  rm -f "$out"
+}
+
+# ssh -G is a diagnostic, never a reason to die mid-report: failures print
+# nothing and the caller shows "unknown". The managed include is rewritten to
+# the snippet's absolute path in a private copy first, so the REAL OpenSSH
+# parser resolves it regardless of how ~ expands for this account.
+effective_values() { # prints ssh -G output for github.com, or nothing on failure
+  local cfg=/dev/null tmp=""
+  if [[ -f "$ssh_config" ]]; then
+    tmp="$(mktemp)"
+    sed "s|^$block_include\$|Include $snippet|" "$ssh_config" >"$tmp" 2>/dev/null || true
+    cfg="$tmp"
+  fi
+  ssh -G -F "$cfg" github.com 2>/dev/null || true
+  [[ -n "$tmp" ]] && rm -f "$tmp"
+  return 0
+}
+
+effective_route() { # "hostname port", or "unknown"
+  local out
+  out="$(effective_values | awk '$1 == "hostname" { h = $2 } $1 == "port" { p = $2 } END { if (h != "" && p != "") print h, p }')"
+  echo "${out:-unknown}"
+}
+
+count_marker() { # occurrences of an exact line in the config (0 when absent)
+  [[ -f "$ssh_config" ]] || {
+    echo 0
+    return 0
+  }
+  grep -cxF "$1" "$ssh_config" || true
+}
+
+receipt_read() { # $1 field; empty when absent
+  [[ -f "$receipt_dir/$1" ]] && cat "$receipt_dir/$1" || true
+}
+
+# Ownership states. healthy = block + snippet + known-hosts + receipt all
+# present, exactly one well-formed block, and both managed files matching the
+# receipt digests. Anything incomplete is partial; complete-but-changed is
+# drifted. Both refuse enable, so leftovers from an interrupted run can never
+# be adopted as the user's baseline.
+managed_state() { # absent | healthy | partial | drifted
+  local begins ends includes has_snippet=0 has_kh=0 has_receipt=0
+  begins="$(count_marker "$block_begin")"
+  ends="$(count_marker "$block_end")"
+  includes="$(count_marker "$block_include")"
+  [[ -f "$snippet" ]] && has_snippet=1
+  [[ -f "$known_hosts" ]] && has_kh=1
+  [[ -d "$receipt_dir" ]] && has_receipt=1
+  if [[ "$begins" -eq 0 && "$ends" -eq 0 && "$has_snippet" -eq 0 && "$has_kh" -eq 0 && "$has_receipt" -eq 0 ]]; then
+    echo absent
+    return 0
+  fi
+  if [[ "$begins" -ne 1 || "$ends" -ne 1 || "$includes" -lt 1 || "$has_snippet" -ne 1 || "$has_kh" -ne 1 || "$has_receipt" -ne 1 ]]; then
+    echo partial
+    return 0
+  fi
+  if [[ "$(receipt_read snippet_sha256)" == "$(sha256_file "$snippet")" &&
+  "$(receipt_read known_hosts_sha256)" == "$(sha256_file "$known_hosts")" ]]; then
+    echo healthy
+  else
+    echo drifted
+  fi
+}
+
+confirm() { # $1: question. Honors --yes; refuses non-TTY; EOF/no cancels.
+  if [[ "$assume_yes" -eq 1 ]]; then
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    fail "no interactive terminal to confirm with. Re-run from a terminal, or pass --yes to consent explicitly." 2
+  fi
+  local reply
+  while true; do
+    printf '%s [y/N] ' "$1" >&2
+    if ! IFS= read -r reply; then
+      echo >&2
+      echo "Cancelled — nothing was changed." >&2
+      exit 130
+    fi
+    case "$reply" in
+      [yY] | [yY][eE][sS] | [tT] | [tT][rR][uU][eE] | 1) return 0 ;;
+      "" | [nN] | [nN][oO] | [fF] | [fF][aA][lL][sS][eE] | 0)
+        echo "Cancelled — nothing was changed." >&2
+        exit 130
+        ;;
+      *) echo "Please answer y or n." >&2 ;;
+    esac
+  done
+}
+
+lock_held=0
+rollback_needed=0
+rollback_backup=""
+rollback_config_existed=""
+on_exit() {
+  if [[ "$rollback_needed" -eq 1 ]]; then
+    echo "groundwork-github-ssh: rolling the interrupted change back…" >&2
+    if [[ "$rollback_config_existed" == "true" && -f "$rollback_backup" ]]; then
+      cp -p "$rollback_backup" "$ssh_config" 2>/dev/null || true
+    elif [[ "$rollback_config_existed" == "false" ]]; then
+      rm -f "$ssh_config"
+    fi
+    rm -f "$snippet" "$known_hosts"
+    rm -rf "$receipt_dir"
+  fi
+  [[ "$lock_held" -eq 1 ]] && rmdir "$lock_dir" 2>/dev/null || true
+}
+trap on_exit EXIT
+
+take_lock() {
+  mkdir -p "$own_dir"
+  if ! mkdir "$lock_dir" 2>/dev/null; then
+    fail "another groundwork-github-ssh run holds the lock ($lock_dir). If none is running, remove it with: rmdir '$lock_dir'"
+  fi
+  lock_held=1
+}
+
+backup_config() { # prints the backup path, or "-" when there was nothing to back up
+  if [[ ! -f "$ssh_config" ]]; then
+    echo "-"
+    return 0
+  fi
+  mkdir -p "$backup_dir"
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  local path="$backup_dir/config.$stamp.$$"
+  cp -p "$ssh_config" "$path"
+  echo "$path"
+}
+
+write_atomic() { # $1 dest; content on stdin. Same-directory temp, then rename.
+  local dest="$1" tmp
+  tmp="$(mktemp "${dest}.XXXXXX")"
+  cat >"$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$dest"
+}
+
+# The keys AND the published fingerprints both come from the official TLS
+# metadata; every key's computed SHA-256 fingerprint must match one of the
+# published values, so a partially garbled payload or format drift fails closed
+# instead of installing junk.
+stage_github_keys() { # writes validated "[ssh.github.com]:443 <key>" lines to $1
+  local dest="$1" json keys fingerprints
+  json="$(curl -fsS -m 10 "$meta_url")" \
+    || fail "could not fetch GitHub's host keys from $meta_url (network?). Nothing was changed."
+  keys="$(printf '%s\n' "$json" | tr ',' '\n' \
+    | sed -n 's/.*"\(ssh-[a-z0-9-]* [A-Za-z0-9+/=]*\)".*/\1/p;s/.*"\(ecdsa-[a-z0-9-]* [A-Za-z0-9+/=]*\)".*/\1/p')"
+  fingerprints="$(printf '%s\n' "$json" | tr ',{}' '\n' \
+    | sed -n 's/.*"SHA256_[A-Z0-9]*": *"\([A-Za-z0-9+/=]*\)".*/\1/p')"
+  [[ -n "$keys" && -n "$fingerprints" ]] \
+    || fail "no SSH host keys plus fingerprints found in the $meta_url response. Nothing was changed."
+  local key tmp fp
+  tmp="$(mktemp)"
+  while IFS= read -r key; do
+    printf '[ssh.github.com]:443 %s\n' "$key" >"$tmp.one"
+    fp="$(ssh-keygen -lf "$tmp.one" 2>/dev/null | awk '{ print $2 }')" || fp=""
+    fp="${fp#SHA256:}"
+    if [[ -z "$fp" ]] || ! grep -qxF "$fp" <<<"$fingerprints"; then
+      rm -f "$tmp" "$tmp.one"
+      fail "a fetched host key does not match GitHub's published fingerprints; refusing to install it. Nothing was changed."
+    fi
+    cat "$tmp.one" >>"$tmp"
+  done <<<"$keys"
+  rm -f "$tmp.one"
+  write_atomic "$dest" <"$tmp"
+  rm -f "$tmp"
+}
+
+snippet_content() {
+  cat <<EOF
+# groundwork-github-ssh snippet — installed by 'groundwork-github-ssh enable-443'
+# Revert with: groundwork-github-ssh revert-443
+Host github.com
+  HostName ssh.github.com
+  Port 443
+  User git
+  StrictHostKeyChecking yes
+  UserKnownHostsFile ~/.ssh/groundwork/github-known-hosts ~/.ssh/known_hosts
+
+# Scope reset: without this, the stanza above would stay active while OpenSSH
+# reads the rest of the user's config through the include boundary.
+Host *
+EOF
+}
+
+write_receipt() { # $1 original_existed  $2 original_sha  $3 backup  $4 post_sha
+  local staged="$receipt_dir.staging.$$"
+  rm -rf "$staged"
+  mkdir -p "$staged"
+  date -u +%Y-%m-%dT%H:%M:%SZ >"$staged/enabled_at"
+  printf '%s\n' "$1" >"$staged/original_config_existed"
+  printf '%s\n' "$2" >"$staged/original_config_sha256"
+  printf '%s\n' "$3" >"$staged/backup_path"
+  printf '%s\n' "$4" >"$staged/post_config_sha256"
+  sha256_file "$snippet" >"$staged/snippet_sha256"
+  sha256_file "$known_hosts" >"$staged/known_hosts_sha256"
+  rm -rf "$receipt_dir"
+  mkdir -p "$(dirname "$receipt_dir")"
+  mv "$staged" "$receipt_dir"
+}
+
+strip_managed_block() { # config on stdin → stdout without the single marked block
+  awk -v begin="$block_begin" -v end="$block_end" '
+    $0 == begin { inblock = 1; next }
+    inblock && $0 == end { inblock = 0; next }
+    !inblock { print }
+  '
+}
+
+verify_effective() { # post-mutation check of the values the stanza promises
+  local out
+  out="$(effective_values)"
+  grep -qx 'hostname ssh.github.com' <<<"$out" \
+    && grep -qx 'port 443' <<<"$out" \
+    && grep -qx 'user git' <<<"$out" \
+    && grep -qx 'stricthostkeychecking true' <<<"$out" \
+    && grep -q 'groundwork/github-known-hosts' <<<"$out"
+}
+
+cmd_status() {
+  local state route
+  state="$(managed_state)"
+  route="$(effective_route)"
+  echo "Managed fallback: $state"
+  case "$route" in
+    "ssh.github.com 443")
+      if [[ "$state" == "healthy" ]]; then
+        echo "Effective route:  ssh.github.com:443 (the managed fallback)"
+      else
+        echo "Effective route:  ssh.github.com:443 (configured outside a healthy managed install)"
+      fi
+      ;;
+    unknown)
+      echo "Effective route:  unknown (ssh -G could not evaluate the config)"
+      ;;
+    *)
+      echo "Effective route:  ${route/ /:}"
+      if [[ "$state" == "healthy" ]]; then
+        echo "                  WARNING: the fallback is installed but ineffective — another rule wins over the managed block."
+      fi
+      ;;
+  esac
+  if [[ "$state" == "partial" || "$state" == "drifted" ]]; then
+    echo "                  The managed install is $state; 'groundwork-github-ssh revert-443' removes it conservatively (edited managed files are preserved, not deleted)."
+  fi
+  if [[ "$state" == "healthy" ]]; then
+    local staged_kh
+    staged_kh="$(mktemp)"
+    if (stage_github_keys "$staged_kh") 2>/dev/null; then
+      if [[ "$(sha256_file "$staged_kh")" == "$(sha256_file "$known_hosts")" ]]; then
+        echo "Managed keys:     current (match GitHub's published metadata)"
+      else
+        echo "Managed keys:     STALE — GitHub's published keys changed; run: groundwork-github-ssh enable-443 (it refreshes them after showing the change)"
+      fi
+    else
+      echo "Managed keys:     unverified (could not fetch GitHub's metadata just now)"
+    fi
+    rm -f "$staged_kh"
+  fi
+  echo "Probing github.com:22 and ssh.github.com:443 — transport only, no key is offered (up to ${probe_deadline}s each)…"
+  local p22 p443
+  p22="$(transport_probe github.com 22)"
+  p443="$(transport_probe ssh.github.com 443)"
+  echo "  github.com:22       $(describe_transport "$p22")"
+  echo "  ssh.github.com:443  $(describe_transport "$p443")"
+  echo "Checking authentication through your effective SSH configuration…"
+  case "$(auth_check)" in
+    authenticated) echo "GitHub auth:      authenticated (your keys and aliases were honored)" ;;
+    denied) echo "GitHub auth:      transport works but GitHub denied every offered key — check 'ssh -T git@github.com' and 'gh auth status'; this is not a routing problem" ;;
+    unknown) echo "GitHub auth:      unknown (the authenticated check did not reach GitHub)" ;;
+  esac
+  if [[ "$p22" != "reachable" && "$p443" == "reachable" && "$state" == "absent" ]]; then
+    echo "Port 22 is failing here and 443 works: groundwork-github-ssh enable-443"
+  elif [[ "$p22" == "reachable" && "$state" == "healthy" ]]; then
+    echo "Port 22 works from this network; the fallback is optional here. Revert: groundwork-github-ssh revert-443"
+  elif [[ "$p22" != "reachable" && "$p443" != "reachable" ]]; then
+    echo "Neither port is reachable — this looks like a general network problem, and the 443 fallback would not help."
+  fi
+}
+
+refresh_keys() { # healthy install: refresh the managed key file when stale
+  local staged_kh
+  staged_kh="$(mktemp)"
+  stage_github_keys "$staged_kh"
+  if [[ "$(sha256_file "$staged_kh")" == "$(sha256_file "$known_hosts")" ]]; then
+    rm -f "$staged_kh"
+    echo "The GitHub port-443 fallback is already enabled and its keys match GitHub's current metadata — nothing to do."
+    return 0
+  fi
+  echo "The fallback is enabled, but GitHub's published host keys changed. New keys:"
+  ssh-keygen -lf "$staged_kh" | sed 's/^/  /'
+  confirm "Refresh the managed key file with these keys?"
+  take_lock
+  if [[ "$(managed_state)" != "healthy" ]]; then
+    rm -f "$staged_kh"
+    fail "the managed install changed while confirming; re-run groundwork-github-ssh status"
+  fi
+  write_atomic "$known_hosts" <"$staged_kh"
+  rm -f "$staged_kh"
+  sha256_file "$known_hosts" >"$receipt_dir/known_hosts_sha256"
+  echo "Refreshed. Receipt:"
+  echo "  wrote   $known_hosts"
+  ssh-keygen -lf "$known_hosts" | sed 's/^/            /'
+}
+
+cmd_enable() {
+  local state
+  state="$(managed_state)"
+  case "$state" in
+    healthy)
+      refresh_keys
+      return 0
+      ;;
+    partial | drifted)
+      fail "the managed install is $state (an interrupted run or a local edit). Refusing to build on it: run 'groundwork-github-ssh revert-443' first — it removes managed pieces conservatively and preserves anything you edited." 2
+      ;;
+  esac
+  echo "Probing before changing anything — transport only, no key is offered (up to ${probe_deadline}s per port)…"
+  local p22 p443
+  p22="$(transport_probe github.com 22)"
+  p443="$(transport_probe ssh.github.com 443)"
+  echo "  github.com:22       $(describe_transport "$p22")"
+  echo "  ssh.github.com:443  $(describe_transport "$p443")"
+  if [[ "$p443" != "reachable" ]]; then
+    fail "ssh.github.com:443 is not reachable from here ($p443), so the fallback would not help. Some proxies block SSH over 443 too; nothing was changed." 2
+  fi
+  if [[ "$p22" == "reachable" ]]; then
+    echo "Note: port 22 currently works from this network; the fallback is still safe (it works on both kinds of network)." >&2
+  fi
+  echo "This will:"
+  echo "  1. write $snippet:"
+  snippet_content | sed 's/^/       /'
+  echo "  2. write $known_hosts — GitHub's published keys for [ssh.github.com]:443, fetched over TLS and required to match the fingerprints in the same metadata"
+  echo "  3. add one marked block at the top of $ssh_config (backed up first; top placement because ssh takes the first value per setting):"
+  printf '       %s\n       %s\n       %s\n' "$block_begin" "$block_include" "$block_end"
+  echo "  4. record the change receipt under $receipt_dir/ so revert can be exact"
+  echo "Only the literal Host github.com route changes; aliases (github-work and friends), other hosts, and private keys are preserved, not rewritten."
+  confirm "Enable the GitHub port-443 fallback?"
+
+  take_lock
+  state="$(managed_state)"
+  [[ "$state" == "absent" ]] \
+    || fail "the managed state changed to '$state' while confirming; re-run groundwork-github-ssh status" 2
+  mkdir -p "$own_dir"
+  chmod 700 "$ssh_dir" "$own_dir" 2>/dev/null || true
+
+  # Stage everything before touching live files, then commit with a rollback
+  # trap armed: an interruption between renames restores the backup and removes
+  # only this run's files, so no unreceipted active include can survive.
+  local original_existed=false original_sha backup staged_kh staged_config
+  [[ -f "$ssh_config" ]] && original_existed=true
+  original_sha="$(sha256_file "$ssh_config")"
+  staged_kh="$(mktemp)"
+  stage_github_keys "$staged_kh"
+  staged_config="$(mktemp)"
+  {
+    printf '%s\n%s\n%s\n' "$block_begin" "$block_include" "$block_end"
+    [[ -f "$ssh_config" ]] && cat "$ssh_config"
+  } >"$staged_config"
+  backup="$(backup_config)"
+  if [[ "$backup" != "-" && "$(sha256_file "$backup")" != "$original_sha" ]]; then
+    rm -f "$staged_kh" "$staged_config"
+    fail "the just-written backup does not match the live config; refusing to continue. Nothing was changed."
+  fi
+
+  rollback_backup="$backup"
+  rollback_config_existed="$original_existed"
+  rollback_needed=1
+  write_atomic "$known_hosts" <"$staged_kh"
+  rm -f "$staged_kh"
+  snippet_content | write_atomic "$snippet"
+  write_atomic "$ssh_config" <"$staged_config"
+  rm -f "$staged_config"
+  write_receipt "$original_existed" "$original_sha" "$backup" "$(sha256_file "$ssh_config")"
+  if ! verify_effective; then
+    fail "the enabled config did not evaluate to ssh.github.com:443 with strict host keys ('ssh -G github.com'); rolled back. A Match block or include of yours may conflict — see 'groundwork-github-ssh status'."
+  fi
+  rollback_needed=0
+
+  echo "Enabled. Receipt:"
+  echo "  wrote   $snippet"
+  echo "  wrote   $known_hosts with these keys:"
+  ssh-keygen -lf "$known_hosts" | sed 's/^/            /'
+  echo "  updated $ssh_config (one marked block at the top)"
+  echo "  backup  $backup"
+  echo "  state   $receipt_dir/"
+  echo "  verify  ssh -T git@github.com   (a 'Hi <you>!' greeting means it works; GitHub exits nonzero by design)"
+  echo "  revert  groundwork-github-ssh revert-443"
+}
+
+preserve_or_remove() { # $1 file  $2 receipt-field; removes only unchanged files
+  [[ -f "$1" ]] || return 0
+  local recorded
+  recorded="$(receipt_read "$2")"
+  if [[ -n "$recorded" && "$recorded" == "$(sha256_file "$1")" ]]; then
+    rm -f "$1"
+    echo "  removed $1"
+  else
+    local kept
+    kept="$1.user-modified-$(date +%Y%m%d-%H%M%S)"
+    mv "$1" "$kept"
+    echo "  KEPT    $kept (edited since enable, or no receipt to verify against — preserved, not deleted)"
+  fi
+}
+
+cmd_revert() {
+  local state
+  state="$(managed_state)"
+  if [[ "$state" == "absent" ]]; then
+    echo "The managed fallback is not installed — nothing to revert."
+    if [[ "$(effective_route)" == "ssh.github.com 443" ]]; then
+      echo "Note: github.com still routes to ssh.github.com:443 via configuration outside groundwork-github-ssh."
+    fi
+    return 0
+  fi
+  local begins ends
+  begins="$(count_marker "$block_begin")"
+  ends="$(count_marker "$block_end")"
+  if [[ "$begins" -gt 1 || "$ends" -gt 1 || "$begins" -ne "$ends" ]]; then
+    fail "the managed markers in $ssh_config are duplicated or unbalanced ($begins begin, $ends end); refusing to guess. Remove the '$block_begin' … '$block_end' block(s) by hand, then re-run revert-443 to clean the managed files."
+  fi
+  echo "This will remove the managed fallback pieces that exist (state: $state):"
+  [[ "$begins" -eq 1 ]] && echo "  - the marked block in $ssh_config (backed up first; exact byte-for-byte restore when SHA-256 digests confirm nothing else changed)"
+  [[ -f "$snippet" ]] && echo "  - $snippet (preserved instead if you edited it)"
+  [[ -f "$known_hosts" ]] && echo "  - $known_hosts (preserved instead if you edited it)"
+  [[ -d "$receipt_dir" ]] && echo "  - the receipt under $receipt_dir/"
+  echo "Backups under $backup_dir are kept. This removes Groundwork's override only — other configuration of yours that selects port 443 stays in force."
+  confirm "Revert the managed GitHub port-443 fallback?"
+
+  take_lock
+  local backup="-" config_outcome="untouched (no managed block present)"
+  if [[ "$begins" -eq 1 ]]; then
+    backup="$(backup_config)"
+    local post_sha original_existed original_sha recorded_backup
+    post_sha="$(receipt_read post_config_sha256)"
+    original_existed="$(receipt_read original_config_existed)"
+    original_sha="$(receipt_read original_config_sha256)"
+    recorded_backup="$(receipt_read backup_path)"
+    if [[ -n "$post_sha" && "$post_sha" == "$(sha256_file "$ssh_config")" && "$original_existed" == "false" ]]; then
+      rm -f "$ssh_config"
+      config_outcome="exact (the config did not exist before enable, so it is gone again)"
+    elif [[ -n "$post_sha" && "$post_sha" == "$(sha256_file "$ssh_config")" &&
+    "$original_existed" == "true" && -f "$recorded_backup" &&
+    "$(sha256_file "$recorded_backup")" == "$original_sha" ]]; then
+      cp -p "$recorded_backup" "$ssh_config"
+      config_outcome="exact (byte-for-byte from the SHA-256-verified enable-time backup)"
+    else
+      local stripped
+      stripped="$(mktemp)"
+      strip_managed_block <"$ssh_config" >"$stripped"
+      write_atomic "$ssh_config" <"$stripped"
+      rm -f "$stripped"
+      config_outcome="surgical (edits since enable, or an unverifiable backup — removed only the marked block; everything else stays)"
+    fi
+  fi
+  echo "Reverted. Receipt:"
+  echo "  config  $config_outcome"
+  preserve_or_remove "$snippet" snippet_sha256
+  preserve_or_remove "$known_hosts" known_hosts_sha256
+  rm -rf "$receipt_dir"
+  echo "  backup  $backup"
+  echo "  route   $(effective_route | sed 's/ /:/') (per 'ssh -G github.com')"
+}
+
+case "$subcommand" in
+  status) cmd_status ;;
+  enable-443) cmd_enable ;;
+  revert-443) cmd_revert ;;
+esac

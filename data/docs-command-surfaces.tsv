@@ -109,6 +109,9 @@ git show --stat	command	external-command	all	all	git	git.html
 git branches	command	git-alias	all	all	git	git.html
 git gone	command	git-alias	all	all	git	git.html
 git recent	command	git-alias	all	all	git	git.html
+groundwork-github-ssh status	command	executable	all	all	-	troubleshooting.html
+groundwork-github-ssh enable-443	command	executable	all	all	-	troubleshooting.html
+groundwork-github-ssh revert-443	command	executable	all	all	-	troubleshooting.html
 tmux new -s <name>	command	external-command	all	all	tmux	tmux.html
 tmux attach -t <name>	command	external-command	all	all	tmux	tmux.html
 tmuxp load .tmuxp.yaml	command	external-command	all	all	tmuxp	tmux.html

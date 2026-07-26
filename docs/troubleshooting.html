@@ -303,6 +303,16 @@
         <tr><td><strong>Notes stuck as cloud placeholders</strong></td><td>Right-click the vault folder in Finder → <strong>Keep Downloaded</strong> so iCloud keeps them local</td></tr>
       </table>
 
+      <h2 id="github-ssh"><span class="hash">#</span>git pull hangs silently, but the web works</h2>
+      <p>When <code>git pull</code> or <code>chezmoi update</code> sits there printing nothing while browsing is fine, one common cause — when the remote uses SSH (an HTTPS remote is unaffected by this) — is a network (hotel, office, some VPN or router setups) that lets the SSH connection to <code>github.com</code> open but never answers the handshake, so git waits forever instead of erroring. GitHub's documented escape is SSH over the HTTPS port, and Groundwork wraps it in a reversible helper:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">github ssh</span></div>
+        <pre><code><span class="prompt">$ </span>groundwork-github-ssh status      <span class="comment"># bounded probes: is port 22 stalling? does 443 work?</span>
+<span class="prompt">$ </span>groundwork-github-ssh enable-443  <span class="comment"># shows the exact change, asks, backs up, then routes via ssh.github.com:443</span>
+<span class="prompt">$ </span>groundwork-github-ssh revert-443  <span class="comment"># back to plain port 22; backups are kept</span></code></pre>
+      </div>
+      <p>It changes only the <code>Host github.com</code> route — other hosts, SSH aliases, and your keys are untouched — and requires GitHub's host keys, fetched over TLS, to match the fingerprints GitHub publishes in the same metadata before trusting them. Two honest caveats: some proxies interfere with SSH over 443 too (so <code>status</code> probes both ports, offering no key, before anything changes), and <code>revert-443</code> removes Groundwork's override only — other configuration of yours that selects port 443 stays in force.</p>
+
       <h2 id="git"><span class="hash">#</span>Git keeps asking for a login</h2>
       <p>This is an <em>access</em> problem, not a setup bug. <code>git pull</code> / <code>chezmoi update</code> can't authenticate. The usual culprit is being logged into <code>gh</code> as the wrong account, or using an SSH remote without the matching key/account configured. First, see who you are:</p>
       <div class="terminal">

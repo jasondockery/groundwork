@@ -1375,6 +1375,243 @@ if command -v tmux >/dev/null 2>&1; then
     || fail "declining must leave the live config unchanged"
 fi
 
+check "groundwork-github-ssh fallback (hostile arguments, semantics, transactions, revert)"
+gh_bin="$PWD/home/dot_local/bin/executable_groundwork-github-ssh"
+test -x "$gh_bin" || fail "groundwork-github-ssh must exist and be executable"
+bash -n "$gh_bin" || fail "groundwork-github-ssh must be valid bash"
+assert_no_matches "groundwork-github-ssh must never reference identity files or private keys" \
+  rg -n 'IdentityFile|id_rsa|id_ed25519|id_ecdsa' "$gh_bin"
+grep -qF 'PreferredAuthentications=none' "$gh_bin" \
+  || fail "transport probes must never offer authentication material"
+gh_dir="$out_dir/ghssh"
+mkdir -p "$gh_dir/bin"
+# Two fixture key pairs let the suite exercise fingerprint match, mismatch, and
+# rotation. The stub ssh delegates -G to the real OpenSSH parser (the command
+# rewrites the managed include to an absolute path first, so this is the REAL
+# config semantics, not an approximation) and answers probes per port.
+ssh-keygen -q -t ed25519 -N '' -f "$gh_dir/key1" </dev/null
+ssh-keygen -q -t ed25519 -N '' -f "$gh_dir/key2" </dev/null
+gh_key1="$(awk '{ print $1 " " $2 }' "$gh_dir/key1.pub")"
+gh_key2="$(awk '{ print $1 " " $2 }' "$gh_dir/key2.pub")"
+gh_fp1="$(ssh-keygen -lf "$gh_dir/key1.pub" | awk '{ print $2 }' | sed 's/^SHA256://')"
+gh_fp2="$(ssh-keygen -lf "$gh_dir/key2.pub" | awk '{ print $2 }' | sed 's/^SHA256://')"
+cat >"$gh_dir/bin/ssh" <<'SH'
+#!/bin/sh
+if [ "$1" = "-G" ]; then exec /usr/bin/ssh "$@"; fi
+port=22
+prev=""
+transport=0
+for a in "$@"; do
+  [ "$prev" = "-p" ] && port="$a"
+  [ "$a" = "PreferredAuthentications=none" ] && transport=1
+  prev="$a"
+done
+if [ "$transport" = 1 ]; then
+  if [ "$port" = 443 ]; then v="${GH_SSH_STUB_443:-reachable}"; else v="${GH_SSH_STUB_22:-reachable}"; fi
+  case "$v" in
+    stall) exec sleep 60 ;;
+    unreachable)
+      echo "ssh: connect to host stub port $port: Connection refused" >&2
+      exit 255
+      ;;
+    *)
+      echo "git@stub: Permission denied (none)." >&2
+      exit 255
+      ;;
+  esac
+fi
+case "${GH_SSH_STUB_AUTH:-auth}" in
+  noauth)
+    echo "git@stub: Permission denied (publickey)." >&2
+    exit 255
+    ;;
+  *)
+    echo "Hi tester! You've successfully authenticated, but GitHub does not provide shell access." >&2
+    exit 1
+    ;;
+esac
+SH
+chmod +x "$gh_dir/bin/ssh"
+cat >"$gh_dir/bin/curl" <<SH
+#!/bin/sh
+case "\${GH_CURL_STUB:-ok}" in
+  bad) printf '{"no_keys":true}' ;;
+  mismatch) printf '{"ssh_keys":["$gh_key1"],"ssh_key_fingerprints":{"SHA256_ED25519":"$gh_fp2"}}' ;;
+  rotated) printf '{"ssh_keys":["$gh_key2"],"ssh_key_fingerprints":{"SHA256_ED25519":"$gh_fp2"}}' ;;
+  *) printf '{"ssh_keys":["$gh_key1"],"ssh_key_fingerprints":{"SHA256_ED25519":"$gh_fp1"}}' ;;
+esac
+SH
+chmod +x "$gh_dir/bin/curl"
+gh_home=""
+run_ghssh() { # scripted-verdict run under the scenario HOME; stdin is not a tty
+  HOME="$gh_home" PATH="$gh_dir/bin:/usr/bin:/bin" \
+    GROUNDWORK_GITHUB_SSH_PROBE_DEADLINE=1 "$gh_bin" "$@"
+}
+# --- Scenario 1: hostile arguments and fail-closed paths on an empty HOME ---
+gh_home="$gh_dir/home1"
+mkdir -p "$gh_home"
+run_ghssh --help >/dev/null || fail "groundwork-github-ssh --help must exit 0"
+gh_rc=0
+run_ghssh --bogus >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 64 ]] || fail "groundwork-github-ssh must reject an unknown option with exit 64"
+gh_rc=0
+run_ghssh enable-443 extra >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 64 ]] || fail "groundwork-github-ssh must reject unexpected positionals with exit 64"
+gh_rc=0
+run_ghssh status --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 64 ]] || fail "groundwork-github-ssh must reject --yes on status (inert flags are errors)"
+gh_rc=0
+run_ghssh >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 64 ]] || fail "groundwork-github-ssh must require a subcommand with exit 64"
+gh_rc=0
+run_ghssh enable-443 </dev/null >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 2 ]] || fail "groundwork-github-ssh enable-443 without a TTY or --yes must refuse with exit 2"
+gh_rc=0
+GH_CURL_STUB=bad run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 1 ]] || fail "groundwork-github-ssh must fail on malformed GitHub metadata"
+gh_rc=0
+GH_CURL_STUB=mismatch run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 1 ]] || fail "groundwork-github-ssh must refuse keys whose fingerprints do not match the published set"
+gh_rc=0
+GH_SSH_STUB_443=stall run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 2 ]] || fail "groundwork-github-ssh must refuse enable when 443 times out (got $gh_rc)"
+[[ ! -e "$gh_home/.ssh/config" && ! -e "$gh_home/.ssh/groundwork/github-443.conf" ]] \
+  || fail "refused/hostile/failed invocations must not install anything"
+GH_SSH_STUB_443=stall run_ghssh status >"$gh_dir/out.stall" \
+  || fail "status must survive timed-out probes and still report"
+grep -qF 'timed out (no SSH answer' "$gh_dir/out.stall" \
+  || fail "status must report a watchdog timeout as timed out, not as a proven post-connect stall"
+GH_SSH_STUB_AUTH=noauth run_ghssh status >"$gh_dir/out.noauth"
+grep -qF 'not a routing problem' "$gh_dir/out.noauth" \
+  || fail "status must separate transport from authentication"
+# The field failure itself: port 22 dead, 443 alive — enable must work.
+GH_SSH_STUB_22=stall run_ghssh enable-443 --yes >"$gh_dir/out.enable1" \
+  || fail "enable-443 must succeed when 22 times out but 443 answers"
+head -n 3 "$gh_home/.ssh/config" >"$gh_dir/head3"
+printf '%s\n%s\n%s\n' '# >>> groundwork-github-ssh >>>' 'Include ~/.ssh/groundwork/github-443.conf' '# <<< groundwork-github-ssh <<<' \
+  | diff -q - "$gh_dir/head3" >/dev/null \
+  || fail "the managed block must be exactly the first three lines"
+grep -qF '[ssh.github.com]:443' "$gh_home/.ssh/groundwork/github-known-hosts" \
+  || fail "host keys must use the [ssh.github.com]:443 identity"
+test -f "$gh_home/.local/state/groundwork/github-ssh-443/post_config_sha256" \
+  || fail "enable must write the per-field receipt"
+gh_perm="$(stat -f '%Lp' "$gh_home/.ssh/config" 2>/dev/null || stat -c '%a' "$gh_home/.ssh/config")"
+[[ "$gh_perm" == "600" ]] || fail "the rewritten config must stay 0600 (got $gh_perm)"
+run_ghssh revert-443 --yes >"$gh_dir/out.revert1" || fail "revert-443 --yes must succeed"
+[[ ! -e "$gh_home/.ssh/config" ]] \
+  || fail "revert on a config that did not exist before enable must remove it (exact restore of nonexistence)"
+[[ ! -e "$gh_home/.ssh/groundwork/github-443.conf" && ! -e "$gh_home/.local/state/groundwork/github-ssh-443" ]] \
+  || fail "revert must remove the managed snippet and receipt"
+# --- Scenario 2: real OpenSSH semantics on a complex config ---
+gh_home="$gh_dir/home2"
+mkdir -p "$gh_home/.ssh"
+cat >"$gh_home/.ssh/config" <<'CFG'
+AddKeysToAgent yes
+Include ~/.ssh/groundwork-test-nonexistent-include.conf
+
+Host github.com
+  User olduser
+
+Host workalias
+  HostName github.com
+  Port 2222
+
+Match host matchhost
+  ForwardAgent yes
+
+Host *
+  ServerAliveInterval 30
+CFG
+cp "$gh_home/.ssh/config" "$gh_dir/complex.orig"
+for gh_host in otherhost workalias matchhost; do
+  /usr/bin/ssh -G -F "$gh_dir/complex.orig" "$gh_host" >"$gh_dir/before.$gh_host" 2>/dev/null \
+    || fail "real ssh -G must evaluate the fixture config"
+done
+run_ghssh enable-443 --yes >"$gh_dir/out.enable2" \
+  || fail "enable-443 must succeed on a complex existing config"
+sed "s|^Include ~/.ssh/groundwork/github-443.conf\$|Include $gh_home/.ssh/groundwork/github-443.conf|" \
+  "$gh_home/.ssh/config" >"$gh_dir/complex.after"
+for gh_host in otherhost workalias matchhost; do
+  /usr/bin/ssh -G -F "$gh_dir/complex.after" "$gh_host" >"$gh_dir/after.$gh_host" 2>/dev/null \
+    || fail "real ssh -G must evaluate the enabled config"
+  diff -q "$gh_dir/before.$gh_host" "$gh_dir/after.$gh_host" >/dev/null \
+    || fail "enable changed real ssh -G semantics for unrelated host '$gh_host' (scope leak)"
+done
+/usr/bin/ssh -G -F "$gh_dir/complex.after" github.com >"$gh_dir/after.github" 2>/dev/null
+grep -qx 'port 443' "$gh_dir/after.github" \
+  || fail "real ssh -G must route github.com to port 443 after enable"
+grep -qx 'hostname ssh.github.com' "$gh_dir/after.github" \
+  || fail "real ssh -G must route github.com to ssh.github.com after enable"
+grep -qx 'stricthostkeychecking true' "$gh_dir/after.github" \
+  || fail "the managed stanza must enforce strict host-key checking"
+tail -n +4 "$gh_home/.ssh/config" | diff -q - "$gh_dir/complex.orig" >/dev/null \
+  || fail "enable must preserve the existing config verbatim below the managed block"
+run_ghssh enable-443 --yes >"$gh_dir/out.idem"
+grep -qF 'already enabled' "$gh_dir/out.idem" \
+  || fail "a second enable with current keys must be an idempotent no-op"
+GH_CURL_STUB=rotated run_ghssh enable-443 --yes >"$gh_dir/out.rotate" \
+  || fail "enable on a healthy install with rotated keys must refresh"
+grep -qF 'Refreshed' "$gh_dir/out.rotate" || fail "the key refresh must say so"
+grep -qF "${gh_key2#ssh-ed25519 }" "$gh_home/.ssh/groundwork/github-known-hosts" \
+  || fail "the refresh must install the rotated key"
+run_ghssh revert-443 --yes >"$gh_dir/out.revert2" || fail "revert after refresh must succeed"
+diff -q "$gh_home/.ssh/config" "$gh_dir/complex.orig" >/dev/null \
+  || fail "revert on an unedited config must restore it byte-for-byte"
+# Surgical revert: user edits and an identical user-owned Include survive.
+run_ghssh enable-443 --yes >/dev/null || fail "re-enable for the surgical case must succeed"
+printf '# user edit after enable\nInclude ~/.ssh/groundwork/github-443.conf\n' >>"$gh_home/.ssh/config"
+run_ghssh revert-443 --yes >"$gh_dir/out.surgical"
+grep -qF 'surgical' "$gh_dir/out.surgical" \
+  || fail "revert after user edits must report the surgical path"
+grep -qF '# user edit after enable' "$gh_home/.ssh/config" \
+  || fail "revert must preserve user edits made after enable"
+grep -qxF 'Include ~/.ssh/groundwork/github-443.conf' "$gh_home/.ssh/config" \
+  || fail "revert must not delete a user-owned duplicate include outside the marked block"
+! grep -qF '>>> groundwork-github-ssh >>>' "$gh_home/.ssh/config" \
+  || fail "revert must remove the managed block"
+sed -i.bak '/^Include ~\/.ssh\/groundwork\/github-443.conf$/d;/^# user edit after enable$/d' "$gh_home/.ssh/config" \
+  && rm -f "$gh_home/.ssh/config.bak"
+# Modified managed file: preserved with a warning, never deleted.
+run_ghssh enable-443 --yes >/dev/null || fail "re-enable for the modified-snippet case must succeed"
+printf '# local tweak\n' >>"$gh_home/.ssh/groundwork/github-443.conf"
+gh_rc=0
+run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 2 ]] || fail "enable on a drifted install must fail closed (got $gh_rc)"
+run_ghssh revert-443 --yes >"$gh_dir/out.kept"
+grep -qF 'KEPT' "$gh_dir/out.kept" \
+  || fail "revert must preserve, not delete, a managed file edited by the user"
+ls "$gh_home"/.ssh/groundwork/github-443.conf.user-modified-* >/dev/null 2>&1 \
+  || fail "the preserved snippet must exist under a .user-modified name"
+rm -f "$gh_home"/.ssh/groundwork/github-443.conf.user-modified-*
+diff -q "$gh_home/.ssh/config" "$gh_dir/complex.orig" >/dev/null \
+  || fail "the drifted-install revert must still restore the unedited config exactly"
+# Tampered backup: exact restore must refuse; surgical removal still works.
+run_ghssh enable-443 --yes >/dev/null || fail "re-enable for the tampered-backup case must succeed"
+gh_backup="$(cat "$gh_home/.local/state/groundwork/github-ssh-443/backup_path")"
+printf '# tampered\n' >>"$gh_backup"
+run_ghssh revert-443 --yes >"$gh_dir/out.tamper"
+grep -qF 'surgical' "$gh_dir/out.tamper" \
+  || fail "revert must fall back to surgical when the backup fails SHA-256 verification"
+diff -q "$gh_home/.ssh/config" "$gh_dir/complex.orig" >/dev/null \
+  || fail "the surgical fallback must still leave the original content intact"
+# --- Scenario 3: partial installs fail closed; lock contention refuses ---
+gh_home="$gh_dir/home3"
+mkdir -p "$gh_home/.ssh"
+printf '# >>> groundwork-github-ssh >>>\nInclude ~/.ssh/groundwork/github-443.conf\n# <<< groundwork-github-ssh <<<\n' \
+  >"$gh_home/.ssh/config"
+gh_rc=0
+run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 2 ]] \
+  || fail "enable must refuse to adopt a partial install as baseline (got $gh_rc)"
+run_ghssh revert-443 --yes >/dev/null || fail "revert must clean a partial install"
+! grep -qF 'groundwork-github-ssh' "$gh_home/.ssh/config" \
+  || fail "revert must remove the dangling managed block from a partial install"
+mkdir -p "$gh_home/.ssh/groundwork/.lock"
+gh_rc=0
+run_ghssh enable-443 --yes >/dev/null 2>&1 || gh_rc=$?
+[[ "$gh_rc" -eq 1 ]] || fail "enable must refuse while another run holds the lock (got $gh_rc)"
+rmdir "$gh_home/.ssh/groundwork/.lock"
+
 check "groundwork-source-preflight branch-state model"
 pf_helper="$PWD/home/dot_local/bin/executable_groundwork-source-preflight"
 test -x "$pf_helper" || fail "groundwork-source-preflight must exist and be executable"

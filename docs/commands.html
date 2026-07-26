@@ -193,6 +193,9 @@
       <table class="keytable">
         <tr><td><code>gh auth login</code></td><td>Sign in to GitHub for <code>gh</code> and HTTPS Git operations.</td></tr>
         <tr><td><code>gh auth setup-git</code></td><td>Install <code>gh</code> as Git's HTTPS credential helper.</td></tr>
+        <tr><td><code>groundwork-github-ssh status</code></td><td>Probe GitHub SSH on port 22 and <code>ssh.github.com:443</code> with a bounded deadline, separating transport from authentication, and report which route git currently uses. Read-only.</td></tr>
+        <tr><td><code>groundwork-github-ssh enable-443</code></td><td>Route <code>github.com</code> SSH via <code>ssh.github.com:443</code> for networks that stall port 22. Shows the exact change, asks first (<code>--yes</code> for non-interactive), backs up <code>~/.ssh/config</code>, and fingerprint-checks GitHub's published host keys. See <a href="troubleshooting.html#github-ssh">Troubleshooting</a>.</td></tr>
+        <tr><td><code>groundwork-github-ssh revert-443</code></td><td>Remove the managed port-443 fallback — byte-exact when the config is unedited since enable, surgical otherwise. Backups are kept.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Dev runtimes</h2>

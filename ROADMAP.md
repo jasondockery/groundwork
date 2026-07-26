@@ -131,6 +131,45 @@ Owner action (a human enables this when ready, not code work):
       touching Homebrew/mise/timestamp, and the actual filesystem type
       reported by `findmnt -T /mnt/c` (expected `drvfs` or `9p`) for the
       mount-guard task below.
+- [x] `groundwork-github-ssh` shipped (2026-07-26; raised the same day from a
+      real field failure: GitHub SSH on port 22 stalled after TCP connect on
+      the owner's network while HTTPS and `ssh.github.com:443` worked; the
+      review-hardened rewrite landed the same day). `status` /
+      `enable-443 [--yes]` / `revert-443 [--yes]`: transport probes that offer
+      NO key or agent material (`PreferredAuthentications=none`) under a
+      TERM→KILL watchdog, reporting timed-out honestly rather than claiming a
+      proven post-connect stall, with authentication checked separately
+      through the user's real SSH config (GitHub's success banner arrives
+      with a nonzero exit by design); enable only on explicit consent
+      (`[y/N]`, `--yes`, non-TTY refuses; never run from bootstrap, apply, or
+      update-all); a Groundwork-owned snippet at
+      `~/.ssh/groundwork/github-443.conf` that ends in a `Host *` scope reset
+      (proven with real `ssh -G` parity: without it the stanza leaks onto the
+      rest of the user's config), included via one marked begin/end block at
+      the TOP of `~/.ssh/config` (first-value-wins), never ownership of the
+      file; `StrictHostKeyChecking yes` with host keys for the
+      `[ssh.github.com]:443` identity fetched over TLS from
+      api.github.com/meta and required to match the fingerprints published in
+      the same metadata, kept in a separate managed known-hosts file so the
+      user's is never touched; a transactional enable (stage → backup →
+      commit → verify effective values with the real parser → rollback trap
+      on any failure) under a lock with post-lock state recheck; a per-field
+      SHA-256 receipt under `~/.local/state/groundwork/github-ssh-443/`
+      driving byte-exact revert only when config AND backup digests verify,
+      surgical block removal otherwise, with user-edited managed files
+      preserved as `.user-modified-*`, never deleted; partial/drifted
+      installs refuse enable (fail closed, never adopted as baseline) and a
+      healthy re-enable reconciles rotated GitHub keys after showing them.
+      Fixture suite in `validate-groundwork` covers hostile args, non-TTY
+      refusal, fail-closed metadata and fingerprint mismatch, per-port
+      verdicts including the field case (22 dead, 443 alive), real `ssh -G`
+      semantic parity on a complex config (globals, Include, aliases, Match,
+      `Host *`), verbatim preservation, idempotence, key rotation, exact and
+      surgical revert, tampered-backup fallback, duplicate-include safety,
+      partial-install refusal, and lock contention. Deferred, honestly:
+      `--json` output, CRLF-config fixtures, and pty tests for the
+      interactive prompt states (the `--yes` and non-TTY contracts are
+      fixture-proven; the prompt follows the interactive-cli-ux contract).
 - [ ] Mount-backed Windows-drive guard in `new-project` (WSL): the current
       guard canonicalizes `..`/symlinks in existing components and matches
       the default `/mnt/<drive>` automount root lexically. Harden it to

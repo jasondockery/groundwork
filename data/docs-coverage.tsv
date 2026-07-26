@@ -35,6 +35,9 @@ git	git gone	command	git-alias	home/dot_local/share/groundwork/commands.tsv	git.
 git	git recent	command	git-alias	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
 git	git show --stat	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
 git	git status	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	yes	no	all; requires git
+git	groundwork-github-ssh enable-443	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
+git	groundwork-github-ssh revert-443	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
+git	groundwork-github-ssh status	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
 groundwork-twelve	Gate 01: without the cheat sheet: navigate anywhere and back; create, move, and delete a file; recall a command with CtrlR; start, split, detach, and reattach tmux; a commit in your log for every day so far.	competency	docs-competency	docs/groundwork-twelve.html	command-line.html	n/a	n/a	all
 groundwork-twelve	Gate 02: find any file by name and any string by content in a repo you've never seen; jump between three projects with z; resurrect yesterday's commands without retyping them.	competency	docs-competency	docs/groundwork-twelve.html	shell.html	n/a	n/a	all
 groundwork-twelve	Gate 03: cold start to full workspace in one command; move between editor, terminal, and browser without touching the mouse; survive a detach in the middle of real work.	competency	docs-competency	docs/groundwork-twelve.html	tmux.html	n/a	n/a	all
