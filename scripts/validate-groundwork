@@ -293,6 +293,12 @@ check "shell scripts (syntax, format, lint)"
 # the exact pinned analyzers). CI and local dev call this same entry point, so no
 # distro-packaged analyzer defines "clean" (see scripts/lint-shell).
 scripts/lint-shell
+# BSD-stat-first with a GNU fallback is a trap this repo has hit twice: GNU
+# stat treats -f as "filesystem status" and SUCCEEDS with the wrong output, so
+# the fallback never runs on Linux. Try stat -c first (BSD stat rejects it and
+# fails cleanly), or validate the output like groundwork-repos does.
+assert_no_matches "BSD-first stat fallback found; GNU stat treats -f as filesystem status and succeeds with the wrong output — put the -c form first" \
+  rg -n 'stat -f[^|]*\|\|[^|]*stat -c' scripts home
 
 check "Homebrew update retry helper"
 test -x home/dot_local/bin/executable_groundwork-brew-update

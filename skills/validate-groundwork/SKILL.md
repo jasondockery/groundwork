@@ -11,7 +11,16 @@ Run the shared validation script first:
 scripts/validate-groundwork
 ```
 
-This mirrors CI and checks:
+This mirrors CI **on the platform it runs on**. A green macOS run proves
+nothing about code paths only Linux can reach (GNU vs BSD tool semantics,
+platform branches in shell or tests). Before pushing any change with
+platform-branching shell — `stat`, `sed -i`, `date`, coreutils flags, or
+per-OS test assertions — run the affected checks on Linux locally as well
+(a stock container with the repo mounted is enough; `groundwork-docker-build-scratch`
+for full-image concerns). The GNU/BSD `stat` incident of 2026-07-26 shipped a
+red Linux CI run exactly because the macOS pass was mistaken for a full pass.
+
+The script checks:
 - bootstrap shell syntax
 - ShellCheck linting for checked-in and rendered shell scripts
 - `.chezmoiroot` and `home/` layout
