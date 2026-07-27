@@ -15,9 +15,12 @@
 # prospective PATH — not by executing a known absolute path, which would prove
 # nothing about the resolution failure this exists to fix.
 #
-# Deliberately narrow: it removes ONLY the pnpm that Groundwork itself installed
-# through mise. A pnpm from Homebrew, npm -g, Volta, or a hand-rolled install is
-# reported, never deleted.
+# Scope, stated exactly: this removes EVERY mise-managed pnpm version, because
+# mise records no provenance and Groundwork cannot tell the ones it installed
+# (via the former `pnpm = "latest"`) from ones you installed yourself. They are
+# removable cache — `mise install pnpm@<version>` restores any of them — but the
+# claim is "all mise-managed pnpm", not "only Groundwork's". pnpm from Homebrew,
+# npm -g, Volta, or a hand-rolled install is reported, never touched.
 set -euo pipefail
 
 command -v mise >/dev/null 2>&1 || exit 0
@@ -91,6 +94,23 @@ fi
   exit 0
 }
 
+# ── 1b. Never overwrite a pnpm somebody else put there ───────────────────────
+# `corepack enable --install-directory` writes its proxy into that directory. If
+# the user ran `npm install -g pnpm` under this Node, that file is theirs, and
+# this script's whole promise is that it does not remove tools the user chose.
+if [ -e "$node_dir/pnpm" ]; then
+  existing_target="$node_dir/pnpm"
+  [ -L "$existing_target" ] && existing_target="$(readlink -f "$node_dir/pnpm" 2>/dev/null || printf '%s' "$node_dir/pnpm")"
+  case "$existing_target" in
+    *corepack*) ;; # already ours to manage
+    *)
+      warn "a non-Corepack pnpm already exists at $node_dir/pnpm — it was not installed by Groundwork."
+      warn "Leaving it alone. Remove it yourself if you want Corepack to own pnpm, then rerun 'chezmoi apply'."
+      exit 0
+      ;;
+  esac
+fi
+
 # ── 2. Enable the pnpm shim INTO the active Node's bin, explicitly ────────────
 if ! COREPACK_ENABLE_DOWNLOAD_PROMPT=0 "$corepack_bin" enable pnpm --install-directory "$node_dir" >/dev/null 2>&1; then
   warn "corepack enable pnpm failed (permissions on $node_dir?). pnpm is unchanged."
@@ -107,7 +127,7 @@ fi
 # a file at a known path runs.
 prospective_path="$(
   printf '%s' "$PATH" | tr ':' '\n' \
-    | grep -v '/mise/installs/pnpm/' \
+    | awk '!/\/mise\/installs\/pnpm\// && length' \
     | paste -sd: -
 )"
 prospective_path="$node_dir:$prospective_path"
@@ -117,7 +137,7 @@ if ! PATH="$prospective_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >
   exit 1
 fi
 
-# ── 4. Only now remove the mise-managed pnpm ──────────────────────────────────
+# ── 4. Only now remove the mise-managed pnpm (ALL versions — see the note above)
 removed=0
 if [ -n "${mise_pnpm_installed// /}" ]; then
   if mise uninstall --all pnpm >/dev/null 2>&1; then
@@ -132,16 +152,24 @@ fi
 # ── 5. Re-prove with a bare command; recover honestly if it broke ─────────────
 if [ "$removed" -eq 1 ] && ! COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1; then
   warn "bare 'pnpm' stopped resolving after removing the mise install — restoring it."
+  restored=""
   for version in $mise_pnpm_installed; do
-    mise install "pnpm@$version" >/dev/null 2>&1 || true
+    if mise install "pnpm@$version" >/dev/null 2>&1; then restored="$version"; fi
   done
-  mise reshim >/dev/null 2>&1 || true
-  # Honest about the limit: reinstalling the FILES does not restore mise's
-  # selection, because the managed config no longer lists pnpm. Rewriting that
-  # config here would create chezmoi drift, so the user is told the one command.
-  warn "Reinstalled pnpm files ($mise_pnpm_installed), but mise no longer SELECTS pnpm —"
-  warn "the managed config intentionally dropped it. To fully restore the old behavior:"
-  warn "  mise use -g pnpm@latest"
+  # Reinstalling FILES is not enough: mise must also SELECT one, or bare `pnpm`
+  # stays missing. A working pnpm beats a clean config diff on an error path, so
+  # this re-selects and reports the resulting drift rather than leaving the user
+  # with no package manager.
+  if [ -n "$restored" ] && mise use -g "pnpm@$restored" >/dev/null 2>&1; then
+    mise reshim >/dev/null 2>&1 || true
+    warn "Restored mise pnpm@$restored and re-selected it globally."
+    warn "This deliberately re-adds pnpm to your mise config, so 'chezmoi diff' will"
+    warn "show drift against the managed config until this is resolved."
+  else
+    mise reshim >/dev/null 2>&1 || true
+    warn "Could not restore a working pnpm automatically. Recover with:"
+    warn "  mise use -g pnpm@latest"
+  fi
   warn "Then report this: groundwork-doctor --node-toolchain"
   exit 1
 fi

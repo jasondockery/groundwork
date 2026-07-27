@@ -4981,8 +4981,14 @@ elif ! "$(dirname "$launcher_node")/corepack" --version >/dev/null 2>&1; then
   echo "  skip: Corepack not present beside the active Node (run 'chezmoi apply')"
 else
   launcher_dir="$out_dir/launcher-fixture"
+  # Corepack fetches a pinned pnpm on demand; keep that out of the user's cache
+  # so the validator neither depends on nor mutates real machine state.
+  export COREPACK_HOME="$out_dir/launcher-corepack-home"
   launcher_bin="$launcher_dir/bin"
   mkdir -p "$launcher_bin" "$launcher_dir/repo"
+  # Deliberately not the version any ambient pnpm reports: if resolution is
+  # wrong, the assertion must fail rather than coincidentally pass.
+  launcher_pnpm_version="11.9.0"
   node_bin_dir="$(cd "$(dirname "$launcher_node")" && pwd)"
 
   COREPACK_ENABLE_DOWNLOAD_PROMPT=0 "$node_bin_dir/corepack" enable pnpm \
@@ -4992,7 +4998,7 @@ else
   # PATH the fixture runs under: the Corepack shim first, the managed Node next,
   # and every mise standalone pnpm removed — i.e. the converged model.
   launcher_path="$launcher_bin:$node_bin_dir:$(
-    printf '%s' "$PATH" | tr ':' '\n' | grep -v '/mise/installs/pnpm/' | paste -sd: -
+    printf '%s' "$PATH" | tr ':' '\n' | awk '!/\/mise\/installs\/pnpm\// && length' | paste -sd: -
   )"
 
   # The child script re-resolves BARE pnpm and node, exactly as a Turbo task does.
@@ -5000,19 +5006,22 @@ else
 {
   "name": "groundwork-launcher-fixture",
   "private": true,
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@LAUNCHER_PNPM_VERSION",
   "scripts": {
     "child": "pnpm --version && node --version"
   }
 }
 LAUNCHER_JSON
+  # Render the single source of truth into the manifest.
+  sed -i.bak "s/LAUNCHER_PNPM_VERSION/$launcher_pnpm_version/" "$launcher_dir/repo/package.json"
+  rm -f "$launcher_dir/repo/package.json.bak"
 
   launcher_parent_pnpm="$(
     cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
       pnpm --version 2>/dev/null || true
   )"
-  [ "$launcher_parent_pnpm" = "11.10.0" ] \
-    || fail "bare pnpm must honor the fixture's packageManager pin (got '${launcher_parent_pnpm:-none}', expected 11.10.0)"
+  [ "$launcher_parent_pnpm" = "$launcher_pnpm_version" ] \
+    || fail "bare pnpm must honor the fixture's packageManager pin (got '${launcher_parent_pnpm:-none}', expected $launcher_pnpm_version)"
 
   launcher_child="$(
     cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
@@ -5027,21 +5036,32 @@ LAUNCHER_JSON
   [ "$launcher_child_node" = "$launcher_parent_node" ] \
     || fail "a nested package script resolved node '${launcher_child_node:-none}' but the parent resolved '$launcher_parent_node'"
 
-  # And the negative: with a mise standalone pnpm ahead on PATH, the model breaks.
-  # Proving the fixture can FAIL is what stops it from being decorative.
-  launcher_standalone="$(
-    printf '%s' "$PATH" | tr ':' '\n' | grep -m1 '/mise/installs/pnpm/' || true
+  # The negative case builds its OWN competing pnpm. Depending on the host
+  # already having a stray install would make this silently vanish after a
+  # successful migration or in clean CI — exactly when it matters most.
+  launcher_bad_bin="$launcher_dir/bad-bin"
+  mkdir -p "$launcher_bad_bin"
+  cat >"$launcher_bad_bin/pnpm" <<'LAUNCHER_BAD'
+#!/bin/sh
+echo "0.0.0-competing"
+LAUNCHER_BAD
+  chmod +x "$launcher_bad_bin/pnpm"
+
+  launcher_shadowed="$(
+    cd "$launcher_dir/repo" && PATH="$launcher_bad_bin:$launcher_path" \
+      COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version 2>/dev/null || true
   )"
-  if [ -n "$launcher_standalone" ] && [ -x "$launcher_standalone/pnpm" ]; then
-    launcher_shadowed="$(
-      cd "$launcher_dir/repo" && PATH="$launcher_standalone:$launcher_path" \
-        COREPACK_ENABLE_DOWNLOAD_PROMPT=0 command -v pnpm 2>/dev/null || true
-    )"
-    case "$launcher_shadowed" in
-      "$launcher_standalone"/pnpm) ;;
-      *) fail "the fixture cannot demonstrate shadowing; it would pass even when the model is broken" ;;
-    esac
-  fi
+  [ "$launcher_shadowed" = "0.0.0-competing" ] \
+    || fail "the fixture cannot demonstrate shadowing (got '${launcher_shadowed:-none}') — it would pass even when the ownership model is broken"
+
+  # …and the positive path must still hold immediately afterwards, so the
+  # negative case cannot leave the fixture in a state that fakes success.
+  launcher_recheck="$(
+    cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      pnpm --version 2>/dev/null || true
+  )"
+  [ "$launcher_recheck" = "$launcher_pnpm_version" ] \
+    || fail "after the shadowing case the Corepack path must still resolve $launcher_pnpm_version (got '${launcher_recheck:-none}')"
 fi
 
 check "line endings stay LF"

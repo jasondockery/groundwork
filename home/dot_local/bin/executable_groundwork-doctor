@@ -251,14 +251,41 @@ package_manager_pin() {
   ' "$manifest" 2>/dev/null || true
 }
 
+# Emits "<kind>\t<value>" where kind is exact | range | none. A shell glob
+# cannot do this: `[0-9]*.[0-9]*.[0-9]*` also matches "24.18.0 || 26.0.0" and
+# "24.18.0-beta", so an anchored regex in the Node helper is the honest place.
 engines_node_pin() {
   local manifest="$1"
   node -e '
     try {
       const pkg = require(process.argv[1])
-      process.stdout.write((pkg.engines && pkg.engines.node) || "")
-    } catch {}
-  ' "$manifest" 2>/dev/null || true
+      const value = ((pkg.engines && pkg.engines.node) || "").trim()
+      const kind = !value ? "none" : /^\d+\.\d+\.\d+$/.test(value) ? "exact" : "range"
+      process.stdout.write(kind + "\t" + value)
+    } catch {
+      process.stdout.write("none\t")
+    }
+  ' "$manifest" 2>/dev/null || printf 'none\t'
+}
+
+# ── #14: Corepack resolves the NEAREST ancestor manifest, so a doctor run from a
+# monorepo subdirectory must not report "not inside a Node project" while bare
+# pnpm is governed by a package.json two levels up.
+nearest_manifest() {
+  local want_pin="${1:-}" dir fallback=""
+  dir="$(pwd)"
+  while [ -n "$dir" ] && [ "$dir" != "/" ]; do
+    if [ -f "$dir/package.json" ]; then
+      [ -n "$fallback" ] || fallback="$dir/package.json"
+      if [ -z "$want_pin" ] || grep -qs '"packageManager"' "$dir/package.json"; then
+        printf '%s\n' "$dir/package.json"
+        return 0
+      fi
+    fi
+    dir="$(dirname "$dir")"
+  done
+  printf '%s\n' "$fallback"
+  return 0
 }
 
 node_toolchain_section() {
@@ -271,17 +298,45 @@ node_toolchain_section() {
   # and a standalone pnpm build carries its OWN Node that can trip a repository's
   # engines.node even when the right Node is on PATH.
 
-  local node_path node_version
+  # Read-only means read-only: Corepack fetches a repository's pinned pnpm on
+  # demand, and the download PROMPT variable does not stop it — only this does.
+  # An uncached pin is therefore reported as unverifiable rather than fetched.
+  export COREPACK_ENABLE_NETWORK=0
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
+  local node_path node_version managed_node
   node_path="$(command -v node 2>/dev/null || true)"
   if [ -z "$node_path" ]; then
     warn "node is not on PATH — install it with: mise install"
     return 0
   fi
   node_version="$(node --version 2>/dev/null || echo unknown)"
-  ok "node $node_version ($node_path)"
 
+  # "mise owns Node" is a claim this section must actually test, not assume.
+  managed_node="$(mise which node 2>/dev/null || true)"
+  if [ -z "$managed_node" ]; then
+    warn "node $node_version ($node_path) is not managed by mise — Groundwork's model expects mise to own Node."
+  elif [ "$node_path" = "$managed_node" ]; then
+    ok "node $node_version ($node_path, mise-managed)"
+  else
+    warn "the node on PATH ($node_path) is NOT mise's ($managed_node) — a different Node wins resolution, so pins and Corepack may not be the ones you expect."
+  fi
+
+  local expected_corepack
+  [ -n "$managed_node" ] && expected_corepack="$(dirname "$managed_node")/corepack"
   if command -v corepack >/dev/null 2>&1; then
-    ok "corepack $(corepack --version 2>/dev/null || echo '?') available"
+    local visible_corepack
+    visible_corepack="$(command -v corepack)"
+    # mise exposes installs/node/lts as a symlink to the concrete version, so
+    # compare resolved targets or every managed setup reports a false conflict.
+    local visible_real expected_real
+    visible_real="$(readlink -f "$visible_corepack" 2>/dev/null || printf '%s' "$visible_corepack")"
+    expected_real="$(readlink -f "${expected_corepack:-}" 2>/dev/null || printf '%s' "${expected_corepack:-}")"
+    if [ -n "${expected_corepack:-}" ] && [ "$visible_real" != "$expected_real" ]; then
+      warn "corepack on PATH ($visible_corepack) is not the one beside the managed Node ($expected_corepack) — it may enable shims for a different Node."
+    else
+      ok "corepack $(corepack --version 2>/dev/null || echo '?') beside the managed Node"
+    fi
   else
     local major
     major="${node_version#v}"
@@ -341,12 +396,16 @@ node_toolchain_section() {
     done
   fi
 
-  local manifest pinned node_pin
-  manifest="$(pwd)/package.json"
-  if [ ! -f "$manifest" ]; then
-    note "not inside a Node project — repository pin checks skipped."
+  local manifest pinned node_pin node_pin_kind node_pin_value
+  manifest="$(nearest_manifest pin)"
+  local local_manifest
+  local_manifest="$(nearest_manifest)"
+  if [ -z "$local_manifest" ]; then
+    note "no package.json in this directory or any ancestor — repository pin checks skipped."
     return 0
   fi
+  [ -n "$manifest" ] || manifest="$local_manifest"
+  [ "$manifest" = "$(pwd)/package.json" ] || note "packageManager comes from $manifest (Corepack walks up to the nearest manifest declaring one)"
 
   pinned="$(package_manager_pin "$manifest")"
   if [ -z "$pinned" ]; then
@@ -357,29 +416,30 @@ node_toolchain_section() {
     warn "this repository pins pnpm $pinned but the resolved pnpm is $pnpm_version"
   fi
 
-  node_pin="$(engines_node_pin "$manifest")"
-  if [ -z "$node_pin" ]; then
-    note "this repository declares no engines.node policy."
-  else
-    case "$node_pin" in
+  node_pin="$(engines_node_pin "$local_manifest")"
+  node_pin_kind="${node_pin%%	*}"
+  node_pin_value="${node_pin#*	}"
+  case "$node_pin_kind" in
+    none) note "this repository declares no engines.node policy." ;;
+    exact)
       # An exact pin must match exactly. A RANGE is reported, not judged —
       # reimplementing semver here would only add a new place to be wrong.
-      [0-9]*.[0-9]*.[0-9]*)
-        if [ "${node_version#v}" = "$node_pin" ]; then
-          ok "node matches this repository's exact engines.node pin ($node_pin)"
-        else
-          warn "this repository pins engines.node $node_pin but the active node is $node_version"
-        fi
-        ;;
-      *)
-        note "engines.node is a range ($node_pin); active node is $node_version — ranges are not evaluated here."
-        ;;
-    esac
-  fi
+      if [ "${node_version#v}" = "$node_pin_value" ]; then
+        ok "node matches this repository's exact engines.node pin ($node_pin_value)"
+      else
+        warn "this repository pins engines.node $node_pin_value but the active node is $node_version"
+      fi
+      ;;
+    range)
+      note "engines.node is a range ($node_pin_value); active node is $node_version — ranges are not evaluated here."
+      ;;
+  esac
 
-  # Parent vs nested child — the failure the whole model exists to stop. A
-  # top-level pnpm can be correct while a Turbo task or package script
-  # re-resolves bare `pnpm` from PATH and gets a different one.
+  # Parent vs a pnpm-spawned child — the failure the whole model exists to stop.
+  # A top-level pnpm can be correct while a child re-resolves bare `pnpm` from
+  # PATH and gets a different one. (The package-script shape that Turbo tasks
+  # actually use is proven in scripts/validate-groundwork; this is the cheap
+  # in-place approximation.)
   if [ -n "$pinned" ]; then
     local child_pnpm child_node
     child_pnpm="$(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm exec pnpm --version 2>/dev/null || echo unknown)"
@@ -387,7 +447,7 @@ node_toolchain_section() {
     if [ "$child_pnpm" = "$pnpm_version" ] && [ "$child_node" = "$node_version" ]; then
       ok "nested processes resolve the same toolchain (pnpm $child_pnpm, node $child_node)"
     else
-      warn "nested processes resolve a DIFFERENT toolchain (pnpm $child_pnpm, node $child_node) than the parent (pnpm $pnpm_version, node $node_version) — Turbo tasks and package scripts will not agree with your shell."
+      warn "a pnpm-spawned child resolves a DIFFERENT toolchain (pnpm $child_pnpm, node $child_node) than the parent (pnpm $pnpm_version, node $node_version) — Turbo tasks and package scripts will not agree with your shell."
     fi
   fi
 }

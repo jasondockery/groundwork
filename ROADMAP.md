@@ -523,8 +523,9 @@ which returns only the first match.
       `~/.config/opencode/`, so the two never collide.
 - [ ] Cover the reverse case too: a Groundwork-managed command that is missing
       from PATH entirely because another installer removed or shadowed it.
-- [x] **pnpm/Node ownership — the first instance of this class, fixed
-      2026-07-27.** Groundwork shipped a global `pnpm = "latest"` through mise,
+- [ ] **pnpm/Node ownership — the first instance of this class. Repository work
+      landed 2026-07-27; NOT yet migrated on a live machine, so this stays open
+      until the receipts exist.** Groundwork shipped a global `pnpm = "latest"` through mise,
       which competed with the pnpm every repository pins in `packageManager`.
       PATH order decided the winner silently: a newer pnpm meeting an older pin
       self-managed a download of it, nested Turbo/package-script children
@@ -542,7 +543,16 @@ which returns only the first match.
       the prospective PATH, and only then removes the mise pnpm — restoring it
       and saying what it cannot restore if the proof fails;
       `groundwork-doctor --node-toolchain`; and a validator fixture proving a
-      nested package script resolves the same pnpm and Node as its parent.
+      nested package script resolves the same pnpm and Node as its parent (and
+      that a competing pnpm it builds itself still shadows, so the fixture
+      cannot pass while the model is broken).
+      Still required before this closes: the live migration on a managed
+      machine, plus receipts for `groundwork-doctor --node-toolchain`, the full
+      validator, bare `pnpm roo verify`, `lefthook run pre-commit`, and
+      parent/child Node+pnpm paths. Also unproven: the Node 25+ path (no Node 25
+      install exists here to exercise `node.corepack = true` followed by the
+      pinned userland Corepack install) — it is designed and pinned, not
+      demonstrated.
 - [ ] Generalize the doctor's pnpm provenance logic to the other managed
       commands. `--node-toolchain` now resolves mise shims through
       `mise which`, collapses candidates to distinct OWNERS (a shim and the
