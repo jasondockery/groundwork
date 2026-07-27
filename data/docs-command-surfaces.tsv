@@ -17,6 +17,7 @@ Ctrl+a then x	key	tmux-binding	all	all	tmux	tmux.html
 tmux copy-mode-vi: v	key	tmux-binding	all	all	tmux	tmux.html
 tmux copy-mode-vi: Ctrl+v	key	tmux-binding	all	all	tmux	tmux.html
 tmux copy-mode-vi: y	key	tmux-binding	all	all	tmux	tmux.html
+tmux copy-mode-vi: drag	key	tmux-binding	all	all	tmux	tmux.html
 tmux right-click	key	tmux-binding	all	all	tmux	tmux.html
 tmux Option+right-click	key	tmux-binding	all	all	tmux	tmux.html
 Ctrl+a then Ctrl+a	key	tmux-binding	all	all	tmux	tmux.html

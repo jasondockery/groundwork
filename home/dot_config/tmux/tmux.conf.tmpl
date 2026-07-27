@@ -34,9 +34,19 @@ set -ga update-environment TERM_PROGRAM
 bind -T copy-mode-vi v send -X begin-selection
 bind -T copy-mode-vi C-v send -X rectangle-toggle
 bind -T copy-mode-vi y send -X copy-selection-and-cancel
-# A mouse drag PLACES a selection but does not auto-copy or exit copy mode; you
-# complete the copy with y (tmux's default copies on drag-release).
-unbind -T copy-mode-vi MouseDragEnd1Pane
+# A mouse drag copies on release — tmux's own convention, so Cmd+C-after-drag
+# muscle memory is not silently swallowed. (tmux's literal default is
+# copy-pipe-and-cancel; with copy-command unset that is the same behavior, and
+# copy-selection-and-cancel is bound instead so this does not silently change if
+# copy-command is ever set.) Stated explicitly rather than left to the default,
+# because this file previously unbound it and a long-lived server keeps the old
+# binding across a reload: an explicit bind overwrites it, a removed unbind would
+# not. Only applies where tmux owns the mouse — a mouse-aware app (nvim, lazygit,
+# Claude Code fullscreen) consumes the drag itself. The keyboard path is
+# unchanged (v to select, y to copy) and Shift+drag still hands the selection to
+# Ghostty. Tradeoff accepted 2026-07-26: highlighting to read replaces the
+# clipboard.
+bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-selection-and-cancel
 # tmux-yank is no longer loaded, but a long-lived server that HAD it keeps its
 # bindings after a reload, leaving the external pbcopy path on keys Groundwork
 # does not re-bind. Clear those keys — all lack a tmux default, so it is safe on

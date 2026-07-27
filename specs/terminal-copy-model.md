@@ -8,7 +8,7 @@ The owner approved the 10 Product decisions (2026-07-23).
 | --- | --- |
 | tmux clipboard architecture (`set-clipboard external`, single OSC 52 path) | Shipped |
 | `tmux-yank` removal + stale-binding cleanup | Shipped |
-| Persistent mouse selection | Shipped |
+| Mouse drag-release copy (amended 2026-07-26; superseded persistent selection) | Config + effective tmux binding + buffer behavior: shipped. Physical Ghostty drag→clipboard smoke: **pending** |
 | Conditional right-click bindings | Shipped (syntax + effective key table) |
 | Actual Ghostty Option-right-click event routing | Real-GUI receipt still required |
 | `tmux-copy-cwd` safe helper | Shipped |
@@ -123,17 +123,48 @@ panes run agents and untrusted scripts. Requires the outer terminal's `Ms`
 capability; verify `tmux show -s set-clipboard`, `tmux info | grep 'Ms:'`, and a
 real end-to-end clipboard test.
 
-### Persistent mouse selection
+### Mouse drag-release copy (amended 2026-07-26)
 
-With `tmux-yank` gone, tmux's default `MouseDragEnd1Pane` copies and exits copy
-mode on release. To let a mouse drag place a selection the user completes with
-`y`:
+**Superseded:** the original decision unbound `MouseDragEnd1Pane` so a drag
+*placed* a selection the user completed with `y`. In practice that silently broke
+the most common gesture on the platform — drag, then `Cmd+C` — because the
+selection lived in tmux's copy-mode while `Cmd+C` copied Ghostty's (empty)
+selection. Nothing failed visibly; the clipboard just kept its previous contents.
+
+tmux copies and exits copy mode on drag-release by default (tmux 3.7b binds
+`copy-pipe-and-cancel`; with `copy-command` unset that is identical to
+`copy-selection-and-cancel`, which Groundwork binds explicitly so the behavior
+does not shift if `copy-command` is ever configured). This is
+**tmux's quick-copy convention, not a macOS-native or universal terminal one** —
+outside tmux, Groundwork configures Ghostty for explicit copy
+(`copy-on-select=false`, select then `Cmd+C`), and the docs must state that
+difference rather than claim the gesture matches every other app. Groundwork now
+states tmux's default explicitly:
 
 ```tmux
-unbind -T copy-mode-vi MouseDragEnd1Pane
+bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-selection-and-cancel
 ```
 
-(Clean now that no plugin rebinds it; still prove with a fixture.)
+It is an explicit `bind`, not a removed `unbind`: a long-lived tmux server that
+loaded the previous config keeps the old binding across a reload, so only an
+explicit rebind actually converges. Prove with a fixture against a server that
+has the old binding loaded, not only a fresh one.
+
+**Drag is conditional, and the docs must say so.** The binding is in the
+`copy-mode-vi` table, so it governs the release only once tmux owns the
+interaction. Inside a mouse-aware application (Neovim, lazygit, Claude Code's
+fullscreen view) the drag belongs to that application and never becomes a tmux
+selection. Keyboard copy mode is the route that works in every pane; `Shift`+drag
+remains the terminal bypass, which `mouse-shift-capture = never` preserves even
+while an app requests mouse reporting.
+
+**What this costs, accepted deliberately:** highlighting text merely to read it
+now replaces the clipboard, and a drag can no longer be adjusted or extended
+across pages before copying. Both keyboard paths are unchanged — `v`/`y` inside
+copy mode, and `Shift`+drag to hand the selection to Ghostty — so all three copy
+routes work, which is the mainstream 2026 expectation. Decision 1
+(keyboard-first as the *taught* model) is unaffected: the docs still teach keys
+first; the mouse simply stops failing silently for people who reach for it.
 
 ### Right-click: conditional, not unconditional
 
@@ -277,7 +308,10 @@ Raw terminal selection inside tmux? Hold Shift — but it cannot extend a tmux s
 ## Validation (three proof classes — report honestly)
 
 Automatable in an isolated tmux server + pty fixture: loaded key tables AFTER
-tpm; app-forwarding vs shell-hint branch; persistent mouse selection; paging/
+tpm; app-forwarding vs shell-hint branch; drag-release copy proven against a
+server that already carries the OLD unbind (a fresh server would pass either
+way) PLUS a behavioral check that the paste buffer receives the selected text and
+copy mode exits; paging/
 search keys; selection across multiple history pages; OSC 52 bytes emitted;
 `set-clipboard=external`; `Ms` present; OSC 133 marks; `tmux-copy-last`.
 
@@ -295,7 +329,10 @@ claim it proved user-visible Ghostty GUI behavior.
 
 1. Keyboard-first, mouse-assisted as the taught model.
 2. Keep tmux mouse support on.
-3. Persistent mouse selection (`y` completes the copy).
+3. ~~Persistent mouse selection (`y` completes the copy).~~ **Amended 2026-07-26:**
+   mouse drag copies on release (tmux's default); `v`/`y` and `Shift`+drag are
+   unchanged, so all three copy routes work. Rationale and accepted tradeoff in
+   "Mouse drag-release copy" above.
 4. Native tmux OSC 52 clipboard; **remove `tmux-yank`**.
 5. Ordinary shell right-click = teaching hint; mouse-aware app right-click =
    forwarded; Option-right-click = tmux pane menu; no selection-aware copy item.

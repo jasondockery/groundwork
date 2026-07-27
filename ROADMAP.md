@@ -570,7 +570,9 @@ Implement under `skills/terminal-interaction`.
 
 - [x] Owner approved the product decisions (2026-07-23); implemented and merged
       (`859dcfe`, review-hardened in `8d7e517`).
-- [x] tmux: persistent mouse selection, conditional right-click (hint in shell
+- [x] tmux: drag-release quick-copy (amended 2026-07-26 — the original
+      persistent-selection decision silently broke drag-then-Cmd+C; keyboard
+      copy mode and Shift+drag unchanged), conditional right-click (hint in shell
       panes, pane menu on Option+right, forwarded to mouse apps), one native
       OSC 52 path (removed `tmux-yank` + its stale live-server bindings),
       `set-clipboard external`, `allow-passthrough` audited (kept for yazi, now
@@ -583,10 +585,25 @@ Implement under `skills/terminal-interaction`.
       kept `config.tmpl` (same target path) to fix the platform bug without the
       risky legacy-target removal; the migration transaction in the spec is still
       to build.
-- [ ] Finish the teaching surface: `tmux.html` (copy-model section), the cheat
-      sheet, and a practice copy drill are done; keyboard, command-line,
-      troubleshooting, setup, and game-dev-learn Module 5, plus the full
-      competency gates A/B, remain.
+- [ ] Finish the teaching surface: `tmux.html` (copy-model section, now
+      including drag-release quick-copy and its conditionality inside
+      mouse-aware apps), the cheat sheet, a practice copy drill, and
+      `claude.html` (the `Ctrl+O` → `[` transcript route, which is the correct
+      way to copy a conversation out of a self-redrawing TUI) are done;
+      keyboard, command-line, troubleshooting, setup, and game-dev-learn
+      Module 5, plus the full competency gates A/B, remain. Those pages carry no
+      copy-model content today — they are unwritten rather than stale, so no
+      reader is currently being taught the superseded model.
+- [ ] **Owner: physical Ghostty drag→clipboard smoke** for the amended
+      drag-release decision (2026-07-26). Fixtures now prove the binding, that
+      the tmux paste buffer receives the selected text, that copy mode exits,
+      and that a server carrying the OLD unbind converges on reload — but no
+      headless run can prove the macOS clipboard actually receives a physical
+      drag, or that `Shift`+drag still reaches Ghostty while an app requests
+      mouse reporting. Smoke matrix: ordinary shell prompt; Claude Code default
+      renderer; Claude Code fullscreen; Neovim or lazygit; and `Shift`+drag in
+      each mouse-aware case. Until it runs, `specs/terminal-copy-model.md`
+      records the physical smoke as pending, not shipped.
 - [ ] `groundwork-doctor --terminal` receipts. The effective-tmux-server + pty
       copy-model validation harness already ships in `validate-groundwork`; the
       doctor module does not.

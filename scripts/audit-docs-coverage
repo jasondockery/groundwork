@@ -398,6 +398,7 @@ def tmux_key_label(table: str, no_prefix: bool, key: str) -> str:
         "G": "Shift+G",
         "M-MouseDown3Pane": "Option+right-click",
         "MouseDown3Pane": "right-click",
+        "MouseDragEnd1Pane": "drag",
     }.get(key, key)
     if table != "prefix":
         return f"tmux {table}: {display}"

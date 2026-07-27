@@ -1749,9 +1749,22 @@ if command -v tmux >/dev/null 2>&1; then
       || fail "allow-passthrough must be off globally (pane-scoped for yazi via the y function)"
     tmux -L "$tcm_sock" show -gv update-environment | grep -qw TERM_PROGRAM \
       || fail "update-environment must propagate TERM_PROGRAM for yazi"
-    if tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qw MouseDragEnd1Pane; then
-      fail "MouseDragEnd1Pane must be unbound in copy-mode-vi (selection persists until y)"
-    fi
+    # Drag-release copies (tmux's own default), so Cmd+C-after-drag muscle
+    # memory is not silently swallowed — amended 2026-07-26, superseding the
+    # persistent-selection decision (specs/terminal-copy-model.md). Asserting the
+    # ACTION, not merely that the key is bound: a bare `bind` to the wrong
+    # command would otherwise pass.
+    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null \
+      | grep -qE 'MouseDragEnd1Pane .*copy-selection-and-cancel' \
+      || fail "MouseDragEnd1Pane must copy-selection-and-cancel in copy-mode-vi (drag copies on release)"
+    # The keyboard path must survive the mouse convenience, or the taught model
+    # (keys first) quietly stops being true.
+    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null \
+      | grep -qE '^bind-key +-T copy-mode-vi +v +send-keys -X begin-selection' \
+      || fail "copy-mode-vi v must still begin-selection (keyboard path)"
+    tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null \
+      | grep -qE '^bind-key +-T copy-mode-vi +y +send-keys -X copy-selection-and-cancel' \
+      || fail "copy-mode-vi y must still copy-selection-and-cancel (keyboard path)"
     tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw MouseDown3Pane \
       || fail "the conditional right-click (MouseDown3Pane) must be bound"
     tmux -L "$tcm_sock" list-keys -T root 2>/dev/null | grep -qw M-MouseDown3Pane \
@@ -1764,7 +1777,45 @@ if command -v tmux >/dev/null 2>&1; then
     if tmux -L "$tcm_sock" list-keys -T copy-mode-vi 2>/dev/null | grep -qE ' -T copy-mode-vi +M-y '; then
       fail "stale tmux-yank copy-mode-vi M-y binding must be cleared"
     fi
+    # BEHAVIOR, not just the key table: drive the exact copy-mode action over
+    # known pane text and assert the paste buffer holds it. A binding can name
+    # the right command and still copy the wrong region.
+    tmux -L "$tcm_sock" send-keys "printf 'COPYPROBE-ALPHA\\n'" Enter
+    sleep 0.3
+    tmux -L "$tcm_sock" copy-mode
+    tmux -L "$tcm_sock" send-keys -X search-backward COPYPROBE-ALPHA
+    tmux -L "$tcm_sock" send-keys -X begin-selection
+    tmux -L "$tcm_sock" send-keys -X end-of-line
+    tmux -L "$tcm_sock" send-keys -X copy-selection-and-cancel
+    tcm_buffer="$(tmux -L "$tcm_sock" show-buffer 2>/dev/null || true)"
+    case "$tcm_buffer" in
+      *COPYPROBE-ALPHA*) ;;
+      *) fail "copy-selection-and-cancel must place the selected pane text in the tmux buffer (got: ${tcm_buffer:-<empty>})" ;;
+    esac
+    # …and it must leave copy mode, or the pane stays frozen after a drag.
+    [[ "$(tmux -L "$tcm_sock" display-message -p '#{pane_in_mode}')" == 0 ]] \
+      || fail "copy-selection-and-cancel must exit copy mode (pane left in mode)"
     tmux -L "$tcm_sock" kill-server 2>/dev/null || true
+
+    # Convergence on an ALREADY-RUNNING server that carries the previous
+    # unbind. This is why the config states the binding explicitly instead of
+    # deleting the old `unbind`: a fresh server passes either way, so only this
+    # fixture catches a future "just remove the unbind" regression.
+    tcm_legacy="groundwork-tcm-legacy-$$"
+    if tmux -L "$tcm_legacy" -f /dev/null new-session -d -x 80 -y 24 2>/dev/null; then
+      tmux -L "$tcm_legacy" unbind-key -T copy-mode-vi MouseDragEnd1Pane 2>/dev/null || true
+      if tmux -L "$tcm_legacy" list-keys -T copy-mode-vi 2>/dev/null | grep -qw MouseDragEnd1Pane; then
+        tmux -L "$tcm_legacy" kill-server 2>/dev/null || true
+        fail "legacy fixture must START with drag-release unbound, or it proves nothing"
+      fi
+      tmux -L "$tcm_legacy" source-file "$tcm_dir/core.conf" 2>/dev/null || true
+      tmux -L "$tcm_legacy" list-keys -T copy-mode-vi 2>/dev/null \
+        | grep -qE 'MouseDragEnd1Pane .*copy-selection-and-cancel' \
+        || fail "sourcing the config into a server that carries the old unbind must restore drag-release copy"
+      tmux -L "$tcm_legacy" kill-server 2>/dev/null || true
+    else
+      fail "legacy convergence fixture must start a tmux server"
+    fi
   else
     fail "rendered tmux copy-model config must parse in a live server: $(cat "$tcm_dir/err")"
   fi

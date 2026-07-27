@@ -46,6 +46,16 @@ implement exactly it.
 - Do not enable `allow-passthrough` globally without an identified consumer.
 - Keep Shift-drag documented as an escape hatch; it cannot search or traverse
   tmux's retained scrollback.
+- A mouse drag is CONDITIONAL: it only reaches tmux when tmux owns the mouse. In
+  a mouse-aware TUI (Neovim, lazygit, Claude Code's fullscreen view) the app
+  consumes it. Never document drag as universally available; keyboard copy mode
+  is the route that works in every pane.
+- Before documenting tmux copy mode as the only route inside a TUI, check whether
+  the application exposes a full transcript, export, pager, or editor view. A
+  self-redrawing app leaves rendered FRAMES in tmux's scrollback, not its text —
+  teach the application-native route for complete semantic content (Claude Code:
+  `Ctrl+O` then `[`, or `v` for `$EDITOR`; both need fullscreen rendering) and
+  tmux copy mode as the universal terminal fallback.
 - Account for plugin load order: tmux plugins (e.g. `tmux-yank`) load after the
   main config and can re-bind mouse keys. Never assume a bare `unbind` sticks;
   removing the plugin removes the race.
@@ -53,9 +63,19 @@ implement exactly it.
 
 ## Verify (three proof classes — report which ran)
 
-- tmux/pty fixture (isolated socket): key tables after tpm, app-forward vs
-  shell-hint branch, persistent selection, paging/search, multi-page selection,
-  OSC 52 bytes, `set-clipboard=external`, `Ms` present, OSC 133, `tmux-copy-last`.
+- tmux/pty fixture (isolated socket) — keep the three routes SEPARATE, because a
+  mouse proof never establishes a keyboard capability:
+  - **Keyboard copy mode:** key tables after tpm, paging, forward/backward search
+    and repeat, multi-page selection, `v` begin-selection, `y`
+    copy-selection-and-cancel, `q` cancel.
+  - **Mouse quick-copy:** drag-release bound to the copy action; the buffer
+    actually receives the selected pane text; copy mode exits afterwards; and
+    convergence when sourced into a server carrying the OLD unbind (a fresh
+    server passes either way, so that case proves nothing).
+  - **Terminal bypass:** Shift-drag stays Ghostty's, including while an app
+    requests mouse reporting.
+  - Shared: app-forward vs shell-hint branch, OSC 52 bytes,
+    `set-clipboard=external`, `Ms` present, OSC 133, `tmux-copy-last`.
 - Ghostty CLI: recognized settings, effective values, load/override order,
   version (`ghostty +show-config`; require >= 1.3.1).
 - Real macOS Ghostty GUI: Shift-drag routing, selection clear after Cmd+C,

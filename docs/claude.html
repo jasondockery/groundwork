@@ -170,6 +170,24 @@
   </div>
 </div>
 
+<h2><span class="hash">#</span>Copying a conversation out</h2>
+<p>Reaching for tmux copy mode to grab a long Claude answer is the wrong tool: Claude Code redraws its own interface, so what tmux retains is the rendered frames, not the conversation. It also runs a mouse-aware view, which means a drag inside it goes to Claude Code rather than becoming a tmux selection. Use the app&apos;s own route instead.</p>
+<table class="keytable">
+  <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>O</kbd></span></td><td>Toggle the transcript viewer — the full conversation with tool calls, timestamps, and the model used</td></tr>
+  <tr><td><span class="keys"><kbd>[</kbd></span></td><td>Inside the viewer: write the whole conversation into the terminal&apos;s real scrollback, so tmux copy mode and terminal search can finally see it</td></tr>
+  <tr><td><span class="keys"><kbd>v</kbd></span></td><td>Inside the viewer: write the conversation to a temp file and open it in <code>$VISUAL</code>/<code>$EDITOR</code> — best when you want to edit or save it</td></tr>
+  <tr><td><span class="keys"><kbd>q</kbd></span></td><td>Leave the viewer</td></tr>
+</table>
+<div class="callout note">
+  <span class="label">Both need fullscreen rendering</span>
+  <p><kbd>[</kbd> and <kbd>v</kbd> are fullscreen-renderer features. Run <code>/tui</code> with no argument to see which renderer is active; press <kbd>?</kbd> inside the viewer for its full shortcut list. <kbd>Ctrl</kbd><kbd>O</kbd> itself works in either renderer.</p>
+</div>
+<p>The order that works: <kbd>Ctrl</kbd><kbd>O</kbd>, then <kbd>[</kbd>, then <kbd>q</kbd> — now <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> puts you in tmux copy mode over the real text, where <kbd>/</kbd> searches and <kbd>v</kbd>/<kbd>y</kbd> select and copy (<a href="tmux.html">tmux</a>).</p>
+<div class="callout note">
+  <span class="label">Ctrl+A belongs to tmux first</span>
+  <p>Inside tmux, <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span> is the prefix, so Claude Code never sees it. To send a literal <kbd>Ctrl</kbd><kbd>a</kbd> through to Claude Code (its jump-to-line-start key), press it twice: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>a</kbd></span>.</p>
+</div>
+
 <h2><span class="hash">#</span>Which model to pick</h2>
 <p><code>/model</code> switches the model for the current session and saves it as your default. The choice trades quality for speed and cost — see <a href="ai-budget.html">Know your AI budget</a> for the budget side of that tradeoff.</p>
 <table class="keytable">

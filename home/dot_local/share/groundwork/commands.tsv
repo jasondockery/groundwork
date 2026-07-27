@@ -17,6 +17,7 @@ tmux	Ctrl+a then x	key	Close the active pane. It asks first, because x sits next
 tmux	tmux copy-mode-vi: v	key	Start a selection while browsing tmux pane history.
 tmux	tmux copy-mode-vi: Ctrl+v	key	Toggle a rectangular selection while browsing tmux pane history.
 tmux	tmux copy-mode-vi: y	key	Copy the selection to the tmux buffer and supported system clipboard, then leave copy mode.
+tmux	tmux copy-mode-vi: drag	key	Drag with the mouse to select in a pane; the selection copies to the tmux buffer and system clipboard the moment you release. Convenient, but it replaces whatever the clipboard held.
 tmux	tmux right-click	key	In a mouse-aware app, forward right-click to the app; in an ordinary shell pane, show the copy-model hint.
 tmux	tmux Option+right-click	key	Open tmux's pane menu without taking ordinary right-click away from mouse-aware apps.
 tmux	Ctrl+a then Ctrl+a	key	Send a literal Ctrl+a to the program inside the active pane.
