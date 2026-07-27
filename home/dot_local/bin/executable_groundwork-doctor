@@ -187,14 +187,14 @@ pnpm_resolve() {
       [ -n "$resolved" ] || resolved="$candidate"
       ;;
   esac
-  # Follow a symlink one level; Corepack installs its shims as links into dist.
-  if [ -L "$resolved" ]; then
-    local target
-    target="$(readlink "$resolved")"
-    case "$target" in
-      /*) resolved="$target" ;;
-      *) resolved="$(cd "$(dirname "$resolved")" 2>/dev/null && cd "$(dirname "$target")" 2>/dev/null && pwd)/$(basename "$target")" ;;
-    esac
+  # Canonicalize fully, not one symlink level. mise exposes installs/node/lts as
+  # a symlink to the concrete version, so the SAME Corepack shim is reachable as
+  # both .../node/lts/... and .../node/24.18.0/... — comparing those literally
+  # reports one healthy owner as two competing ones on every managed machine.
+  if command -v readlink >/dev/null 2>&1; then
+    local canonical
+    canonical="$(readlink -f "$resolved" 2>/dev/null || true)"
+    [ -n "$canonical" ] && resolved="$canonical"
   fi
   printf '%s\n' "$resolved"
 }
@@ -314,9 +314,14 @@ node_toolchain_section() {
 
   # "mise owns Node" is a claim this section must actually test, not assume.
   managed_node="$(mise which node 2>/dev/null || true)"
+  # Same symlink trap as Corepack: installs/node/lts points at the concrete
+  # version, so a literal compare calls the managed Node "not mise's".
+  local node_real managed_real
+  node_real="$(readlink -f "$node_path" 2>/dev/null || printf '%s' "$node_path")"
+  managed_real="$(readlink -f "${managed_node:-}" 2>/dev/null || printf '%s' "${managed_node:-}")"
   if [ -z "$managed_node" ]; then
     warn "node $node_version ($node_path) is not managed by mise — Groundwork's model expects mise to own Node."
-  elif [ "$node_path" = "$managed_node" ]; then
+  elif [ "$node_real" = "$managed_real" ]; then
     ok "node $node_version ($node_path, mise-managed)"
   else
     warn "the node on PATH ($node_path) is NOT mise's ($managed_node) — a different Node wins resolution, so pins and Corepack may not be the ones you expect."
