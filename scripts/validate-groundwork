@@ -4964,6 +4964,57 @@ for profile_case in --help show "set preview" --bogus frobnicate; do
   fi
 done
 
+check "doctor: a version-alias symlink is one owner, not two"
+# Real-machine regression, 2026-07-27. mise exposes installs/node/lts as a
+# symlink to the concrete version, so the SAME Corepack shim is reachable as
+# .../node/lts/bin/pnpm and .../node/24.18.0/bin/pnpm. Comparing those literally
+# made a correctly-migrated machine report "2 distinct pnpm owners" and "the node
+# on PATH is NOT mise's". Every scratch fixture used concrete directories, so
+# only the live migration exposed it — this keeps that evidence.
+alias_fixture="$out_dir/doctor-symlink-alias"
+mkdir -p "$alias_fixture/installs/node/24.18.0/bin" "$alias_fixture/stub"
+ln -sfn 24.18.0 "$alias_fixture/installs/node/lts"
+
+for alias_tool in node corepack pnpm; do
+  printf '#!/bin/sh\necho stub\n' >"$alias_fixture/installs/node/24.18.0/bin/$alias_tool"
+  chmod +x "$alias_fixture/installs/node/24.18.0/bin/$alias_tool"
+done
+
+# `mise which` answers with the CONCRETE path while PATH exposes the alias —
+# exactly the shape that produced the false positives.
+cat >"$alias_fixture/stub/mise" <<SH
+#!/bin/sh
+[ "\$1 \$2" = "which node" ] && echo "$alias_fixture/installs/node/24.18.0/bin/node"
+exit 0
+SH
+chmod +x "$alias_fixture/stub/mise"
+
+alias_resolved="$(
+  PATH="$alias_fixture/installs/node/lts/bin:$alias_fixture/stub:/usr/bin:/bin" \
+    /bin/bash -c '
+      . /dev/stdin <<SOURCED
+$(sed -n "/^pnpm_resolve()/,/^}/p" home/dot_local/bin/executable_groundwork-doctor)
+SOURCED
+      pnpm_resolve "'"$alias_fixture"'/installs/node/lts/bin/pnpm"
+    ' 2>/dev/null || true
+)"
+alias_concrete="$(readlink -f "$alias_fixture/installs/node/24.18.0/bin/pnpm" 2>/dev/null || true)"
+[ -n "$alias_resolved" ] && [ "$alias_resolved" = "$alias_concrete" ] \
+  || fail "pnpm_resolve must canonicalize a version-alias symlink to the concrete path (got '${alias_resolved:-none}', expected '$alias_concrete') — otherwise one owner reads as two"
+
+# And the doctor as a whole must not warn about competing owners in that shape.
+# Isolated PATH on purpose: with the real $PATH appended, the machine's own pnpm
+# is a genuine second owner and the check would fail for the wrong reason.
+PATH="$alias_fixture/installs/node/lts/bin:$alias_fixture/stub:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --node-toolchain \
+  >"$out_dir/doctor-alias-out" 2>&1 || true
+if grep -qF 'distinct pnpm owners' "$out_dir/doctor-alias-out"; then
+  fail "the doctor reported competing pnpm owners for one shim reached through a version alias"
+fi
+if grep -qF "is NOT mise's" "$out_dir/doctor-alias-out"; then
+  fail "the doctor reported the managed Node as unmanaged when reached through a version alias"
+fi
+
 check "Node/pnpm launcher: parent and nested child resolve one toolchain"
 # The defect this pins: a top-level pnpm can be correct while a nested process
 # (a Turbo task, a package script) re-resolves bare `pnpm` from PATH and gets a
