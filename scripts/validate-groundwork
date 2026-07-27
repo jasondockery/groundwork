@@ -1265,6 +1265,247 @@ preset_out="$(_preset_render personal-preview)" || fail "profile prompt did not 
 grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
   || fail "an existing stored profile_preset (personal-preview) must pass through unchanged, not be dropped as a non-digit"
 
+check "chezmoi interview: key repeat menu, dual return domain, and where it is asked"
+# Same numbered-menu contract as the profile preset, plus a scope rule: key
+# repeat is a property of the machine holding the PHYSICAL keyboard, so it is
+# asked on desktops only. DISPLAY is set throughout so `headless` resolves false
+# on Linux — otherwise a passing "not asked" result would prove only that the
+# headless branch fired, never that the WSL guard works.
+_kr_render() { # $1 = override data for key_repeat (may be empty), $2 = os, $3 = kernel osrelease
+  DISPLAY=:0 chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "{${1}\"chezmoi\":{\"os\":\"$2\",\"arch\":\"arm64\",\"osRelease\":{},\"kernel\":{\"osrelease\":\"$3\"}}}" \
+    execute-template --init \
+    --promptBool work=false,headless=false,reset_existing_configs=false,install_chrome=false,game_dev=false,xcode=false \
+    --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
+    --promptChoice password_manager=none \
+    <home/.chezmoi.toml.tmpl 2>&1
+}
+# Digit domain: a fresh or `--prompt` run returns the menu number.
+for kr_pair in '1:fast' '2:standard' '3:aggressive'; do
+  kr_num="${kr_pair%%:*}"
+  kr_want="${kr_pair##*:}"
+  kr_out="$(_kr_render "\"key_repeat\":\"$kr_num\"," darwin "")" \
+    || fail "key repeat menu did not render (choice $kr_num)"
+  grep -qF "key_repeat = \"$kr_want\"" <<<"$kr_out" \
+    || {
+      printf '%s\n' "$kr_out" >&2
+      fail "key repeat menu choice $kr_num must store $kr_want"
+    }
+done
+# Stored-value domain: an ordinary existing-config run returns the value itself.
+for kr_want in fast standard aggressive; do
+  kr_out="$(_kr_render "\"key_repeat\":\"$kr_want\"," darwin "")" \
+    || fail "key repeat prompt did not render a stored-value answer ($kr_want)"
+  grep -qF "key_repeat = \"$kr_want\"" <<<"$kr_out" \
+    || fail "a stored key_repeat ($kr_want) must pass through unchanged, not be dropped as a non-digit"
+done
+# An unrecognized stored value must fall back to the recommendation, not render
+# a value no apply path knows how to honor.
+kr_out="$(_kr_render '"key_repeat":"bogus",' darwin "")" || fail "key repeat prompt must render with an invalid stored value"
+grep -qF 'key_repeat = "fast"' <<<"$kr_out" \
+  || fail "an unrecognized stored key_repeat must fall back to fast"
+# Asked on a real Linux desktop...
+kr_out="$(_kr_render '"key_repeat":"3",' linux "6.8.0-generic")" || fail "key repeat prompt must render on a Linux desktop"
+grep -qF 'headless = false' <<<"$kr_out" \
+  || fail "the Linux desktop key-repeat fixture must resolve headless=false, or it proves nothing"
+grep -qF 'key_repeat = "aggressive"' <<<"$kr_out" \
+  || fail "a Linux desktop must be asked for key repeat (GNOME and X11 can honor it)"
+# ...and never under WSL2, where Windows owns the keyboard. WSLg sets a display,
+# so these reach the prompt as non-headless desktops and only the WSL guard stops them.
+for kr_kernel in "5.15.167.4-microsoft-standard-WSL2" "4.19.104-microsoft-standard"; do
+  kr_out="$(_kr_render '"key_repeat":"3",' linux "$kr_kernel")" \
+    || fail "key repeat template must render under WSL2 ($kr_kernel)"
+  grep -qF 'headless = false' <<<"$kr_out" \
+    || fail "the WSL2 key-repeat fixture must resolve headless=false, or the guard is untested"
+  grep -qF 'key_repeat = "fast"' <<<"$kr_out" \
+    || {
+      printf '%s\n' "$kr_out" >&2
+      fail "WSL2 must not be asked for key repeat: Windows owns the keyboard ($kr_kernel)"
+    }
+done
+
+check "key repeat: rendered apply paths honor the choice on both platforms"
+_kr_apply() { # $1 = template, $2 = os, $3 = key_repeat override (may be empty)
+  chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "{${3}\"headless\":false,\"work\":false,\"password_manager\":\"none\",\"chezmoi\":{\"os\":\"$2\",\"arch\":\"arm64\",\"osRelease\":{}}}" \
+    execute-template <"$1" 2>&1
+}
+# macOS: KeyRepeat is the interval between repeats, InitialKeyRepeat the delay
+# before they start. Assert the PAIRS, since a profile that changed only one of
+# them would still look plausible in isolation.
+kr_tmpl=home/run_onchange_after_30-macos-defaults.sh.tmpl
+for kr_case in 'fast:1:15' 'standard:2:15' 'aggressive:1:10'; do
+  kr_name="${kr_case%%:*}"
+  kr_rest="${kr_case#*:}"
+  kr_interval="${kr_rest%%:*}"
+  kr_delay="${kr_rest##*:}"
+  kr_out="$(_kr_apply "$kr_tmpl" darwin "\"key_repeat\":\"$kr_name\",")" \
+    || fail "macOS defaults must render for key_repeat=$kr_name"
+  grep -qF "defaults write NSGlobalDomain KeyRepeat -int $kr_interval" <<<"$kr_out" \
+    || fail "key_repeat=$kr_name must write KeyRepeat $kr_interval"
+  grep -qF "defaults write NSGlobalDomain InitialKeyRepeat -int $kr_delay" <<<"$kr_out" \
+    || fail "key_repeat=$kr_name must write InitialKeyRepeat $kr_delay"
+  bash -n <(printf '%s\n' "$kr_out") || fail "rendered macOS defaults (key_repeat=$kr_name) must be valid bash"
+done
+# MIGRATION SAFETY. Groundwork shipped 2/15 unconditionally before this question
+# existed, so an already-installed machine has no key_repeat in its data. If
+# "absent" meant "fast", every existing user's keyboard would silently speed up
+# on their next apply — a change presented as a choice they were never offered.
+# Absent must mean "keep what you had".
+kr_out="$(_kr_apply "$kr_tmpl" darwin "")" || fail "macOS defaults must render when key_repeat is absent (existing installs)"
+grep -qF 'defaults write NSGlobalDomain KeyRepeat -int 2' <<<"$kr_out" \
+  || fail "a config with no key_repeat must PRESERVE the legacy 2/15, not silently switch the user to fast"
+grep -qF 'defaults write NSGlobalDomain InitialKeyRepeat -int 15' <<<"$kr_out" \
+  || fail "the legacy fallback must keep InitialKeyRepeat 15"
+# A malformed value takes the same conservative path: when the answer cannot be
+# read, changing someone's typing speed is the wrong guess.
+kr_out="$(_kr_apply "$kr_tmpl" darwin '"key_repeat":"bogus",')" || fail "macOS defaults must render with an invalid key_repeat"
+grep -qF 'defaults write NSGlobalDomain KeyRepeat -int 2' <<<"$kr_out" \
+  || fail "an unreadable key_repeat must preserve the legacy setting, not pick a faster one"
+grep -qF 'defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false' <<<"$kr_out" \
+  || fail "press-and-hold must stay disabled regardless of key repeat choice (vim motions depend on it)"
+
+check "key repeat: the Linux path is scoped, isolated, and never touches this host"
+kr_lin=home/run_after_31-linux-input-defaults.sh.tmpl
+# Linux: the same three intents expressed natively.
+for kr_case in 'fast:225:15' 'standard:225:30' 'aggressive:150:15'; do
+  kr_name="${kr_case%%:*}"
+  kr_rest="${kr_case#*:}"
+  kr_out="$(_kr_apply "$kr_lin" linux "\"key_repeat\":\"$kr_name\",")" \
+    || fail "linux input defaults must render for key_repeat=$kr_name"
+  grep -qF "delay_ms=${kr_rest%%:*}" <<<"$kr_out" || fail "linux key_repeat=$kr_name must set delay_ms ${kr_rest%%:*}"
+  grep -qF "interval_ms=${kr_rest##*:}" <<<"$kr_out" || fail "linux key_repeat=$kr_name must set interval_ms ${kr_rest##*:}"
+  bash -n <(printf '%s\n' "$kr_out") || fail "rendered linux input defaults (key_repeat=$kr_name) must be valid bash"
+done
+# Scope: nothing renders on macOS, on WSL2 (WSLg supplies a display, so the
+# headless check alone does NOT exclude it), or for a config predating the
+# question — Groundwork never set Linux key repeat before, so there is nothing
+# to preserve and no basis for guessing.
+kr_out="$(_kr_apply "$kr_lin" darwin '"key_repeat":"fast",')" || fail "linux input template must render on darwin"
+assert_no_matches "linux input defaults leaked onto darwin" rg -n 'gsettings|xset' <(printf '%s\n' "$kr_out")
+for kr_kernel in "5.15.167.4-microsoft-standard-WSL2" "4.19.104-microsoft-standard"; do
+  kr_out="$(chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+    --override-data "{\"key_repeat\":\"fast\",\"headless\":false,\"work\":false,\"password_manager\":\"none\",\"chezmoi\":{\"os\":\"linux\",\"arch\":\"amd64\",\"osRelease\":{},\"kernel\":{\"osrelease\":\"$kr_kernel\"}}}" \
+    execute-template <"$kr_lin" 2>&1)" || fail "linux input template must render under WSL2 ($kr_kernel)"
+  assert_no_matches "key repeat must not be APPLIED under WSL2 ($kr_kernel): Windows owns the keyboard" \
+    rg -n 'gsettings|xset' <(printf '%s\n' "$kr_out")
+done
+kr_out="$(_kr_apply "$kr_lin" linux "")" || fail "linux input template must render with no key_repeat answer"
+assert_no_matches "a config predating the key-repeat question must not touch Linux input state" \
+  rg -n 'gsettings|xset' <(printf '%s\n' "$kr_out")
+
+# BEHAVIORAL fixtures. These EXECUTE the rendered script, so they must never be
+# able to reach this host's real desktop: a stray /usr/bin/gsettings on a Linux
+# developer machine would rewrite that developer's own dconf keyboard settings
+# from a repository validator. Everything runs against fake executables in a
+# scratch PATH, with HOME, DISPLAY, and the session-bus variables isolated.
+kr_fix="$out_dir/kr-fixture"
+rm -rf "$kr_fix"
+mkdir -p "$kr_fix/bin" "$kr_fix/home"
+cat >"$kr_fix/bin/gsettings" <<'KRGS'
+#!/usr/bin/env bash
+case "$1" in
+  list-schemas) [[ -n "${FAKE_GNOME_SCHEMA:-}" ]] && echo org.gnome.desktop.peripherals.keyboard; exit 0 ;;
+  set) [[ -n "${FAKE_GNOME_FAIL:-}" ]] && exit 1; echo "gsettings $*" >>"$FAKE_LOG"; exit 0 ;;
+esac
+exit 0
+KRGS
+cat >"$kr_fix/bin/xset" <<'KRXS'
+#!/usr/bin/env bash
+[[ "$1" == "q" ]] && { [[ -n "${FAKE_X11:-}" ]] && exit 0; exit 1; }
+[[ -n "${FAKE_X11:-}" ]] || exit 1
+echo "xset $*" >>"$FAKE_LOG"
+exit 0
+KRXS
+chmod +x "$kr_fix/bin/gsettings" "$kr_fix/bin/xset"
+_kr_run() { # $1 = rendered script, rest = env assignments
+  local script="$1"
+  shift
+  env -i PATH="$kr_fix/bin:/usr/bin:/bin" HOME="$kr_fix/home" FAKE_LOG="$kr_fix/log" \
+    "$@" bash "$script"
+}
+_kr_apply "$kr_lin" linux '"key_repeat":"aggressive",' >"$kr_fix/aggressive.sh"
+_kr_apply "$kr_lin" linux '"key_repeat":"standard",' >"$kr_fix/standard.sh"
+
+# 1. No mechanism at all: must exit 0, or a non-zero run_ script aborts the apply.
+: >"$kr_fix/log"
+kr_out="$(_kr_run "$kr_fix/aggressive.sh" 2>&1)" \
+  || fail "linux input defaults must exit 0 when no key-repeat mechanism is present, or it aborts the apply"
+grep -qF 'NOT applied' <<<"$kr_out" || fail "with no mechanism available the script must say key repeat was not applied"
+grep -qF 'KDE' <<<"$kr_out" || fail "with no mechanism available the script must name the desktops that set this themselves"
+[[ ! -s "$kr_fix/log" ]] || fail "no mechanism was available, yet a keyboard command was issued"
+
+# 2. GNOME available: exact commands and values, and NO xset fallback alongside it.
+: >"$kr_fix/log"
+kr_out="$(_kr_run "$kr_fix/aggressive.sh" FAKE_GNOME_SCHEMA=1 FAKE_X11=1 DISPLAY=:0 2>&1)" \
+  || fail "linux input defaults must exit 0 on the GNOME path"
+grep -qF 'gsettings set org.gnome.desktop.peripherals.keyboard delay 150' "$kr_fix/log" \
+  || fail "GNOME path must set delay 150 for the aggressive profile"
+grep -qF 'gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval 15' "$kr_fix/log" \
+  || fail "GNOME path must set repeat-interval 15 for the aggressive profile"
+grep -qF 'gsettings set org.gnome.desktop.peripherals.keyboard repeat true' "$kr_fix/log" \
+  || fail "GNOME path must enable repeat"
+assert_no_matches "X11 must not also run once GNOME has persisted the setting" rg -n '^xset' "$kr_fix/log"
+grep -qF 'persists' <<<"$kr_out" || fail "the GNOME path must report that the setting persists"
+# Undo guidance must cover EVERY key the script writes, `repeat` included.
+for kr_key in repeat delay repeat-interval; do
+  grep -qF "gsettings reset org.gnome.desktop.peripherals.keyboard $kr_key" <<<"$kr_out" \
+    || fail "undo guidance must reset $kr_key — every field Groundwork changed"
+done
+
+# 3. GNOME schema present but the write fails: fall through to X11 AND still
+#    surface the recorded GNOME reason rather than dropping it.
+: >"$kr_fix/log"
+kr_out="$(_kr_run "$kr_fix/standard.sh" FAKE_GNOME_SCHEMA=1 FAKE_GNOME_FAIL=1 FAKE_X11=1 DISPLAY=:0 2>&1)" \
+  || fail "linux input defaults must exit 0 when the GNOME write fails"
+grep -qF 'xset r rate 225 33' "$kr_fix/log" \
+  || fail "a failed GNOME write must fall back to xset (standard = 1000/30 = 33 repeats per second)"
+grep -qF 'SESSION ONLY' <<<"$kr_out" || fail "the X11 path must state that it does not persist"
+grep -qF 'session bus' <<<"$kr_out" \
+  || fail "a recorded GNOME failure must still be reported, not silently dropped once another path succeeds"
+
+# 4. X11 reachable but no GNOME schema: xset only.
+: >"$kr_fix/log"
+kr_out="$(_kr_run "$kr_fix/aggressive.sh" FAKE_X11=1 DISPLAY=:0 2>&1)" \
+  || fail "linux input defaults must exit 0 on the X11-only path"
+grep -qF 'xset r rate 150 66' "$kr_fix/log" \
+  || fail "X11-only path must set the aggressive rate (1000/15 = 66 repeats per second)"
+assert_no_matches "no GNOME schema was present, so no gsettings write may occur" rg -n '^gsettings' "$kr_fix/log"
+
+# 5. DISPLAY set but no X server answering: xset must not be used.
+: >"$kr_fix/log"
+kr_out="$(_kr_run "$kr_fix/aggressive.sh" DISPLAY=:0 2>&1)" \
+  || fail "linux input defaults must exit 0 when DISPLAY is set but no server answers"
+[[ ! -s "$kr_fix/log" ]] || fail "DISPLAY alone is not proof of a reachable X server; xset q must gate it"
+
+# 6. A forwarded display over SSH is the WORST case: DISPLAY is set and an X
+#    server answers, but it is the OPERATOR's screen, not this host's. The
+#    guard that saves us is that a remote host is headless, so the template
+#    renders inert — prove the rendered script is empty rather than trusting it.
+kr_out="$(chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
+  --override-data '{"key_repeat":"aggressive","headless":true,"work":false,"password_manager":"none","chezmoi":{"os":"linux","arch":"amd64","osRelease":{},"kernel":{"osrelease":"6.8.0-generic"}}}' \
+  execute-template <"$kr_lin" 2>&1)" || fail "linux input template must render for a headless host"
+assert_no_matches "a headless host must never configure a keyboard, even with a forwarded DISPLAY" \
+  rg -n 'gsettings|xset' <(printf '%s\n' "$kr_out")
+
+check "groundwork-configure exposes all three key-repeat values"
+# The editor is what moves an EXISTING user off the preserved legacy setting, so
+# the field has to be selectable there, not only answerable at install time.
+# Set locally: the shared gc_bin is assigned further down, after this check.
+kr_gc_bin=home/dot_local/bin/executable_groundwork-configure
+gc_bin="$kr_gc_bin"
+grep -qE '^keyrepeat_values=\(fast standard aggressive\)$' "$gc_bin" \
+  || fail "groundwork-configure must offer exactly fast, standard, and aggressive"
+grep -qE '^fields_key=\(.*\bkey_repeat\b' "$gc_bin" \
+  || fail "key_repeat must appear in the groundwork-configure field registry"
+gc_kr_kind="$(
+  sed -n 's/^fields_key=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | grep -n '^key_repeat$' | cut -d: -f1
+)"
+[[ -n "$gc_kr_kind" ]] || fail "could not locate key_repeat in the field registry"
+gc_kr_kind="$(sed -n 's/^fields_kind=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | sed -n "${gc_kr_kind}p")"
+[[ "$gc_kr_kind" == "keyrepeat" ]] \
+  || fail "key_repeat must use the keyrepeat menu kind, not '$gc_kr_kind' (parallel arrays drifted)"
+
 check "groundwork-configure settings editor"
 gc_bin=home/dot_local/bin/executable_groundwork-configure
 test -x "$gc_bin" || fail "groundwork-configure must exist and be executable"
@@ -1346,8 +1587,17 @@ if command -v tmux >/dev/null 2>&1; then
       'reset_existing_configs = false' 'password_manager = "bitwarden"' 'signingkey = ""' \
       'obsidian_vault_name = "test"' 'install_chrome = false' 'profile_preset = "personal-current"' \
       'environment_role = "personal"' 'release_posture = "current"' 'game_dev = false' \
-      'xcode = false' 'beta = false'
+      'xcode = false' 'beta = false' 'key_repeat = "fast"'
   } >"$gc_dir/xdg/chezmoi/chezmoi.toml"
+  # Derive the Apply entry's number from the field registry instead of hardcoding
+  # it. It is (number of fields + 1), so every field ADDED to the editor silently
+  # renumbered this fixture's keystrokes onto the wrong menu entry — which is how
+  # adding key_repeat first surfaced, as a failure in an unrelated signing-key
+  # assertion rather than anywhere near the change.
+  gc_field_count="$(sed -n 's/^fields_key=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | grep -c .)"
+  [[ "$gc_field_count" -ge 2 ]] \
+    || fail "could not read the groundwork-configure field registry (expected fields_key=(...))"
+  gc_apply_index=$((gc_field_count + 1))
   gc_sock="groundwork-gc-$$"
   gc_out="$gc_dir/out"
   tmux -L "$gc_sock" new-session -d -x 115 -y 45 \
@@ -1358,7 +1608,7 @@ if command -v tmux >/dev/null 2>&1; then
   sleep 1
   tmux -L "$gc_sock" send-keys -t 0 3 Enter
   sleep 1
-  tmux -L "$gc_sock" send-keys -t 0 12 Enter
+  tmux -L "$gc_sock" send-keys -t 0 "$gc_apply_index" Enter
   sleep 3
   tmux -L "$gc_sock" send-keys -t 0 n Enter
   sleep 1

@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{/* Key repeat on Linux desktops.
+
+LIFECYCLE: run_after, not run_onchange, and deliberately. A run_onchange script
+is recorded as done once its rendered content has been executed, so a GNOME write
+that failed because the session bus was not up yet would never be retried, and a
+session-scoped X11 setting would never be re-applied at the next login. Both are
+exactly the cases this has to survive, so it reruns on every apply. The work is
+idempotent and costs two cheap writes.
+
+SCOPE: a real Linux desktop only.
+  - WSL2 is excluded here as well as in the interview. WSLg provides a display,
+    so the headless check alone does NOT exclude it, and the keyboard belongs to
+    Windows either way.
+  - Headless hosts and containers have no keyboard to configure.
+  - A config with no key_repeat answer predates the question. Groundwork never
+    set key repeat on Linux before it, so there is nothing to preserve and
+    nothing to guess: touch nothing.
+
+HONESTY: only GNOME persists. X11's `xset` lasts until the session ends, and
+Groundwork does not own anyone's session startup, so it is applied as a
+best-effort improvement for the current session and reported as exactly that --
+never as configuration Groundwork manages for you. Other compositors are named,
+not silently skipped. */ -}}
+{{- $wsl := false -}}
+{{- if hasKey .chezmoi "kernel" -}}
+{{- if contains "microsoft" (lower (toString (get .chezmoi.kernel "osrelease"))) -}}
+{{- $wsl = true -}}
+{{- end -}}
+{{- end -}}
+{{- $keyRepeat := "" -}}
+{{- if hasKey . "key_repeat" -}}
+{{- $stored := toString .key_repeat -}}
+{{- if or (eq $stored "fast") (eq $stored "standard") (eq $stored "aggressive") -}}
+{{- $keyRepeat = $stored -}}
+{{- end -}}
+{{- end -}}
+{{ if and (eq .chezmoi.os "linux") (not .headless) (not $wsl) (ne $keyRepeat "") -}}
+{{- if eq $keyRepeat "standard" }}
+delay_ms=225
+interval_ms=30
+{{- else if eq $keyRepeat "aggressive" }}
+delay_ms=150
+interval_ms=15
+{{- else }}
+delay_ms=225
+interval_ms=15
+{{- end }}
+profile={{ $keyRepeat | quote }}
+
+gnome_applied=""
+x11_applied=""
+problems=""
+
+# --- GNOME (the only mechanism here that persists) ---------------------------
+# Check the SCHEMA, not just the binary: gsettings exists on many systems with no
+# GNOME schemas installed, where a write fails.
+if command -v gsettings >/dev/null 2>&1 \
+  && gsettings list-schemas 2>/dev/null | grep -qx 'org.gnome.desktop.peripherals.keyboard'; then
+  if gsettings set org.gnome.desktop.peripherals.keyboard repeat true 2>/dev/null \
+    && gsettings set org.gnome.desktop.peripherals.keyboard delay "$delay_ms" 2>/dev/null \
+    && gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval "$interval_ms" 2>/dev/null; then
+    gnome_applied="yes"
+  else
+    problems="${problems}  GNOME schemas are present but the write failed (no session bus yet?).
+    This reruns on every 'chezmoi apply', so applying again from a normal
+    desktop session is the fix.
+"
+  fi
+fi
+
+# --- X11: FALLBACK ONLY ------------------------------------------------------
+# Skipped when GNOME already persisted the setting, so a GNOME-on-X11 user is not
+# warned about persistence that GNOME already handled. xset needs a reachable
+# server, so DISPLAY alone is not proof -- query first. Its rate is repeats per
+# second, so the interval inverts.
+if [ -z "$gnome_applied" ] \
+  && [ -n "${DISPLAY:-}" ] && command -v xset >/dev/null 2>&1 && xset q >/dev/null 2>&1; then
+  if [ "$interval_ms" -gt 0 ] 2>/dev/null; then
+    rate=$((1000 / interval_ms))
+  else
+    rate=30
+  fi
+  if xset r rate "$delay_ms" "$rate" 2>/dev/null; then
+    x11_applied="$rate"
+  else
+    problems="${problems}  'xset r rate $delay_ms $rate' failed; key repeat is unchanged for this session.
+"
+  fi
+fi
+
+# --- Report: every path prints what it found, including recorded failures -----
+if [ -n "$gnome_applied" ]; then
+  printf 'Groundwork: key repeat set to %s via GNOME (persists).\n' "$profile"
+  printf '  delay %sms, interval %sms. Undo with:\n' "$delay_ms" "$interval_ms"
+  printf '    gsettings reset org.gnome.desktop.peripherals.keyboard repeat\n'
+  printf '    gsettings reset org.gnome.desktop.peripherals.keyboard delay\n'
+  printf '    gsettings reset org.gnome.desktop.peripherals.keyboard repeat-interval\n'
+elif [ -n "$x11_applied" ]; then
+  printf 'Groundwork: key repeat set to %s via xset, FOR THIS SESSION ONLY.\n' "$profile"
+  printf '  It resets at logout. Groundwork does not manage your session startup;\n'
+  printf '  to make it permanent, add this to your desktop or window manager startup:\n'
+  printf '    xset r rate %s %s\n' "$delay_ms" "$x11_applied"
+else
+  printf 'Groundwork: key repeat NOT applied (chosen profile: %s).\n' "$profile"
+  printf '  No mechanism Groundwork can drive was available on this desktop.\n'
+  printf '  Set it in your own environment:\n'
+  printf '    KDE          System Settings > Keyboard > Key repeat\n'
+  printf '    sway/niri    input * { repeat_delay %s; repeat_rate <per-second> }\n' "$delay_ms"
+  printf '    Hyprland     input { repeat_delay = %s; repeat_rate = <per-second> }\n' "$delay_ms"
+fi
+
+# Recorded failures are printed on EVERY path, including the success paths -- a
+# reason captured and then dropped is worse than never capturing it.
+if [ -n "$problems" ]; then
+  printf 'Groundwork: key repeat, unresolved:\n%s' "$problems"
+fi
+exit 0
+{{- end }}

@@ -19,11 +19,44 @@ defaults write com.apple.Safari IncludeDevelopMenu -bool true 2>/dev/null || tru
 defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true 2>/dev/null || true
 defaults write NSGlobalDomain WebKitDeveloperExtras -bool true 2>/dev/null || true
 
-# Keyboard: fast key repeat + disable press-and-hold accent menu (for vim/nvim).
+# Keyboard: disable the press-and-hold accent menu so holding a letter REPEATS it
+# instead of opening the diacritic picker — the behavior vim/nvim motions assume.
 # Read at app launch, so these fully apply after a logout/login.
 defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+{{/* KeyRepeat is the interval BETWEEN repeats, InitialKeyRepeat the delay BEFORE
+repeating starts; lower is faster for both.
+
+The absent-key fallback is STANDARD, not the recommended fast, and that asymmetry
+is the point. Groundwork shipped 2/15 unconditionally before this question
+existed, so every already-installed machine has no key_repeat in its chezmoi
+data. Treating "field absent" as "fast" would silently speed up every existing
+user's keyboard on their next apply — a change they never asked for, presented
+as a choice they never saw. Absent means "predates the question", so it means
+"keep what you already had". Fast is the default for people who are ASKED: new
+installs, and anyone re-running the interview or `groundwork-configure`.
+
+A malformed stored value takes the same path for the same reason — when the
+answer cannot be read, changing the user's typing speed is the wrong guess. */ -}}
+{{- $keyRepeat := "standard" -}}
+{{- if hasKey . "key_repeat" -}}
+{{- $stored := toString .key_repeat -}}
+{{- if or (eq $stored "fast") (eq $stored "standard") (eq $stored "aggressive") -}}
+{{- $keyRepeat = $stored -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $keyRepeat "standard" }}
+# Key repeat: standard.
 defaults write NSGlobalDomain KeyRepeat -int 2
 defaults write NSGlobalDomain InitialKeyRepeat -int 15
+{{- else if eq $keyRepeat "aggressive" }}
+# Key repeat: aggressive — same fast repeat as the default, starts sooner.
+defaults write NSGlobalDomain KeyRepeat -int 1
+defaults write NSGlobalDomain InitialKeyRepeat -int 10
+{{- else }}
+# Key repeat: fast (the recommended default).
+defaults write NSGlobalDomain KeyRepeat -int 1
+defaults write NSGlobalDomain InitialKeyRepeat -int 15
+{{- end }}
 
 # Dock: hide recently-used apps.
 defaults write com.apple.dock show-recents -bool false

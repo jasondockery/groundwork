@@ -105,14 +105,61 @@ config_digest_open="$(cksum <"$config_path")"
 
 # --- field registry (parallel arrays: macOS ships Bash 3.2, no assoc arrays) ---
 # key                  label                 kind    clearable
-fields_key=(profile_preset work password_manager code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
-fields_label=("Environment profile" "Work machine" "Password manager" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
-fields_kind=(preset bool pw string string string string bool bool string string)
-fields_clear=(no no no no no no yes no no yes yes)
+fields_key=(profile_preset work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
+fields_label=("Environment profile" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
+fields_kind=(preset bool pw keyrepeat string string string string bool bool string string)
+fields_clear=(no no no no no no no yes no no yes yes)
 
 preset_values=(personal-current personal-preview work-managed disposable-experimental)
 preset_labels=("Personal current (recommended)" "Personal preview (pre-release apps)" "Work managed (respects device policy)" "Disposable experimental (rebuildable VM/container)")
 pw_values=(bitwarden 1password none)
+keyrepeat_values=(fast standard aggressive)
+keyrepeat_labels=("Fast (recommended)" "Standard (slower repeat)" "Aggressive (starts sooner)")
+
+# All three menu kinds differ only in their value/label lists, so they share one
+# prompt, one display path, and one receipt formatter. `pw` has no separate
+# labels: its stored values are already the words a user recognizes.
+choice_values=()
+choice_labels=()
+load_choices() { # kind -> populates choice_values / choice_labels
+  case "$1" in
+    preset)
+      choice_values=("${preset_values[@]}")
+      choice_labels=("${preset_labels[@]}")
+      ;;
+    keyrepeat)
+      choice_values=("${keyrepeat_values[@]}")
+      choice_labels=("${keyrepeat_labels[@]}")
+      ;;
+    pw)
+      choice_values=("${pw_values[@]}")
+      choice_labels=("${pw_values[@]}")
+      ;;
+    *)
+      choice_values=()
+      choice_labels=()
+      ;;
+  esac
+}
+# Short display for a stored value: the label with any parenthetical gloss
+# stripped, or the raw value if it is not a known choice.
+choice_display() { # kind value
+  local i
+  # A config generated before a menu field existed has no value for it at all.
+  # Show that as unset rather than as an empty column.
+  [[ -z "$2" ]] && {
+    echo "(none)"
+    return
+  }
+  load_choices "$1"
+  for ((i = 0; i < ${#choice_values[@]}; i++)); do
+    [[ "${choice_values[i]}" == "$2" ]] && {
+      echo "${choice_labels[i]%% (*}"
+      return
+    }
+  done
+  echo "$2"
+}
 
 # persisted value (from the loaded data JSON), typed as a display string
 persisted() { # key
@@ -161,16 +208,7 @@ display_of() { # key kind -> human display of the effective value
   v="$(current_value "$1")"
   case "$2" in
     bool) [[ "$v" == "true" ]] && echo "Yes" || echo "No" ;;
-    preset)
-      local i
-      for ((i = 0; i < ${#preset_values[@]}; i++)); do
-        [[ "${preset_values[i]}" == "$v" ]] && {
-          echo "${preset_labels[i]%% (*}"
-          return
-        }
-      done
-      echo "$v"
-      ;;
+    preset | keyrepeat) choice_display "$2" "$v" ;;
     *) [[ -z "$v" ]] && echo "(none)" || echo "$v" ;;
   esac
 }
@@ -211,30 +249,18 @@ edit_field() { # index
         esac
       done
       ;;
-    preset)
-      for ((j = 0; j < ${#preset_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${preset_labels[j]}"; done
+    preset | keyrepeat | pw)
+      load_choices "$kind"
+      for ((j = 0; j < ${#choice_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${choice_labels[j]}"; done
       while true; do
-        read -r -p "  Choose 1-${#preset_values[@]} (Enter keeps current): " ans || cancel_editor
+        read -r -p "  Choose 1-${#choice_values[@]} (Enter keeps current): " ans || cancel_editor
         if [[ -z "$ans" ]]; then
           new="$cur"
           break
-        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#preset_values[@]})); then
-          new="${preset_values[$((ans - 1))]}"
+        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#choice_values[@]})); then
+          new="${choice_values[$((ans - 1))]}"
           break
-        else echo "  Enter a number between 1 and ${#preset_values[@]}." >&2; fi
-      done
-      ;;
-    pw)
-      for ((j = 0; j < ${#pw_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${pw_values[j]}"; done
-      while true; do
-        read -r -p "  Choose 1-${#pw_values[@]} (Enter keeps current): " ans || cancel_editor
-        if [[ -z "$ans" ]]; then
-          new="$cur"
-          break
-        elif [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#pw_values[@]})); then
-          new="${pw_values[$((ans - 1))]}"
-          break
-        else echo "  Enter a number between 1 and ${#pw_values[@]}." >&2; fi
+        else echo "  Enter a number between 1 and ${#choice_values[@]}." >&2; fi
       done
       ;;
     string)
@@ -323,14 +349,7 @@ print_receipt() { # structured, from the pending registry — no grepped TOML
 fmt() { # value kind -> display
   case "$2" in
     bool) [[ "$1" == "true" ]] && echo "Yes" || echo "No" ;;
-    preset)
-      local i
-      for ((i = 0; i < ${#preset_values[@]}; i++)); do [[ "${preset_values[i]}" == "$1" ]] && {
-        echo "${preset_labels[i]%% (*}"
-        return
-      }; done
-      echo "$1"
-      ;;
+    preset | keyrepeat) choice_display "$2" "$1" ;;
     *) [[ -z "$1" ]] && echo "(none)" || echo "$1" ;;
   esac
 }

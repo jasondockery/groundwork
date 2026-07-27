@@ -107,6 +107,58 @@ without the other, and so a preset is only ever a starting value. */ -}}
 {{- $environmentRole = "disposable" -}}
 {{- $releasePosture = "preview" -}}
 {{- end -}}
+{{- /* Key repeat. Two independent knobs, both integers written to NSGlobalDomain:
+KeyRepeat is the interval BETWEEN repeats and InitialKeyRepeat is the delay
+BEFORE repeating starts; for both, a lower number is faster. They are described
+here only in relative terms. The unit is not documented by Apple, the hidden
+values do not map linearly onto the System Settings sliders, and this machine's
+own IOKit values do not match the widely repeated "15ms per unit" folklore — so
+naming millisecond equivalents would be inventing precision.
+
+Fast is the default because holding a key is a primary motion in a terminal
+(j/k in vim, arrow keys, backspace), not an edge case. Numbered menu for the
+same reason as the profile preset above: promptChoice is a type-to-match field.
+
+Asked on any DESKTOP, macOS or Linux, and on neither when headless. Key repeat
+belongs to the machine holding the physical keyboard, not the machine being
+typed into: in a container or over SSH the repeat comes from the operator's own
+desktop, so there is nothing on the far end to set. WSL2 is the same case with
+Windows owning the keyboard. Storing an answer that no surface can honor would
+invite a claim Groundwork cannot keep. */ -}}
+{{- $keyRepeatByNum := dict "1" "fast" "2" "standard" "3" "aggressive" -}}
+{{- $numByKeyRepeat := dict "fast" "1" "standard" "2" "aggressive" "3" -}}
+{{- $keyRepeatDefaultNum := "1" -}}
+{{- if and (hasKey . "key_repeat") (hasKey $numByKeyRepeat (toString .key_repeat)) -}}
+{{- $keyRepeatDefaultNum = index $numByKeyRepeat (toString .key_repeat) -}}
+{{- end -}}
+{{- $keyRepeat := "fast" -}}
+{{- /* WSL2 reaches here as a non-headless Linux desktop when WSLg sets a
+display, but the keyboard is Windows'. Detect it once, and do not ask. */ -}}
+{{- $wsl := false -}}
+{{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi "kernel") -}}
+{{- if contains "microsoft" (lower (toString (get .chezmoi.kernel "osrelease"))) -}}
+{{- $wsl = true -}}
+{{- end -}}
+{{- end -}}
+{{- /* The closing line differs by platform because the honest caveat differs.
+macOS always applies this; Linux applies it on GNOME (persistently) or an X11
+session (until logout), and on other compositors Groundwork records the answer
+and tells you where to set it rather than pretending it applied. Promising
+"applied" to a sway or KDE-Wayland user would be the claim we cannot keep. */ -}}
+{{- $keyRepeatNote := "Changing Keyboard settings in System Settings later overwrites this" -}}
+{{- if ne .chezmoi.os "darwin" -}}
+{{- $keyRepeatNote = "Applied on GNOME, or for the current session on X11; on other desktops Groundwork prints where to set it" -}}
+{{- end -}}
+{{- if and (not $headless) (not $wsl) -}}
+{{- $keyRepeatChoice := promptChoiceOnce . "key_repeat" (printf "Key repeat when you hold a key down — type 1-3:\n  1. Fast (recommended) — starts repeating soon, repeats quickly\n  2. Standard — same start delay, slower repeat\n  3. Aggressive — same fast repeat, starts sooner; can repeat when you only meant to rest on a key\n%s (Enter keeps the default: %s)" $keyRepeatNote $keyRepeatDefaultNum) (list "1" "2" "3") $keyRepeatDefaultNum -}}
+{{- /* Same dual return domain as profile_preset: a digit on a fresh or --prompt
+run, the stored value string on an ordinary existing-config run. */ -}}
+{{- if hasKey $keyRepeatByNum $keyRepeatChoice -}}
+{{- $keyRepeat = index $keyRepeatByNum $keyRepeatChoice -}}
+{{- else if hasKey $numByKeyRepeat $keyRepeatChoice -}}
+{{- $keyRepeat = $keyRepeatChoice -}}
+{{- end -}}
+{{- end -}}
 {{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools, a large download (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development, large at ~15GB+ (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $beta := false -}}
@@ -128,6 +180,7 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     signingkey = {{ $signingKey | quote }}
     obsidian_vault_name = {{ $obsidianVault | quote }}
     install_chrome = {{ $installChrome }}
+    key_repeat = {{ $keyRepeat | quote }}
     profile_preset = {{ $profilePreset | quote }}
     environment_role = {{ $environmentRole | quote }}
     release_posture = {{ $releasePosture | quote }}
