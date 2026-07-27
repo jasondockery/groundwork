@@ -1,6 +1,21 @@
 [tools]
 node = "lts"
-pnpm = "latest"
+# pnpm is deliberately NOT a mise tool. Ownership model:
+#
+#   mise owns Node. Corepack owns pnpm, and selects the version each repository
+#   pins in its package.json "packageManager" field.
+#
+# A global `pnpm = "latest"` competes with that pin, and PATH order decides who
+# wins — so an interactive shell and an agent/CI shell can silently disagree. The
+# failure is ugly: a newer pnpm sees an older `packageManager`, self-manages a
+# download of the pinned version, and nested processes (Turbo tasks, package
+# scripts) re-resolve bare `pnpm` from PATH and land back on the global one. The
+# standalone mise build also bundles its own Node, which trips a repository's
+# `engines.node` even when the correct Node is on PATH.
+#
+# Corepack's shim resolves per-repository on every invocation, parent and child
+# alike, so there is exactly one authority. See the migration in
+# run_after_15-pnpm-corepack.sh and `groundwork-doctor --node-toolchain`.
 # 3.13 is the default project Python. 3.12 is kept available for pinned tool
 # runtimes such as Aider, whose dependency path still imports audioop.
 python = ["3.13", "3.12"]
@@ -14,6 +29,11 @@ python = ["3.13", "3.12"]
 # "npm:prettier" = "latest"
 
 [settings]
+# Install Corepack shims after installing each Node version, so pnpm exists
+# without a competing global install. Node <25 bundles Corepack; Node 25 dropped
+# it from the distribution, so the migration script installs a pinned userland
+# Corepack when the bundled one is absent rather than assuming Node ships it.
+node.corepack = true
 # Source an existing uv-managed .venv when entering a project, but do not create
 # one implicitly. Project setup should stay explicit with `uv init`, `uv sync`,
 # or `uv venv`.

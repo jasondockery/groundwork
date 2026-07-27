@@ -523,6 +523,35 @@ which returns only the first match.
       `~/.config/opencode/`, so the two never collide.
 - [ ] Cover the reverse case too: a Groundwork-managed command that is missing
       from PATH entirely because another installer removed or shadowed it.
+- [x] **pnpm/Node ownership — the first instance of this class, fixed
+      2026-07-27.** Groundwork shipped a global `pnpm = "latest"` through mise,
+      which competed with the pnpm every repository pins in `packageManager`.
+      PATH order decided the winner silently: a newer pnpm meeting an older pin
+      self-managed a download of it, nested Turbo/package-script children
+      re-resolved bare `pnpm` from PATH and could land elsewhere, and the
+      standalone mise build carries its OWN Node, tripping `engines.node` while
+      the correct Node was on PATH. No error named any of it — an interactive
+      shell, an agent shell, and CI simply disagreed. Ownership is now **mise
+      owns Node; Corepack owns pnpm**, selecting each repo's pinned version.
+      Shipped: `pnpm` removed from the managed mise tools plus
+      `node.corepack = true`; a pinned Corepack in
+      `~/.local/share/groundwork/node-toolchain.env` (Node 25 dropped the
+      bundled copy, so the pin is required, not decorative); an every-apply
+      converger (`run_after_15-pnpm-corepack.sh`) that installs Corepack into
+      the ACTIVE Node with `--install-directory`, proves a **bare** `pnpm` on
+      the prospective PATH, and only then removes the mise pnpm — restoring it
+      and saying what it cannot restore if the proof fails;
+      `groundwork-doctor --node-toolchain`; and a validator fixture proving a
+      nested package script resolves the same pnpm and Node as its parent.
+- [ ] Generalize the doctor's pnpm provenance logic to the other managed
+      commands. `--node-toolchain` now resolves mise shims through
+      `mise which`, collapses candidates to distinct OWNERS (a shim and the
+      binary it dispatches to are one authority, not two), and classifies by
+      structural path before content — a compiled pnpm contains the string
+      "corepack" in its embedded JS, so a naive content grep reports a
+      standalone binary as Corepack-backed. Those three rules are what the
+      generic shadowed-install report above needs; lift them rather than
+      re-deriving them per tool.
 
 ## chezmoi interview UX: navigable choices and re-run clarity
 

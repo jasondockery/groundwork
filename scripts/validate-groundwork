@@ -4964,6 +4964,86 @@ for profile_case in --help show "set preview" --bogus frobnicate; do
   fi
 done
 
+check "Node/pnpm launcher: parent and nested child resolve one toolchain"
+# The defect this pins: a top-level pnpm can be correct while a nested process
+# (a Turbo task, a package script) re-resolves bare `pnpm` from PATH and gets a
+# DIFFERENT one. Groundwork's model is mise-owns-Node, Corepack-owns-pnpm; this
+# proves the model holds across the process boundary, not just at the prompt.
+#
+# A package script is the faithful minimum: it is exactly how Turbo children
+# re-resolve. Using Turbo itself would add an install without changing what is
+# being proven.
+launcher_node="$(mise which node 2>/dev/null || command -v node 2>/dev/null || true)"
+if [ -z "$launcher_node" ] || [ ! -x "$launcher_node" ]; then
+  echo "  skip: no Node available for the launcher fixture"
+elif ! "$(dirname "$launcher_node")/corepack" --version >/dev/null 2>&1; then
+  # Corepack is the owner in this model; without it there is nothing to assert.
+  echo "  skip: Corepack not present beside the active Node (run 'chezmoi apply')"
+else
+  launcher_dir="$out_dir/launcher-fixture"
+  launcher_bin="$launcher_dir/bin"
+  mkdir -p "$launcher_bin" "$launcher_dir/repo"
+  node_bin_dir="$(cd "$(dirname "$launcher_node")" && pwd)"
+
+  COREPACK_ENABLE_DOWNLOAD_PROMPT=0 "$node_bin_dir/corepack" enable pnpm \
+    --install-directory "$launcher_bin" >/dev/null 2>&1 \
+    || fail "corepack must be able to install a pnpm shim into a scratch directory"
+
+  # PATH the fixture runs under: the Corepack shim first, the managed Node next,
+  # and every mise standalone pnpm removed — i.e. the converged model.
+  launcher_path="$launcher_bin:$node_bin_dir:$(
+    printf '%s' "$PATH" | tr ':' '\n' | grep -v '/mise/installs/pnpm/' | paste -sd: -
+  )"
+
+  # The child script re-resolves BARE pnpm and node, exactly as a Turbo task does.
+  cat >"$launcher_dir/repo/package.json" <<'LAUNCHER_JSON'
+{
+  "name": "groundwork-launcher-fixture",
+  "private": true,
+  "packageManager": "pnpm@11.10.0",
+  "scripts": {
+    "child": "pnpm --version && node --version"
+  }
+}
+LAUNCHER_JSON
+
+  launcher_parent_pnpm="$(
+    cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      pnpm --version 2>/dev/null || true
+  )"
+  [ "$launcher_parent_pnpm" = "11.10.0" ] \
+    || fail "bare pnpm must honor the fixture's packageManager pin (got '${launcher_parent_pnpm:-none}', expected 11.10.0)"
+
+  launcher_child="$(
+    cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      pnpm run --silent child 2>/dev/null || true
+  )"
+  launcher_child_pnpm="$(printf '%s\n' "$launcher_child" | sed -n '1p')"
+  launcher_child_node="$(printf '%s\n' "$launcher_child" | sed -n '2p')"
+  launcher_parent_node="$("$launcher_node" --version 2>/dev/null || true)"
+
+  [ "$launcher_child_pnpm" = "$launcher_parent_pnpm" ] \
+    || fail "a nested package script resolved pnpm '${launcher_child_pnpm:-none}' but the parent resolved '$launcher_parent_pnpm' — nested processes must not re-resolve a different pnpm"
+  [ "$launcher_child_node" = "$launcher_parent_node" ] \
+    || fail "a nested package script resolved node '${launcher_child_node:-none}' but the parent resolved '$launcher_parent_node'"
+
+  # And the negative: with a mise standalone pnpm ahead on PATH, the model breaks.
+  # Proving the fixture can FAIL is what stops it from being decorative.
+  launcher_standalone="$(
+    printf '%s' "$PATH" | tr ':' '\n' | grep -m1 '/mise/installs/pnpm/' || true
+  )"
+  if [ -n "$launcher_standalone" ] && [ -x "$launcher_standalone/pnpm" ]; then
+    launcher_shadowed="$(
+      cd "$launcher_dir/repo" && PATH="$launcher_standalone:$launcher_path" \
+        COREPACK_ENABLE_DOWNLOAD_PROMPT=0 command -v pnpm 2>/dev/null || true
+    )"
+    case "$launcher_shadowed" in
+      "$launcher_standalone"/pnpm) ;;
+      *) fail "the fixture cannot demonstrate shadowing; it would pass even when the model is broken" ;;
+    esac
+  fi
+fi
+
 check "line endings stay LF"
 grep -q '^\* text=auto eol=lf$' .gitattributes
 assert_no_matches "CRLF line endings found in tracked files" git grep -Il $'\r' -- .

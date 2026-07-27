@@ -11,6 +11,7 @@ Usage:
 Options:
   --shell       run only the shell runtime section
   --runtimes    run only the runtime release-age section
+  --node-toolchain  run only the Node/pnpm ownership section
   --docker      run only the Docker section
   -h, --help    show this help
 
@@ -154,6 +155,242 @@ EOF
 # The release floor Groundwork enforces in update-all. Keep this in step with
 # groundwork-update-run; the validator asserts they agree.
 GROUNDWORK_RELEASE_FLOOR="${GROUNDWORK_RELEASE_FLOOR:-5d}"
+
+# Every pnpm on PATH, in resolution order. Raw candidates: callers collapse
+# them to distinct OWNERS via pnpm_resolve. A PATH scan rather than
+# `command -v -a` (zsh-only) or `type -a` (output format varies). Always returns
+# 0: under `set -e`, a scan whose final test is false would otherwise abort the
+# caller's assignment and silently skip the rest of the section.
+pnpm_candidates() {
+  local dir
+  printf '%s' "${PATH:-}" | tr ':' '\n' | while IFS= read -r dir; do
+    if [ -n "$dir" ] && [ -x "$dir/pnpm" ]; then
+      printf '%s\n' "$dir/pnpm"
+    fi
+  done
+  return 0
+}
+
+# Resolve what a pnpm on PATH ACTUALLY dispatches to.
+#
+# A mise shim is not an owner — it is a dispatcher to the currently active tool
+# binary, and `which` shows only the shim (mise says to use `mise which`). Once
+# Corepack has placed pnpm beside the managed Node and `mise reshim` has run, the
+# healthy chain is: mise shim -> node/bin/pnpm -> Corepack -> repo-pinned pnpm.
+# Treating that shim as a competing owner would flag a correct setup as broken.
+pnpm_resolve() {
+  local candidate="$1"
+  local resolved="$candidate"
+  case "$candidate" in
+    */mise/shims/*)
+      resolved="$(mise which pnpm 2>/dev/null || true)"
+      [ -n "$resolved" ] || resolved="$candidate"
+      ;;
+  esac
+  # Follow a symlink one level; Corepack installs its shims as links into dist.
+  if [ -L "$resolved" ]; then
+    local target
+    target="$(readlink "$resolved")"
+    case "$target" in
+      /*) resolved="$target" ;;
+      *) resolved="$(cd "$(dirname "$resolved")" 2>/dev/null && cd "$(dirname "$target")" 2>/dev/null && pwd)/$(basename "$target")" ;;
+    esac
+  fi
+  printf '%s\n' "$resolved"
+}
+
+# Classify by what it resolves to, never by the path the user happened to type.
+#
+# Order matters. A standalone pnpm is a compiled binary that CONTAINS the string
+# "corepack" in its embedded JavaScript, so a content grep alone reports it as
+# Corepack-backed — the exact opposite of the truth. Structural path facts are
+# checked first, and content is only inspected for text shims.
+pnpm_provider() {
+  local candidate="$1" resolved
+  resolved="$(pnpm_resolve "$candidate")"
+
+  # Structural, definitive: a tool installed by mise under its own installs tree.
+  case "$resolved" in
+    */mise/installs/pnpm/*)
+      printf 'mise-standalone\n'
+      return 0
+      ;;
+  esac
+  # Corepack's own dist, however it was reached.
+  case "$resolved" in
+    */corepack/dist/* | */corepack/*)
+      printf 'corepack\n'
+      return 0
+      ;;
+  esac
+  # A TEXT shim naming corepack (never a binary — see the note above).
+  if [ -f "$resolved" ] && [ -r "$resolved" ] \
+    && file "$resolved" 2>/dev/null | grep -qiE 'text|script' \
+    && grep -qs corepack "$resolved" 2>/dev/null; then
+    printf 'corepack\n'
+    return 0
+  fi
+  case "$resolved" in
+    */homebrew/* | */Cellar/*) printf 'homebrew\n' ;;
+    */lib/node_modules/* | */npm-global/*) printf 'npm-global\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+# `packageManager` may carry Corepack's recommended integrity hash
+# ("pnpm@11.10.0+sha512.…"). Comparing the whole string to `pnpm --version`
+# would report a false mismatch, so strip at the '+'.
+package_manager_pin() {
+  local manifest="$1"
+  node -e '
+    try {
+      const pkg = require(process.argv[1])
+      const match = /^pnpm@([^+]+)/.exec(pkg.packageManager || "")
+      process.stdout.write(match ? match[1] : "")
+    } catch {}
+  ' "$manifest" 2>/dev/null || true
+}
+
+engines_node_pin() {
+  local manifest="$1"
+  node -e '
+    try {
+      const pkg = require(process.argv[1])
+      process.stdout.write((pkg.engines && pkg.engines.node) || "")
+    } catch {}
+  ' "$manifest" 2>/dev/null || true
+}
+
+node_toolchain_section() {
+  heading "Node toolchain (mise owns Node; Corepack owns pnpm)"
+
+  # The failure this catches is invisible without it: two pnpm authorities, and
+  # PATH order picks the winner. A newer global pnpm meeting an older
+  # `packageManager` pin self-manages a download, nested Turbo/package-script
+  # children re-resolve bare `pnpm` from PATH and land back on the global one,
+  # and a standalone pnpm build carries its OWN Node that can trip a repository's
+  # engines.node even when the right Node is on PATH.
+
+  local node_path node_version
+  node_path="$(command -v node 2>/dev/null || true)"
+  if [ -z "$node_path" ]; then
+    warn "node is not on PATH — install it with: mise install"
+    return 0
+  fi
+  node_version="$(node --version 2>/dev/null || echo unknown)"
+  ok "node $node_version ($node_path)"
+
+  if command -v corepack >/dev/null 2>&1; then
+    ok "corepack $(corepack --version 2>/dev/null || echo '?') available"
+  else
+    local major
+    major="${node_version#v}"
+    major="${major%%.*}"
+    if [ -n "$major" ] && [ "$major" -ge 25 ] 2>/dev/null; then
+      warn "Node $major does not bundle Corepack and none is installed — pnpm has no owner. Run 'chezmoi apply' to install the pinned one."
+    else
+      warn "corepack not found — pnpm has no owner. Run: corepack enable pnpm"
+    fi
+    return 0
+  fi
+
+  local pnpm_path
+  pnpm_path="$(command -v pnpm 2>/dev/null || true)"
+  if [ -z "$pnpm_path" ]; then
+    note "pnpm is not on PATH. Corepack provides it on demand: corepack enable pnpm"
+    return 0
+  fi
+
+  local provider resolved pnpm_version
+  provider="$(pnpm_provider "$pnpm_path")"
+  resolved="$(pnpm_resolve "$pnpm_path")"
+  pnpm_version="$(pnpm --version 2>/dev/null || echo unknown)"
+
+  if [ "$provider" = "corepack" ]; then
+    if [ "$resolved" = "$pnpm_path" ]; then
+      ok "pnpm $pnpm_version via corepack ($pnpm_path)"
+    else
+      # A mise shim dispatching to Corepack is healthy, not a competing owner.
+      ok "pnpm $pnpm_version via corepack ($pnpm_path -> $resolved)"
+    fi
+  else
+    warn "pnpm $pnpm_version comes from '$provider' ($resolved), not Corepack — it overrides a repository's packageManager pin, and nested Turbo/package-script children resolve it too."
+    case "$provider" in
+      mise-standalone)
+        warn "remove the competing install: mise uninstall --all pnpm && mise reshim, then rerun 'chezmoi apply'"
+        ;;
+      *)
+        warn "remove it or reorder PATH so Corepack wins, then: corepack enable pnpm"
+        ;;
+    esac
+  fi
+
+  # Competing OWNERS, not competing paths: a shim and the binary it dispatches
+  # to are one authority, so candidates collapse by what they resolve to.
+  local owners count
+  owners="$(
+    pnpm_candidates | while IFS= read -r candidate; do
+      [ -n "$candidate" ] && pnpm_resolve "$candidate"
+    done | sort -u
+  )"
+  count="$(printf '%s' "$owners" | grep -c . || true)"
+  if [ "${count:-0}" -gt 1 ]; then
+    warn "$count distinct pnpm owners on PATH — the first wins, which is why shells can disagree:"
+    printf '%s\n' "$owners" | while IFS= read -r owner; do
+      [ -n "$owner" ] && note "  $owner"
+    done
+  fi
+
+  local manifest pinned node_pin
+  manifest="$(pwd)/package.json"
+  if [ ! -f "$manifest" ]; then
+    note "not inside a Node project — repository pin checks skipped."
+    return 0
+  fi
+
+  pinned="$(package_manager_pin "$manifest")"
+  if [ -z "$pinned" ]; then
+    note "this repository declares no packageManager pin; Corepack has nothing to select."
+  elif [ "$pnpm_version" = "$pinned" ]; then
+    ok "pnpm matches this repository's packageManager pin ($pinned)"
+  else
+    warn "this repository pins pnpm $pinned but the resolved pnpm is $pnpm_version"
+  fi
+
+  node_pin="$(engines_node_pin "$manifest")"
+  if [ -z "$node_pin" ]; then
+    note "this repository declares no engines.node policy."
+  else
+    case "$node_pin" in
+      # An exact pin must match exactly. A RANGE is reported, not judged —
+      # reimplementing semver here would only add a new place to be wrong.
+      [0-9]*.[0-9]*.[0-9]*)
+        if [ "${node_version#v}" = "$node_pin" ]; then
+          ok "node matches this repository's exact engines.node pin ($node_pin)"
+        else
+          warn "this repository pins engines.node $node_pin but the active node is $node_version"
+        fi
+        ;;
+      *)
+        note "engines.node is a range ($node_pin); active node is $node_version — ranges are not evaluated here."
+        ;;
+    esac
+  fi
+
+  # Parent vs nested child — the failure the whole model exists to stop. A
+  # top-level pnpm can be correct while a Turbo task or package script
+  # re-resolves bare `pnpm` from PATH and gets a different one.
+  if [ -n "$pinned" ]; then
+    local child_pnpm child_node
+    child_pnpm="$(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm exec pnpm --version 2>/dev/null || echo unknown)"
+    child_node="$(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm exec node --version 2>/dev/null || echo unknown)"
+    if [ "$child_pnpm" = "$pnpm_version" ] && [ "$child_node" = "$node_version" ]; then
+      ok "nested processes resolve the same toolchain (pnpm $child_pnpm, node $child_node)"
+    else
+      warn "nested processes resolve a DIFFERENT toolchain (pnpm $child_pnpm, node $child_node) than the parent (pnpm $pnpm_version, node $node_version) — Turbo tasks and package scripts will not agree with your shell."
+    fi
+  fi
+}
 
 runtimes_section() {
   heading "Runtime release age"
@@ -382,6 +619,7 @@ while (($#)); do
     --docker) section="docker" ;;
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
+    --node-toolchain) section="node-toolchain" ;;
     -h | --help)
       usage
       exit 0
@@ -401,9 +639,11 @@ case "$section" in
   "")
     shell_section
     runtimes_section
+    node_toolchain_section
     docker_section
     ;;
   shell) shell_section ;;
   runtimes) runtimes_section ;;
+  node-toolchain) node_toolchain_section ;;
   docker) docker_section ;;
 esac
