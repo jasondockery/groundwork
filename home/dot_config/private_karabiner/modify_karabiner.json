@@ -78,16 +78,47 @@ function run(argv) {
     profile.complex_modifications.rules = [];
   }
 
-  const description = "Groundwork: Caps Lock -> Esc (tap) / Control (hold)";
+  const description =
+    "Groundwork: Caps Lock -> Esc (tap) / Control (hold), Right Shift + Caps Lock -> real Caps Lock";
   const legacyDescriptions = [
     description,
+    "Groundwork: Caps Lock -> Esc (tap) / Control (hold)",
     "Caps Lock \u2192 Esc (tap) / Control (hold)",
     "Caps Lock -> Esc (tap) / Control (hold)"
   ];
 
+  // ORDER IS LOAD-BEARING: Karabiner applies the first matching manipulator, so
+  // the specific Right Shift escape hatch must precede the generic rule that
+  // swallows every caps_lock press.
+  //
+  // Why the escape hatch exists: once caps_lock is remapped to Control/Escape,
+  // the physical key can never emit caps_lock again. If the system's Caps Lock
+  // state is switched on by anything else — another app, the login window
+  // before Karabiner grabs the device, a race at wake — the LED lights and
+  // there is no way to change it back without disabling the rule entirely.
+  //
+  // This is a TOGGLE, not a clear: it sends a real Caps Lock, which turns the
+  // state on as readily as off. Right Shift specifically, because it is
+  // deliberate, leaves Left Shift free for ordinary typing, and is hard to hit
+  // by accident.
+  //
+  // hold_down_milliseconds + vk_none: a synthetic caps_lock that is pressed and
+  // released instantly is unreliable — Karabiner documents a hold duration for
+  // this, and the trailing vk_none gives the key-up somewhere to land.
   const desired = {
     description: description,
     manipulators: [
+      {
+        type: "basic",
+        from: {
+          key_code: "caps_lock",
+          modifiers: { mandatory: ["right_shift"], optional: ["any"] }
+        },
+        to: [
+          { key_code: "caps_lock", hold_down_milliseconds: 200 },
+          { key_code: "vk_none" }
+        ]
+      },
       {
         type: "basic",
         from: {

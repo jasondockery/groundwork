@@ -4262,6 +4262,41 @@ if command -v osascript >/dev/null 2>&1; then
     || fail "karabiner modify failed on an empty config"
   grep -qF 'Groundwork: Caps Lock' "$karabiner_fixture/seeded.json" \
     || fail "karabiner modify must add the Groundwork rule to an empty config"
+  # The Caps Lock escape hatch, and the ORDER that makes it work. Once caps_lock
+  # is remapped, the physical key can never emit a real Caps Lock again — so if
+  # the system state is switched on by anything else, the LED stays lit with no
+  # way back except disabling the rule. Right Shift + Caps Lock is the deliberate
+  # toggle (it turns the state ON as readily as off; it is not a one-way clear).
+  python3 -c 'import json,sys
+config = json.load(open(sys.argv[1]))
+profile = next((p for p in config["profiles"] if p.get("selected")), config["profiles"][0])
+rules = [r for r in profile["complex_modifications"]["rules"] if "Caps Lock" in r.get("description", "")]
+if len(rules) != 1:
+    sys.exit("expected exactly one Groundwork Caps Lock rule, got %d" % len(rules))
+manipulators = rules[0]["manipulators"]
+if len(manipulators) != 2:
+    sys.exit("expected 2 manipulators (escape hatch + tap/hold), got %d" % len(manipulators))
+hatch, generic = manipulators
+# Karabiner takes the FIRST match, so the specific rule must come first or the
+# generic one swallows every caps_lock press and the hatch is dead code.
+if hatch["from"].get("modifiers", {}).get("mandatory") != ["right_shift"]:
+    sys.exit("the first manipulator must be the right_shift escape hatch")
+if [t.get("key_code") for t in hatch["to"]] != ["caps_lock", "vk_none"]:
+    sys.exit("the escape hatch must send a real caps_lock followed by vk_none")
+if hatch["to"][0].get("hold_down_milliseconds") != 200:
+    sys.exit("the synthetic caps_lock needs a hold duration to register reliably")
+if generic["from"].get("modifiers", {}).get("mandatory"):
+    sys.exit("the generic tap/hold manipulator must not require a modifier")
+if [t.get("key_code") for t in generic["to"]] != ["left_control"]:
+    sys.exit("the generic manipulator must map hold to left_control")
+if [t.get("key_code") for t in generic.get("to_if_alone", [])] != ["escape"]:
+    sys.exit("the generic manipulator must map tap to escape")' \
+    "$karabiner_fixture/seeded.json" \
+    || fail "the Caps Lock rule must carry a right_shift escape hatch BEFORE the generic tap/hold manipulator"
+  # Suppressing the LED would hide the symptom and remove the only signal that
+  # real Caps Lock is active — the escape hatch is the fix, not disabling it.
+  assert_no_matches "Karabiner's Caps Lock LED manipulation must stay enabled (the escape hatch is the fix, not hiding the light)" \
+    rg -n 'manipulate_caps_lock_led' home/dot_config/private_karabiner
   python3 -c 'import json,sys
 config = json.load(open(sys.argv[1]))
 open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n")' \
