@@ -48,6 +48,17 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - Never commit secrets, keys, tokens, or `.env` contents.
 - Never revert user changes unless explicitly asked.
 
+## Concurrency: single-writer by default
+Groundwork runs in **single-writer mode**: one task, one writing agent. This is binding for work in this repository; the reasoning and the workflow are in `docs/worktrees.html`. It governs concurrency only — it does not change how work lands here.
+- Exactly one agent writes at a time. Additional agents may read: review a diff, investigate a failure, check a claim.
+- Do not spawn sub-agents to divide work. Nested delegation is prohibited unless the owner explicitly approves an orchestration plan they have seen; a diff no single context reviewed whole is the failure being prevented, not a speed gain.
+- Never run two writing agents in one worktree concurrently. Simultaneous Claude Code and Codex sessions in one directory overwrite each other silently, because neither observes the other's writes. Concurrent agents need separate worktrees; a sequential handoff may reuse one after the first agent has committed and stopped.
+- An agent-to-agent handoff goes through a commit plus a written statement of what was verified, never through a description alone — the next agent must start from what is on disk. An owner-directed single-agent task may stay uncommitted for owner review; that is this repository's normal mode, not an exception.
+- Branching, pushing, and opening a pull request follow this repository's existing landing convention and the owner's instruction for the task. Nothing here mandates a branch or PR for work the owner is reviewing directly.
+- Where a task does get its own branch, one workstream — one independently reviewable change — gets one named branch and one worktree, and is retired when it lands. Reading code needs neither. See `specs/branch-lifecycle.md`.
+- A reviewing agent reports; it does not also implement what it found. It may become the implementer only after the review is delivered and the owner explicitly reassigns it, so a review and the edits answering it never arrive as one unreviewed diff.
+- Scaling past one writer (an integration owner with lane worktrees and explicitly declared writable paths) is the sibling Roost repository's model, governed there. It is not this repository's default and is not adopted here by inference.
+
 ## Safety
 - Confirm before destructive or irreversible actions: deleting files, force-pushes, history rewrites, migrations, bulk rewrites, or broad config resets.
 - Never invent APIs, flags, commands, or config values. Check the source or say what is unknown.

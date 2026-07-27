@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A worktree is a second working directory backed by the same repository. It&#x27;s how you run more than one stream of work — yours, an agent&#x27;s, a review — without…">
+<title>Worktrees &amp; parallel agents · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/worktrees.html">
+<meta property="og:title" content="Worktrees & parallel agents · Groundwork">
+<meta property="og:description" content="A worktree is a second working directory backed by the same repository. It&#x27;s how you run more than one stream of work — yours, an agent&#x27;s, a review — without…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Worktrees & parallel agents · Groundwork">
+<meta name="twitter:description" content="A worktree is a second working directory backed by the same repository. It&#x27;s how you run more than one stream of work — yours, an agent&#x27;s, a review — without…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/worktrees.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar">
+  <span class="name">Groundwork</span>
+  <button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button>
+</div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html">
+      <span class="mark">AI-native</span>
+      <span class="name">Groundwork</span>
+      </a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+    </div>
+    <nav class="nav-group">
+      <h4>Start here</h4>
+      <a href="index.html">Overview</a>
+      <a href="why.html">Why Groundwork</a>
+      <a href="path.html">The path</a>
+      <a href="agentic-engineering.html">Vibe &rarr; agentic</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="practice.html">Practice plan</a>
+      <a href="groundwork-twelve.html">Groundwork Twelve</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Set up</h4>
+      <a href="setup.html">Setup &amp; chezmoi</a>
+      <a href="platforms.html">Platforms</a>
+      <a href="customizing.html">Customizing</a>
+      <a href="development.html">Development</a>
+      <a href="installed.html">What&apos;s installed</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Foundations</h4>
+      <a href="command-line.html">Command line &amp; Unix</a>
+      <a href="shell.html">Shell &amp; CLI</a>
+      <a href="tmux.html">tmux</a>
+      <a href="tmux-repository-windows.html">tmux repo windows</a>
+      <a href="neovim.html">Neovim</a>
+      <a href="git.html">Git</a>
+      <a href="lazygit.html">lazygit</a>
+      <a href="data.html">Data &amp; storage</a>
+      <a href="editors-ai.html">Editors &amp; AI</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Daily workflow</h4>
+      <a href="workflow.html">Everyday workflow</a>
+      <a href="repo-navigation.html">Repo navigation</a>
+      <a href="new-project.html">Starting a project</a>
+      <a href="knowledge.html">Knowledge base</a>
+      <a href="dependencies.html">Dependencies</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Directing agents</h4>
+      <a href="agents.html">AI agents &amp; rules</a>
+      <a href="worktrees.html" class="active">Worktrees &amp; parallel agents</a>
+      <a href="specs.html">Specs &amp; targets</a>
+      <a href="skills-playbooks.html">Skills &amp; playbooks</a>
+      <a href="ai-budget.html">Know your AI budget</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>AI tools</h4>
+      <a href="claude.html">Claude &amp; Claude Code</a>
+      <a href="codex.html">Codex UI &amp; CLI</a>
+      <a href="gpt.html">GPT &amp; ChatGPT</a>
+      <a href="glm.html">GLM &amp; open models</a>
+      <a href="grok.html">Grok &amp; Grok Build</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Interest tracks</h4>
+      <a href="game-dev.html">FPS &middot; Browser</a>
+      <a href="game-dev-unity.html">FPS &middot; Unity</a>
+      <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
+      <a href="web-dev.html">Web &amp; sites</a>
+      <a href="app-dev.html">Apps</a>
+      <a href="gen-media.html">Image &amp; video</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Mac desktop</h4>
+      <a href="macos.html">macOS desktop</a>
+      <a href="keyboard.html">Keyboard</a>
+      <a href="apps.html">Apps &amp; browsers</a>
+    </nav>
+    <nav class="nav-group">
+      <h4>Reference</h4>
+      <a href="cheatsheet.html">Cheat sheet</a>
+      <a href="commands.html">Command catalog</a>
+      <a href="glossary.html">Glossary</a>
+      <a href="resources.html">Resource library</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+  <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">Directing agents</p>
+      <h1>Worktrees: give every parallel stream its own directory.</h1>
+      <p class="lead">A worktree is a second working directory backed by the same repository. It's how you run more than one stream of work — yours, an agent's, a review — without them editing the same files underneath each other, and without the cost or drift of a second clone.</p>
+
+      <div class="trigger"><b>When you'll want this</b> You want a second stream of work in flight, or an agent is about to edit files you're also editing.</div>
+
+      <div class="quickref">
+        <div class="qr-label">Quick reference — the whole lifecycle</div>
+        <div class="quickref-grid">
+          <div class="qr"><span class="keys"><code>git worktree add -b fix-auth ../repo-fix-auth origin/main</code></span> <span class="act">New branch from a stated base</span></div>
+          <div class="qr"><span class="keys"><code>git worktree list</code></span> <span class="act">Every worktree and its branch</span></div>
+          <div class="qr"><span class="keys"><code>git worktree remove ../repo-fix-auth</code></span> <span class="act">Delete it when the work lands</span></div>
+          <div class="qr"><span class="keys"><code>git worktree prune</code></span> <span class="act">Clean up after a manually deleted one</span></div>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>What a worktree actually is</h2>
+      <p>Normally a repository has one working directory. Switching branches with <code>git switch</code> rewrites the files in place — the same folder becomes a different version of the project. That's fine when you do one thing at a time, and it's exactly the problem when you don't.</p>
+      <p>A worktree gives you <strong>another directory checked out to another branch</strong>, sharing one repository underneath. Not a copy — the commits, branches, tags, and stashes are the same objects. A commit made in one worktree is visible from all of them immediately, because there is only one history.</p>
+      <table class="keytable">
+        <tr><td><strong>vs. switching branches</strong></td><td>Both branches exist on disk at once, in different folders. Nothing is rewritten underneath a running process</td></tr>
+        <tr><td><strong>vs. a second clone</strong></td><td>One history, not two. No second <code>git fetch</code>, no pushing between copies, no chance of the clones drifting apart</td></tr>
+        <tr><td><strong>vs. a stash</strong></td><td>The other work stays checked out and runnable, not parked in a stack you have to remember to pop</td></tr>
+      </table>
+
+      <h2><span class="hash">#</span>Why this matters for agents</h2>
+      <p>One checkout is a single shared mutable resource. Two writers on it produce failures that look like bugs in your code:</p>
+      <ul>
+        <li><strong>Interleaved edits.</strong> Two agents editing the same file land a mix of both attempts. Neither one's tests describe what's actually on disk.</li>
+        <li><strong>The tree moving mid-task.</strong> One agent runs <code>git switch</code> or <code>git stash</code> while another is halfway through a build. The second agent's files change for reasons nothing in its context explains.</li>
+        <li><strong>Unreviewable diffs.</strong> Two unrelated changes on one branch have to be reviewed, and reverted, together.</li>
+      </ul>
+      <p>Worktrees make the isolation physical. Each stream has its own directory and its own branch, so "don't touch each other's work" stops being an instruction an agent has to remember and becomes a property of where it is running.</p>
+
+      <div class="callout key">
+        <span class="label">One workstream, one branch, one worktree</span>
+        <p>A workstream is one independently reviewable change. It gets one named branch and one worktree, and moves committed &rarr; pushed &rarr; draft PR &rarr; merged or abandoned &rarr; worktree removed &rarr; branch deleted.</p>
+        <p>Reading a repository that nobody is currently changing needs neither — just read the files. Several tightly related edits that will be reviewed together are <em>one</em> workstream, not several.</p>
+        <p>Reviewing an <em>active</em> change is different: a writer is moving the files under you, so you can end up reporting findings against a state that never existed as a single diff. Review after the writer commits, and for a genuinely concurrent review use a detached worktree pinned to the commit under review — <code>git worktree add --detach ../myrepo-review &lt;sha&gt;</code>.</p>
+      </div>
+
+      <h2><span class="hash">#</span>The lifecycle</h2>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">worktree lifecycle</span></div>
+        <pre><code><span class="prompt">$ </span>git fetch origin                                        <span class="comment"># make the base current first</span>
+<span class="prompt">$ </span>git worktree add -b fix-auth ../myrepo-fix-auth origin/main
+<span class="prompt">$ </span>cd ../myrepo-fix-auth                                   <span class="comment"># work here as normal</span>
+<span class="prompt">$ </span>git worktree list                                       <span class="comment"># see them all, with branches</span>
+<span class="prompt">$ </span>git worktree remove ../myrepo-fix-auth                  <span class="comment"># when the PR is merged</span>
+<span class="prompt">$ </span>git fetch origin                                        <span class="comment"># let your local base see the merge</span>
+<span class="prompt">$ </span>git branch -d fix-auth                                  <span class="comment"># then retire the branch</span></code></pre>
+      </div>
+      <div class="callout warn">
+        <span class="label">Always name the base</span>
+        <p>That last argument — <code>origin/main</code> — is the commit the new branch starts from. Leave it off and Git uses <em>whatever the current worktree happens to have checked out</em>. Run it from an old feature branch and your new lane silently inherits that feature's commits, which then show up in its diff and its pull request.</p>
+        <p>This matters more with agents than without: you often create the worktree from wherever your shell already was, and nothing in the agent's context can reveal a wrong starting point. State the base every time.</p>
+        <p>The same applies to cleanup. <code>git branch -d</code> refuses when your <em>local</em> base branch hasn't yet observed the merge — the work is safely on the remote, but your clone doesn't know. Fetch first; if you then still need <code>-D</code>, confirm the commits really landed before forcing it.</p>
+      </div>
+      <p>Put worktrees <em>beside</em> the repository, not inside it. A worktree nested in the main checkout shows up as untracked files in the parent and invites an agent to commit one project into another. A sibling directory named after the branch keeps both the shell prompt and <code>git worktree list</code> readable.</p>
+      <p>To read an old revision without disturbing any branch, use a detached one and delete it after: <code>git worktree add --detach ../myrepo-review v1.4.0</code>.</p>
+
+      <h2><span class="hash">#</span>What surprises people</h2>
+      <table class="keytable">
+        <tr><td><strong>Untracked files aren't shared</strong></td><td><code>node_modules</code>, <code>.venv</code>, <code>.env</code>, and build output do not come along. Each worktree needs its own install — that's the real cost, and why worktrees suit parallel work rather than quick one-offs</td></tr>
+        <tr><td><strong>One branch, one worktree</strong></td><td>Git refuses to check out a branch that's already checked out somewhere else. That's a safety feature, and it's why <code>git branch</code> marks those with <code>+</code></td></tr>
+        <tr><td><strong><code>.git</code> is a file here</strong></td><td>In a linked worktree it's a small file pointing at the real repository, not a directory. Tools that test for a <code>.git</code> <em>directory</em> mis-detect worktrees</td></tr>
+        <tr><td><strong>Deleting the folder isn't enough</strong></td><td><code>rm -rf</code> on a worktree leaves the repository still believing it exists. Use <code>git worktree remove</code>, or run <code>git worktree prune</code> afterward</td></tr>
+        <tr><td><strong>Removal protects your work</strong></td><td><code>git worktree remove</code> refuses while a worktree "contains modified or untracked files" — untracked counts, so a stray scratch file blocks it too. If you're sure, <code>--force</code> — but read the diff first</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Groundwork already knows about them</span>
+        <p><a href="repo-navigation.html"><code>groundwork-repos</code></a> lists linked worktrees alongside ordinary clones and marks them <code>wt</code>, because a worktree you've forgotten about is exactly the one holding uncommitted agent work. Set <code>include_worktrees = false</code> in <code>~/.config/groundwork/repos.conf</code> if you'd rather not see them.</p>
+      </div>
+
+      <h2><span class="hash">#</span>How many agents should be writing?</h2>
+      <p>Worktrees make parallel agents <em>possible</em>. That is not the same as making them a good default. Every additional writer adds a merge to resolve and a diff you have to review, and review is the part that doesn't parallelize — it's still your attention, and it's the bottleneck.</p>
+
+      <div class="callout key">
+        <span class="label">Groundwork's default: single-writer mode</span>
+        <p>One task, one branch, one worktree, <strong>one writing agent</strong>. Additional agents may read — review a diff, investigate a failure, check a claim — but only one writes at a time.</p>
+        <p>Agents do not spawn their own sub-agents to divide work. If a job genuinely needs to split, you split it, and you decide what each part may touch. Nested delegation is not the default; it needs your explicit approval and a plan you've seen.</p>
+      </div>
+
+      <p>The reason isn't timidity. A writing agent that spawns writing agents produces a diff that no single context — including yours — ever saw whole. You end up reviewing the output of a process you didn't design, which is the exact position <a href="agentic-engineering.html">agentic engineering</a> is meant to keep you out of.</p>
+      <p>Two more rules that only bite once you have parallel streams:</p>
+      <ul>
+        <li><strong>Never run two writing agents in one worktree at the same time.</strong> Claude Code and Codex running concurrently in one directory will overwrite each other's edits, and neither will report it, because neither can see the other's writes. Concurrent agents need separate worktrees. Handing work <em>sequentially</em> to a different agent in the same worktree is fine once the first has committed and stopped.</li>
+        <li><strong>Hand off through commits, not through descriptions.</strong> When one stream's work feeds another, the handoff is a pushed branch and a written statement of what was verified — not a summary in chat. The next agent starts from what's actually on disk.</li>
+      </ul>
+
+      <h2><span class="hash">#</span>When you do scale up: lanes and an integrator</h2>
+      <p>Larger repositories do run several agents at once — Groundwork's platform-monorepo sibling, Roost, is the case this model was written for. The shape that holds:</p>
+      <table class="keytable">
+        <tr><td><strong>One integration owner</strong></td><td>A single agent (or you) owns merging into the main branch. Lane agents never merge each other's work</td></tr>
+        <tr><td><strong>Lanes with explicit writable paths</strong></td><td>Each lane gets a worktree <em>and</em> a stated list of directories it may write. Overlapping lanes are a scheduling error to fix before starting, not a merge conflict to resolve after</td></tr>
+        <tr><td><strong>Reviewers are read-only</strong></td><td>A reviewing agent reports findings. It does not fix what it finds — otherwise its review and its edits land in one unreviewed diff</td></tr>
+        <tr><td><strong>No nested spawning</strong></td><td>Lane agents don't create more lane agents. The lane list stays something you can hold in your head</td></tr>
+      </table>
+      <p>Every rule exists to keep one property true: <strong>each lane has one accountable writer and a separate reviewer, and you can name both.</strong> If a workflow can't tell you who is answerable for a change, it's too parallel — regardless of how many worktrees are involved.</p>
+      <p>That is deliberately about accountability, not literal Git authorship. An integration owner will sometimes resolve a conflict, repair a break that only appears once lanes merge, or apply a correction a reviewer asked for. That's normal and necessary; what matters is that those edits are attributed as integration work rather than folded silently into someone else's lane.</p>
+
+      <h2><span class="hash">#</span>Put it to use</h2>
+      <div class="drill">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Make one, prove it's shared</h3>
+          <p>In any repo, run <code>git worktree add -b scratch-test ../$(basename $PWD)-scratch</code>. Commit something small in the new directory, then run <code>git log --oneline -1 scratch-test</code> from the <em>original</em> one. The commit is already there — one history, two directories. Clean up with <code>git worktree remove</code> and <code>git branch -D scratch-test</code>.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Hit the guardrail on purpose</h3>
+          <p>From the second worktree, try <code>git switch main</code> while main is checked out in the first. Git refuses and names the worktree already holding it. Knowing this error means recognizing it instantly when an agent reports it.</p>
+        </div>
+      </div>
+      <div class="drill">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Give an agent its own</h3>
+          <p>Next time you hand an agent a bounded task, create the worktree yourself first and tell it the path. Then keep working in your main checkout while it runs. Review its branch as a diff, the same way you'd review anyone else's — that's the workflow worktrees are for.</p>
+        </div>
+      </div>
+
+      <h2><span class="hash">#</span>Go deeper</h2>
+      <ul>
+        <li><a href="https://git-scm.com/docs/git-worktree" target="_blank" rel="noopener">git-worktree documentation</a>: the authoritative reference for every subcommand and flag.</li>
+        <li><a href="git.html">Git</a>: branches, commits, and the daily loop these build on.</li>
+        <li><a href="agents.html">AI agents &amp; rules</a>: what to put in an agent's instructions before you hand it a worktree.</li>
+        <li><a href="repo-navigation.html">Repo navigation</a>: finding the worktrees you've already made.</li>
+      </ul>
+
+      <div class="pagenav">
+        <a href="agents.html"><span class="dir">← Prev</span>AI agents &amp; rules</a>
+        <a href="specs.html"><span class="dir">Next →</span>Specs &amp; targets</a>
+      </div>
+
+      <footer class="site">Commit early, commit often. The history is your undo button. · <a class="gw-version" href="https://github.com/jasondockery/groundwork/releases" target="_blank" rel="noopener">dev</a></footer>
+    </div>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

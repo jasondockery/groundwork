@@ -83,8 +83,42 @@ Owner action (a human enables this when ready, not code work):
       environment setup docs. A synced folder cost the Roost project a real
       outage; Groundwork teaches the human half, and the roost doctor check
       covers the machine half.
+- [x] Worktrees and parallel agents page (`docs/worktrees.html`): what a
+      worktree is, the lifecycle, the surprises (untracked files aren't shared,
+      one branch per worktree, `.git` is a file, stale metadata after `rm -rf`),
+      and the concurrency model. Every command claim on the page was verified
+      against a real throwaway repository, including Git's exact refusal text.
+      Groundwork's default is recorded as binding in `AGENTS.md`: single-writer
+      mode, read-only reviewers, no nested delegation without owner approval,
+      never two concurrent writing agents in one worktree. The rule governs
+      concurrency only — owner-directed work still lands the way it always has,
+      reviewed uncommitted, with no mandatory branch or PR.
+- [ ] Roost's half of the orchestration model (integration owner, lane
+      worktrees, declared writable paths) still has to land in Roost's own
+      `AGENTS.md` and `playbooks/README.md`. Groundwork describes the shape for
+      contrast; it does not bind Roost, and this is not done until Roost says
+      so in its own repository.
 - [ ] Practice drill: directing a fast model through a spec queue across git
-      worktrees, mirroring how Roost runs its implementation queue.
+      worktrees, mirroring how Roost runs its implementation queue. The
+      worktree page now carries the posture; this is the hours-long drill.
+- [x] Key repeat as a setup choice (fast/standard/aggressive, fast default for
+      anyone who is ASKED). A config predating the question keeps the legacy
+      2/15 on macOS and is left untouched on Linux — "field absent" is not
+      consent to a faster keyboard. Not asked on headless hosts, containers, or
+      WSL2: key repeat belongs to the machine holding the physical keyboard,
+      and there is nothing on the far end of an SSH or `docker exec` session to
+      set. macOS applies via `defaults`. Linux applies via GNOME `gsettings`
+      (persists) or falls back to `xset` (current session only, reported as
+      such, since Groundwork does not own session startup); other compositors
+      are told where to set it rather than being silently skipped.
+- [ ] Key-repeat receipts still owed: the Linux paths are proven only against
+      fixture executables in an isolated environment. Nobody has yet run this
+      on a real GNOME session or a real X11 session, and no macOS logout/login
+      has confirmed the applied values feel right. Fixture-green is not
+      desktop-green.
+- [ ] Per-desktop key-repeat adapters (KDE, sway/niri, Hyprland). Until these
+      exist, a non-GNOME Wayland user is asked a question Groundwork can only
+      answer with instructions, which the prompt now says outright.
 - [ ] Verification habits page: what proof to run before claiming done, when
       to run it, and how to read the results.
 - [ ] AI-native prompt lesson: why the prompt shows the repo-relative path
