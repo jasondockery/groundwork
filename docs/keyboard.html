@@ -85,6 +85,7 @@
     <nav class="nav-group">
       <h4>Directing agents</h4>
       <a href="agents.html">AI agents &amp; rules</a>
+      <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
@@ -137,6 +138,7 @@
         <div class="quickref-grid">
           <div class="qr"><span class="keys"><kbd>Caps</kbd> tap</span> <span class="act">Escape (leave Insert mode)</span></div>
           <div class="qr"><span class="keys"><kbd>Caps</kbd> hold</span> <span class="act">Control (for any Ctrl-shortcut)</span></div>
+          <div class="qr"><span class="keys"><kbd>Right&nbsp;Shift</kbd><kbd>Caps</kbd></span> <span class="act">Toggle real Caps Lock on or off</span></div>
         </div>
       </div>
 
@@ -146,7 +148,16 @@
         <li><strong>Tap it</strong> → <kbd>Esc</kbd>. The single most-pressed key in Vim (it's how you leave Insert mode and get back to Normal) — now without reaching to the top-left corner.</li>
         <li><strong>Hold it</strong> → <kbd>Control</kbd>. Press it together with another key for any Ctrl-shortcut, with your finger already on the home row.</li>
       </ul>
-      <p>You lose nothing: actual Caps Lock toggling is gone (almost no one misses it), and the key earns its prime spot many times a minute.</p>
+      <p>The key earns its prime spot many times a minute, and real Caps Lock is still there when you want it — on a deliberate two-key press instead of a single accidental one.</p>
+
+      <h2><span class="hash">#</span>Getting real Caps Lock back</h2>
+      <p>Hold <kbd>Right Shift</kbd> and press <kbd>Caps</kbd>. That sends a genuine Caps Lock, so it <strong>toggles</strong> — the same press turns it on and turns it off. Left Shift is deliberately not bound, so ordinary capitalized typing can never trigger it by accident.</p>
+      <div class="callout note">
+        <span class="label">If the Caps Lock light is stuck on</span>
+        <p>Press <span class="keys"><kbd>Right Shift</kbd><kbd>Caps</kbd></span>. The light goes out.</p>
+        <p>This is the shortcut's main job. Once Caps Lock is remapped, the physical key can no longer send a real Caps Lock — so if the state is ever switched on by anything else, nothing on the keyboard can switch it back off, and the light stays lit. Before this binding existed the only way out was disabling the remap entirely.</p>
+        <p>Because it's a toggle, pressing it again turns Caps Lock back on. If the light doesn't respond at all, Karabiner isn't seeing the key: check that it's running and has Input Monitoring permission.</p>
+      </div>
 
       <h2><span class="hash">#</span>Why this is the keystone</h2>
       <p>Look back at the other pages and notice how much lives on <kbd>Esc</kbd>, <kbd>Ctrl</kbd>, and <kbd>Alt</kbd>:</p>
@@ -166,13 +177,27 @@
       <h2><span class="hash">#</span>The other keyboard tweaks</h2>
       <p>The setup also nudges a few macOS keyboard defaults so the terminal feels right:</p>
       <table class="keytable">
-        <tr><td><strong>Fast key repeat</strong></td><td>Hold a key and it repeats quickly, with a short delay before it starts — so <kbd>j</kbd>/<kbd>k</kbd> scrolling and holding a motion in Vim are snappy</td></tr>
+        <tr><td><strong>Key repeat</strong></td><td>Hold a key and it repeats quickly, so <kbd>j</kbd>/<kbd>k</kbd> scrolling and holding a motion in Vim are snappy. Setup asks which speed you want — see below</td></tr>
         <tr><td><strong>Press-and-hold off</strong></td><td>Holding a key repeats it instead of popping up the accent menu — essential for Vim, where you hold keys to move</td></tr>
         <tr><td><strong>Option as Alt</strong></td><td>In <a href="apps.html">Ghostty</a>, the <kbd>⌥</kbd> key sends a real <kbd>Alt</kbd>, so shell shortcuts like <span class="keys"><kbd>Alt</kbd><kbd>F</kbd></span> (forward a word), <span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span> (fzf folder jump), and <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> pane navigation work</td></tr>
       </table>
       <div class="callout note">
         <span class="label">These apply after a re-login</span>
         <p>The key-repeat settings are read when an app launches, so they fully take hold after you log out and back in (or restart). If holding a key still shows the accent popup, that's the one to do.</p>
+      </div>
+
+      <h2 id="key-repeat"><span class="hash">#</span>How fast should key repeat be?</h2>
+      <p>Holding a key is a primary motion in a terminal, not an edge case: <kbd>j</kbd>/<kbd>k</kbd> down a file, arrow keys through a long command, backspace over a wrong path. Two separate things control it — how long before repeating <em>starts</em>, and how fast it repeats <em>once started</em>. Setup asks once and you can change it later.</p>
+      <table class="keytable">
+        <tr><td><strong>Fast</strong> <em>(default)</em></td><td>Starts repeating soon, repeats quickly. The recommended answer, and what the rest of these pages assume</td></tr>
+        <tr><td><strong>Standard</strong></td><td>Same start delay, slower repeat. Pick this if fast repeat overshoots for you</td></tr>
+        <tr><td><strong>Aggressive</strong></td><td>Same fast repeat, but starts sooner. Snappiest — and the one most likely to fire when you only meant to rest on a key</td></tr>
+      </table>
+      <p>Change it any time with <code>groundwork-configure</code>. Note that adjusting the Keyboard sliders in System Settings writes the same values, so touching them later overrides your choice.</p>
+      <div class="callout note">
+        <span class="label">Key repeat belongs to the keyboard in front of you</span>
+        <p>It is a property of the machine you are <em>typing on</em>, never the one you are typing <em>into</em>. Over SSH or in a container, the repeat behavior is still your own desktop's — so Groundwork doesn't set it on headless hosts, in containers, or under WSL2 (where Windows owns the keyboard). Set it on your desktop and it follows you everywhere you connect from there.</p>
+        <p>On Linux desktops Groundwork applies it through GNOME's keyboard settings, which persist. On a non-GNOME X11 desktop it can only set the current session, and it prints the <code>xset</code> line to add to your own startup; other Wayland compositors set it in their own config.</p>
       </div>
 
       <h2><span class="hash">#</span>Put it to use</h2>
