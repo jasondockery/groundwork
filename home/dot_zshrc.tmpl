@@ -330,13 +330,28 @@ groundwork-update-reminder() {
   local state_dir="$HOME/.local/state/groundwork"
   local stamp="$state_dir/last-update-all"
   local shown="$state_dir/update-reminder-last-shown"
-  local now shown_epoch last_epoch age_days
+  local pending="$state_dir/homebrew-cleanup-pending"
+  local now shown_epoch last_epoch age_days pending_note
 
   now="$(date +%s 2>/dev/null)" || return
 
   if [[ -f "$shown" ]]; then
     shown_epoch="$(zstat +mtime "$shown" 2>/dev/null || print 0)"
     (( now - shown_epoch < 86400 )) && return
+  fi
+
+  # Outstanding work beats a fresh timestamp. update-all leaves this marker when
+  # its Homebrew cleanup did not finish, and the last fully successful refresh
+  # can still be well inside the stale window — so age says "quiet" while
+  # gigabytes of cache sit there. The marker is cleared by the next clean run.
+  if [[ -f "$pending" ]]; then
+    pending_note=""
+    read -r pending_note <"$pending" 2>/dev/null
+    print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish Homebrew's cleanup; run it again when you have a few minutes."
+    [[ -n "$pending_note" ]] && print -r -- "  ${pending_note}"
+    print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
+    mkdir -p "$state_dir" && : >| "$shown"
+    return
   fi
 
   if [[ -f "$stamp" ]]; then

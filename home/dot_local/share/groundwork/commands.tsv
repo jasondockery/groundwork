@@ -1,7 +1,7 @@
 # category	command	kind	description
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
-daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools.
+daily	update-all	command	Pull and apply Groundwork, resume in the freshly applied runner, then visibly update Homebrew, mise-managed runtimes, and latest-track AI tools. After a successful Homebrew upgrade it runs brew autoremove and brew cleanup --prune=all, reporting cache size before, after, and reclaimed; an incomplete cleanup exits nonzero, records no successful refresh, and keeps reminding you until a clean run.
 daily	groundwork-configure	command	Review your Groundwork setup answers and change any of them safely: shows current values, changes only what you pick, previews the diff, applies after you confirm. This is how to change a setting — "chezmoi init" only regenerates, and "chezmoi init --prompt" replays the whole interview.
 daily	groundwork-platform	command	Report the current platform as darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported.
 daily	groundwork-distro [--family]	command	On Linux or WSL, report the distribution ID; --family reports its bootstrap family (debian, fedora, arch, opensuse, or unknown).

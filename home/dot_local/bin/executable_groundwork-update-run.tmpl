@@ -137,7 +137,120 @@ if command -v brew >/dev/null 2>&1; then
   # needed — this clears deprecated leftovers (a versioned icu4c, an old
   # python) that otherwise warn on every upgrade forever.
   brew autoremove
-  brew cleanup
+
+  # Bytes under Homebrew's cache, or nothing at all when the query itself
+  # fails — a failed observation is reported as unavailable, never as an
+  # empty cache. du -sk is the portable form: -k on both BSD and GNU, and
+  # GNU-only -b would report zero here on macOS.
+  brew_cache_bytes() {
+    local cache blocks
+    cache="$(brew --cache 2>/dev/null)" || return 1
+    [[ -n "$cache" ]] || return 1
+    # A cache directory Homebrew has not created yet holds nothing; that is a
+    # measurement, not a failed one.
+    [[ -d "$cache" ]] || {
+      printf '0\n'
+      return 0
+    }
+    blocks="$(du -sk "$cache" 2>/dev/null | awk 'NR == 1 {print $1}')"
+    [[ "$blocks" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$((blocks * 1024))"
+  }
+
+  # Binary units, labeled as binary: du reports 1024-byte blocks, so KiB/MiB
+  # is what these numbers actually are.
+  format_bytes() {
+    if [[ -z "$1" ]]; then
+      printf 'unavailable\n'
+      return 0
+    fi
+    awk -v bytes="$1" 'BEGIN {
+      split("B KiB MiB GiB TiB", unit, " ")
+      index_ = 1
+      while (bytes >= 1024 && index_ < 5) { bytes /= 1024; index_++ }
+      if (index_ == 1) printf "%d %s\n", bytes, unit[index_]
+      else printf "%.1f %s\n", bytes, unit[index_]
+    }'
+  }
+
+  # Durable state, not just a message on a screen that scrolls away. Withholding
+  # the success timestamp is NOT enough on its own: a refresh that succeeded
+  # three days ago leaves a timestamp that is still inside the stale window, so
+  # the reminder would stay quiet while the cache stayed full. The previous
+  # timestamp is truthful history and is left alone; this marker is what says
+  # something is still outstanding, and the shell reminder acts on it whatever
+  # the timestamp's age. It is written the moment cleanup fails, so a later
+  # stage that exits first cannot swallow the state.
+  cleanup_pending_marker="$HOME/.local/state/groundwork/homebrew-cleanup-pending"
+  mark_cleanup_pending() {
+    local temporary
+    mkdir -p "$(dirname "$cleanup_pending_marker")" || return 0
+    temporary="${cleanup_pending_marker}.tmp.$$"
+    printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >"$temporary" || return 0
+    mv -f -- "$temporary" "$cleanup_pending_marker" || return 0
+  }
+
+  # Homebrew's default cleanup is deliberately conservative: it prunes stale
+  # downloads and files older than 120 days, so a machine that refreshes often
+  # accumulates gigabytes of downloads a successful update-all never touches.
+  # --prune=all is Homebrew's documented option for removing all cached
+  # downloads. What it removes is reproducible: cached downloads, superseded
+  # formula versions, and stale lock files — never a package the user asked
+  # for, though the `brew autoremove` above it may drop a dependency nothing
+  # needs any more. Never substitute a raw recursive
+  # deletion of the cache directory: brew's own command respects its locking,
+  # its own reporting, and whatever it decides is not disposable.
+  #
+  # Placement is the contract: this runs only after the upgrade stage above
+  # succeeded (a failed upgrade exits before here), so partial downloads stay
+  # cached for the retry rather than being deleted out from under it.
+  cache_before="$(brew_cache_bytes || true)"
+  cleanup_status=0
+  brew cleanup --prune=all || cleanup_status=$?
+  case "$cleanup_status" in
+    130 | 143)
+      # Best-effort: this records the case where only the child died (brew
+      # exited on the signal while this runner survived). A terminal Ctrl-C
+      # signals the whole process group, which usually kills the runner
+      # before it gets here — that path has no durable record.
+      mark_cleanup_pending "brew cleanup --prune=all was interrupted (exit $cleanup_status)"
+      exit "$cleanup_status"
+      ;;
+  esac
+  cache_after="$(brew_cache_bytes || true)"
+  # Cache-scoped by construction: this measures $(brew --cache) alone, while
+  # the command it brackets also removes old formula versions and stale locks
+  # outside the cache. Labeling the numbers "cache" keeps the receipt from
+  # contradicting Homebrew's own wider report.
+  echo "Homebrew cleanup (brew autoremove; brew cleanup --prune=all)"
+  printf '  Cache before:    %s\n' "$(format_bytes "$cache_before")"
+  printf '  Cache after:     %s\n' "$(format_bytes "$cache_after")"
+  if [[ -z "$cache_before" || -z "$cache_after" ]]; then
+    printf '  Cache reclaimed: not measured (cache size unavailable)\n'
+  elif [[ "$cache_after" -lt "$cache_before" ]]; then
+    printf '  Cache reclaimed: %s\n' "$(format_bytes "$((cache_before - cache_after))")"
+  elif [[ "$cache_after" -eq "$cache_before" ]]; then
+    printf '  Cache reclaimed: nothing to reclaim\n'
+  else
+    # Two observations, not one atomic measurement: another process can write
+    # into the cache while cleanup runs. Say what was seen, not a negative
+    # number dressed up as a reclaim.
+    printf '  Cache reclaimed: indeterminate — the cache grew by %s during cleanup\n' \
+      "$(format_bytes "$((cache_after - cache_before))")"
+  fi
+  echo "  Every formula and cask you asked for stays installed. autoremove may drop dependencies nothing needs any more; cleanup removes superseded versions, stale lock files, and the download cache."
+  if [[ "$cleanup_status" -ne 0 ]]; then
+    # Cleanup can delete part of the cache and then fail on one locked or
+    # unreadable file, so never claim the cache was left untouched. The run
+    # continues through the remaining stages — they are independent, and
+    # discarding a completed upgrade would help nobody — but it records the
+    # outstanding work durably and does not report a successful refresh.
+    cleanup_warning="brew cleanup --prune=all was incomplete (exit $cleanup_status): some cached files may have been removed and others left behind. The upgrades above completed."
+    mark_cleanup_pending "$cleanup_warning"
+    echo "Groundwork: $cleanup_warning" >&2
+  else
+    rm -f -- "$cleanup_pending_marker"
+  fi
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
   {{- end }}
@@ -201,6 +314,21 @@ if command -v xcodes >/dev/null 2>&1; then
   echo 'Groundwork: beta channel on. Xcode betas: `xcodes list` to see them, `xcodes install "<version>"` to add one, and `xcodes select` to switch.'
 fi
 {{- end }}
+
+# An incomplete cleanup is an incomplete transaction. The stages after it still
+# ran — they are independent of the cache, and throwing away a completed upgrade
+# would help nobody — but this run is not recorded as a successful refresh, and
+# a script or agent sees a nonzero status. The pending marker written at the
+# cleanup itself is what survives the process and keeps the shell reminder
+# asking, no matter how recent the last fully successful refresh was.
+if [[ -n "${cleanup_warning:-}" ]]; then
+  cat >&2 <<EOF
+Groundwork: completed with warnings, so this refresh is not recorded as successful.
+  $cleanup_warning
+  Inspect the cache, then run update-all again:  du -sh "\$(brew --cache)"
+EOF
+  exit 1
+fi
 
 # The reminder timestamp represents the complete transaction. Write a real UTC
 # timestamp through an atomic rename so a failed or interrupted stage preserves

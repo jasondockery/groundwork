@@ -449,14 +449,55 @@ chmod +x "$update_all_home/.local/bin/groundwork-brew-repair" \
   "$update_all_home/.local/bin/groundwork-brew-refetch"
 cat >"$update_all_bin/brew" <<'SH'
 #!/usr/bin/env bash
-if [[ "${1:-}" == "upgrade" ]]; then
-  printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
-    "${HOMEBREW_NO_AUTO_UPDATE:-unset}" \
-    "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" \
-    "${HOMEBREW_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
-else
-  printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
-fi
+case "${1:-}" in
+  --cache)
+    # A size query, not a stage: it stays out of the command log so the
+    # ordering fixtures keep asserting stages only.
+    [[ "${BREW_CACHE_FAIL:-0}" == "0" ]] || exit 1
+    printf '%s\n' "${BREW_CACHE_DIR:-$HOME/absent-brew-cache}"
+    exit 0
+    ;;
+  upgrade)
+    printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
+      "${HOMEBREW_NO_AUTO_UPDATE:-unset}" \
+      "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" \
+      "${HOMEBREW_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
+    [[ "${BREW_NOTHING_TO_UPGRADE:-0}" == "0" ]] || echo "Already up-to-date."
+    ;;
+  autoremove)
+    printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+    exit "${BREW_AUTOREMOVE_STATUS:-0}"
+    ;;
+  cleanup)
+    printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+    # A cleanup that removes some files and then fails on one it cannot read:
+    # the shape the "left as it was" wording would have described wrongly.
+    if [[ "${BREW_CLEANUP_PARTIAL:-0}" != "0" ]]; then
+      find "${BREW_CACHE_DIR}/downloads" -mindepth 1 -delete
+      echo "Error: Permission denied @ rb_sysopen - locked download" >&2
+      exit 1
+    fi
+    if [[ "${BREW_CLEANUP_STATUS:-0}" != "0" ]]; then
+      echo "Error: Permission denied @ rb_sysopen - cached download" >&2
+      exit "${BREW_CLEANUP_STATUS}"
+    fi
+    # Another process writing into the cache while cleanup runs: the two size
+    # observations are not one atomic measurement.
+    if [[ "${BREW_CLEANUP_GROWS:-0}" != "0" ]]; then
+      dd if=/dev/urandom of="${BREW_CACHE_DIR}/downloads/arrived-during-cleanup" \
+        bs=1024 count=2048 >/dev/null 2>&1
+      exit 0
+    fi
+    # Models one successful cleanup whose measured cache shrinks — not a claim
+    # about what any future Homebrew leaves behind.
+    if [[ -n "${BREW_CACHE_DIR:-}" && -d "${BREW_CACHE_DIR}" ]]; then
+      find "${BREW_CACHE_DIR}" -mindepth 1 -delete
+    fi
+    ;;
+  *)
+    printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+    ;;
+esac
 exit "${BREW_STAGE_STATUS:-0}"
 SH
 cat >"$update_all_bin/groundwork-platform" <<'SH'
@@ -727,7 +768,7 @@ chezmoi apply color=0
 brew-update
 brew upgrade auto=1 casks=unset hb-color=unset
 brew autoremove
-brew cleanup
+brew cleanup --prune=all
 mise upgrade --minimum-release-age 5d
 EOF
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
@@ -831,7 +872,7 @@ brew-update
 brew upgrade --require-sha auto=1 casks=1 hb-color=unset
 brew-repair
 brew autoremove
-brew cleanup
+brew cleanup --prune=all
 apps-start
 mise upgrade --minimum-release-age 5d
 EOF
@@ -856,6 +897,8 @@ set -e
   || fail "a successful re-fetch must retry the failed upgrade exactly once"
 grep -qxF 'brew-refetch' "$update_all_log" \
   || fail "a failed upgrade must consult groundwork-brew-refetch"
+assert_not_contains 'brew cleanup' "$update_all_log" \
+  "a failed upgrade must not clean the download cache — its partial downloads are what the retry needs"
 test ! -e "$update_all_stamp"
 
 # An APPROVED repair that failed (exit 3) must fail the run even though the
@@ -897,6 +940,316 @@ set -e
 [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner continued after its metadata refresh failed"
 diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
 test ! -e "$update_all_stamp"
+
+check "update-all Homebrew download-cache cleanup"
+# Homebrew's DEFAULT cleanup is conservative by design: it prunes stale
+# downloads and files older than 120 days, and keeps downloads for currently
+# installed packages. That is how a successful update-all left 6.3 GB in
+# ~/Library/Caches/Homebrew/downloads. The aggressive form is the contract
+# here, and every claim below is measured rather than announced.
+cache_dir="$update_all_fixture/cache with spaces"
+# The path deliberately contains spaces: cache accounting must not depend on
+# a tidy path, and a broken quote here would be a deletion bug elsewhere.
+seed_cache() {
+  rm -rf "$cache_dir"
+  mkdir -p "$cache_dir/downloads" "$cache_dir/api"
+  # Random bytes, not zeros: a transparently compressing filesystem (btrfs,
+  # zfs) would make a zero-filled file measure far below its nominal size and
+  # turn the size assertions below into a portability trap. The api/ entry is
+  # what a PARTIAL cleanup leaves behind.
+  dd if=/dev/urandom of="$cache_dir/downloads/artifact.bottle.tar.gz" bs=1024 count=4096 \
+    >/dev/null 2>&1
+  dd if=/dev/urandom of="$cache_dir/api/formula.jws.json" bs=1024 count=512 \
+    >/dev/null 2>&1
+}
+cleanup_marker="$update_all_home/.local/state/groundwork/homebrew-cleanup-pending"
+run_cleanup_case_keeping_state() {
+  local output="$1"
+  shift
+  : >"$update_all_log"
+  env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    "$@" "$update_all_fixture/rendered-runner" >"$output" 2>&1
+}
+run_cleanup_case() {
+  rm -f "$update_all_stamp" "$cleanup_marker"
+  run_cleanup_case_keeping_state "$@"
+}
+
+# A populated cache is emptied, and the receipt reports measured cache bytes
+# before, after, and reclaimed. The assertions are relational — magnitude and
+# unit, not an exact figure derived from the host filesystem's block accounting.
+seed_cache
+run_cleanup_case "$update_all_fixture/cache-receipt" BREW_CACHE_DIR="$cache_dir" \
+  || fail "update-all failed while cleaning a populated Homebrew cache"
+grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
+  || fail "the Homebrew phase must end with brew cleanup --prune=all"
+grep -qE '^  Cache before:    [0-9.]+ MiB$' "$update_all_fixture/cache-receipt" \
+  || fail "the cleanup receipt must report the measured cache size before cleanup"
+grep -qE '^  Cache after:     (0 B|[0-9.]+ KiB)$' "$update_all_fixture/cache-receipt" \
+  || fail "the cleanup receipt must report the measured cache size after cleanup"
+grep -qE '^  Cache reclaimed: [0-9.]+ MiB$' "$update_all_fixture/cache-receipt" \
+  || fail "the cleanup receipt must report the reclaimed cache bytes"
+# Units are binary because du reports 1024-byte blocks; labeling them MB would
+# misstate a disk figure by 5%.
+assert_not_contains '(MB|GB|KB)$' "$update_all_fixture/cache-receipt" \
+  "the receipt labels 1024-based sizes with decimal units"
+# The receipt is explicitly cache-scoped: the command it brackets also removes
+# old formula versions and stale locks, so the numbers must not read as the
+# total the cleanup reclaimed.
+grep -qF 'Cache before' "$update_all_fixture/cache-receipt" \
+  || fail "the receipt must label its measurement as cache-scoped"
+grep -qF 'Every formula and cask you asked for stays installed' "$update_all_fixture/cache-receipt" \
+  || fail "the receipt must say what cleanup does not remove"
+test -z "$(find "$cache_dir" -mindepth 1 -name '*.bottle.tar.gz' -print -quit)" \
+  || fail "the cached download survived brew cleanup --prune=all"
+test -f "$update_all_stamp" || fail "a clean cleanup must still record the successful refresh"
+
+# Ordering is the safety property: cleanup runs AFTER the upgrade stages, never
+# before them, so a run that fails mid-upgrade still has its downloads.
+cleanup_line="$(grep -n 'brew cleanup --prune=all' "$update_all_log" | cut -d: -f1)"
+upgrade_line="$(grep -n '^brew upgrade' "$update_all_log" | tail -1 | cut -d: -f1)"
+[[ "$cleanup_line" -gt "$upgrade_line" ]] \
+  || fail "brew cleanup --prune=all ran before the upgrade stage it must follow"
+
+# A run with nothing to upgrade still cleans: the cache is disposable whether
+# or not this refresh changed a package.
+seed_cache
+run_cleanup_case "$update_all_fixture/cache-no-upgrades" BREW_CACHE_DIR="$cache_dir" \
+  BREW_NOTHING_TO_UPGRADE=1 \
+  || fail "update-all failed when there was nothing to upgrade"
+grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
+  || fail "a run with no upgrades must still clean the download cache"
+grep -qE '^  Cache reclaimed: [0-9.]+ MiB$' "$update_all_fixture/cache-no-upgrades" \
+  || fail "a no-upgrade run must still report what it reclaimed"
+
+# An already-empty cache is a successful measurement of zero, not a failure.
+seed_cache
+find "$cache_dir" -mindepth 1 -delete
+run_cleanup_case "$update_all_fixture/cache-empty" BREW_CACHE_DIR="$cache_dir" \
+  || fail "update-all failed on an already-empty Homebrew cache"
+grep -qE '^  Cache reclaimed: nothing to reclaim$' "$update_all_fixture/cache-empty" \
+  || fail "an empty cache must report nothing to reclaim"
+
+# A cache directory Homebrew has not created yet holds nothing.
+run_cleanup_case "$update_all_fixture/cache-missing" \
+  BREW_CACHE_DIR="$update_all_fixture/never-created-cache" \
+  || fail "update-all failed on a missing Homebrew cache directory"
+grep -qE '^  Cache before:    0 B$' "$update_all_fixture/cache-missing" \
+  || fail "a missing cache directory must measure as empty"
+
+# A FAILED size query is unavailable, never zero: an observation that broke
+# must not be reported as a clean, empty cache.
+run_cleanup_case "$update_all_fixture/cache-unknown" BREW_CACHE_FAIL=1 \
+  || fail "update-all failed when the cache size could not be queried"
+grep -qE '^  Cache before:    unavailable$' "$update_all_fixture/cache-unknown" \
+  || fail "an unqueryable cache size must be reported as unavailable"
+grep -qE '^  Cache reclaimed: not measured' "$update_all_fixture/cache-unknown" \
+  || fail "unmeasurable bytes must not be reported as a reclaim figure"
+grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
+  || fail "a failed size query must not skip the cleanup itself"
+
+# A cache that GREW between the two observations (another process downloading
+# while cleanup ran) is reported as indeterminate. Two observations are not one
+# atomic measurement, and a negative reclaim is not "nothing to reclaim".
+seed_cache
+run_cleanup_case "$update_all_fixture/cache-grew" BREW_CACHE_DIR="$cache_dir" \
+  BREW_CLEANUP_GROWS=1 \
+  || fail "update-all failed when the cache grew during cleanup"
+grep -qE '^  Cache reclaimed: indeterminate — the cache grew by [0-9.]+ MiB during cleanup$' \
+  "$update_all_fixture/cache-grew" \
+  || fail "a cache that grew during cleanup must be reported as indeterminate, not as nothing to reclaim"
+
+# A PARTIAL cleanup — some cached files removed, then a failure — must not be
+# described as a cache left untouched, and must not record a successful refresh.
+seed_cache
+set +e
+run_cleanup_case "$update_all_fixture/cache-partial" BREW_CACHE_DIR="$cache_dir" \
+  BREW_CLEANUP_PARTIAL=1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a partial cleanup must not be reported as a successful refresh"
+grep -qF 'was incomplete (exit 1)' "$update_all_fixture/cache-partial" \
+  || fail "a partial cleanup must be described as incomplete, naming the status"
+grep -qF 'some cached files may have been removed and others left behind' \
+  "$update_all_fixture/cache-partial" \
+  || fail "a partial cleanup must not claim the cache was left as it was"
+grep -qE '^  Cache before:    [0-9.]+ MiB$' "$update_all_fixture/cache-partial" \
+  || fail "a partial cleanup must still report the measurement it took"
+grep -qE '^  Cache after:     [0-9.]+ KiB$' "$update_all_fixture/cache-partial" \
+  || fail "a partial cleanup must report the smaller cache it actually left"
+test -f "$cache_dir/api/formula.jws.json" \
+  || fail "the partial-cleanup fixture must leave something behind to measure"
+test ! -e "$update_all_stamp" \
+  || fail "a partial cleanup must not record a successful refresh"
+
+# A failed cleanup keeps the upgrades it cannot undo, shows the exact error,
+# runs the independent stages after it, and still refuses to record success.
+#
+# The state this starts from is the point: a refresh that succeeded RECENTLY.
+# Withholding today's timestamp proves nothing on its own — yesterday's is
+# still well inside the stale window, so an age-only reminder would stay quiet
+# while the cache stayed full. The durable marker is what has to appear.
+seed_cache
+rm -f "$cleanup_marker"
+printf 'yesterdays-success\n' >"$update_all_stamp"
+set +e
+run_cleanup_case_keeping_state "$update_all_fixture/cache-cleanup-fail" \
+  BREW_CACHE_DIR="$cache_dir" BREW_CLEANUP_STATUS=1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a failed cache cleanup must not exit 0; nothing else would tell a script"
+grep -qF 'completed with warnings' "$update_all_fixture/cache-cleanup-fail" \
+  || fail "a failed cache cleanup must not be reported as a fully clean refresh"
+grep -qF 'brew cleanup --prune=all was incomplete (exit 1)' "$update_all_fixture/cache-cleanup-fail" \
+  || fail "a failed cache cleanup must name the command and its status"
+grep -qF 'Permission denied' "$update_all_fixture/cache-cleanup-fail" \
+  || fail "Homebrew's own cleanup error must reach the user"
+grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+  || fail "a failed cache cleanup must not stop the independent stages after it"
+test -f "$cleanup_marker" \
+  || fail "a failed cleanup must leave durable state; a message on a screen that scrolls away is not state"
+grep -qF 'brew cleanup --prune=all was incomplete (exit 1)' "$cleanup_marker" \
+  || fail "the pending marker must record what was left outstanding"
+grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z ' "$cleanup_marker" \
+  || fail "the pending marker must record when the cleanup failed"
+grep -qxF 'yesterdays-success' "$update_all_stamp" \
+  || fail "a failed cleanup must leave the last successful refresh recorded as the truthful history it is"
+cleanup_marker_temps=("${cleanup_marker}.tmp."*)
+((${#cleanup_marker_temps[@]} == 0)) || fail "the pending marker was not written atomically"
+
+# The marker is state the machine reads, so prove the surface that consumes it:
+# with a FRESH timestamp (age 0, nowhere near the stale window) the reminder
+# still speaks, because outstanding work beats a recent success.
+reminder_dir="$update_all_fixture/reminder"
+mkdir -p "$reminder_dir/zdot"
+render darwin false arm64 home/dot_zshrc.tmpl "$reminder_dir/rendered-zshrc"
+sed -n '/^groundwork-update-reminder() {/,/^unfunction groundwork-update-reminder$/p' \
+  "$reminder_dir/rendered-zshrc" >"$reminder_dir/zdot/.zshrc"
+test -s "$reminder_dir/zdot/.zshrc" \
+  || fail "could not extract the update reminder from the rendered zshrc"
+run_reminder() {
+  # The once-a-day throttle is a separate contract; clear it so each case here
+  # measures the decision under test.
+  rm -f "$update_all_home/.local/state/groundwork/update-reminder-last-shown"
+  env -u CI HOME="$update_all_home" ZDOTDIR="$reminder_dir/zdot" \
+    GROUNDWORK_UPDATE_REMINDER=1 zsh -i -c 'true' >"$1" 2>&1
+}
+run_reminder "$reminder_dir/pending-output"
+grep -qF "could not finish Homebrew's cleanup" "$reminder_dir/pending-output" \
+  || fail "a pending cleanup must be reported however recent the last successful refresh is"
+grep -qF 'was incomplete (exit 1)' "$reminder_dir/pending-output" \
+  || fail "the reminder must repeat what the marker recorded"
+
+# The next clean run clears the state on its own: the marker is removed, the
+# refresh is recorded again, and the reminder goes quiet.
+seed_cache
+run_cleanup_case_keeping_state "$update_all_fixture/cache-recovered" BREW_CACHE_DIR="$cache_dir" \
+  || fail "a clean run after a failed cleanup must succeed"
+test -f "$update_all_stamp" \
+  || fail "a clean run after a failed cleanup must record the refresh again"
+test ! -e "$cleanup_marker" \
+  || fail "a clean cleanup must clear the pending marker; nothing else ever will"
+assert_not_contains 'completed with warnings' "$update_all_fixture/cache-recovered" \
+  "a recovered run still reported the previous cleanup warning"
+run_reminder "$reminder_dir/recovered-output"
+assert_not_contains "could not finish" "$reminder_dir/recovered-output" \
+  "the reminder still reports a cleanup that a later clean run completed"
+
+# An interrupted cleanup records the marker before propagating — in the one
+# shape this models: brew died on the signal while the runner survived. A real
+# terminal Ctrl-C usually kills the runner too, and that path keeps no record.
+seed_cache
+rm -f "$cleanup_marker" "$update_all_stamp"
+set +e
+run_cleanup_case_keeping_state "$update_all_fixture/cache-interrupt-marker" \
+  BREW_CACHE_DIR="$cache_dir" BREW_CLEANUP_STATUS=130
+update_all_status=$?
+set -e
+[[ "$update_all_status" -eq 130 ]] \
+  || fail "an interrupted cleanup must propagate 130, got $update_all_status"
+grep -qF 'was interrupted (exit 130)' "$cleanup_marker" \
+  || fail "an interrupted cleanup must record that it did not finish"
+test ! -e "$update_all_stamp" \
+  || fail "an interrupted cleanup must not record a successful refresh"
+
+# brew autoremove is part of the same phase and runs BEFORE cleanup: when it
+# fails, nothing after it runs and the cache it might have fed is left alone.
+seed_cache
+set +e
+run_cleanup_case "$update_all_fixture/cache-autoremove-fail" BREW_CACHE_DIR="$cache_dir" \
+  BREW_AUTOREMOVE_STATUS=1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a failed brew autoremove must fail the run"
+grep -qxF 'brew autoremove' "$update_all_log" \
+  || fail "the autoremove-failure fixture must actually reach autoremove"
+assert_not_contains 'brew cleanup' "$update_all_log" \
+  "a failed autoremove must stop the phase before cleanup"
+assert_not_contains '^mise upgrade' "$update_all_log" \
+  "a failed autoremove must stop the stages after the Homebrew phase"
+test -f "$cache_dir/downloads/artifact.bottle.tar.gz" \
+  || fail "a failed Homebrew phase must leave the download cache alone"
+test ! -e "$update_all_stamp" \
+  || fail "a failed autoremove must not record a successful refresh"
+
+# Ctrl-C during cleanup is an interruption, not a warning to walk past.
+for interrupt_status in 130 143; do
+  set +e
+  run_cleanup_case "$update_all_fixture/cache-interrupt-$interrupt_status" \
+    BREW_CACHE_DIR="$cache_dir" BREW_CLEANUP_STATUS="$interrupt_status"
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq "$interrupt_status" ]] \
+    || fail "an interrupted cleanup ($interrupt_status) must propagate, got $update_all_status"
+  test ! -e "$update_all_stamp" \
+    || fail "an interrupted cleanup must not record a successful refresh"
+done
+rm -rf "$cache_dir"
+rm -f "$update_all_stamp"
+
+# The size formatter, tested with fixed numbers instead of whatever the host
+# filesystem happens to allocate: exact output belongs in an exact test.
+format_probe="$update_all_fixture/format-bytes-probe"
+{
+  printf 'set -euo pipefail\n'
+  sed -n '/^  format_bytes() {/,/^  }/p' "$update_all_fixture/rendered-runner"
+  # shellcheck disable=SC2016 # "$@" is the probe script's own argument list, expanded when the probe runs.
+  printf 'for value in "$@"; do format_bytes "$value"; done\n'
+} >"$format_probe"
+grep -qF 'awk -v bytes=' "$format_probe" \
+  || fail "could not extract format_bytes from the rendered runner"
+format_probe_output="$(/bin/bash "$format_probe" '' 0 1023 1024 4194304 6764573491 1099511627776)"
+diff -u <(printf 'unavailable\n0 B\n1023 B\n1.0 KiB\n4.0 MiB\n6.3 GiB\n1.0 TiB\n') \
+  <(printf '%s\n' "$format_probe_output") \
+  || fail "format_bytes must label 1024-based sizes in binary units, and an unmeasured size as unavailable"
+
+# Source-level locks on the cleanup path, for both renders: the aggressive
+# form only, and never a raw deletion of Homebrew's cache directory.
+cleanup_invocation_pattern='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*brew cleanup'
+for cleanup_render in "$update_all_fixture/rendered-runner" "$update_all_fixture/darwin-runner"; do
+  # EXACTLY ONE invocation, and exactly the approved one. Counting rejects a
+  # duplicate or an extra `brew cleanup --dry-run`/`--scrub` that a later patch
+  # might add beside it; matching the whole line rejects a weaker form.
+  # NOT mapfile: macOS ships Bash 3.2, where it does not exist.
+  cleanup_invocations=()
+  while IFS= read -r cleanup_line_text; do
+    [[ -n "$cleanup_line_text" ]] || continue
+    cleanup_invocations+=("$cleanup_line_text")
+  done < <(grep -E "$cleanup_invocation_pattern" "$cleanup_render" || true)
+  [[ "${#cleanup_invocations[@]}" -eq 1 ]] \
+    || fail "$cleanup_render must invoke brew cleanup exactly once, found ${#cleanup_invocations[@]}: ${cleanup_invocations[*]:-none}"
+  cleanup_invocation="${cleanup_invocations[0]#"${cleanup_invocations[0]%%[![:space:]]*}"}"
+  [[ "$cleanup_invocation" == 'brew cleanup --prune=all || cleanup_status=$?' ]] \
+    || fail "$cleanup_render invokes an unapproved cleanup: $cleanup_invocation (Homebrew's default 120-day policy is what left gigabytes behind)"
+  assert_not_contains 'rm -rf.*brew --cache|rm -rf.*Caches/Homebrew' "$cleanup_render" \
+    "raw deletion of Homebrew's cache in $cleanup_render — use brew cleanup, which respects Homebrew's locking"
+  assert_not_contains 'sudo' "$cleanup_render" \
+    "update-all must never escalate privileges: $cleanup_render"
+done
 
 check "update-all migration notice"
 migration_home="$out_dir/update-all-migration-home"
