@@ -33,11 +33,24 @@ jobs:
       # advanced-security uploads SARIF to the repo's code scanning tab —
       # free on public repos — so findings persist and annotate PRs instead
       # of living only in the job log.
-      - name: Zizmor
+      # Two legs, one pin: SARIF upload first so the code-scanning tab stays
+      # current even when the gate fails, then a plain-mode leg that FAILS the
+      # job on findings — in advanced-security mode the action never fails, so
+      # without the gate a new finding merges green and waits in a tab nobody
+      # is required to read (six ref-version-mismatch findings sat there
+      # until 2026-07-30).
+      - name: Zizmor (SARIF upload)
         uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
         with:
           persona: pedantic
           advanced-security: true
+
+      - name: Zizmor (gate)
+        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        with:
+          persona: pedantic
+          advanced-security: false
+          annotations: true
 
   # Runs on Linux deliberately: the darwin cases in validate-groundwork are
   # chezmoi template *data* (rendered profiles), not host requirements — the
