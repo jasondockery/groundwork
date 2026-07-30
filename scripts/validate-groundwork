@@ -510,10 +510,30 @@ if [[ "${1:-}" == "upgrade" && "${2:-}" == "--help" ]]; then
   [[ "${MISE_HAS_RELEASE_AGE:-1}" == "1" ]] && echo "      --minimum-release-age <MINIMUM_RELEASE_AGE>"
   exit 0
 fi
+if [[ "${1:-}" == "which" ]]; then
+  # A query, not a stage: unlogged, like brew --cache. Defaults to "no npm"
+  # so the fixtures that predate the npm stage keep their exact logs.
+  exit "${MISE_WHICH_NPM_STATUS:-1}"
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  # pwd is part of the contract: machine maintenance must run from $HOME, not
+  # from whatever repository update-all was launched in.
+  printf 'mise %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
+  exit "${NPM_VERIFY_STATUS:-0}"
+fi
 printf 'mise %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 exit "${MISE_STATUS:-0}"
 SH
+# Always present, silent by default: the runner's npm fallback would otherwise
+# find the HOST's npm (the runner deliberately prepends the real Homebrew
+# paths) and run a real `npm cache verify` from inside these fixtures. The
+# stub absorbs that; the npm-stage check turns logging on to prove the branch.
+cat >"$update_all_bin/npm" <<'SH'
+#!/usr/bin/env bash
+[[ "${NPM_STUB_LOG:-0}" == "0" ]] || printf 'npm %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
+SH
 chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
+  "$update_all_bin/npm" \
   "$update_all_bin/groundwork-brew-update" "$update_all_bin/groundwork-platform" \
   "$update_all_fixture/fresh-runner"
 
@@ -1250,6 +1270,623 @@ for cleanup_render in "$update_all_fixture/rendered-runner" "$update_all_fixture
   assert_not_contains 'sudo' "$cleanup_render" \
     "update-all must never escalate privileges: $cleanup_render"
 done
+
+check "update-all npm cache verify stage"
+# npm's cache verify is conservative, owner-provided garbage collection —
+# appropriate for every refresh. Node is mise-owned, so npm resolves through
+# mise first; a machine with neither runs no npm stage at all (the default in
+# every fixture above, which is why their logs did not change).
+run_cleanup_case "$update_all_fixture/npm-verify" MISE_WHICH_NPM_STATUS=0 \
+  || fail "update-all failed with a mise-owned npm present"
+# pwd=$HOME proves neutrality: launched from anywhere, the maintenance runs
+# from the home directory, out of reach of a repository's mise config or a
+# project-local .npmrc redirecting the cache. Compare the cd-normalized form:
+# macOS TMPDIR ends in a slash, so the raw fixture path carries a double
+# slash that cd collapses out of $PWD.
+update_all_home_pwd="$(cd "$update_all_home" && pwd)"
+grep -qxF "mise exec -- npm cache verify pwd=$update_all_home_pwd" "$update_all_log" \
+  || fail "a mise-owned npm must be verified via mise exec, from \$HOME"
+test -f "$update_all_stamp" \
+  || fail "a successful npm verify must not block the success timestamp"
+# The stage runs AFTER the runtime upgrades it depends on.
+npm_line="$(grep -n 'npm cache verify' "$update_all_log" | cut -d: -f1)"
+mise_line="$(grep -n '^mise upgrade' "$update_all_log" | cut -d: -f1)"
+[[ "$npm_line" -gt "$mise_line" ]] \
+  || fail "npm cache verify must run after the mise upgrade stage"
+
+# A failed verify is a failed stage: nonzero, no success timestamp.
+set +e
+run_cleanup_case "$update_all_fixture/npm-verify-fail" MISE_WHICH_NPM_STATUS=0 \
+  NPM_VERIFY_STATUS=1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a failed npm cache verify must fail the run"
+test ! -e "$update_all_stamp" \
+  || fail "a failed npm cache verify must not record a successful refresh"
+
+# When mise owns no npm but a PATH npm exists, the fallback branch verifies it
+# directly. (A machine with no mise at all cannot be modeled here: the runner
+# deliberately prepends the real Homebrew paths, so removing the mise stub
+# would leak to the host's mise — the stub stays, reporting no npm.)
+run_cleanup_case "$update_all_fixture/npm-verify-path" NPM_STUB_LOG=1 \
+  || fail "update-all failed with a PATH npm and a mise that owns no npm"
+grep -qxF "npm cache verify pwd=$update_all_home_pwd" "$update_all_log" \
+  || fail "a PATH npm must be verified when mise owns no npm, from \$HOME"
+assert_not_contains 'mise exec' "$update_all_log" \
+  "the mise exec branch may not run when mise owns no npm"
+
+# No npm anywhere: no stage runs, and the refresh still succeeds. The stub is
+# moved aside, not chmod -x'd — Linux bash's command -v reports even a
+# non-executable file, which would then fail with 126. On a host whose real
+# Homebrew paths carry an npm the fallback can still find that one (harmless,
+# unlogged, against the fixture HOME) — the strict absence proof lands on
+# CI's Linux runner, where those paths do not exist.
+mv "$update_all_bin/npm" "$update_all_fixture/npm.hidden"
+run_cleanup_case "$update_all_fixture/npm-absent" \
+  || fail "update-all must succeed with no npm anywhere"
+assert_not_contains 'npm cache verify' "$update_all_log" \
+  "an npm stage ran although no npm was present"
+test -f "$update_all_stamp" \
+  || fail "a machine without npm must still record a successful refresh"
+mv "$update_all_fixture/npm.hidden" "$update_all_bin/npm"
+
+check "groundwork-pnpm-store-tidy: hostile arguments, dry-run default, receipt"
+pnpm_tidy="$PWD/home/dot_local/bin/executable_groundwork-pnpm-store-tidy"
+test -x "$pnpm_tidy"
+pnpm_fixture="$out_dir/pnpm-tidy-fixture"
+pnpm_bin="$pnpm_fixture/bin"
+pnpm_store_root="$pnpm_fixture/pnpm store"
+mkdir -p "$pnpm_bin" "$pnpm_store_root/v10/files" "$pnpm_store_root/v11/files"
+# Selection provenance is judged from the working directory, so every case
+# runs from a fixture directory whose ancestry this test controls; out_dir
+# lives under the system temp tree, which carries no package.json above it.
+mkdir -p "$pnpm_fixture/proj-none" "$pnpm_fixture/proj-pinned/child" \
+  "$pnpm_fixture/proj-yarn" "$pnpm_fixture/proj-badjson" "$pnpm_fixture/proj-malformed" \
+  "$pnpm_fixture/proj-vmajor" "$pnpm_fixture/proj-integrity" "$pnpm_fixture/proj-mismatch"
+printf '{"packageManager":"pnpm@11.4.0"}\n' >"$pnpm_fixture/proj-pinned/package.json"
+printf '{"packageManager":"yarn@4.1.0"}\n' >"$pnpm_fixture/proj-yarn/package.json"
+printf '{ not json\n' >"$pnpm_fixture/proj-badjson/package.json"
+printf '{"packageManager":"pnpm"}\n' >"$pnpm_fixture/proj-malformed/package.json"
+printf '{"packageManager":"pnpm@11"}\n' >"$pnpm_fixture/proj-vmajor/package.json"
+printf '{"packageManager":"pnpm@11.4.0+sha512.abc123"}\n' >"$pnpm_fixture/proj-integrity/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}\n' >"$pnpm_fixture/proj-mismatch/package.json"
+run_tidy() {
+  local dir="$1"
+  shift
+  (cd "$dir" && "$@")
+}
+# Spaces in the store path on purpose; sizes seeded with random bytes for the
+# same block-accounting reasons as the Homebrew cache fixtures.
+dd if=/dev/urandom of="$pnpm_store_root/v11/files/pkg.blob" bs=1024 count=2048 >/dev/null 2>&1
+dd if=/dev/urandom of="$pnpm_store_root/v10/files/pkg.blob" bs=1024 count=1024 >/dev/null 2>&1
+cat >"$pnpm_bin/pnpm" <<SH
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "--version" ]]; then
+  # Models a pnpm that changes between the report and the prune.
+  if [[ -n "\${PNPM_VERSION_CALLS_FILE:-}" ]]; then
+    vcalls=0
+    [[ ! -f "\$PNPM_VERSION_CALLS_FILE" ]] || vcalls="\$(<"\$PNPM_VERSION_CALLS_FILE")"
+    vcalls=\$((vcalls + 1))
+    printf '%s\n' "\$vcalls" >"\$PNPM_VERSION_CALLS_FILE"
+    if [[ "\$vcalls" -ge 2 ]]; then
+      echo "12.0.0"
+      exit 0
+    fi
+  fi
+  echo "11.4.0"
+  exit 0
+fi
+if [[ "\${1:-}" == "store" && "\${2:-}" == "path" ]]; then
+  # The probe records whether the caller disabled Corepack networking: a
+  # read-only query must never let Corepack download a package manager.
+  [[ -z "\${PNPM_ENV_PROBE:-}" ]] \\
+    || printf 'corepack_net=%s\n' "\${COREPACK_ENABLE_NETWORK:-unset}" >"\$PNPM_ENV_PROBE"
+  [[ "\${PNPM_STORE_PATH_FAIL:-0}" == "0" ]] || exit 1
+  if [[ -n "\${PNPM_STORE_PATH_OVERRIDE:-}" ]]; then
+    printf '%s\n' "\$PNPM_STORE_PATH_OVERRIDE"
+    exit 0
+  fi
+  # Models a selection that MOVES between the report and the prune: the
+  # second query answers with a different generation.
+  if [[ -n "\${PNPM_PATH_CALLS_FILE:-}" ]]; then
+    calls=0
+    [[ ! -f "\$PNPM_PATH_CALLS_FILE" ]] || calls="\$(<"\$PNPM_PATH_CALLS_FILE")"
+    calls=\$((calls + 1))
+    printf '%s\n' "\$calls" >"\$PNPM_PATH_CALLS_FILE"
+    if [[ "\$calls" -ge 2 ]]; then
+      printf '%s\n' "$pnpm_store_root/v10"
+      exit 0
+    fi
+  fi
+  printf '%s\n' "$pnpm_store_root/v11"
+  exit 0
+fi
+printf 'pnpm %s\n' "\$*" >>"\$GROUNDWORK_TEST_LOG"
+if [[ "\${1:-}" == "store" && "\${2:-}" == "prune" ]]; then
+  [[ "\${PNPM_PRUNE_STATUS:-0}" == "0" ]] || exit "\$PNPM_PRUNE_STATUS"
+  # A prune shrinks the SELECTED store; the other generation must be untouched.
+  rm -f "$pnpm_store_root/v11/files/pkg.blob"
+fi
+exit 0
+SH
+chmod +x "$pnpm_bin/pnpm"
+pnpm_log="$pnpm_fixture/commands.log"
+pnpm_path="$pnpm_bin:/usr/bin:/bin"
+
+# --help mutates nothing and exits 0; hostile arguments exit 64 with zero
+# external invocations. Zero mutation is proven by the empty command log.
+: >"$pnpm_log"
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" "$pnpm_tidy" --help \
+  >"$pnpm_fixture/help-output" 2>&1 \
+  || fail "groundwork-pnpm-store-tidy --help must exit 0"
+grep -qF -- '--yes' "$pnpm_fixture/help-output"
+test ! -s "$pnpm_log" || fail "--help invoked external commands"
+for hostile in --nope --yes-please extra "two words"; do
+  : >"$pnpm_log"
+  set +e
+  PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" "$pnpm_tidy" "$hostile" \
+    >"$pnpm_fixture/hostile-output" 2>&1
+  pnpm_status=$?
+  set -e
+  [[ "$pnpm_status" -eq 64 ]] \
+    || fail "groundwork-pnpm-store-tidy '$hostile' must exit 64, got $pnpm_status"
+  test ! -s "$pnpm_log" || fail "hostile argument '$hostile' invoked external commands"
+done
+: >"$pnpm_log"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" "$pnpm_tidy" --dry-run --yes \
+  >/dev/null 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -eq 64 ]] || fail "conflicting modes must exit 64"
+test ! -s "$pnpm_log" || fail "conflicting modes invoked external commands"
+
+# Dry run is the default and prunes nothing: the selection context (working
+# directory, selected store) is printed, both generations are sized, the
+# selected one marked, the other explicitly protected — and the store-path
+# query runs with Corepack networking OFF, because a run that promises
+# "nothing was changed" must not download a package manager.
+: >"$pnpm_log"
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  PNPM_ENV_PROBE="$pnpm_fixture/env-probe" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" \
+  >"$pnpm_fixture/dry-output" 2>&1 \
+  || fail "the dry run must succeed"
+grep -qF 'dry run — nothing was changed' "$pnpm_fixture/dry-output"
+grep -qF 'Working directory:' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must print the directory the selection followed"
+grep -qF 'Selected store:' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must print which store the directory selects"
+grep -qF 'Selected pnpm:     11.4.0' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must print the selected pnpm version"
+# No pin anywhere: the provenance must say so plainly, never invent a
+# packageManager that does not exist.
+grep -qF 'Selection source:  no pnpm packageManager declaration' "$pnpm_fixture/dry-output" \
+  || fail "an unpinned run must name its state instead of claiming a packageManager selected the store"
+grep -qE 'selected.*v11: [0-9.]+ MiB' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must size the selected store"
+grep -qE 'other.*v10: [0-9.]+ MiB' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must size the other store generation"
+grep -qF 'packageManager' "$pnpm_fixture/dry-output" \
+  || fail "the dry run must explain why other generations are protected"
+grep -qxF 'corepack_net=0' "$pnpm_fixture/env-probe" \
+  || fail "the dry run's store-path query must disable Corepack networking"
+test ! -s "$pnpm_log" || fail "the dry run invoked a mutating pnpm command"
+test -f "$pnpm_store_root/v11/files/pkg.blob" || fail "the dry run pruned the store"
+
+# Aliases deduplicate by canonical path; symlinks are never skipped as such:
+# two names for one store report once, while a symlink to a DISTINCT store is
+# a real generation and is reported.
+ln -s "$pnpm_store_root/v11" "$pnpm_store_root/v-alias"
+mkdir -p "$pnpm_fixture/external-store"
+dd if=/dev/urandom of="$pnpm_fixture/external-store/pkg.blob" bs=1024 count=256 >/dev/null 2>&1
+ln -s "$pnpm_fixture/external-store" "$pnpm_store_root/v9"
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" \
+  >"$pnpm_fixture/alias-output" 2>&1 \
+  || fail "the dry run must succeed with symlinked store entries present"
+assert_not_contains 'v-alias' "$pnpm_fixture/alias-output" \
+  "a symlinked alias of an already-reported store was reported again"
+grep -qE 'other.*v9: [0-9.]+ KiB' "$pnpm_fixture/alias-output" \
+  || fail "a symlink to a distinct store is a real generation and must be reported"
+rm -f "$pnpm_store_root/v-alias" "$pnpm_store_root/v9"
+
+# Selection provenance, judged from the working directory: a pin in the
+# directory, a pin in an ancestor, a non-pnpm declaration, a malformed pnpm
+# declaration, and unreadable JSON each name their state truthfully.
+# The walk reports cd-normalized paths (macOS TMPDIR carries a double slash
+# that cd collapses), so expectations use the normalized fixture prefix.
+pnpm_fixture_pwd="$(cd "$pnpm_fixture" && pwd)"
+for provenance_case in \
+  'proj-pinned:Selection source:  '"$pnpm_fixture_pwd"'/proj-pinned/package.json → pnpm@11.4.0' \
+  'proj-pinned/child:Selection source:  '"$pnpm_fixture_pwd"'/proj-pinned/package.json → pnpm@11.4.0' \
+  'proj-yarn:declares yarn@4.1.0 (not pnpm)' \
+  'proj-malformed:malformed pnpm declaration' \
+  'proj-vmajor:malformed pnpm version' \
+  'proj-badjson:unreadable as JSON'; do
+  provenance_dir="${provenance_case%%:*}"
+  provenance_expected="${provenance_case#*:}"
+  PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+    run_tidy "$pnpm_fixture/$provenance_dir" "$pnpm_tidy" \
+    >"$pnpm_fixture/provenance-output" 2>&1 \
+    || fail "the dry run must succeed from $provenance_dir"
+  grep -qF "$provenance_expected" "$pnpm_fixture/provenance-output" \
+    || fail "provenance from $provenance_dir must report: $provenance_expected"
+done
+# These provenance fixtures exercise the tidy's own manifest walk and parser
+# — they do not claim to prove Corepack's internal selection behavior, which
+# the pin-vs-resolved comparison below turns into checked evidence.
+
+# A valid pin that matches the resolved pnpm passes cleanly — the integrity
+# suffix is stripped before comparison, never treated as a mismatch.
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-integrity" "$pnpm_tidy" \
+  >"$pnpm_fixture/integrity-output" 2>&1 \
+  || fail "a matching pin with an integrity suffix must pass"
+grep -qF 'pnpm@11.4.0+sha512.abc123 (nearest observed declaration)' "$pnpm_fixture/integrity-output" \
+  || fail "the integrity-suffixed pin must be reported as the observed declaration"
+assert_not_contains 'WARNING' "$pnpm_fixture/integrity-output" \
+  "a matching pin was reported as launcher drift"
+
+# A valid pin that DISAGREES with the resolved pnpm is launcher drift: the
+# dry run warns, and --yes refuses before any query is even close to a prune.
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-mismatch" "$pnpm_tidy" \
+  >"$pnpm_fixture/mismatch-dry-output" 2>&1 \
+  || fail "the dry run must succeed under launcher drift (it warns, not fails)"
+grep -qF 'WARNING: the declared pin (pnpm@10.0.0) does not match the pnpm that resolved (11.4.0)' \
+  "$pnpm_fixture/mismatch-dry-output" \
+  || fail "the dry run must name the pin/resolved mismatch"
+: >"$pnpm_log"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-mismatch" "$pnpm_tidy" --yes \
+  >"$pnpm_fixture/mismatch-yes-output" 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -ne 0 ]] \
+  || fail "--yes must refuse when the pin and the resolved pnpm disagree"
+grep -qF 'refusing to prune under a drifted launcher' "$pnpm_fixture/mismatch-yes-output" \
+  || fail "the drift refusal must explain itself"
+test ! -s "$pnpm_log" \
+  || fail "a drift refusal must precede any mutating pnpm command"
+
+# Without jq anywhere on PATH, provenance degrades to honestly not-determined
+# — never a guessed declaration. The shim carries every external tool the dry
+# run needs except jq.
+pnpm_nojq_bin="$pnpm_fixture/nojq-bin"
+mkdir -p "$pnpm_nojq_bin"
+# bash is included because the stubs' /usr/bin/env shebangs resolve it via
+# PATH; jq is the one tool deliberately absent.
+for nojq_tool in bash cat du awk dirname basename; do
+  ln -s "$(command -v "$nojq_tool")" "$pnpm_nojq_bin/$nojq_tool"
+done
+PATH="$pnpm_bin:$pnpm_nojq_bin" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-pinned" "$pnpm_tidy" \
+  >"$pnpm_fixture/nojq-output" 2>&1 \
+  || fail "the dry run must succeed without jq"
+grep -qF 'not determined (jq not installed)' "$pnpm_fixture/nojq-output" \
+  || fail "provenance without jq must be honestly not-determined, not guessed"
+
+# A custom store-dir outside the v* layout is still reported directly, with
+# its real size — never as "not created yet" — and with no invented siblings.
+mkdir -p "$pnpm_fixture/solo/custom store"
+dd if=/dev/urandom of="$pnpm_fixture/solo/custom store/pkg.blob" bs=1024 count=512 >/dev/null 2>&1
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  PNPM_STORE_PATH_OVERRIDE="$pnpm_fixture/solo/custom store" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" \
+  >"$pnpm_fixture/custom-output" 2>&1 \
+  || fail "the dry run must succeed with a custom store-dir"
+grep -qE 'selected.*custom store: [0-9.]+ KiB \(selected here\)' "$pnpm_fixture/custom-output" \
+  || fail "a custom store-dir must be sized directly, not forced through the v* layout"
+assert_not_contains 'not created yet' "$pnpm_fixture/custom-output" \
+  "an existing custom store was reported as not created yet"
+grep -qF 'sibling generation discovery not attempted (custom store layout' "$pnpm_fixture/custom-output" \
+  || fail "a custom store layout must say sibling discovery was not attempted"
+assert_not_contains 'other.*v1[01]' "$pnpm_fixture/custom-output" \
+  "v* siblings of an unrecognized parent were misclassified as store generations"
+
+# A pnpm that changes between the report and the prune is refused even when
+# the store path stays the same.
+: >"$pnpm_log"
+rm -f "$pnpm_fixture/version-calls"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  PNPM_VERSION_CALLS_FILE="$pnpm_fixture/version-calls" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" --yes \
+  >"$pnpm_fixture/version-moved-output" 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -ne 0 ]] \
+  || fail "a pnpm that changed before the prune must be refused"
+grep -qF 'selected pnpm changed between the report and the prune' \
+  "$pnpm_fixture/version-moved-output" \
+  || fail "the version-moved refusal must say what happened"
+test ! -s "$pnpm_log" \
+  || fail "a version-moved refusal must precede any prune: $(cat "$pnpm_log")"
+rm -f "$pnpm_fixture/version-calls"
+
+# When the selected pnpm is not cached, the dry run refuses to download one
+# and says so, rather than silently mutating Corepack state.
+: >"$pnpm_log"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" PNPM_STORE_PATH_FAIL=1 \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" \
+  >"$pnpm_fixture/offline-output" 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -ne 0 ]] || fail "an offline-unavailable pnpm must fail the dry run"
+grep -qF 'available offline' "$pnpm_fixture/offline-output" \
+  || fail "the offline refusal must explain that the selected pnpm is unavailable offline"
+test ! -s "$pnpm_log" || fail "the offline refusal invoked a mutating pnpm command"
+
+# A selection that MOVES between the report and the prune is refused: the
+# user authorized the store they saw, not whatever pnpm resolves later.
+: >"$pnpm_log"
+rm -f "$pnpm_fixture/path-calls"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  PNPM_PATH_CALLS_FILE="$pnpm_fixture/path-calls" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" --yes \
+  >"$pnpm_fixture/moved-output" 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -ne 0 ]] \
+  || fail "a store selection that moved before the prune must be refused"
+grep -qF 'selection changed between the report and the prune' "$pnpm_fixture/moved-output" \
+  || fail "the moved-selection refusal must say what happened"
+test ! -s "$pnpm_log" \
+  || fail "a moved selection must refuse BEFORE any prune: $(cat "$pnpm_log")"
+rm -f "$pnpm_fixture/path-calls"
+
+# --yes prunes the selected store only, with a measured receipt; the other
+# generation survives byte-for-byte.
+: >"$pnpm_log"
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" --yes \
+  >"$pnpm_fixture/yes-output" 2>&1 \
+  || fail "--yes must succeed"
+diff -u <(printf 'pnpm store prune\n') "$pnpm_log"
+grep -qF 'Working directory:' "$pnpm_fixture/yes-output" \
+  || fail "--yes must print the selection context before acting"
+grep -qE '^  Store before:    [0-9.]+ MiB$' "$pnpm_fixture/yes-output" \
+  || fail "--yes must report the measured store size before the prune"
+grep -qE '^  Store reclaimed: [0-9.]+ MiB$' "$pnpm_fixture/yes-output" \
+  || fail "--yes must report the measured reclaim"
+test -f "$pnpm_store_root/v10/files/pkg.blob" \
+  || fail "the prune touched another store generation"
+
+# A failed prune reports honestly and propagates the status.
+: >"$pnpm_log"
+set +e
+PATH="$pnpm_path" GROUNDWORK_TEST_LOG="$pnpm_log" PNPM_PRUNE_STATUS=7 \
+  run_tidy "$pnpm_fixture/proj-none" "$pnpm_tidy" --yes \
+  >"$pnpm_fixture/fail-output" 2>&1
+pnpm_status=$?
+set -e
+[[ "$pnpm_status" -eq 7 ]] || fail "a failed prune must propagate its status, got $pnpm_status"
+grep -qF 'was not fully pruned' "$pnpm_fixture/fail-output" \
+  || fail "a failed prune must say the store was not fully pruned"
+
+# No pnpm at all: nothing to tidy, exit 0, zero invocations.
+: >"$pnpm_log"
+PATH="/usr/bin:/bin" GROUNDWORK_TEST_LOG="$pnpm_log" "$pnpm_tidy" \
+  >"$pnpm_fixture/no-pnpm-output" 2>&1 \
+  || fail "a machine without pnpm must exit 0"
+grep -qF 'nothing to tidy' "$pnpm_fixture/no-pnpm-output"
+test ! -s "$pnpm_log"
+
+check "groundwork-doctor --storage stays read-only, opt-in, and honest"
+storage_fixture="$out_dir/doctor-storage-fixture"
+storage_home="$storage_fixture/home"
+storage_bin="$storage_fixture/bin"
+mkdir -p "$storage_bin" "$storage_home/.nvm/versions" "$storage_home/.npm/_cacache"
+dd if=/dev/urandom of="$storage_home/.nvm/versions/node.blob" bs=1024 count=512 >/dev/null 2>&1
+storage_brew_cache="$storage_fixture/brew cache"
+mkdir -p "$storage_brew_cache/downloads"
+dd if=/dev/urandom of="$storage_brew_cache/downloads/big.blob" bs=1024 count=1024 >/dev/null 2>&1
+storage_pnpm_root="$storage_fixture/pnpm-store"
+mkdir -p "$storage_pnpm_root/v10" "$storage_pnpm_root/v11"
+dd if=/dev/urandom of="$storage_pnpm_root/v11/pkg.blob" bs=1024 count=1024 >/dev/null 2>&1
+# An alias of the selected store: canonical dedup must report it exactly once.
+ln -s "$storage_pnpm_root/v11" "$storage_pnpm_root/v-alias"
+dd if=/dev/urandom of="$storage_home/.npm/_cacache/data.blob" bs=1024 count=1024 >/dev/null 2>&1
+cat >"$storage_bin/brew" <<SH
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "--cache" ]]; then
+  printf '%s\n' "$storage_brew_cache"
+  exit 0
+fi
+printf 'brew %s\n' "\$*" >>"\$GROUNDWORK_TEST_LOG"
+SH
+cat >"$storage_bin/pnpm" <<SH
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "store" && "\${2:-}" == "path" ]]; then
+  [[ -z "\${PNPM_ENV_PROBE:-}" ]] \\
+    || printf 'corepack_net=%s\n' "\${COREPACK_ENABLE_NETWORK:-unset}" >"\$PNPM_ENV_PROBE"
+  [[ "\${PNPM_STORE_PATH_FAIL:-0}" == "0" ]] || exit 1
+  printf '%s\n' "$storage_pnpm_root/v11"
+  exit 0
+fi
+printf 'pnpm %s\n' "\$*" >>"\$GROUNDWORK_TEST_LOG"
+SH
+cat >"$storage_bin/npm" <<SH
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "config" && "\${2:-}" == "get" && "\${3:-}" == "cache" ]]; then
+  [[ "\${NPM_CONFIG_FAIL:-0}" == "0" ]] || exit 1
+  if [[ "\${NPM_CACHE_MISSING:-0}" != "0" ]]; then
+    printf '%s\n' "$storage_home/uncreated-npm-cache"
+    exit 0
+  fi
+  printf '%s\n' "$storage_home/.npm"
+  exit 0
+fi
+printf 'npm %s\n' "\$*" >>"\$GROUNDWORK_TEST_LOG"
+SH
+cat >"$storage_bin/mise" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "which" ]]; then
+  exit "${MISE_WHICH_NPM_STATUS:-1}"
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  shift
+  [[ "${1:-}" == "--" ]] && shift
+  exec "$@"
+fi
+exit 0
+SH
+# du passthrough that can be told to fail for one path — how else would a
+# doctor prove that a broken measurement is not reported as healthy?
+cat >"$storage_bin/du" <<'SH'
+#!/usr/bin/env bash
+if [[ -n "${DU_FAIL_GLOB:-}" ]]; then
+  for arg in "$@"; do
+    [[ "$arg" == *"$DU_FAIL_GLOB"* ]] && exit 1
+  done
+fi
+exec /usr/bin/du "$@"
+SH
+chmod +x "$storage_bin/brew" "$storage_bin/pnpm" "$storage_bin/npm" \
+  "$storage_bin/mise" "$storage_bin/du"
+storage_log="$storage_fixture/commands.log"
+run_storage_doctor() {
+  local output="$1"
+  shift
+  : >"$storage_log"
+  env HOME="$storage_home" PATH="$storage_bin:/usr/bin:/bin" \
+    GROUNDWORK_TEST_LOG="$storage_log" "$@" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --storage \
+    >"$output" 2>&1
+}
+
+run_storage_doctor "$storage_fixture/output" PNPM_ENV_PROBE="$storage_fixture/env-probe" \
+  || fail "groundwork-doctor --storage must succeed"
+# Read-only is the contract: every brew/pnpm/npm call other than the size
+# queries would have been logged.
+test ! -s "$storage_log" \
+  || fail "doctor --storage invoked a non-query command: $(cat "$storage_log")"
+grep -qF 'read-only report' "$storage_fixture/output"
+grep -qF 'not a full disk scan' "$storage_fixture/output" \
+  || fail "the storage report must say it is curated, not exhaustive"
+grep -qxF 'corepack_net=0' "$storage_fixture/env-probe" \
+  || fail "the doctor's pnpm query must disable Corepack networking"
+grep -qE 'Homebrew cache: [0-9.]+ MiB' "$storage_fixture/output" \
+  || fail "the storage report must size the Homebrew cache"
+grep -qF 'pnpm store v10 (other generation)' "$storage_fixture/output" \
+  || fail "other pnpm store generations must not be called inactive — Corepack selects per repository"
+grep -qF 'pnpm store v11 (selected here)' "$storage_fixture/output" \
+  || fail "the storage report must mark the store selected by the current directory"
+grep -qE 'working directory .* selects: ' "$storage_fixture/output" \
+  || fail "the storage report must say which directory the selection followed"
+grep -qF 'legacy runtime manager: ~/.nvm' "$storage_fixture/output" \
+  || fail "a legacy nvm install must be reported"
+grep -qF "Groundwork's intended Node owner: mise" "$storage_fixture/output" \
+  || fail "the nvm finding must state intent, not assert the live Node owner"
+grep -qF -- '--node-toolchain' "$storage_fixture/output" \
+  || fail "the nvm finding must point at the section that verifies the live owner"
+assert_not_contains 'v-alias' "$storage_fixture/output" \
+  "an alias of the selected pnpm store was counted as a second generation"
+# npm resolves exactly as update-all resolves it, and the report names the
+# provider that answered — here mise owns no npm, so the PATH npm answers.
+grep -qE 'npm cache via PATH npm \([^)]*\) \(.*\.npm\): [0-9.]+ MiB' "$storage_fixture/output" \
+  || fail "the storage report must size npm's configured cache and name the provider"
+run_storage_doctor "$storage_fixture/mise-npm-output" MISE_WHICH_NPM_STATUS=0 \
+  || fail "doctor --storage must succeed with a mise-owned npm"
+grep -qF 'npm cache via mise-managed npm' "$storage_fixture/mise-npm-output" \
+  || fail "a mise-owned npm must be reported as the provider update-all uses"
+# A failed cache-path query stays unknown: ~/.npm is mentioned but never
+# relabeled as the configured cache.
+run_storage_doctor "$storage_fixture/npm-fail-output" NPM_CONFIG_FAIL=1 \
+  || fail "doctor --storage must survive a failed npm config get cache"
+grep -qF 'npm cache path unavailable' "$storage_fixture/npm-fail-output" \
+  || fail "a failed npm cache query must be reported as unavailable"
+grep -qF 'NOT verified as the active cache' "$storage_fixture/npm-fail-output" \
+  || fail "an unverified ~/.npm must be labeled unverified, not configured"
+grep -qF 'groundwork-pnpm-store-tidy' "$storage_fixture/output" \
+  || fail "the storage report must point at the owning tidy command"
+# Absent areas stay silent rather than being invented: no Xcode or Parallels
+# directories exist in this fixture HOME.
+assert_not_contains 'Parallels' "$storage_fixture/output" \
+  "the storage report invented a Parallels area that does not exist"
+assert_not_contains 'DeviceSupport' "$storage_fixture/output" \
+  "the storage report invented an Xcode area that does not exist"
+
+# Thresholds are policy with boundaries: forced to 0 GiB, the same data warns.
+run_storage_doctor "$storage_fixture/warn-output" \
+  GROUNDWORK_STORAGE_BREW_WARN_GIB=0 GROUNDWORK_STORAGE_PNPM_WARN_GIB=0 \
+  GROUNDWORK_STORAGE_NPM_WARN_GIB=0 \
+  || fail "doctor --storage must succeed at a zero threshold"
+grep -qE 'warn.*Homebrew cache.*above the 0 GiB threshold' "$storage_fixture/warn-output" \
+  || fail "a Homebrew cache above threshold must warn and name the threshold"
+grep -qE 'warn.*pnpm stores total.*above the 0 GiB threshold' "$storage_fixture/warn-output" \
+  || fail "a pnpm store total above threshold must warn and name the threshold"
+grep -qE 'warn.*npm cache via.*above the 0 GiB threshold' "$storage_fixture/warn-output" \
+  || fail "an npm cache above threshold must warn and name the threshold"
+
+# A FAILED measurement is never healthy: broken du on the Homebrew cache must
+# not produce ok, and a partial pnpm total must not be judged at all.
+run_storage_doctor "$storage_fixture/du-fail-output" DU_FAIL_GLOB="brew cache" \
+  || fail "doctor --storage must survive a failed du"
+grep -qF 'Homebrew cache: size unavailable' "$storage_fixture/du-fail-output" \
+  || fail "a failed Homebrew measurement must be reported as unavailable"
+assert_not_contains 'ok    Homebrew cache' "$storage_fixture/du-fail-output" \
+  "a failed Homebrew measurement was reported as healthy"
+run_storage_doctor "$storage_fixture/partial-output" DU_FAIL_GLOB="v10" \
+  || fail "doctor --storage must survive a partial pnpm measurement"
+grep -qF 'pnpm store total incomplete' "$storage_fixture/partial-output" \
+  || fail "a partial pnpm total must be reported incomplete, threshold unevaluated"
+assert_not_contains 'ok    pnpm stores total' "$storage_fixture/partial-output" \
+  "a partial pnpm total was reported as complete and healthy"
+
+# A configured npm cache path that does not exist yet is a valid zero-state,
+# distinct from a failed query.
+run_storage_doctor "$storage_fixture/npm-uncreated-output" NPM_CACHE_MISSING=1 \
+  || fail "doctor --storage must survive an uncreated npm cache path"
+grep -qE 'npm cache via PATH npm .*uncreated-npm-cache\): not created yet' \
+  "$storage_fixture/npm-uncreated-output" \
+  || fail "a configured-but-uncreated npm cache must be reported, not dropped"
+
+# Discovery does not depend on the launcher: with the selected pnpm
+# unavailable offline, the known store roots are still found and sized.
+mkdir -p "$storage_home/Library/pnpm/store/v7"
+dd if=/dev/urandom of="$storage_home/Library/pnpm/store/v7/pkg.blob" bs=1024 count=512 >/dev/null 2>&1
+run_storage_doctor "$storage_fixture/offline-output" PNPM_STORE_PATH_FAIL=1 \
+  || fail "doctor --storage must survive an offline-unavailable pnpm"
+grep -qF 'selected-for-this-directory store: unavailable' "$storage_fixture/offline-output" \
+  || fail "an offline-unavailable selection must be named, not silently absent"
+grep -qE 'pnpm store v7 \(other generation\): [0-9.]+ KiB' "$storage_fixture/offline-output" \
+  || fail "known store roots must be sized even when pnpm cannot answer"
+
+# pnpm removed entirely, stores left behind: still found and sized.
+storage_nopnpm_bin="$storage_fixture/nopnpm-bin"
+mkdir -p "$storage_nopnpm_bin"
+for storage_tool in brew npm mise du; do
+  ln -s "$storage_bin/$storage_tool" "$storage_nopnpm_bin/$storage_tool"
+done
+: >"$storage_log"
+env HOME="$storage_home" PATH="$storage_nopnpm_bin:/usr/bin:/bin" \
+  GROUNDWORK_TEST_LOG="$storage_log" \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor --storage \
+  >"$storage_fixture/nopnpm-output" 2>&1 \
+  || fail "doctor --storage must succeed with pnpm removed"
+grep -qF 'pnpm not installed; known store roots are still sized' "$storage_fixture/nopnpm-output" \
+  || fail "a removed pnpm must not hide the stores it left behind"
+grep -qE 'pnpm store v7 \(other generation\): [0-9.]+ KiB' "$storage_fixture/nopnpm-output" \
+  || fail "stores that outlived pnpm must still be sized"
+
+# Storage never runs in the default doctor: du over VM bundles and simulator
+# trees can take minutes, and the routine health check must stay quick.
+: >"$storage_log"
+env HOME="$storage_home" PATH="$storage_bin:/usr/bin:/bin" \
+  GROUNDWORK_TEST_LOG="$storage_log" \
+  /bin/bash home/dot_local/bin/executable_groundwork-doctor \
+  >"$storage_fixture/default-output" 2>&1 \
+  || fail "the default doctor run must succeed"
+assert_not_contains '== Storage ==' "$storage_fixture/default-output" \
+  "the default doctor ran the storage section"
+grep -qF -- '--storage for the (slower)' "$storage_fixture/default-output" \
+  || fail "the default doctor must point at the opt-in storage report"
 
 check "update-all migration notice"
 migration_home="$out_dir/update-all-migration-home"

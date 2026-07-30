@@ -13,6 +13,8 @@ Options:
   --runtimes    run only the runtime release-age section
   --node-toolchain  run only the Node/pnpm ownership section
   --docker      run only the Docker section
+  --storage     run the storage report (opt-in: du over large trees can be
+                slow, so the default run skips it)
   -h, --help    show this help
 
 Sections (all run by default):
@@ -33,6 +35,13 @@ Sections (all run by default):
                 unverified counts reported separately (a fresh in-grace
                 image is not a leftover). Each finding is paired with the
                 owner-scoped cleanup command, never a blanket prune.
+  Storage       (--storage only, never in the default run) sizes of the known
+                large developer-storage areas — Homebrew cache, pnpm store
+                generations, npm cache, Xcode device support and simulators,
+                a legacy ~/.nvm, Parallels VMs — each classified (rebuildable,
+                application-managed, user data) and paired with the command
+                or app surface that owns cleaning it. A curated report, not a
+                full disk scan; du over large trees can take a while.
 
 The doctor only reports. It never installs, deletes, prunes, or changes
 settings; every fix stays your decision.
@@ -677,6 +686,230 @@ shell_section() {
   fi
 }
 
+storage_section() {
+  heading "Storage"
+  note "curated read-only report of known developer-storage areas, not a full disk scan (use \`largest ~\` for discovery). Sizes are du measurements and can take a while on large directories."
+
+  # Warning thresholds are product policy, not incidental constants: named
+  # here, overridable for tests and local tuning, documented in
+  # specs/storage-hygiene.md.
+  local brew_warn_gib="${GROUNDWORK_STORAGE_BREW_WARN_GIB:-2}"
+  local pnpm_warn_gib="${GROUNDWORK_STORAGE_PNPM_WARN_GIB:-10}"
+  local npm_warn_gib="${GROUNDWORK_STORAGE_NPM_WARN_GIB:-5}"
+  [[ "$brew_warn_gib" =~ ^[0-9]+$ ]] || brew_warn_gib=2
+  [[ "$pnpm_warn_gib" =~ ^[0-9]+$ ]] || pnpm_warn_gib=10
+  [[ "$npm_warn_gib" =~ ^[0-9]+$ ]] || npm_warn_gib=5
+
+  # Bytes under a directory, or nothing when the observation fails — an
+  # unmeasurable size is reported as unavailable, never as empty. -H sizes a
+  # symlink argument's target (a generation reached through one) while never
+  # following symlinks inside the tree.
+  storage_dir_bytes() {
+    local blocks
+    [[ -d "$1" ]] || {
+      printf '0\n'
+      return 0
+    }
+    blocks="$(du -skH "$1" 2>/dev/null | awk 'NR == 1 {print $1}')"
+    [[ "$blocks" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$((blocks * 1024))"
+  }
+  storage_format_bytes() {
+    if [[ -z "$1" ]]; then
+      printf 'unavailable\n'
+      return 0
+    fi
+    awk -v bytes="$1" 'BEGIN {
+      split("B KiB MiB GiB TiB", unit, " ")
+      index_ = 1
+      while (bytes >= 1024 && index_ < 5) { bytes /= 1024; index_++ }
+      if (index_ == 1) printf "%d %s\n", bytes, unit[index_]
+      else printf "%.1f %s\n", bytes, unit[index_]
+    }'
+  }
+
+  local gib=$((1024 * 1024 * 1024))
+
+  # Homebrew download cache: rebuildable. update-all already ends every
+  # successful Homebrew phase with brew cleanup --prune=all, so a large cache
+  # here usually means the refresh has not run (or could not finish).
+  if command -v brew >/dev/null 2>&1; then
+    local brew_cache brew_bytes
+    brew_cache="$(brew --cache 2>/dev/null)" || brew_cache=""
+    if [[ -n "$brew_cache" ]]; then
+      brew_bytes="$(storage_dir_bytes "$brew_cache" || true)"
+      if [[ -z "$brew_bytes" ]]; then
+        # An unavailable measurement is never healthy: unknown is not small.
+        note "Homebrew cache: size unavailable (the measurement failed); threshold not evaluated."
+      elif [[ "$brew_bytes" -gt $((brew_warn_gib * gib)) ]]; then
+        warn "Homebrew cache: $(storage_format_bytes "$brew_bytes") (rebuildable; above the ${brew_warn_gib} GiB threshold) — cleanup recommended: run update-all, whose Homebrew phase ends with brew cleanup --prune=all."
+      else
+        ok "Homebrew cache: $(storage_format_bytes "$brew_bytes") (rebuildable; update-all keeps this pruned)"
+      fi
+    else
+      note "brew --cache failed; Homebrew cache size unknown — unknown is not the same as empty."
+    fi
+  else
+    note "Homebrew not installed; skipping its cache."
+  fi
+
+  # pnpm store generations: rebuildable, but pruned deliberately — pnpm
+  # recommends occasional pruning, so this is owner-run, never automatic.
+  #
+  # Discovery and selection are separate questions. Discovery walks the known
+  # store roots WITHOUT executing pnpm, so 40 GiB of old stores is still found
+  # when the selected pnpm is uncached offline — or when pnpm was removed and
+  # its stores outlived it. Selection labeling then uses a network-disabled
+  # query when it can: Corepack selects pnpm PER REPOSITORY, so "selected"
+  # depends on the directory this doctor runs from, and a read-only doctor
+  # must never download a package manager as a side effect.
+  local pnpm_store="" pnpm_roots="" pnpm_root generation gen_canon gen_bytes
+  local pnpm_total=0 pnpm_unknown=0 pnpm_found=0 pnpm_seen=$'\n'
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm_store="$(COREPACK_ENABLE_NETWORK=0 pnpm store path 2>/dev/null)" || pnpm_store=""
+    if [[ -z "$pnpm_store" ]]; then
+      note "selected-for-this-directory store: unavailable (the selected pnpm is not cached offline, or the query failed); known store roots are still sized below."
+    fi
+  else
+    note "pnpm not installed; known store roots are still sized — old stores can outlive the tool."
+  fi
+  if [[ -n "$pnpm_store" ]]; then
+    # Canonicalize before comparing: an aliased or symlinked store path must
+    # not make the selected generation report as a second, unselected one.
+    pnpm_store="$(cd "$pnpm_store" 2>/dev/null && pwd -P || printf '%s' "$pnpm_store")"
+    note "working directory $PWD selects: $pnpm_store (a packageManager pin via Corepack when one applies, otherwise the launcher's pnpm; other generations may be selected by other repositories)."
+    if [[ -e "$pnpm_store" ]]; then
+      gen_bytes="$(storage_dir_bytes "$pnpm_store" || true)"
+      if [[ -z "$gen_bytes" ]]; then
+        pnpm_unknown=1
+        note "pnpm store $(basename "$pnpm_store") (selected here): size unavailable (the measurement failed)."
+      else
+        pnpm_total=$((pnpm_total + gen_bytes))
+        note "pnpm store $(basename "$pnpm_store") (selected here): $(storage_format_bytes "$gen_bytes")"
+      fi
+      pnpm_found=1
+    else
+      note "pnpm store $(basename "$pnpm_store") (selected here): not created yet."
+    fi
+    pnpm_seen="$pnpm_seen$pnpm_store"$'\n'
+  fi
+  # Known store roots: the selected store's parent only when the selected
+  # store follows the recognized v* generation layout (a custom store-dir
+  # must not make v* globbing misclassify unrelated sibling directories),
+  # plus the documented default locations.
+  pnpm_roots=$'\n'
+  if [[ -n "$pnpm_store" && "$(basename "$pnpm_store")" =~ ^v[0-9]+$ ]]; then
+    pnpm_roots="$pnpm_roots$(dirname "$pnpm_store")"$'\n'
+  fi
+  for pnpm_root in ${PNPM_HOME:+"$PNPM_HOME/store"} \
+    "$HOME/Library/pnpm/store" "$HOME/.local/share/pnpm/store"; do
+    [[ -d "$pnpm_root" ]] || continue
+    pnpm_root="$(cd "$pnpm_root" 2>/dev/null && pwd -P || printf '%s' "$pnpm_root")"
+    case "$pnpm_roots" in *$'\n'"$pnpm_root"$'\n'*) continue ;; esac
+    pnpm_roots="$pnpm_roots$pnpm_root"$'\n'
+  done
+  # Generations under each root, deduplicated by canonical path: an alias of
+  # an already-counted store is skipped; a symlink to a DISTINCT store is a
+  # real generation and is reported — skip duplicate targets, never symlinks
+  # as such.
+  while IFS= read -r pnpm_root; do
+    [[ -n "$pnpm_root" ]] || continue
+    for generation in "$pnpm_root"/v*; do
+      [[ -d "$generation" ]] || continue
+      gen_canon="$(cd "$generation" 2>/dev/null && pwd -P || printf '%s' "$generation")"
+      case "$pnpm_seen" in *$'\n'"$gen_canon"$'\n'*) continue ;; esac
+      pnpm_seen="$pnpm_seen$gen_canon"$'\n'
+      gen_bytes="$(storage_dir_bytes "$generation" || true)"
+      if [[ -z "$gen_bytes" ]]; then
+        pnpm_unknown=1
+        note "pnpm store $(basename "$generation"): size unavailable (the measurement failed)."
+        continue
+      fi
+      pnpm_found=1
+      pnpm_total=$((pnpm_total + gen_bytes))
+      note "pnpm store $(basename "$generation") (other generation): $(storage_format_bytes "$gen_bytes") — may be selected by another repository's packageManager; retire only after checking."
+    done
+  done <<<"$pnpm_roots"
+  if [[ "$pnpm_unknown" -eq 1 ]]; then
+    note "pnpm store total incomplete (a measurement failed); threshold not evaluated."
+  elif [[ "$pnpm_found" -eq 1 ]]; then
+    if [[ "$pnpm_total" -gt $((pnpm_warn_gib * gib)) ]]; then
+      warn "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; above the ${pnpm_warn_gib} GiB threshold) — review with groundwork-pnpm-store-tidy; add --yes to prune the selected store."
+    else
+      ok "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; groundwork-pnpm-store-tidy when it grows)"
+    fi
+  fi
+
+  # npm cache: self-healing per npm's own docs. update-all runs `npm cache
+  # verify` (validates and garbage-collects); a full `npm cache clean --force`
+  # is an explicit owner action. npm resolves EXACTLY as update-all resolves
+  # it — mise-managed npm first, PATH npm second, from $HOME — so this report
+  # sizes the same cache the refresh maintains, and names which provider
+  # answered. A failed path query stays unknown: a guessed ~/.npm must not be
+  # relabeled as the configured cache.
+  local npm_cache="" npm_provider="" npm_bytes
+  if command -v mise >/dev/null 2>&1 && (cd "$HOME" && mise which npm >/dev/null 2>&1); then
+    npm_provider="mise-managed npm"
+    npm_cache="$(cd "$HOME" && mise exec -- npm config get cache 2>/dev/null)" || npm_cache=""
+  elif command -v npm >/dev/null 2>&1; then
+    npm_provider="PATH npm ($(command -v npm))"
+    npm_cache="$(cd "$HOME" && npm config get cache 2>/dev/null)" || npm_cache=""
+  fi
+  if [[ -n "$npm_provider" ]]; then
+    if [[ -z "$npm_cache" ]]; then
+      note "npm cache path unavailable (npm config get cache failed via $npm_provider); threshold not evaluated."
+      if [[ -d "$HOME/.npm" ]]; then
+        note "the default ~/.npm exists at $(storage_format_bytes "$(storage_dir_bytes "$HOME/.npm" || true)") but was NOT verified as the active cache."
+      fi
+    elif [[ -d "$npm_cache" ]]; then
+      npm_bytes="$(storage_dir_bytes "$npm_cache" || true)"
+      if [[ -z "$npm_bytes" ]]; then
+        note "npm cache via $npm_provider ($npm_cache): size unavailable (the measurement failed); threshold not evaluated."
+      elif [[ "$npm_bytes" -gt $((npm_warn_gib * gib)) ]]; then
+        warn "npm cache via $npm_provider ($npm_cache): $(storage_format_bytes "$npm_bytes") (rebuildable; above the ${npm_warn_gib} GiB threshold) — update-all runs npm cache verify; for immediate full reclamation, npm cache clean --force clears npm's configured cache, deliberately."
+      else
+        ok "npm cache via $npm_provider ($npm_cache): $(storage_format_bytes "$npm_bytes") (rebuildable; update-all runs npm cache verify)"
+      fi
+    else
+      # A configured path that does not exist yet is a valid zero-state,
+      # distinct from a failed query — say so instead of dropping the line.
+      note "npm cache via $npm_provider ($npm_cache): not created yet."
+    fi
+  elif [[ -d "$HOME/.npm" ]]; then
+    note "no npm found; ~/.npm exists at $(storage_format_bytes "$(storage_dir_bytes "$HOME/.npm" || true)") but was not verified as an active cache."
+  fi
+
+  # Xcode support data: application-managed. Remove runtimes in Xcode
+  # Settings > Components; delete unavailable simulators via simctl. Old
+  # device-support symbols can still matter for debugging an older device,
+  # so this stays owner-confirmed — never delete ~/Library/Developer blindly.
+  local device_support="$HOME/Library/Developer/Xcode/iOS DeviceSupport"
+  local simulators="$HOME/Library/Developer/CoreSimulator"
+  if [[ -d "$device_support" ]]; then
+    note "Xcode iOS DeviceSupport: $(storage_format_bytes "$(storage_dir_bytes "$device_support" || true)") (application-managed) — review old versions in Finder; keep symbols for devices you still debug."
+  fi
+  if [[ -d "$simulators" ]]; then
+    note "Xcode simulators: $(storage_format_bytes "$(storage_dir_bytes "$simulators" || true)") (application-managed) — remove runtimes in Xcode Settings > Components; xcrun simctl delete unavailable"
+  fi
+
+  # A legacy nvm install: installed runtimes, not cache. Groundwork intends
+  # mise to own Node, but this section does not verify which manager the
+  # current shell actually resolves — that is --node-toolchain's job — so it
+  # names the intent without asserting the live state.
+  if [[ -d "$HOME/.nvm" ]]; then
+    warn "legacy runtime manager: ~/.nvm holds $(storage_format_bytes "$(storage_dir_bytes "$HOME/.nvm" || true)") of installed Node versions. Groundwork's intended Node owner: mise — confirm what actually owns Node here with groundwork-doctor --node-toolchain, then retire nvm only after checking shell init files and repos for nvm use."
+  fi
+
+  # Parallels VMs: user data, never Groundwork's to touch. Parallels ships
+  # its own supported reclaim workflow.
+  local parallels="$HOME/Parallels"
+  if [[ -d "$parallels" ]]; then
+    note "Parallels VMs: $(storage_format_bytes "$(storage_dir_bytes "$parallels" || true)") (user data) — shut the VM down, review snapshots, then use Parallels' Free Up Disk Space / Reclaim. Groundwork never touches VM files."
+  fi
+
+  note "project caches (.turbo, node_modules, dist, target) belong to each repository's own clean command; Docker has its own section and tidy commands."
+}
+
 section=""
 
 while (($#)); do
@@ -685,6 +918,7 @@ while (($#)); do
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
     --node-toolchain) section="node-toolchain" ;;
+    --storage) section="storage" ;;
     -h | --help)
       usage
       exit 0
@@ -702,13 +936,18 @@ echo "groundwork-doctor: read-only report; nothing is changed or deleted."
 
 case "$section" in
   "")
+    # Storage is deliberately NOT part of the default run: its du measurements
+    # over VM bundles, simulator trees, and package stores can take minutes,
+    # and a routine health check must stay quick. Opt in with --storage.
     shell_section
     runtimes_section
     node_toolchain_section
     docker_section
+    printf '\nRun groundwork-doctor --storage for the (slower) curated disk-usage report.\n'
     ;;
   shell) shell_section ;;
   runtimes) runtimes_section ;;
   node-toolchain) node_toolchain_section ;;
   docker) docker_section ;;
+  storage) storage_section ;;
 esac

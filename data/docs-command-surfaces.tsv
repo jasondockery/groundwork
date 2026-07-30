@@ -50,10 +50,13 @@ groundwork-doctor --docker	command	executable	all	all	docker	platforms.html
 groundwork-doctor --shell	command	executable	all	all	-	platforms.html
 groundwork-doctor --runtimes	command	executable	all	all	-	platforms.html
 groundwork-doctor --node-toolchain	command	executable	all	all	-	platforms.html
+groundwork-doctor --storage	command	executable	all	all	-	platforms.html
 groundwork-docker-tidy	command	executable	all	all	docker	platforms.html
 groundwork-docker-tidy --yes	command	executable	all	all	docker	platforms.html
 groundwork-docker-cache-tidy	command	executable	all	all	docker	platforms.html
 groundwork-docker-cache-tidy --yes	command	executable	all	all	docker	platforms.html
+groundwork-pnpm-store-tidy	command	executable	all	all	pnpm	commands.html
+groundwork-pnpm-store-tidy --yes	command	executable	all	all	pnpm	commands.html
 groundwork-docker-build-scratch <purpose> <context>	command	executable	all	all	docker	platforms.html
 groundwork-shell-adopt	command	executable	all	all	-	shell.html
 groundwork-shell-adopt --status	command	executable	all	all	-	shell.html

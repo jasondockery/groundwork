@@ -291,6 +291,27 @@ EOF
   mise upgrade --minimum-release-age 5d
 fi
 
+# npm's cache is content-addressed and self-healing; `verify` validates it and
+# garbage-collects data that is no longer needed. That conservative,
+# owner-provided operation belongs in every refresh; the full `npm cache clean
+# --force` reclaim stays an explicit owner action. Groundwork's Node is owned
+# by mise, whose shims are not on this script's PATH, so resolve npm through
+# mise first and fall back to a PATH npm for machines that install Node
+# another way. No npm anywhere is fine: there is nothing to verify.
+#
+# Every invocation runs from $HOME: update-all is machine maintenance, and the
+# directory it happens to be launched from must not decide anything — a
+# repository's mise config could select a different Node, and a project-local
+# .npmrc could point "the cache" at a per-project directory. The cd neutralizes
+# directory-based FILE lookup only: npm_config_* environment a shell exported
+# (direnv, say) still applies, deliberately — distinguishing a project's
+# ambient exports from the user's own configuration is not this stage's call.
+if command -v mise >/dev/null 2>&1 && (cd "$HOME" && mise which npm >/dev/null 2>&1); then
+  (cd "$HOME" && mise exec -- npm cache verify)
+elif command -v npm >/dev/null 2>&1; then
+  (cd "$HOME" && npm cache verify)
+fi
+
 {{- if ne .chezmoi.os "darwin" }}
 
 # Ownership boundary: Groundwork updates the developer environment it manages

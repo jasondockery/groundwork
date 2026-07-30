@@ -1,0 +1,312 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Owner-run pnpm store hygiene — deliberately NOT part of update-all. pnpm's
+# own guidance is to prune occasionally, not constantly: switching to an older
+# branch after a prune means re-downloading whatever the prune removed. So the
+# refresh never runs this; the owner does, when the doctor or disk pressure
+# says it is worth it.
+#
+# The command only ever acts through `pnpm store prune`, which removes packages
+# no longer referenced by any project and does not alter projects. It never
+# deletes a store directory itself: an old store generation (a v10 beside the
+# active v11) may still be pinned by some repository's packageManager field,
+# and retiring it is a separate, human decision after checking.
+
+usage() {
+  cat <<'EOF'
+pnpm store hygiene (dry run by default). Reports every store generation and
+its size; acts only through `pnpm store prune` on the store SELECTED for the
+current directory.
+
+Usage:
+  groundwork-pnpm-store-tidy           dry run: report stores and the exact action --yes would run
+  groundwork-pnpm-store-tidy --yes     run pnpm store prune on the selected store
+  groundwork-pnpm-store-tidy -h|--help show this help
+
+Corepack selects pnpm per repository (packageManager), so which store is
+selected follows the directory you run this from. Before anything happens the
+command prints the working directory, the selection source (the nearest
+packageManager declaration — or plainly that none applies and the launcher's
+pnpm decides), the selected pnpm version, and the selected store; --yes
+re-checks that selection immediately before pruning and refuses if it moved.
+The dry run queries with Corepack networking disabled and refuses to download
+a pnpm; --yes is explicit consent, so it may fetch the selected pnpm if
+uncached.
+
+`pnpm store prune` removes packages no longer referenced by any project on
+this machine. Projects are not modified; a pruned package is re-downloaded
+the next time something needs it. pnpm recommends running it occasionally,
+not frequently, which is why update-all never runs it for you.
+
+Never touched: store generations other than the selected one. An older store
+(say v10 beside a selected v11) may still be selected by another repository's
+packageManager field; retire it manually only after checking your repos, for
+example:
+  rg -l '"packageManager"\s*:\s*"pnpm@10' ~/code
+
+More help:
+  groundwork-help pnpm
+  https://jasondockery.github.io/groundwork/commands.html
+EOF
+}
+
+# --- parse the FULL argument list before any query or side effect. ---
+mode=""
+set_mode() {
+  if [[ -n "$mode" && "$mode" != "$1" ]]; then
+    echo "groundwork-pnpm-store-tidy: conflicting modes: --$mode and --$1 are mutually exclusive." >&2
+    exit 64
+  fi
+  mode="$1"
+}
+while (($#)); do
+  case "$1" in
+    --dry-run) set_mode "dry-run" ;;
+    --yes) set_mode "yes" ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "groundwork-pnpm-store-tidy: unknown option: $1" >&2
+      echo "Run 'groundwork-pnpm-store-tidy --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      echo "groundwork-pnpm-store-tidy: unexpected argument: $1 (this command takes no positional arguments)" >&2
+      exit 64
+      ;;
+  esac
+  shift
+done
+[[ -n "$mode" ]] || mode="dry-run"
+
+heading() { printf '\n== %s ==\n' "$1"; }
+item() { printf '  %-11s %s\n' "$1" "$2"; }
+note() { printf '  note  %s\n' "$1"; }
+
+# Bytes under a directory, or nothing when the observation itself fails —
+# unavailable is reported as unavailable, never as an empty store. du -sk is
+# the portable form on both BSD and GNU; -H follows a symlink given as the
+# argument (a generation reached through one must size its target, not the
+# link) while never following symlinks inside the tree.
+dir_bytes() {
+  local blocks
+  [[ -d "$1" ]] || {
+    printf '0\n'
+    return 0
+  }
+  blocks="$(du -skH "$1" 2>/dev/null | awk 'NR == 1 {print $1}')"
+  [[ "$blocks" =~ ^[0-9]+$ ]] || return 1
+  printf '%s\n' "$((blocks * 1024))"
+}
+
+format_bytes() {
+  if [[ -z "$1" ]]; then
+    printf 'unavailable\n'
+    return 0
+  fi
+  awk -v bytes="$1" 'BEGIN {
+    split("B KiB MiB GiB TiB", unit, " ")
+    index_ = 1
+    while (bytes >= 1024 && index_ < 5) { bytes /= 1024; index_++ }
+    if (index_ == 1) printf "%d %s\n", bytes, unit[index_]
+    else printf "%.1f %s\n", bytes, unit[index_]
+  }'
+}
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "groundwork-pnpm-store-tidy: pnpm not installed; nothing to tidy."
+  exit 0
+fi
+
+# Corepack selects pnpm PER REPOSITORY (packageManager), so the selected store
+# depends on the directory this runs from; another generation may be selected
+# by another repository. The dry run queries with Corepack networking off — a
+# run that promises "nothing was changed" must not download a package manager
+# as a side effect. --yes is explicit consent to act, so it may let Corepack
+# fetch the selected pnpm if it is not cached yet.
+if [[ "$mode" == "dry-run" ]]; then
+  selected_store="$(COREPACK_ENABLE_NETWORK=0 pnpm store path 2>/dev/null)" || selected_store=""
+  if [[ -z "$selected_store" ]]; then
+    cat >&2 <<'EOF'
+groundwork-pnpm-store-tidy: the pnpm selected for this directory is not
+available offline (or pnpm store path failed), and the dry run refuses to let
+Corepack download one — nothing was changed. Run from a repository whose pnpm
+is already cached, run pnpm once yourself, or use --yes, which is explicit
+consent to fetch the selected pnpm.
+EOF
+    exit 1
+  fi
+else
+  selected_store="$(pnpm store path 2>/dev/null)" || selected_store=""
+  if [[ -z "$selected_store" ]]; then
+    echo "groundwork-pnpm-store-tidy: could not determine the store path (pnpm store path failed); nothing was changed." >&2
+    exit 1
+  fi
+fi
+# Canonicalize before comparing: an aliased or symlinked store path must not
+# make the selected generation look like a second, unselected one.
+selected_store="$(cd "$selected_store" 2>/dev/null && pwd -P || printf '%s' "$selected_store")"
+store_root="$(dirname "$selected_store")"
+
+# Truthful provenance: name the nearest observed packageManager declaration
+# when one applies, and say plainly when none does — an unpinned run (a
+# machine tidy from $HOME, say) uses whatever pnpm the launcher resolves, and
+# the user must see which state they are in before authorizing anything.
+# "Observed" is deliberate: this walk reads what the manifests say; the
+# selected version below is what actually resolved, and a valid pin that
+# disagrees with it is enforced further down. jq is the repo-standard JSON
+# reader (Brewfile-shipped, present at /usr/bin/jq on current macOS); without
+# it the source degrades to honestly not-determined rather than guessed.
+selection_text=""
+declared_pnpm_version=""
+scan_selection_source() {
+  if ! command -v jq >/dev/null 2>&1; then
+    selection_text="not determined (jq not installed); the pnpm selected by the current launcher decides"
+    return 0
+  fi
+  local dir="$PWD" pm pin
+  while :; do
+    if [[ -f "$dir/package.json" ]]; then
+      if ! pm="$(jq -r '.packageManager // empty' "$dir/package.json" 2>/dev/null)"; then
+        selection_text="unknown ($dir/package.json is unreadable as JSON)"
+        return 0
+      fi
+      if [[ -n "$pm" ]]; then
+        case "$pm" in
+          pnpm@*)
+            # Corepack pins carry an optional integrity suffix
+            # (pnpm@11.4.0+sha512.…); the semantic version is what selection
+            # is compared against. A pin without a full version (pnpm@,
+            # pnpm@11, pnpm@garbage) is malformed, not a weaker pin.
+            pin="${pm#pnpm@}"
+            pin="${pin%%+*}"
+            if [[ "$pin" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+              declared_pnpm_version="$pin"
+              selection_text="$dir/package.json → $pm (nearest observed declaration)"
+            else
+              selection_text="$dir/package.json declares '$pm' (malformed pnpm version); the pnpm selected by the current launcher decides"
+            fi
+            ;;
+          pnpm*) selection_text="$dir/package.json declares '$pm' (malformed pnpm declaration); the pnpm selected by the current launcher decides" ;;
+          *) selection_text="$dir/package.json declares $pm (not pnpm); the pnpm selected by the current launcher decides" ;;
+        esac
+        return 0
+      fi
+    fi
+    [[ "$dir" == "/" ]] && break
+    dir="$(dirname "$dir")"
+  done
+  selection_text="no pnpm packageManager declaration; using the pnpm selected by the current launcher"
+}
+scan_selection_source
+
+if [[ "$mode" == "dry-run" ]]; then
+  selected_version="$(COREPACK_ENABLE_NETWORK=0 pnpm --version 2>/dev/null)" || selected_version=""
+else
+  selected_version="$(pnpm --version 2>/dev/null)" || selected_version=""
+fi
+echo "Working directory: $PWD"
+echo "Selection source:  $selection_text"
+echo "Selected pnpm:     ${selected_version:-unavailable}"
+echo "Selected store:    $selected_store"
+
+# A valid pin that disagrees with what actually resolved is launcher drift —
+# the exact failure class the Node/pnpm ownership work exists to catch. The
+# dry run names it; --yes refuses, because the user would be authorizing a
+# prune under a version their repository did not select.
+if [[ -n "$declared_pnpm_version" && -n "$selected_version" &&
+  "$declared_pnpm_version" != "$selected_version" ]]; then
+  if [[ "$mode" == "yes" ]]; then
+    echo "groundwork-pnpm-store-tidy: the declared pin (pnpm@$declared_pnpm_version) does not match the pnpm that resolved ($selected_version); refusing to prune under a drifted launcher. Diagnose with groundwork-doctor --node-toolchain, then rerun. Nothing was changed." >&2
+    exit 1
+  fi
+  echo "WARNING: the declared pin (pnpm@$declared_pnpm_version) does not match the pnpm that resolved ($selected_version) — launcher drift; --yes will refuse. Diagnose with groundwork-doctor --node-toolchain."
+fi
+
+report_stores() {
+  heading "pnpm stores under $store_root"
+  # The selected store is reported directly, whatever it is named: a custom
+  # store-dir need not match the v* layout, so "not created yet" is claimed
+  # only when the path truly does not exist.
+  if [[ -e "$selected_store" ]]; then
+    item "selected" "$(basename "$selected_store"): $(format_bytes "$(dir_bytes "$selected_store" || true)") (selected here)"
+  else
+    item "selected" "$(basename "$selected_store"): not created yet"
+  fi
+  # Sibling v* generations are best-effort discovery — attempted only when
+  # the selected store itself follows the recognized generation layout. A
+  # custom store-dir (say ~/cache/pnpm) would make v* globbing over its
+  # parent misclassify unrelated directories (~/cache/videos) as stores.
+  if [[ ! "$(basename "$selected_store")" =~ ^v[0-9]+$ ]]; then
+    note "sibling generation discovery not attempted (custom store layout; only the selected store is reported)."
+    return 0
+  fi
+  # Deduplicated by canonical path: an alias of an already-reported store is
+  # skipped, while a symlink to a DISTINCT store is a real generation and is
+  # reported — skip duplicate targets, never symlinks as such.
+  local generation gen_canon size seen=$'\n'"$selected_store"$'\n'
+  for generation in "$store_root"/v*; do
+    [[ -d "$generation" ]] || continue
+    gen_canon="$(cd "$generation" 2>/dev/null && pwd -P || printf '%s' "$generation")"
+    case "$seen" in *$'\n'"$gen_canon"$'\n'*) continue ;; esac
+    seen="$seen$gen_canon"$'\n'
+    size="$(dir_bytes "$generation" || true)"
+    item "other" "$(basename "$generation"): $(format_bytes "$size") — not touched; another repository's packageManager may select this generation. Retire manually only after checking."
+  done
+}
+
+case "$mode" in
+  dry-run)
+    echo "groundwork-pnpm-store-tidy: dry run — nothing was changed. Add --yes to act."
+    report_stores
+    heading "What --yes runs"
+    note "pnpm store prune — removes packages no longer referenced by any project; projects are not modified, and pruned packages re-download on next use. How much that reclaims is only known after it runs."
+    note "only the selected store is pruned; no store directory is ever deleted by this command."
+    ;;
+  yes)
+    report_stores
+    heading "Pruning the selected store"
+    # The safety promise is "print the selection before anything happens" —
+    # so revalidate that pnpm still resolves the store AND the version the
+    # user just saw. A packageManager edit or environment change between the
+    # report and the prune must refuse, not silently act elsewhere or under a
+    # different pnpm that happens to share the store.
+    actual_store="$(pnpm store path 2>/dev/null)" || actual_store=""
+    actual_store="$(cd "$actual_store" 2>/dev/null && pwd -P || printf '%s' "$actual_store")"
+    if [[ "$actual_store" != "$selected_store" ]]; then
+      echo "groundwork-pnpm-store-tidy: the store selection changed between the report and the prune (reported $selected_store, now ${actual_store:-unknown}); nothing was pruned." >&2
+      exit 1
+    fi
+    actual_version="$(pnpm --version 2>/dev/null)" || actual_version=""
+    if [[ -n "$selected_version" && "$actual_version" != "$selected_version" ]]; then
+      echo "groundwork-pnpm-store-tidy: the selected pnpm changed between the report and the prune (reported $selected_version, now ${actual_version:-unknown}); nothing was pruned." >&2
+      exit 1
+    fi
+    before="$(dir_bytes "$selected_store" || true)"
+    prune_status=0
+    pnpm store prune || prune_status=$?
+    after="$(dir_bytes "$selected_store" || true)"
+    echo "pnpm store prune receipt"
+    printf '  Store before:    %s\n' "$(format_bytes "$before")"
+    printf '  Store after:     %s\n' "$(format_bytes "$after")"
+    if [[ -z "$before" || -z "$after" ]]; then
+      printf '  Store reclaimed: not measured (store size unavailable)\n'
+    elif [[ "$after" -lt "$before" ]]; then
+      printf '  Store reclaimed: %s\n' "$(format_bytes "$((before - after))")"
+    elif [[ "$after" -eq "$before" ]]; then
+      printf '  Store reclaimed: nothing to reclaim\n'
+    else
+      printf '  Store reclaimed: indeterminate (the store grew by %s during the prune)\n' \
+        "$(format_bytes "$((after - before))")"
+    fi
+    if [[ "$prune_status" -ne 0 ]]; then
+      echo "groundwork-pnpm-store-tidy: pnpm store prune failed (exit $prune_status); review the output above. The store was not fully pruned." >&2
+      exit "$prune_status"
+    fi
+    note "the receipt measured the approved store: $selected_store"
+    note "other store generations were not touched."
+    ;;
+esac

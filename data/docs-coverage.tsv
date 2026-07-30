@@ -15,9 +15,12 @@ daily	groundwork-doctor --docker	command	executable	home/dot_local/share/groundw
 daily	groundwork-doctor --node-toolchain	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-doctor --runtimes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-doctor --shell	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-doctor --storage	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-help --pick [query]	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	yes	no	all; requires fzf
 daily	groundwork-help [query]	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	yes	no	all
 daily	groundwork-platform	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
+daily	groundwork-pnpm-store-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all; requires pnpm
+daily	groundwork-pnpm-store-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all; requires pnpm
 daily	groundwork-profile edit	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-profile set <current|preview>	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-profile show	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
