@@ -185,6 +185,17 @@
       <h3>Downloads fail with <code>curl: (92)</code> or the fetch stalls</h3>
       <p>Repeated <code>HTTP/2 stream was not closed cleanly: PROTOCOL_ERROR</code> failures across several vendors usually point to the connection — a VPN, proxy, travel router, or guest Wi-Fi — though a vendor outage or a local <code>~/.curlrc</code> can look the same; it is rarely a broken setup. When downloads fail, the update re-fetches just the failed ones, one at a time with backoff, and leaves everything that succeeded alone. If a large parallel fetch stalls after a download error, pressing <kbd>Ctrl</kbd><kbd>C</kbd> and re-running <code>update-all</code> is safe in the sense that installed packages stay installed and completed downloads are normally cached — but the rerun repeats the normal update phases rather than resuming mid-fetch, so skim the final output before retrying.</p>
 
+      <h3><code>update-all</code> reports pending package-manager maintenance</h3>
+      <p>A maintenance failure does not roll back upgrades that already completed. Groundwork records every pending stage and keeps the shell reminder active until a later run repairs it. Start with the normal command; use the maintenance-only forms when you are diagnosing or repairing that lane:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">maintenance repair</span></div>
+        <pre><code><span class="prompt">$ </span>update-all                              <span class="comment"># normal retry; pending pnpm overrides cadence</span>
+<span class="prompt">$ </span>groundwork-cleanup                      <span class="comment"># read-only report, including every pending stage</span>
+<span class="prompt">$ </span>groundwork-cleanup --yes                <span class="comment"># run due supported maintenance only</span>
+<span class="prompt">$ </span>groundwork-cleanup --yes --force        <span class="comment"># immediate supported repair pass</span></code></pre>
+      </div>
+      <p>If Homebrew, npm, pnpm, or the maintenance helper was intentionally removed, an old reminder cannot prove the omitted cleanup completed. Acknowledge that one record explicitly with <code>groundwork-cleanup --yes --clear-pending &lt;homebrew|npm|pnpm|maintenance-helper&gt;</code>. That command clears only Groundwork&apos;s reminder, runs no package-manager operation, and preserves a timestamped note in <code>~/.local/state/groundwork/update-all-pending-cleared.log</code>.</p>
+
       <h3>Homebrew warns: "The following taps are not trusted"</h3>
       <p>Homebrew now requires you to explicitly trust third-party taps before it will use their formulae and casks — a supply-chain protection, and the taps it lists are ones <em>you</em> (or a tool you ran) added; Groundwork adds none. Ignore the warning and those taps stay inert. To keep using something from one, prefer trusting just the formulae you actually use over whole-tap trust, which also covers everything the tap publishes in the future:</p>
       <div class="terminal">

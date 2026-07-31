@@ -119,7 +119,7 @@ GROUNDWORK_REPO_URL=git@github.com:jasondockery/groundwork.git bash /tmp/bootstr
 
 `chezmoi update` runs `git pull` from this repo and applies the result. If the repo changes an install hook, such as the Brewfile bundle, that hook can add newly declared tools; it still does not chase newer Homebrew or mise releases for tools already installed. The public repo does not require GitHub login for normal pulls.
 
-Run `update-all` when you want a visible, batched refresh of Groundwork, Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals. The shell prints a gentle reminder when that refresh has gone stale; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence it.
+Run `update-all` as the one normal machine-maintenance command. Under one machine-wide lock, it synchronizes Groundwork, upgrades Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode, then automatically runs supported package-manager maintenance. pnpm automation accepts only exact pins from canonically discovered Git repositories and standard or explicitly trusted store roots; conflicts and custom stores remain review-only. Cleanup failures preserve completed updates, exit nonzero, and keep the shell reminder active until repaired. Repository dependency installations such as `node_modules`, whole pnpm store generations, Docker data, Xcode data, and application or user data stay owner-confirmed; Homebrew may remove installed orphan formula dependencies while retaining requested formulae and casks. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence the stale/pending reminder.
 
 ## Customizing Without Forking
 
@@ -220,13 +220,17 @@ raycast-extensions --open       # open recommended Raycast Store entries
 chezmoi diff                 # preview pending changes before applying
 chezmoi apply                # apply source -> home
 chezmoi update               # git pull + apply managed config
-update-all                   # visible refresh for Groundwork, brew, mise, and agents
+update-all                   # configuration + upgrades + safe automatic maintenance
 chezmoi edit ~/.zshrc        # edit a managed file at its source
 chezmoi cd                   # shell into the source repo to commit/push
 
 new-project myapp            # scaffold AGENTS.md + .agents/ + vendor symlinks in a repo
 new-wiki ~/code/notes        # scaffold an LLM knowledge wiki repo
 ```
+
+`update-all` is the one normal maintenance command. Advanced package-manager
+report, repair, force, and pending-acknowledgement forms remain discoverable
+with `groundwork-help maintenance`.
 
 > If `chezmoi apply` says **"run chezmoi init first,"** the config template (`.chezmoi.toml.tmpl`) changed. Run `chezmoi init` (it only regenerates the config and won't re-ask questions you've already answered), then `chezmoi apply`. This is expected after pulling changes that touch the prompts or defaults.
 
@@ -272,6 +276,7 @@ home/
   dot_local/bin/executable_groundwork-help # installed command catalog helper
   dot_local/bin/executable_update-all  # stable launcher: sync Groundwork, exec fresh runner
   dot_local/bin/executable_groundwork-update-run.tmpl # post-sync update stages (brew, mise, AI tools)
+  dot_local/bin/executable_groundwork-cleanup # package-manager report, cadence, cleanup receipts, pending state
   dot_local/bin/executable_groundwork-platform # reports darwin / linux / wsl2 / wsl1 / wsl-unknown / unsupported
   dot_local/bin/executable_groundwork-distro # reports the distro ID; --family reports debian / fedora / arch / opensuse / unknown
   dot_local/bin/executable_largest    # guided largest-file/folder scanner over dust

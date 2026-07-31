@@ -33,7 +33,16 @@ INVENTORY = ROOT / "data/docs-coverage.tsv"
 NON_SITE_HTML = {"google6981ccb57c5e5a37.html"}
 SITE_BASE = "https://jasondockery.github.io/groundwork"
 
-ALLOWED_CATEGORIES = {"daily", "project", "shell", "git", "tmux", "mac", "dev"}
+ALLOWED_CATEGORIES = {
+    "daily",
+    "maintenance",
+    "project",
+    "shell",
+    "git",
+    "tmux",
+    "mac",
+    "dev",
+}
 ALLOWED_KINDS = {"command", "alias", "function", "key"}
 ALLOWED_PLATFORMS = {"all", "macos", "linux-wsl"}
 ALLOWED_PROFILE_SCOPES = {"all", "desktop", "headless"}

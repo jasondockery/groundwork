@@ -2,6 +2,11 @@
 groundwork-help [query]	command	executable	all	all	-	commands.html
 groundwork-help --pick [query]	command	executable	all	all	fzf	commands.html
 update-all	command	executable	all	all	-	setup.html
+update-all --skip-maintenance	command	executable	all	all	-	commands.html
+groundwork-cleanup	command	executable	all	all	-	commands.html
+groundwork-cleanup --yes	command	executable	all	all	-	commands.html
+groundwork-cleanup --yes --force	command	executable	all	all	-	commands.html
+groundwork-cleanup --yes --clear-pending <stage>	command	executable	all	all	-	troubleshooting.html
 groundwork-configure	command	executable	all	all	-	setup.html
 groundwork-platform	command	executable	all	all	-	platforms.html
 groundwork-distro [--family]	command	executable	linux-wsl	all	-	platforms.html

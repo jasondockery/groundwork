@@ -28,7 +28,7 @@ daily	groundwork-restore	command	executable	home/dot_local/share/groundwork/comm
 daily	update-all	command	executable	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
 dev	mise upgrade	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all; requires mise
 dev	mise use <tool@version>	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	yes	all; requires mise
-dev	pnpm	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all; requires pnpm
+dev	pnpm	command	external-command	home/dot_local/share/groundwork/commands.tsv	shell.html	no	yes	all; requires pnpm
 dev	python	command	external-command	home/dot_local/share/groundwork/commands.tsv	development.html	no	yes	all; requires python
 dev	uv	command	external-command	home/dot_local/share/groundwork/commands.tsv	development.html	no	yes	all; requires uv
 git	git add -p	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	no	all; requires git
@@ -60,6 +60,11 @@ mac	browser-extensions [--open]	command	executable	home/dot_local/share/groundwo
 mac	defaultbrowser	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
 mac	open -a <App>	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop
 mac	raycast-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop; requires raycast
+maintenance	groundwork-cleanup	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
+maintenance	groundwork-cleanup --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
+maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
+maintenance	groundwork-cleanup --yes --force	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
+maintenance	update-all --skip-maintenance	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all
 practice	Practice drill: Agent drill	competency	docs-competency	docs/practice.html	workflow.html	n/a	n/a	all
 practice	Practice drill: Copy drill (keyboard-only)	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all
 practice	Practice drill: Git drill	competency	docs-competency	docs/practice.html	git.html	n/a	n/a	all

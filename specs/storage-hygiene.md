@@ -1,10 +1,11 @@
 # Storage Hygiene: what cleans automatically, what stays owner-run
 
-Status: Homebrew cleanup shipped in v1.8.0; npm verify, the pnpm tidy
-command, and the doctor's storage report are implemented on `main` and ship
-with the next release cut. This spec records the ownership decisions so
-future cleanup work extends them instead of re-deriving (or contradicting)
-them.
+Status: Homebrew cleanup shipped in v1.8.0; npm verify, the owner-run pnpm
+tidy, and the doctor's storage report shipped in v1.9.0. The next
+release makes supported pnpm pruning automatic on a durable cadence and adds
+the consolidated `groundwork-cleanup` surface. This spec records the ownership
+decisions so future cleanup work extends them instead of re-deriving (or
+contradicting) them.
 
 ## The rule
 
@@ -28,9 +29,11 @@ wider.
 | Area | Lane | Mechanism |
 | --- | --- | --- |
 | Homebrew orphaned dependencies | automatic in `update-all` | `brew autoremove` after a successful upgrade (removes formulae no requested package depends on) |
-| Homebrew old versions, locks, download cache | automatic in `update-all` | `brew cleanup --prune=all` after `autoremove`; receipt + pending marker on failure |
+| Homebrew old versions, locks, download cache | automatic in `update-all` | `groundwork-cleanup --yes` runs `brew cleanup --prune=all` after `autoremove`; consolidated receipt + per-stage pending record on failure |
 | npm cache | automatic in `update-all` | `npm cache verify` (npm's own conservative GC), run from `$HOME`; `npm cache clean --force` stays owner-run |
-| pnpm stores | owner-run | `groundwork-pnpm-store-tidy` (dry-run default, `--yes` acts via `pnpm store prune` only) |
+| pnpm selected stores | automatic when due in `update-all` | `groundwork-cleanup --yes` consumes live canonical `groundwork-repos --no-cache list` discovery, accepts exact repository pins only, resolves offline, and prunes standard or explicitly trusted stores on one machine-wide cadence |
+| Package-manager report / exceptional pass | advanced | `groundwork-cleanup` is read-only; `--yes` runs due supported maintenance; `--yes --force` ignores pnpm cadence for eligible candidates and succeeds as a no-op when none exist; `--yes --clear-pending <stage>` acknowledges one intentionally unrepairable reminder without running cleanup |
+| Whole pnpm store generations | report / owner-confirmed | unmatched `v*` generations are reported for review and never raw-deleted |
 | Docker | owner-run | `groundwork-docker-tidy` (label-scoped), `groundwork-docker-cache-tidy` (daemon-wide) |
 | Xcode device support / simulators | report only | doctor `--storage` points at Xcode Settings > Components and `simctl delete unavailable` |
 | Legacy `~/.nvm` | report only | doctor `--storage` names the intent (mise owns Node) and defers the live-owner question to `--node-toolchain` |
@@ -40,10 +43,38 @@ wider.
 ## Decisions worth remembering
 
 - **Corepack selects pnpm per repository**, so there is no machine-wide
-  "active" pnpm store. Commands say "selected here" and "other generation",
-  print the selection context before acting, and never delete a store
-  directory — an old generation may be selected by a repository that has not
-  been checked yet.
+  "active" pnpm store. Automatic maintenance consumes the same live canonical
+  discovery as repository navigation, with its cache disabled: false `.git`
+  markers are rejected through read-only Git inspection, worktree policy is
+  honored, hooks/fsmonitor are disabled, and no discovery cache is written.
+  Exact stable `packageManager` pins are resolved with Corepack networking
+  disabled. Integrity suffixes are accepted, but prerelease pins are
+  review-only for unattended maintenance. Ambient HOME selection is
+  report-only, never an automatic fallback.
+- **The automatic store root is allowlisted.** Standard pnpm roots are
+  accepted. A custom parent becomes automatic only through an explicit
+  `trusted_pnpm_store_root` entry in `repos.conf` or its local overlay. The
+  configured root must be absolute after supported home expansion, so its
+  meaning cannot change with the launch directory, and the selected store must
+  be one direct `v<major>` child. Different majors
+  selecting one canonical store make it review-only. Same-major selectors
+  deterministically use the highest exact pin and the report lists all
+  repositories sharing that store. Immediately before mutation, Groundwork
+  passes the accepted parent explicitly with `pnpm --store-dir`; repository
+  workspace configuration therefore cannot redirect the revalidation or prune
+  after discovery.
+- **Cadence is machine-wide and advances on successful no-op.** pnpm
+  maintenance is due when no success exists, the machine-wide success is at
+  least 30 days old, resolved automatic stores exceed 20 GiB and the last
+  attempt is at least 7 days old, or a prior pnpm repair is pending. Pending
+  repair overrides the retry floor. A newly discovered store can therefore
+  inherit the existing machine-wide cadence; this simpler contract is
+  deliberate, and the exact candidates remain visible in every report.
+  Cadence reads the epoch stored inside its state file, not filesystem mtime,
+  so backup restoration or copying cannot silently move the next due date.
+  `--yes --force` advances no pnpm state when there is no eligible candidate;
+  that is a successful no-op unless an existing pnpm pending record still
+  requires repair.
 - **Selection provenance is truthful, and a valid pin is enforced.** The tidy
   prints the nearest *observed* `packageManager` declaration when one applies
   (parsed with jq — repo-standard, Brewfile-shipped, `/usr/bin/jq` on current
@@ -70,10 +101,44 @@ wider.
 - **npm resolves one way everywhere**: mise-managed npm first, PATH npm
   second, from `$HOME` — `update-all` and the doctor size and maintain the
   same cache, and the doctor names which provider answered.
-- **Read-only paths never download a package manager.** The doctor and the
-  tidy dry run query `pnpm store path` with `COREPACK_ENABLE_NETWORK=0` and
-  report "unavailable offline" honestly. `--yes` is explicit consent, so it
-  may let Corepack fetch the selected pnpm.
+- **Read-only and automatic paths never download a package manager.** The
+  doctor, tidy dry run, and automatic cleanup discovery/prune path set
+  `COREPACK_ENABLE_NETWORK=0`. An uncached repository pin becomes review
+  guidance; maintenance never surprises the user with a package-manager
+  download merely to clean a store.
+- **Machine maintenance is single-writer.** `update-all`, its freshly applied
+  runner, and direct `groundwork-cleanup --yes` share one atomic lock directory
+  with PID, operation, start time, and token. Live owners fail a second run
+  fast; dead owners are reclaimed. A freshly exec'd runner keeps the launcher's
+  PID and adopts ownership of the same token. Only a direct cleanup child may
+  borrow that lock, and it never releases the runner's transaction. Young
+  incomplete lock metadata gets a short creation grace; old incomplete,
+  dead-owner, and reused-PID locks are reclaimed only after the observed PID,
+  token, and process-start snapshot is rechecked.
+- **Every failure is durable.** Per-manager files record Homebrew/npm/pnpm
+  outcomes. The runner records `maintenance-helper` before invoking the helper,
+  retains it for a missing or early-crashing helper, and clears it when either
+  the helper succeeds or a more precise manager record exists. If a manager
+  was intentionally removed, the owner may use
+  `groundwork-cleanup --yes --clear-pending <stage>` to clear only that
+  reminder; no cleanup is claimed, and a timestamped audit note remains.
+- **Untrusted records fail closed.** Repository discovery uses NUL-delimited
+  filesystem input and refuses canonical paths containing any C0 terminal
+  control or DEL. The public list contract is tab-delimited, and terminal
+  receipts must also be safe from escape injection. `packageManager`, pnpm
+  version, and store output containing those controls are review-only rather
+  than serialized into internal records.
+- **Maintenance children have no interactive input.** Every bounded child gets
+  `/dev/null` as stdin, and the pnpm candidate loop owns a separate descriptor.
+  A package manager cannot consume the remaining store records and silently
+  skip later candidates.
+- **Observation and mutation cancellation share one bounded contract.**
+  Discovery, package-manager path queries, and byte measurements preserve HUP,
+  INT, and TERM as 129, 130, and 143 before any maintenance mutation begins.
+  Every bounded process group receives TERM, a short grace, then KILL if the
+  child or a descendant resists; the helper waits for the group leader and
+  releases its lock. One-second polling limits overhead without creating a
+  busy loop.
 - **Machine maintenance runs from `$HOME`.** The npm stage `cd`s home first so
   a repository's mise config or project `.npmrc` is never consulted. The cd
   neutralizes directory-based file lookup only: `npm_config_*` environment a
@@ -82,6 +147,10 @@ wider.
 - **Failed measurements are never healthy.** An unmeasurable size reports as
   unavailable and skips threshold judgment; a partial total is reported
   incomplete, not summed and blessed.
+- **Independent maintenance survives a later upgrade-lane failure.** Required
+  update failures still make the final transaction nonzero and withhold its
+  success timestamp, but a failed mise lane does not suppress supported
+  Homebrew/npm/pnpm maintenance after Homebrew itself completed successfully.
 - **Storage is not in the default doctor run.** `du` over VM bundles and
   simulator trees can take minutes; the default run prints a pointer to
   `--storage` instead.
@@ -98,23 +167,26 @@ wider.
 | Homebrew cleanup | fixture-proven + real-machine receipt (12.5 GB reclaimed, 2026-07-29) |
 | npm verify stage | fixture-proven (mise-owned and PATH npm, failure, `$HOME` neutrality) |
 | pnpm store tidy | fixture-proven (hostile args, dry-run, receipt, offline refusal, symlink alias) |
+| automatic package-manager maintenance | fixture coverage committed for hostile args, stable exact pins, terminal controls, absolute trusted roots, canonical Git discovery, trusted/custom/conflicting stores, deterministic selectors, cadence/high-water/forced no-candidate no-op/pending override, exec lock adoption and nested borrowing, stale/incomplete/reused lock recovery, observation signal propagation, resistant process-tree cancellation, and helper/per-manager repair; post-review full matrix awaits CI |
 | doctor `--storage` | fixture-proven read-only + real-machine run; reporting only |
 
 ## Deferred, deliberately
 
-- **`--yes` does not require a `packageManager` pin.** `pnpm store prune` is
-  non-destructive to projects whichever generation is selected, and requiring
-  a pin would block the primary use — a machine-wide tidy run from `$HOME`.
-  Revisit only if pruning ever becomes selective.
-- **No generalized per-stage pending marker.** The Homebrew cleanup marker
-  exists because that run *continues* past the failure; every other required
-  stage fails the run loudly at the point of failure. A failed npm verify
-  therefore leaves no durable state (and no doc claims it keeps reminding) —
-  recorded as the follow-up shape `update-all-pending stage=… status=…` if a
-  second continue-past-failure stage ever appears.
-- **Shared size helpers stay duplicated** (runner, doctor, tidy each carry
-  ~25 lines of `du -sk` + formatting). A sourced lib would add an
-  install-order dependency the self-contained runner deliberately avoids.
-  Revisit at a fourth copy.
+- **The single-directory tidy remains owner-confirmed without requiring a
+  pin.** `groundwork-pnpm-store-tidy --yes` is an explicit diagnostic action
+  for the current directory. The automatic multi-repository path is different:
+  it requires exact pins and trusted roots before a store becomes a candidate.
+- **Per-stage pending state is now required.** Homebrew, npm, and pnpm are
+  independent maintenance lanes. A failure records
+  `~/.local/state/groundwork/update-all-pending/<stage>`, later lanes continue,
+  and a successful retry clears only its own record. The update transaction
+  exits nonzero and withholds its success timestamp while any required
+  maintenance remains incomplete.
+- **Shared size helpers are temporarily duplicated** across cleanup, doctor,
+  and the single-directory tidy. The old “self-contained runner” justification
+  no longer applies: cleanup is now an installed command and the update lock
+  establishes an installed library surface. Extraction still needs explicit
+  install-order and rendered-consumer proof, so it is tracked in the roadmap
+  instead of being folded into this safety patch without those fixtures.
 - **No `groundwork-xcode-tidy` / `groundwork-worktree-tidy` commands yet**;
   the doctor report covers the need until acting on those areas is designed.
