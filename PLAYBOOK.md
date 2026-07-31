@@ -74,6 +74,15 @@ Constraints to know: a GitHub *project* page cannot serve a root-level
 GitHub's). A custom domain would restore root control and strengthen the
 brand query long-term; decide when the name is settled, not before.
 
+The discoverability build-out is tracked in `ROADMAP.md`, not silently implied
+by the current generator. Keep these implementation boundaries when it lands:
+one canonical directory URL for the homepage; outcome-first authored titles and
+description overrides for the highest-value pages; JSON-LD generated from page
+structure; page-specific social cards with alt text; and no `FAQPage` metadata
+unless the visible page actually contains the represented questions and
+answers. Groundwork must lead with its standalone outcome; the Roost
+relationship is supporting context while Roost is not a public dependency.
+
 Expectations: technical discoverability is table stakes, not ranking.
 A new site with no inbound links takes weeks to rank for brand queries
 against established namesakes. What moves it: links from real places
@@ -105,6 +114,12 @@ three users on three surfaces (Mac desktop, MacBook Air, Docker-on-Windows).
 - **Release notes are for the actual users** (and are teaching artifacts):
   what changed, what to run after `chezmoi update`, and any manual step —
   written for a capable beginner, per the north star.
+- **Bootstrap asset trust is a release contract in progress.** Until the
+  immutable-asset + published-SHA work in `ROADMAP.md` lands, never claim that
+  a rolling `main` URL is immutable or release-verified. When it lands, upload
+  bootstrap assets and SHA-256 files before publishing install docs, verify the
+  downloaded assets against the release tag, and attest those exact immutable
+  bytes.
 - Cut a release (tag and release together; the tag must point at a green `main`
   SHA). Set the version once so the command block is copy-run safe:
 
@@ -215,10 +230,19 @@ Standing rules for a public repo:
   `main`. The branch-protection baseline (Main Branch Protection) can make them
   required so Renovate's security automerge trusts them as the gate; whether it
   is applied is an owner action tracked in ROADMAP.
-- Periodically confirm the fresh-shell install path still works:
+- Periodically confirm the fresh-shell install path still works. Download once
+  and execute the same local bytes that were inspected; do not inspect one
+  request and execute a second request whose branch may have changed:
 
   ```bash
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"
+  bootstrap_check="$(mktemp "${TMPDIR:-/tmp}/groundwork-bootstrap.XXXXXX")"
+  curl -fsSL \
+    https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh \
+    -o "$bootstrap_check"
+  shasum -a 256 "$bootstrap_check"
+  less "$bootstrap_check"
+  bash "$bootstrap_check"
+  rm -f "$bootstrap_check"
   ```
 
 ## Main Branch Protection

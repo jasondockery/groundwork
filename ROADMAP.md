@@ -7,30 +7,30 @@ after the work is verified, never aspirationally.
 
 ## Current execution order
 
-Reconciled 2026-07-24 against the then-current `origin/main`. Detailed acceptance
-criteria live in the specs — for the documentation audit specifically, in
-`specs/docs-truth-and-coverage.md`; this list is only sequence.
+Reconciled 2026-07-31 against `origin/main` at `9d5b335`; `v1.9.0` is the
+current release tag. Detailed acceptance criteria live in the specs; this list
+is only sequence.
 
-1. **Doc-truth + small closers.** This reconciliation is the narrow first slice,
-   NOT the audit. Run the wider repository-truth audit to the acceptance contract
-   in `specs/docs-truth-and-coverage.md`: implementation vs the command catalog,
-   shortcuts vs the canonical teaching pages, troubleshooting completeness,
-   practice / Groundwork-Twelve competency coverage, platform vs profile
-   distinctions, orphan pages and internal links, and any stale behavior repeated
-   across pages. Then remediate the interview `[y/N]` / numbered password-manager
-   prompts and complete the terminal teaching surface + competency gates (see
-   "Terminal copy model"). A green reconciliation is not proof that all
-   documentation is current.
-2. **Cut v1.8.0** — a known-good checkpoint with release notes for the terminal
-   copy-behavior change and `groundwork-configure`. Not a deployment gate:
-   `main` is the rolling edge, so `chezmoi update` installs already have this;
-   the tag is the known-good ref, SemVer signal, and user-facing notes.
-3. **`groundwork-doctor --performance`** — the bounded one-time snapshot only
+1. **Finish safe automatic package-manager maintenance and ship it as
+   `v1.10.0`.** Land the single-writer transaction, exact trusted pnpm
+   selection, bounded process-tree cancellation, independent failure state,
+   read-only report, troubleshooting loop, and complete validator proof in
+   `specs/storage-hygiene.md`. This is release-affecting minor functionality;
+   cut only after the exact final `main` SHA is green.
+2. **Immutable, verified bootstrap releases.** Close the inspect-one-fetch /
+   execute-another trust gap with tag-pinned bootstrap assets and published
+   SHA-256 verification; keep a clearly separate rolling-`main` contributor
+   path.
+3. **Machine-readable command receipts.** Add a versioned JSON schema and
+   explicit exit-code contract across `update-all`, `groundwork-cleanup`, and
+   `groundwork-doctor`, beginning with the structured update receipt below.
+4. **Focused validator entry points.** Add `scripts/validate-groundwork --list`
+   and `--only <check>` before physically splitting the zero-dependency Bash
+   harness. Keep the unchanged full command as the release gate.
+5. **`groundwork-doctor --performance`** — the bounded one-time snapshot only
    (see "Terminal observability"); not the watcher, status-line, or pane-border
    work yet.
-4. **`update-all` structured receipt** — the honest per-stage receipt tranche
-   (see "update-all: honest scope").
-5. **Read-only `groundwork-branches`** — the offline status table only; no
+6. **Read-only `groundwork-branches`** — the offline status table only; no
    deletion in the first tranche (see `specs/branch-lifecycle.md`).
 
 Owner action (a human enables this when ready, not code work):
@@ -40,6 +40,84 @@ Owner action (a human enables this when ready, not code work):
       (`macos-validation` and the rest) have reported green on `main` at least
       once so the required contexts can be selected. Direct-to-main with green CI
       is the sanctioned solo workflow until then — see PLAYBOOK → Working On `main`.
+
+## Review-derived product backlog (2026-07-31)
+
+The automatic-maintenance review also surfaced useful work outside that safety
+slice. These items are recorded here so they are neither silently accepted as
+done nor lost in review prose.
+
+### Supply chain and releases
+
+- [ ] Publish each supported bootstrap script as an immutable release asset,
+      publish its SHA-256 beside it, and document download → verify → execute
+      from the same local bytes. Generate the current stable tag in docs rather
+      than hand-copying it; retain a separate, explicitly rolling `main` path
+      for contributors.
+- [ ] After immutable release assets exist, add minimally permissioned,
+      SHA-pinned OpenSSF Scorecard and build-provenance workflows. Attest
+      immutable assets, run Zizmor against both workflows, and do not add a
+      badge until the check is a real maintained gate.
+
+### Agent-readable receipts and validation
+
+- [ ] Extract the duplicated bounded byte-measurement/formatting and
+      pending-state primitives into the installed Groundwork library surface.
+      Prove launcher/runner/helper install order, direct-command behavior, and
+      all rendered profiles before removing local copies; do not create a
+      library merely to reduce line count.
+- [ ] Specify receipt schema version 1 before adding `--json`: JSON alone on
+      stdout, human diagnostics on stderr, stable stage/status enums, byte
+      counts or explicit `null`, pending records, start/end times, and final
+      exit code. Codify `0` success, `1` incomplete, `64` usage, `75`
+      transaction busy, `124` deadline, and `129`/`130`/`143` signals.
+- [ ] Add `--json` first to `groundwork-cleanup`, then
+      `groundwork-doctor`, then the consolidated `update-all` runner; add
+      hostile control-character fixtures so untrusted repository text cannot
+      corrupt JSON or terminal receipts.
+- [ ] Introduce named validator check boundaries plus `--list` /
+      `--only <check>`, retaining `scripts/validate-groundwork` as the exact
+      full gate. Split physical files only after shared fixture ownership is
+      explicit and the full run proves identical coverage.
+
+### Discoverability and public proof
+
+- [ ] Replace generic search titles such as “Overview” with standalone,
+      outcome-first titles; canonicalize the homepage to one directory URL;
+      add authored description overrides for the highest-value pages; and
+      generate `og:image:alt` plus page-specific social cards.
+- [ ] Generate `SoftwareSourceCode` metadata for the homepage,
+      `TechArticle` and `BreadcrumbList` for teaching pages, and `FAQPage`
+      only where the rendered page truly contains an FAQ. Keep generated head
+      data in `scripts/generate-discovery`, never hand-maintained per page.
+- [ ] Decide on a stable custom domain as an owner action. Only after that
+      move add root-owned `robots.txt` and root `/llms.txt`; GitHub project
+      pages cannot serve either at the domain root, so adding them now would
+      be false progress.
+- [ ] Produce a short self-hosted terminal demonstration of bootstrap →
+      first prompt → `groundwork-help`, with transcript/captions and no
+      tracking. Lead the homepage with Groundwork’s standalone outcome; place
+      “Roost scaffolds your company’s code; Groundwork scaffolds you” directly
+      below as relationship context, not as a dependency.
+- [ ] Add a Decisions section to `docs/specs.html` that turns selected specs
+      such as storage hygiene into readable essays, and create a distinct
+      GitHub social-preview asset.
+- [ ] Owner distribution pass after the above proof exists: Show HN,
+      r/commandline, appropriate awesome lists, and consistent GitHub/profile
+      links. Treat these as human publication choices, never automated repo
+      mutations.
+
+### Learning evidence
+
+- [ ] Give each interest track a visible schedule and checkpoints appropriate
+      to its actual duration, a definition-of-done checklist, and a short
+      self-assessment rubric focused on explaining and verifying agent work.
+- [ ] Add one “Verify it yourself” command-and-observation exercise to each
+      tool page, generated/audited through the docs coverage model rather than
+      pasted mechanically where it teaches nothing.
+- [ ] Put a concise “what Groundwork is not” block on the docs homepage so
+      readers understand the adult-learning, terminal-foundation, and
+      non-gatekeeping boundaries before choosing a track.
 
 ## Learning path (the product)
 
