@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Owner-run pnpm store hygiene — deliberately NOT part of update-all. pnpm's
-# own guidance is to prune occasionally, not constantly: switching to an older
-# branch after a prune means re-downloading whatever the prune removed. So the
-# refresh never runs this; the owner does, when the doctor or disk pressure
-# says it is worth it.
+# Single-directory pnpm store diagnostic and owner-run immediate prune.
+# update-all owns the automatic machine-wide path through groundwork-cleanup:
+# it discovers repository-selected stores and enforces an occasional cadence.
+# This narrower command remains useful when diagnosing the selection for one
+# working directory.
 #
 # The command only ever acts through `pnpm store prune`, which removes packages
 # no longer referenced by any project and does not alter projects. It never
@@ -36,8 +36,9 @@ uncached.
 
 `pnpm store prune` removes packages no longer referenced by any project on
 this machine. Projects are not modified; a pruned package is re-downloaded
-the next time something needs it. pnpm recommends running it occasionally,
-not frequently, which is why update-all never runs it for you.
+the next time something needs it. update-all runs this supported operation
+automatically on a durable cadence through groundwork-cleanup; this command
+acts only on the store selected by the current directory.
 
 Never touched: store generations other than the selected one. An older store
 (say v10 beside a selected v11) may still be selected by another repository's

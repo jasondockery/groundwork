@@ -40,6 +40,9 @@ Usage:
   groundwork-repos changed    open one lazygit tmux window per dirty repo
   groundwork-repos list       plumbing: discovered paths as path<TAB>flag
                               lines (flag: wt for a linked worktree, - if not)
+  groundwork-repos --no-cache list
+                              read-only plumbing: discover live without reading
+                              or writing the path cache
   groundwork-repos --refresh  bypass and rewrite the discovery cache; combine
                               with any command (a fresh clone appears within
                               the cache TTL anyway — this makes it immediate)
@@ -200,7 +203,7 @@ cache_is_fresh() {
 # a loop or symlink alias produces (git resolves each candidate to one
 # physical toplevel).
 discover() {
-  local root gitpath candidate canonical flag seen=$'\n'
+  local root gitpath candidate canonical flag seen=$'\n' invalid=0
   local depth_limit=$((max_depth + 1))
   local prune_expr=() ex results=""
   for ex in "${excludes[@]}"; do
@@ -210,13 +213,19 @@ discover() {
   prune_expr+=(-name '')
   for root in "${roots[@]}"; do
     [[ -d "$root" ]] || continue
-    while IFS= read -r gitpath; do
+    while IFS= read -r -d '' gitpath; do
       [[ -n "$gitpath" ]] || continue
       candidate="${gitpath%/.git}"
       # Canonicalize through git itself: resolves symlinks, agrees with what
       # git considers the toplevel, and fails harmlessly on false positives.
       canonical="$(safe_git "$candidate" rev-parse --show-toplevel 2>/dev/null)" || continue
       [[ -n "$canonical" ]] || continue
+      if [[ "$(LC_ALL=C printf '%s' "$canonical" | tr -d '[:cntrl:]')" != "$canonical" ]]; then
+        printf 'groundwork-repos: unsupported terminal control character in repository path: %q\n' \
+          "$canonical" >&2
+        invalid=1
+        continue
+      fi
       case "$seen" in
         *$'\n'"$canonical"$'\n'*) continue ;;
       esac
@@ -234,8 +243,9 @@ discover() {
       fi
       results="$results$canonical"$'\t'"$flag"$'\n'
     done < <(find -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
-      \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print 2>/dev/null)
+      \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print0 2>/dev/null)
   done
+  [[ "$invalid" -eq 0 ]] || return 1
   printf '%s' "$results" | sort
 }
 
@@ -244,6 +254,10 @@ discover() {
 # clean or dirty shows immediately even inside the TTL. --refresh bypasses
 # the freshness check and rewrites the cache.
 repo_list() {
+  if [[ "$no_cache" -eq 1 ]]; then
+    discover
+    return 0
+  fi
   if [[ "$refresh" -eq 0 ]] && cache_is_fresh; then
     cat "$cache_file"
     return 0
@@ -474,10 +488,12 @@ cmd_changed() {
 }
 
 refresh=0
+no_cache=0
 mode=""
 for arg in "$@"; do
   case "$arg" in
     --refresh) refresh=1 ;;
+    --no-cache) no_cache=1 ;;
     -h | --help)
       usage
       exit 0
@@ -493,6 +509,14 @@ for arg in "$@"; do
   esac
 done
 [[ -n "$mode" ]] || mode="status"
+if [[ "$no_cache" -eq 1 && "$mode" != "list" ]]; then
+  echo "groundwork-repos: --no-cache is plumbing for the list command only." >&2
+  exit 2
+fi
+if [[ "$no_cache" -eq 1 && "$refresh" -eq 1 ]]; then
+  echo "groundwork-repos: --no-cache and --refresh cannot be combined." >&2
+  exit 2
+fi
 case "$mode" in
   status) cmd_status ;;
   list) cmd_list ;;

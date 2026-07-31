@@ -47,9 +47,9 @@ EOF
   cat <<'EOF'
   Project output    node_modules, .venv, target, dist, build, and coverage are
                     usually reproducible; confirm with the repo, then rebuild.
-  Package caches    Use the owning tool: `pnpm store prune` and peers. Homebrew's
-                    is usually handled already — update-all attempts `brew
-                    cleanup --prune=all` after a successful Homebrew phase.
+  Package caches    update-all runs supported Homebrew, npm, and cadenced pnpm
+                    maintenance automatically. Use groundwork-cleanup for the
+                    advanced report or an immediate supported pass.
   Containers        Run `docker system df`; prune from Docker only after checking
                     stopped containers, images, build cache, and volumes.
   Xcode data        Remove runtimes in Xcode Settings and unavailable simulators

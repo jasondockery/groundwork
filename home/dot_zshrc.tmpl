@@ -330,8 +330,10 @@ groundwork-update-reminder() {
   local state_dir="$HOME/.local/state/groundwork"
   local stamp="$state_dir/last-update-all"
   local shown="$state_dir/update-reminder-last-shown"
-  local pending="$state_dir/homebrew-cleanup-pending"
-  local now shown_epoch last_epoch age_days pending_note
+  local pending_dir="$state_dir/update-all-pending"
+  local legacy_pending="$state_dir/homebrew-cleanup-pending"
+  local now shown_epoch last_epoch age_days pending_note pending_file pending_stage
+  local -a pending_files
 
   now="$(date +%s 2>/dev/null)" || return
 
@@ -340,15 +342,33 @@ groundwork-update-reminder() {
     (( now - shown_epoch < 86400 )) && return
   fi
 
-  # Outstanding work beats a fresh timestamp. update-all leaves this marker when
-  # its Homebrew cleanup did not finish, and the last fully successful refresh
-  # can still be well inside the stale window — so age says "quiet" while
-  # gigabytes of cache sit there. The marker is cleared by the next clean run.
-  if [[ -f "$pending" ]]; then
-    pending_note=""
-    read -r pending_note <"$pending" 2>/dev/null
-    print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish Homebrew's cleanup; run it again when you have a few minutes."
-    [[ -n "$pending_note" ]] && print -r -- "  ${pending_note}"
+  # Outstanding work beats a fresh timestamp. Each package-manager maintenance
+  # lane owns one pending record; the legacy Homebrew-only marker remains
+  # recognized until the first run of the generalized helper migrates it.
+  pending_file=""
+  if [[ -d "$pending_dir" ]]; then
+    pending_files=("$pending_dir"/*(N))
+    pending_file="${pending_files[1]:-}"
+  elif [[ -f "$legacy_pending" ]]; then
+    pending_file="$legacy_pending"
+  fi
+  if [[ -n "$pending_file" ]]; then
+    print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish package-manager maintenance."
+    if [[ -d "$pending_dir" ]]; then
+      pending_files=("$pending_dir"/*(N))
+      for pending_file in "${pending_files[@]}"; do
+        pending_note=""
+        pending_stage="${pending_file:t}"
+        read -r pending_note <"$pending_file" 2>/dev/null
+        print -r -- "  ${pending_stage}: ${pending_note:-repair is pending}"
+      done
+    else
+      pending_note=""
+      read -r pending_note <"$legacy_pending" 2>/dev/null
+      print -r -- "  homebrew: ${pending_note:-legacy cleanup repair is pending}"
+    fi
+    print "Run update-all, or repair maintenance only with:"
+    print "  groundwork-cleanup --yes --force"
     print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
     mkdir -p "$state_dir" && : >| "$shown"
     return

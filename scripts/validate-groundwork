@@ -360,7 +360,7 @@ diff -u <(printf 'update\nupdate\nupdate\n') "$out_dir/brew-commands"
 grep -qF 'stopped before package upgrades' "$out_dir/brew-retry-failure"
 
 # Ctrl-C/termination statuses are authoritative: one attempt, no retry sleep.
-for interrupt_status in 130 143; do
+for interrupt_status in 129 130 143; do
   rm -f "$out_dir/brew-attempts" "$out_dir/brew-commands" "$out_dir/brew-sleeps"
   set +e
   BREW_FORCE_STATUS="$interrupt_status" BREW_ATTEMPTS_FILE="$out_dir/brew-attempts" \
@@ -388,7 +388,25 @@ check "update-all launcher handoff and runner transaction"
 update_all_fixture="$out_dir/update-all-fixture"
 update_all_home="$update_all_fixture/home"
 update_all_bin="$update_all_home/.local/bin"
-mkdir -p "$update_all_bin" "$update_all_home/.local/state/groundwork"
+mkdir -p "$update_all_bin" "$update_all_home/.local/lib/groundwork" \
+  "$update_all_home/.local/state/groundwork" \
+  "$update_all_home/.config/groundwork" "$update_all_home/code"
+update_all_saved_xdg_config="${XDG_CONFIG_HOME-}"
+update_all_saved_xdg_cache="${XDG_CACHE_HOME-}"
+update_all_had_xdg_config="${XDG_CONFIG_HOME+x}"
+update_all_had_xdg_cache="${XDG_CACHE_HOME+x}"
+export XDG_CONFIG_HOME="$update_all_home/.config"
+export XDG_CACHE_HOME="$update_all_home/.cache"
+cp home/dot_local/lib/groundwork/update-lock.sh \
+  "$update_all_home/.local/lib/groundwork/update-lock.sh"
+cp home/dot_local/bin/executable_groundwork-repos \
+  "$update_all_bin/groundwork-repos"
+cat >"$update_all_home/.config/groundwork/repos.conf" <<EOF
+root = $update_all_home/code
+max_depth = 2
+include_worktrees = true
+cache_ttl_seconds = 0
+EOF
 # The launcher under test is deliberately an "old" copy outside $HOME/.local/bin,
 # proving a stale process still hands off to whatever the sync just installed.
 cp home/dot_local/bin/executable_update-all "$update_all_fixture/old-launcher"
@@ -465,10 +483,20 @@ case "${1:-}" in
     [[ "${BREW_NOTHING_TO_UPGRADE:-0}" == "0" ]] || echo "Already up-to-date."
     ;;
   autoremove)
+    if [[ "${ASSERT_UPDATE_LOCK_DURING_MAINTENANCE:-0}" == "1" ]]; then
+      test -s "$HOME/.local/state/groundwork/update-all.lock/pid"
+      test -s "$HOME/.local/state/groundwork/update-all.lock/token"
+      printf 'lock observed during brew autoremove\n' >>"$GROUNDWORK_TEST_LOG"
+    fi
     printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
     exit "${BREW_AUTOREMOVE_STATUS:-0}"
     ;;
   cleanup)
+    if [[ "${ASSERT_UPDATE_LOCK_DURING_MAINTENANCE:-0}" == "1" ]]; then
+      test -s "$HOME/.local/state/groundwork/update-all.lock/pid"
+      test -s "$HOME/.local/state/groundwork/update-all.lock/token"
+      printf 'lock observed during brew cleanup\n' >>"$GROUNDWORK_TEST_LOG"
+    fi
     printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
     # A cleanup that removes some files and then fails on one it cannot read:
     # the shape the "left as it was" wording would have described wrongly.
@@ -516,6 +544,10 @@ if [[ "${1:-}" == "which" ]]; then
   exit "${MISE_WHICH_NPM_STATUS:-1}"
 fi
 if [[ "${1:-}" == "exec" ]]; then
+  if [[ "${2:-}" == "--" && "${3:-}" == "npm" && "${4:-}" == "config" && "${5:-}" == "get" && "${6:-}" == "cache" ]]; then
+    printf '%s\n' "${NPM_CACHE_DIR:-$HOME/.npm}"
+    exit 0
+  fi
   # pwd is part of the contract: machine maintenance must run from $HOME, not
   # from whatever repository update-all was launched in.
   printf 'mise %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
@@ -530,25 +562,32 @@ SH
 # stub absorbs that; the npm-stage check turns logging on to prove the branch.
 cat >"$update_all_bin/npm" <<'SH'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "config" && "${2:-}" == "get" && "${3:-}" == "cache" ]]; then
+  printf '%s\n' "${NPM_CACHE_DIR:-$HOME/.npm}"
+  exit 0
+fi
 [[ "${NPM_STUB_LOG:-0}" == "0" ]] || printf 'npm %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
 SH
+cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
 chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
-  "$update_all_bin/npm" \
-  "$update_all_bin/groundwork-brew-update" "$update_all_bin/groundwork-platform" \
+  "$update_all_bin/npm" "$update_all_bin/groundwork-cleanup" \
+  "$update_all_bin/groundwork-repos" "$update_all_bin/groundwork-brew-update" \
+  "$update_all_bin/groundwork-platform" \
   "$update_all_fixture/fresh-runner"
 
 update_all_log="$update_all_fixture/commands.log"
 update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
 update_all_path="/usr/bin:/bin"
 
-# An old launcher process syncs once, then hands the same invocation to the
-# runner the sync just installed, with arguments and exit status intact.
+# An old launcher process validates the supported flag, syncs once, then hands
+# that same invocation to the runner the sync just installed, with exit status
+# intact.
 : >"$update_all_log"
 set +e
 HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
   NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
   CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
-  FRESH_RUNNER_STATUS=42 "$update_all_fixture/old-launcher" alpha "two words" \
+  FRESH_RUNNER_STATUS=42 "$update_all_fixture/old-launcher" --skip-maintenance \
   >"$update_all_fixture/handoff-output" 2>&1
 update_all_status=$?
 set -e
@@ -563,10 +602,48 @@ chezmoi status color=0
 chezmoi apply $update_all_runner_path color=0
 chezmoi verify $update_all_runner_path color=0
 fresh runner color=0
-arg=alpha
-arg=two words
+arg=--skip-maintenance
 EOF
 diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+# Exercise the complete launcher -> exec'd real runner -> nested real cleanup
+# ownership chain. The exec keeps the launcher's PID and must adopt the lock;
+# cleanup is its direct child and must borrow it without removing it.
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  ASSERT_UPDATE_LOCK_DURING_MAINTENANCE=1 \
+  CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/rendered-runner" \
+  "$update_all_fixture/old-launcher" >"$update_all_fixture/real-handoff" 2>&1 \
+  || {
+    cat "$update_all_fixture/real-handoff" >&2
+    fail "the full launcher-to-runner lock handoff failed"
+  }
+grep -qxF 'lock observed during brew autoremove' "$update_all_log" \
+  || fail "the nested cleanup did not observe the runner-owned lock"
+grep -qxF 'lock observed during brew cleanup' "$update_all_log" \
+  || fail "the nested cleanup removed the runner-owned lock between stages"
+test ! -d "$update_all_home/.local/state/groundwork/update-all.lock" \
+  || fail "the exec'd runner did not release the adopted update lock"
+rm -f "$update_all_stamp"
+
+# --help and hostile arguments are resolved before sync or any mutation.
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  "$update_all_fixture/old-launcher" --help >/dev/null
+test ! -s "$update_all_log" || fail "update-all --help invoked external commands"
+for hostile in --greedy extra "two words"; do
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    "$update_all_fixture/old-launcher" "$hostile" >/dev/null 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 64 ]] \
+    || fail "update-all '$hostile' must exit 64, got $update_all_status"
+  test ! -s "$update_all_log" \
+    || fail "update-all hostile argument '$hostile' invoked external commands"
+done
 
 # Drift preflight: an MM file (changed locally AND changed by this update) is
 # named and the overwrite question explained BEFORE chezmoi can ask it. With
@@ -580,7 +657,10 @@ printf '' | env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_
   CHEZMOI_DRIFT='MM .config/karabiner/karabiner.json' \
   CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
   "$update_all_fixture/old-launcher" >"$update_all_fixture/drift-output" 2>&1 \
-  || fail "update-all failed on the drift-with-terminal preflight case"
+  || {
+    cat "$update_all_fixture/drift-output" >&2
+    fail "update-all failed on the drift-with-terminal preflight case"
+  }
 grep -qF 'chezmoi will ask about each one' "$update_all_fixture/drift-output" \
   || fail "the drift preflight must explain the upcoming overwrite question"
 grep -qF '.config/karabiner/karabiner.json' "$update_all_fixture/drift-output" \
@@ -760,7 +840,7 @@ diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
 test ! -e "$update_all_stamp"
 
 # Ctrl-C and termination statuses from a managed stage propagate unchanged.
-for interrupt_status in 130 143; do
+for interrupt_status in 129 130 143; do
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -787,9 +867,9 @@ cat >"$update_all_fixture/expected-success" <<'EOF'
 chezmoi apply color=0
 brew-update
 brew upgrade auto=1 casks=unset hb-color=unset
+mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
-mise upgrade --minimum-release-age 5d
 EOF
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 test -f "$update_all_stamp"
@@ -825,8 +905,8 @@ for runner_color_case in 'GROUNDWORK_COLOR=1 NO_COLOR= FORCE_COLOR=:1' \
     || fail "brew must see HOMEBREW_COLOR=$runner_color_expected under: $runner_color_env"
 done
 
-# A later mise failure leaves the previous timestamp untouched, proving it
-# represents the whole transaction rather than Homebrew alone.
+# A later mise failure leaves the previous timestamp untouched, but it does not
+# suppress safe package-manager maintenance after the successful Homebrew lane.
 printf 'previous-success\n' >"$update_all_stamp"
 : >"$update_all_log"
 set +e
@@ -837,7 +917,8 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all runner recorded success after mise upgrade failed"
-diff -u "$update_all_fixture/expected-success" "$update_all_log"
+diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\n') \
+  "$update_all_log"
 grep -qxF 'previous-success' "$update_all_stamp"
 
 # The machine-side 5-day floor: mise must be age-gated in the normal path, the
@@ -864,6 +945,10 @@ assert_not_contains '^mise upgrade$' "$update_all_log" \
 grep -qF 'cannot enforce the 5-day release floor' "$update_all_fixture/mise-old"
 grep -qF 'brew upgrade mise' "$update_all_fixture/mise-old" \
   || fail "the mise floor refusal must say how to fix it"
+grep -qxF 'brew autoremove' "$update_all_log" \
+  || fail "a mise policy refusal suppressed independent Homebrew maintenance"
+grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
+  || fail "a mise policy refusal suppressed independent Homebrew cache cleanup"
 test ! -e "$update_all_stamp" \
   || fail "update-all recorded success although the release floor was skipped"
 rm -f "$update_all_stamp"
@@ -891,13 +976,28 @@ chezmoi apply color=0
 brew-update
 brew upgrade --require-sha auto=1 casks=1 hb-color=unset
 brew-repair
-brew autoremove
-brew cleanup --prune=all
 apps-start
 mise upgrade --minimum-release-age 5d
+brew autoremove
+brew cleanup --prune=all
 EOF
 diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
 test -f "$update_all_stamp"
+
+# An empty state directory is not pending work. The exceptional fast path
+# still succeeds and records the completed refresh while skipping maintenance.
+rm -f "$update_all_stamp"
+mkdir -p "$update_all_home/.local/state/groundwork/update-all-pending"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" --skip-maintenance \
+  >"$update_all_fixture/darwin-skip-maintenance" 2>&1 \
+  || fail "an empty pending directory must not make --skip-maintenance fail"
+assert_not_contains 'brew cleanup|npm cache verify|pnpm store prune' "$update_all_log" \
+  "--skip-maintenance ran package-manager maintenance"
+test -f "$update_all_stamp" \
+  || fail "--skip-maintenance did not record an otherwise complete refresh"
 
 # BEHAVIOR, not wiring text: a failed upgrade whose downloads re-fetch (exit
 # 0 from refetch) is retried exactly once; a still-failing retry fails the
@@ -982,7 +1082,7 @@ seed_cache() {
   dd if=/dev/urandom of="$cache_dir/api/formula.jws.json" bs=1024 count=512 \
     >/dev/null 2>&1
 }
-cleanup_marker="$update_all_home/.local/state/groundwork/homebrew-cleanup-pending"
+cleanup_marker="$update_all_home/.local/state/groundwork/update-all-pending/homebrew"
 run_cleanup_case_keeping_state() {
   local output="$1"
   shift
@@ -1019,8 +1119,10 @@ assert_not_contains '(MB|GB|KB)$' "$update_all_fixture/cache-receipt" \
 # total the cleanup reclaimed.
 grep -qF 'Cache before' "$update_all_fixture/cache-receipt" \
   || fail "the receipt must label its measurement as cache-scoped"
-grep -qF 'Every formula and cask you asked for stays installed' "$update_all_fixture/cache-receipt" \
-  || fail "the receipt must say what cleanup does not remove"
+grep -qF 'Requested formulae and casks stay installed' "$update_all_fixture/cache-receipt" \
+  || fail "the receipt must say what cleanup retains"
+grep -qF 'may remove installed orphan formula dependencies' "$update_all_fixture/cache-receipt" \
+  || fail "the receipt must not overclaim that installed dependencies are retained"
 test -z "$(find "$cache_dir" -mindepth 1 -name '*.bottle.tar.gz' -print -quit)" \
   || fail "the cached download survived brew cleanup --prune=all"
 test -f "$update_all_stamp" || fail "a clean cleanup must still record the successful refresh"
@@ -1158,7 +1260,7 @@ run_reminder() {
     GROUNDWORK_UPDATE_REMINDER=1 zsh -i -c 'true' >"$1" 2>&1
 }
 run_reminder "$reminder_dir/pending-output"
-grep -qF "could not finish Homebrew's cleanup" "$reminder_dir/pending-output" \
+grep -qF "could not finish package-manager maintenance" "$reminder_dir/pending-output" \
   || fail "a pending cleanup must be reported however recent the last successful refresh is"
 grep -qF 'was incomplete (exit 1)' "$reminder_dir/pending-output" \
   || fail "the reminder must repeat what the marker recorded"
@@ -1195,8 +1297,9 @@ grep -qF 'was interrupted (exit 130)' "$cleanup_marker" \
 test ! -e "$update_all_stamp" \
   || fail "an interrupted cleanup must not record a successful refresh"
 
-# brew autoremove is part of the same phase and runs BEFORE cleanup: when it
-# fails, nothing after it runs and the cache it might have fed is left alone.
+# brew autoremove and cleanup are independent supported operations inside one
+# Homebrew receipt. A failed autoremove is durable failure state, but cleanup
+# still gets its own attempt and completed runtime/npm upgrades stay complete.
 seed_cache
 set +e
 run_cleanup_case "$update_all_fixture/cache-autoremove-fail" BREW_CACHE_DIR="$cache_dir" \
@@ -1207,12 +1310,12 @@ set -e
   || fail "a failed brew autoremove must fail the run"
 grep -qxF 'brew autoremove' "$update_all_log" \
   || fail "the autoremove-failure fixture must actually reach autoremove"
-assert_not_contains 'brew cleanup' "$update_all_log" \
-  "a failed autoremove must stop the phase before cleanup"
-assert_not_contains '^mise upgrade' "$update_all_log" \
-  "a failed autoremove must stop the stages after the Homebrew phase"
-test -f "$cache_dir/downloads/artifact.bottle.tar.gz" \
-  || fail "a failed Homebrew phase must leave the download cache alone"
+grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
+  || fail "a failed autoremove must not suppress the independent cleanup operation"
+grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+  || fail "maintenance failure must preserve the completed runtime upgrade"
+test -f "$cleanup_marker" \
+  || fail "a failed autoremove must leave durable per-stage pending state"
 test ! -e "$update_all_stamp" \
   || fail "a failed autoremove must not record a successful refresh"
 
@@ -1236,40 +1339,39 @@ rm -f "$update_all_stamp"
 format_probe="$update_all_fixture/format-bytes-probe"
 {
   printf 'set -euo pipefail\n'
-  sed -n '/^  format_bytes() {/,/^  }/p' "$update_all_fixture/rendered-runner"
+  sed -n '/^format_bytes() {/,/^}/p' home/dot_local/bin/executable_groundwork-cleanup
   # shellcheck disable=SC2016 # "$@" is the probe script's own argument list, expanded when the probe runs.
   printf 'for value in "$@"; do format_bytes "$value"; done\n'
 } >"$format_probe"
 grep -qF 'awk -v bytes=' "$format_probe" \
-  || fail "could not extract format_bytes from the rendered runner"
+  || fail "could not extract format_bytes from groundwork-cleanup"
 format_probe_output="$(/bin/bash "$format_probe" '' 0 1023 1024 4194304 6764573491 1099511627776)"
 diff -u <(printf 'unavailable\n0 B\n1023 B\n1.0 KiB\n4.0 MiB\n6.3 GiB\n1.0 TiB\n') \
   <(printf '%s\n' "$format_probe_output") \
   || fail "format_bytes must label 1024-based sizes in binary units, and an unmeasured size as unavailable"
 
-# Source-level locks on the cleanup path, for both renders: the aggressive
+# Source-level locks on the cleanup path: the aggressive
 # form only, and never a raw deletion of Homebrew's cache directory.
-cleanup_invocation_pattern='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*brew cleanup'
-for cleanup_render in "$update_all_fixture/rendered-runner" "$update_all_fixture/darwin-runner"; do
-  # EXACTLY ONE invocation, and exactly the approved one. Counting rejects a
-  # duplicate or an extra `brew cleanup --dry-run`/`--scrub` that a later patch
-  # might add beside it; matching the whole line rejects a weaker form.
-  # NOT mapfile: macOS ships Bash 3.2, where it does not exist.
-  cleanup_invocations=()
-  while IFS= read -r cleanup_line_text; do
-    [[ -n "$cleanup_line_text" ]] || continue
-    cleanup_invocations+=("$cleanup_line_text")
-  done < <(grep -E "$cleanup_invocation_pattern" "$cleanup_render" || true)
-  [[ "${#cleanup_invocations[@]}" -eq 1 ]] \
-    || fail "$cleanup_render must invoke brew cleanup exactly once, found ${#cleanup_invocations[@]}: ${cleanup_invocations[*]:-none}"
-  cleanup_invocation="${cleanup_invocations[0]#"${cleanup_invocations[0]%%[![:space:]]*}"}"
-  [[ "$cleanup_invocation" == 'brew cleanup --prune=all || cleanup_status=$?' ]] \
-    || fail "$cleanup_render invokes an unapproved cleanup: $cleanup_invocation (Homebrew's default 120-day policy is what left gigabytes behind)"
-  assert_not_contains 'rm -rf.*brew --cache|rm -rf.*Caches/Homebrew' "$cleanup_render" \
-    "raw deletion of Homebrew's cache in $cleanup_render — use brew cleanup, which respects Homebrew's locking"
-  assert_not_contains 'sudo' "$cleanup_render" \
-    "update-all must never escalate privileges: $cleanup_render"
-done
+cleanup_invocation_pattern='^[[:space:]]*run_bounded "brew cleanup --prune=all" brew cleanup'
+cleanup_render=home/dot_local/bin/executable_groundwork-cleanup
+# EXACTLY ONE invocation, and exactly the approved one. Counting rejects a
+# duplicate or an extra `brew cleanup --dry-run`/`--scrub` that a later patch
+# might add beside it; matching the whole line rejects a weaker form.
+# NOT mapfile: macOS ships Bash 3.2, where it does not exist.
+cleanup_invocations=()
+while IFS= read -r cleanup_line_text; do
+  [[ -n "$cleanup_line_text" ]] || continue
+  cleanup_invocations+=("$cleanup_line_text")
+done < <(grep -E "$cleanup_invocation_pattern" "$cleanup_render" || true)
+[[ "${#cleanup_invocations[@]}" -eq 1 ]] \
+  || fail "$cleanup_render must invoke brew cleanup exactly once, found ${#cleanup_invocations[@]}: ${cleanup_invocations[*]:-none}"
+cleanup_invocation="${cleanup_invocations[0]#"${cleanup_invocations[0]%%[![:space:]]*}"}"
+[[ "$cleanup_invocation" == 'run_bounded "brew cleanup --prune=all" brew cleanup --prune=all || cleanup_status=$?' ]] \
+  || fail "$cleanup_render invokes an unapproved cleanup: $cleanup_invocation (Homebrew's default 120-day policy is what left gigabytes behind)"
+assert_not_contains 'rm -rf.*brew --cache|rm -rf.*Caches/Homebrew' "$cleanup_render" \
+  "raw deletion of Homebrew's cache in $cleanup_render — use brew cleanup, which respects Homebrew's locking"
+assert_not_contains 'sudo' "$cleanup_render" \
+  "update-all must never escalate privileges: $cleanup_render"
 
 check "update-all npm cache verify stage"
 # npm's cache verify is conservative, owner-provided garbage collection —
@@ -1330,6 +1432,857 @@ assert_not_contains 'npm cache verify' "$update_all_log" \
 test -f "$update_all_stamp" \
   || fail "a machine without npm must still record a successful refresh"
 mv "$update_all_fixture/npm.hidden" "$update_all_bin/npm"
+
+# Helper-level failures are durable even with a recent prior success. Missing
+# and early-crashing helpers create the generic record; a later successful
+# maintenance pass clears it.
+rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+printf 'recent-success\n' >"$update_all_stamp"
+mv "$update_all_bin/groundwork-cleanup" "$update_all_fixture/groundwork-cleanup.real"
+set +e
+run_cleanup_case_keeping_state "$update_all_fixture/cleanup-helper-missing"
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "a missing maintenance helper returned success"
+helper_pending="$update_all_home/.local/state/groundwork/update-all-pending/maintenance-helper"
+grep -qF 'maintenance helper is missing' "$helper_pending" \
+  || fail "a missing helper did not create generic durable pending state"
+grep -qxF 'recent-success' "$update_all_stamp" \
+  || fail "a helper-level failure overwrote prior successful history"
+run_reminder "$reminder_dir/helper-pending-output"
+grep -qF 'maintenance-helper:' "$reminder_dir/helper-pending-output" \
+  || fail "generic helper pending state did not override a fresh reminder timestamp"
+
+cat >"$update_all_bin/groundwork-cleanup" <<'SH'
+#!/usr/bin/env bash
+exit 70
+SH
+chmod +x "$update_all_bin/groundwork-cleanup"
+set +e
+run_cleanup_case_keeping_state "$update_all_fixture/cleanup-helper-crash"
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] || fail "an early-crashing maintenance helper returned success"
+grep -qF 'failed before recording a manager stage (exit 70)' "$helper_pending" \
+  || fail "an early helper crash did not preserve generic pending state"
+
+mv "$update_all_fixture/groundwork-cleanup.real" "$update_all_bin/groundwork-cleanup"
+run_cleanup_case_keeping_state "$update_all_fixture/cleanup-helper-recovered" \
+  || fail "a restored maintenance helper did not repair generic pending state"
+test ! -e "$helper_pending" \
+  || fail "a successful maintenance helper did not clear generic pending state"
+
+if [[ -n "$update_all_had_xdg_config" ]]; then
+  export XDG_CONFIG_HOME="$update_all_saved_xdg_config"
+else
+  unset XDG_CONFIG_HOME
+fi
+if [[ -n "$update_all_had_xdg_cache" ]]; then
+  export XDG_CACHE_HOME="$update_all_saved_xdg_cache"
+else
+  unset XDG_CACHE_HOME
+fi
+
+check "groundwork-cleanup: read-only report, cadence, store discovery, partial repair"
+cleanup_fixture="$out_dir/package-maintenance-fixture"
+cleanup_home="$cleanup_fixture/home"
+cleanup_bin="$cleanup_home/.local/bin"
+cleanup_code="$cleanup_home/code"
+cleanup_log="$cleanup_fixture/commands.log"
+cleanup_command="$PWD/home/dot_local/bin/executable_groundwork-cleanup"
+mkdir -p "$cleanup_bin" "$cleanup_home/.local/lib/groundwork" \
+  "$cleanup_home/.config/groundwork" \
+  "$cleanup_code/repo-a" "$cleanup_code/repo-b" \
+  "$cleanup_code/repo-c" "$cleanup_code/repo-offline" \
+  "$cleanup_code/repo-version-fail" "$cleanup_code/repo-custom" \
+  "$cleanup_code/repo-control" "$cleanup_code/repo-escape" \
+  "$cleanup_code/repo-prerelease" "$cleanup_code/false-marker/.git" \
+  "$cleanup_code/no-pin" \
+  "$cleanup_home/Library/pnpm/store/v9/files" \
+  "$cleanup_fixture/stores/v11/files" "$cleanup_fixture/stores/v10/files" \
+  "$cleanup_fixture/custom-store/v11/files" \
+  "$cleanup_fixture/unrelated"
+# macOS exposes the temporary directory through both /var and /private/var.
+# Canonicalize once so report assertions compare the paths emitted by git.
+cleanup_fixture="$(cd "$cleanup_fixture" && pwd -P)"
+cleanup_home="$cleanup_fixture/home"
+cleanup_bin="$cleanup_home/.local/bin"
+cleanup_code="$cleanup_home/code"
+cleanup_log="$cleanup_fixture/commands.log"
+for cleanup_repo in repo-a repo-b repo-c repo-offline repo-version-fail repo-custom \
+  repo-control repo-escape repo-prerelease no-pin; do
+  git -C "$cleanup_code/$cleanup_repo" init -q
+done
+cp home/dot_local/lib/groundwork/update-lock.sh \
+  "$cleanup_home/.local/lib/groundwork/update-lock.sh"
+cp home/dot_local/bin/executable_groundwork-repos \
+  "$cleanup_bin/groundwork-repos"
+cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
+root = $cleanup_code
+max_depth = 3
+include_worktrees = true
+cache_ttl_seconds = 30
+exclude = node_modules
+trusted_pnpm_store_root = $cleanup_fixture/stores
+EOF
+cat >"$cleanup_home/.config/groundwork/repos.local.conf" <<'EOF'
+trusted_pnpm_store_root = relative/store
+EOF
+printf '{"packageManager":"pnpm@11.1.0+sha512.fixture"}\n' >"$cleanup_code/repo-a/package.json"
+printf '{"packageManager":"pnpm@11.2.0"}\n' >"$cleanup_code/repo-b/package.json"
+printf '{"packageManager":"pnpm@10.0.0"}\n' >"$cleanup_code/repo-c/package.json"
+printf '{"packageManager":"pnpm@9.9.9"}\n' >"$cleanup_code/repo-offline/package.json"
+printf '{"packageManager":"pnpm@12.0.0"}\n' >"$cleanup_code/repo-version-fail/package.json"
+printf '{"packageManager":"pnpm@11.3.0"}\n' >"$cleanup_code/repo-custom/package.json"
+printf '%s\n' '{"packageManager":"pnpm@11.2.0\nforged"}' \
+  >"$cleanup_code/repo-control/package.json"
+printf '%s\n' '{"packageManager":"pnpm@11.2.0\u001b[31m"}' \
+  >"$cleanup_code/repo-escape/package.json"
+printf '{"packageManager":"pnpm@11.4.0-rc.1"}\n' \
+  >"$cleanup_code/repo-prerelease/package.json"
+printf '{"packageManager":"pnpm@13.0.0"}\n' >"$cleanup_code/false-marker/package.json"
+printf '{"packageManager":"yarn@4.0.0"}\n' >"$cleanup_code/no-pin/package.json"
+mkdir -p "$cleanup_fixture/brew-cache" "$cleanup_fixture/npm-cache"
+
+cat >"$cleanup_bin/brew" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  --cache)
+    [[ -z "${BREW_CACHE_SENTINEL:-}" ]] || : >"$BREW_CACHE_SENTINEL"
+    [[ -z "${BREW_CACHE_DELAY:-}" ]] || sleep "$BREW_CACHE_DELAY"
+    [[ "${BREW_CACHE_STATUS:-0}" == "0" ]] || exit "$BREW_CACHE_STATUS"
+    printf '%s\n' "$CLEANUP_BREW_CACHE"
+    ;;
+  autoremove | cleanup)
+    printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+    if [[ "${BREW_RESIST_TERM:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
+      trap '' TERM
+      printf '%s\n' "$$" >"$BREW_PARENT_PID_FILE"
+      (trap '' TERM; sleep 30) &
+      descendant=$!
+      printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
+      wait "$descendant"
+    fi
+    if [[ -n "${BREW_MAINTENANCE_DELAY:-}" ]]; then
+      sleep "$BREW_MAINTENANCE_DELAY"
+    fi
+    if [[ "${BREW_SPAWN_DESCENDANT:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
+      sleep 30 &
+      descendant=$!
+      printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
+      wait "$descendant"
+    fi
+    exit "${BREW_MAINTENANCE_STATUS:-0}"
+    ;;
+esac
+SH
+cat >"$cleanup_bin/mise" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "which" && "${2:-}" == "npm" ]]; then
+  exit "${MISE_WHICH_STATUS:-0}"
+fi
+if [[ "${1:-}" == "exec" && "${2:-}" == "--" && "${3:-}" == "npm" &&
+  "${4:-}" == "config" ]]; then
+  [[ "${NPM_CONFIG_STATUS:-0}" == "0" ]] || exit "$NPM_CONFIG_STATUS"
+  printf '%s\n' "$CLEANUP_NPM_CACHE"
+  exit 0
+fi
+if [[ "${1:-}" == "exec" && "${2:-}" == "--" && "${3:-}" == "npm" ]]; then
+  printf 'npm cache verify pwd=%s\n' "$PWD" >>"$GROUNDWORK_TEST_LOG"
+  exit "${NPM_MAINTENANCE_STATUS:-0}"
+fi
+exit 1
+SH
+cat >"$cleanup_bin/pnpm" <<SH
+#!/usr/bin/env bash
+explicit_store_base=""
+if [[ "\${1:-}" == "--store-dir" ]]; then
+  explicit_store_base="\${2:-}"
+  shift 2
+fi
+case "\$PWD" in
+  */repo-offline) exit 1 ;;
+  */repo-version-fail)
+    version=unavailable
+    store="$cleanup_fixture/custom-store/v11"
+    ;;
+  */repo-custom)
+    version=11.3.0
+    store="$cleanup_fixture/custom-store/v11"
+    ;;
+  */repo-conflict)
+    version=10.1.0
+    store="$cleanup_fixture/stores/v11"
+    ;;
+  */false-marker)
+    printf 'false marker queried\n' >>"\$GROUNDWORK_TEST_LOG"
+    version=13.0.0
+    store="$cleanup_fixture/stores/v11"
+    ;;
+  */repo-c)
+    version=10.0.0
+    store="$cleanup_fixture/stores/v10"
+    ;;
+  */repo-b)
+    version=11.2.0
+    store="$cleanup_fixture/stores/v11"
+    ;;
+  *)
+    version=11.1.0
+    store="$cleanup_fixture/stores/v11"
+    ;;
+esac
+if [[ -n "\$explicit_store_base" && "\$version" != "unavailable" ]]; then
+  store="\$explicit_store_base/v\${version%%.*}"
+fi
+if [[ "\${1:-}" == "--version" ]]; then
+  [[ "\${PNPM_VERSION_OBSERVE_STATUS:-0}" == "0" ]] || exit "\$PNPM_VERSION_OBSERVE_STATUS"
+  [[ "\$version" != "unavailable" ]] || exit 1
+  printf '%s\n' "\$version"
+  exit 0
+fi
+if [[ "\${1:-}" == "store" && "\${2:-}" == "path" ]]; then
+  [[ "\${PNPM_STORE_PATH_STATUS:-0}" == "0" ]] || exit "\$PNPM_STORE_PATH_STATUS"
+  printf '%s\n' "\$store"
+  exit 0
+fi
+if [[ "\${1:-}" == "store" && "\${2:-}" == "prune" ]]; then
+  if [[ "\${PNPM_DRAIN_STDIN:-0}" == "1" ]]; then
+    cat >/dev/null
+  fi
+  printf 'pnpm store prune version=%s store=%s base=%s pwd=%s net=%s\n' \
+    "\$version" "\$store" "\$explicit_store_base" "\$PWD" \
+    "\${COREPACK_ENABLE_NETWORK:-unset}" >>"\$GROUNDWORK_TEST_LOG"
+  if [[ "\$version" == "10.0.0" && "\${PNPM_V10_STATUS:-0}" != "0" ]]; then
+    exit "\$PNPM_V10_STATUS"
+  fi
+fi
+SH
+cat >"$cleanup_bin/du" <<'SH'
+#!/usr/bin/env bash
+[[ "${DU_STATUS:-0}" == "0" ]] || exit "$DU_STATUS"
+if [[ "${LOG_DU:-0}" == "1" ]]; then
+  printf 'du %s\n' "${@: -1}" >>"$GROUNDWORK_TEST_LOG"
+fi
+if [[ -n "${FAKE_DU_BLOCKS:-}" ]]; then
+  printf '%s\t%s\n' "$FAKE_DU_BLOCKS" "${@: -1}"
+else
+  exec /usr/bin/du "$@"
+fi
+SH
+chmod +x "$cleanup_bin/brew" "$cleanup_bin/mise" "$cleanup_bin/pnpm" \
+  "$cleanup_bin/du" "$cleanup_bin/groundwork-repos"
+
+cleanup_env=(
+  HOME="$cleanup_home"
+  XDG_CACHE_HOME="$cleanup_home/.cache"
+  XDG_CONFIG_HOME="$cleanup_home/.config"
+  PATH="/usr/bin:/bin"
+  GROUNDWORK_TEST_LOG="$cleanup_log"
+  CLEANUP_BREW_CACHE="$cleanup_fixture/brew-cache"
+  CLEANUP_NPM_CACHE="$cleanup_fixture/npm-cache"
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=5
+  GROUNDWORK_MAINTENANCE_OBSERVE_DEADLINE_SECONDS=5
+  GROUNDWORK_MAINTENANCE_HEARTBEAT_SECONDS=1
+)
+
+# Help and invalid intent are decided before every external query or mutation.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --help >/dev/null
+test ! -s "$cleanup_log" || fail "groundwork-cleanup --help invoked external commands"
+for hostile in --nope extra --force; do
+  : >"$cleanup_log"
+  set +e
+  env "${cleanup_env[@]}" "$cleanup_command" "$hostile" >/dev/null 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 64 ]] \
+    || fail "groundwork-cleanup '$hostile' must exit 64, got $cleanup_status"
+  test ! -s "$cleanup_log" || fail "hostile cleanup argument '$hostile' invoked external commands"
+done
+for clear_args in \
+  "--clear-pending" \
+  "--clear-pending homebrew" \
+  "--yes --clear-pending unknown" \
+  "--yes --force --clear-pending homebrew"; do
+  : >"$cleanup_log"
+  set +e
+  # shellcheck disable=SC2086 # Each fixed fixture intentionally supplies multiple argv words.
+  env "${cleanup_env[@]}" "$cleanup_command" $clear_args >/dev/null 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 64 ]] \
+    || fail "groundwork-cleanup '$clear_args' must exit 64, got $cleanup_status"
+  test ! -s "$cleanup_log" \
+    || fail "invalid clear-pending intent '$clear_args' invoked external commands"
+done
+for invalid_deadline in 0 nope; do
+  : >"$cleanup_log"
+  set +e
+  env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS="$invalid_deadline" \
+    "$cleanup_command" --yes >/dev/null 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 64 ]] \
+    || fail "invalid maintenance deadline '$invalid_deadline' must exit 64"
+  test ! -s "$cleanup_log" \
+    || fail "invalid maintenance deadline '$invalid_deadline' invoked external commands"
+done
+
+# Default report: canonical Git repositories and exact pins yield two trusted
+# candidates. Same-major selectors choose the highest pin deterministically;
+# offline, unknown-version, custom-root, false-marker, and whole-generation
+# cases stay review-only.
+: >"$cleanup_log"
+(cd "$cleanup_fixture/unrelated" && env "${cleanup_env[@]}" "$cleanup_command") \
+  >"$cleanup_fixture/report"
+grep -qF 'Automatic candidates: 2' "$cleanup_fixture/report" \
+  || {
+    cat "$cleanup_fixture/report" >&2
+    fail "cleanup discovery must deduplicate two pnpm versions sharing one canonical store"
+  }
+grep -qF "Representative: $cleanup_code/repo-b" "$cleanup_fixture/report" \
+  || {
+    cat "$cleanup_fixture/report" >&2
+    fail "same-major selectors must choose the highest exact pin deterministically"
+  }
+grep -qF "Also selected by: $cleanup_code/repo-a (pnpm 11.1.0)" "$cleanup_fixture/report" \
+  || fail "the report must list every repository sharing an automatic store"
+grep -qF "$cleanup_fixture/stores/v11" "$cleanup_fixture/report" \
+  || fail "the report must name each exact automatic store"
+grep -qF "$cleanup_code/repo-offline" "$cleanup_fixture/report" \
+  || fail "an offline-unavailable repository pin must be reported for review"
+grep -qF 'resolved a store but its pnpm version was unavailable' "$cleanup_fixture/report" \
+  || fail "a store with an unmeasurable pnpm version must stay review-only"
+grep -qF 'custom store root is not trusted' "$cleanup_fixture/report" \
+  || fail "a repository-controlled custom store must stay review-only"
+grep -qF 'packageManager contains a control character' "$cleanup_fixture/report" \
+  || fail "a control-character packageManager value was not refused"
+grep -qF "$cleanup_code/repo-escape/package.json" "$cleanup_fixture/report" \
+  || fail "an escape-bearing packageManager value was not refused"
+grep -qF 'prerelease pnpm pins are review-only' "$cleanup_fixture/report" \
+  || fail "a prerelease pnpm pin entered unattended maintenance"
+grep -qF 'trusted_pnpm_store_root must be absolute' "$cleanup_fixture/report" \
+  || fail "a relative trusted pnpm store root was not rejected explicitly"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/report-other-cwd"
+grep -qF 'Automatic candidates: 2' "$cleanup_fixture/report-other-cwd" \
+  || fail "relative trusted roots changed meaning with the launch directory"
+grep -qF 'trusted_pnpm_store_root must be absolute' "$cleanup_fixture/report-other-cwd" \
+  || fail "relative trusted-root diagnostics changed with the launch directory"
+grep -qF 'pnpm v9 store' "$cleanup_fixture/report" \
+  || fail "an unmatched whole store generation must be reported, never deleted"
+assert_not_contains 'false marker queried' "$cleanup_log" \
+  "a false .git marker was trusted as a repository"
+test ! -s "$cleanup_log" || fail "the read-only cleanup report invoked a mutating command"
+test ! -e "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success" \
+  || fail "the read-only cleanup report changed cadence state"
+
+# First automatic pass is due, runs each canonical store exactly once from a
+# representative repository (not the unrelated launch directory), disables
+# Corepack networking, and records success even though the stub reclaims zero.
+: >"$cleanup_log"
+(cd "$cleanup_fixture/unrelated" && env "${cleanup_env[@]}" "$cleanup_command" --yes) \
+  >"$cleanup_fixture/first-pass"
+[[ "$(grep -c '^pnpm store prune' "$cleanup_log")" -eq 2 ]] \
+  || fail "the due pass must prune two distinct canonical stores exactly once each"
+grep -qE '^pnpm store prune version=11\.2\.0 store=.*/stores/v11 base=.*/stores pwd=.*/code/repo-b net=0$' \
+  "$cleanup_log" \
+  || fail "a shared pnpm store must prune through the deterministic highest exact pin"
+assert_not_contains "pwd=$cleanup_fixture/unrelated" "$cleanup_log" \
+  "pnpm maintenance depended on update-all's incidental working directory"
+grep -qF 'net=0' "$cleanup_log" \
+  || fail "automatic pnpm maintenance must keep Corepack networking disabled"
+test -f "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success" \
+  || fail "a successful no-op pnpm prune must advance cadence"
+
+# Failure to measure npm's cache must not suppress npm's supported verification.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" NPM_CONFIG_STATUS=1 \
+  "$cleanup_command" --yes >"$cleanup_fixture/npm-path-unavailable"
+grep -qE '^npm cache verify pwd=.*/package-maintenance-fixture/home$' "$cleanup_log" \
+  || fail "an unavailable npm cache path must not skip npm cache verify"
+grep -qF 'Reclaimed: not measured' "$cleanup_fixture/npm-path-unavailable" \
+  || fail "an unavailable npm cache path must produce an honest unmeasured receipt"
+
+# A second pass inside the cadence still maintains Homebrew/npm but skips pnpm;
+# --force is the explicit immediate path.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" LOG_DU=1 "$cleanup_command" --yes >"$cleanup_fixture/not-due"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "pnpm was pruned again immediately after a successful no-op"
+assert_not_contains '^du .*(/stores/|/pnpm/store/)' "$cleanup_log" \
+  "a non-due automatic run eagerly measured pnpm stores"
+grep -qF 'Maintenance not due' "$cleanup_fixture/not-due"
+touch -t 202001010000 "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/content-cadence"
+grep -qF 'Maintenance: not due' "$cleanup_fixture/content-cadence" \
+  || fail "pnpm cadence followed restored file mtime instead of its recorded timestamp"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >"$cleanup_fixture/forced"
+[[ "$(grep -c '^pnpm store prune' "$cleanup_log")" -eq 2 ]] \
+  || fail "--yes --force must prune every resolved store regardless of cadence"
+
+# Bounded children never inherit the record loop as stdin. A first pnpm that
+# drains stdin must not consume the remaining store records.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" PNPM_DRAIN_STDIN=1 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/stdin-drain"
+[[ "$(grep -c '^pnpm store prune' "$cleanup_log")" -eq 2 ]] \
+  || fail "a maintenance child consumed later pnpm store records from stdin"
+
+# Monthly and high-water triggers are independently observable.
+printf '946684800 2000-01-01T00:00:00Z\n' \
+  >"$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+touch "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/monthly"
+grep -qF 'Maintenance: due (machine-wide success was' "$cleanup_fixture/monthly" \
+  || fail "a success older than the monthly cadence must be due"
+printf '%s now\n' "$(date +%s)" \
+  >"$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+rm -f "$cleanup_home/.local/state/groundwork/pnpm-prune-last-attempt"
+env "${cleanup_env[@]}" FAKE_DU_BLOCKS=2097152 GROUNDWORK_PNPM_HIGH_WATER_GIB=1 \
+  "$cleanup_command" >"$cleanup_fixture/high-water"
+grep -qF 'exceed the 1 GiB high-water mark' "$cleanup_fixture/high-water" \
+  || fail "the high-water trigger must be reported when its attempt floor permits"
+
+# A failed high-water pass records a recent attempt, but pending repair
+# overrides that retry floor. The next normal --yes run retries and clears it.
+printf '%s now\n' "$(date +%s)" \
+  >"$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+rm -f "$cleanup_home/.local/state/groundwork/pnpm-prune-last-attempt" \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+set +e
+env "${cleanup_env[@]}" FAKE_DU_BLOCKS=2097152 GROUNDWORK_PNPM_HIGH_WATER_GIB=1 \
+  PNPM_V10_STATUS=1 "$cleanup_command" --yes >"$cleanup_fixture/high-water-failed" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] || fail "the simulated high-water failure returned success"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes >"$cleanup_fixture/pending-retried"
+grep -qF 'pending repair' "$cleanup_fixture/pending-retried" \
+  || fail "pending pnpm state did not override its recent high-water attempt floor"
+grep -qF 'pnpm store prune' "$cleanup_log" \
+  || fail "ordinary --yes did not retry pending pnpm maintenance"
+test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm" \
+  || fail "ordinary --yes did not clear repaired pnpm state"
+
+# Exact-pin discovery fails closed: no jq means no automatic pnpm mutation.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" GROUNDWORK_CLEANUP_JQ_BIN=/nonexistent \
+  "$cleanup_command" >"$cleanup_fixture/no-jq-report"
+grep -qF 'Automatic candidates: 0' "$cleanup_fixture/no-jq-report"
+grep -qF 'jq is unavailable' "$cleanup_fixture/no-jq-report"
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_CLEANUP_JQ_BIN=/nonexistent \
+  "$cleanup_command" --yes >"$cleanup_fixture/no-jq-run" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] || fail "unavailable exact-pin parsing was reported as complete"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "pnpm mutated a store while exact-pin parsing was unavailable"
+env "${cleanup_env[@]}" "$cleanup_command" --yes >/dev/null
+
+# No exact pnpm pin means no automatic candidate and, specifically, no ambient
+# HOME launcher fallback.
+cp "$cleanup_home/.config/groundwork/repos.conf" "$cleanup_fixture/repos.conf.saved"
+cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
+root = $cleanup_code/no-pin
+max_depth = 1
+include_worktrees = true
+cache_ttl_seconds = 30
+trusted_pnpm_store_root = $cleanup_fixture/stores
+EOF
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/no-pins"
+grep -qF 'Automatic candidates: 0' "$cleanup_fixture/no-pins"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/no-pins-force"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "forced maintenance treated an unpinned HOME launcher as a candidate"
+
+# --force means "run every supported candidate now", not "invent a pnpm
+# candidate". With pnpm absent or with only an untrusted custom store, it is a
+# successful no-op after the independent Homebrew/npm stages.
+mv "$cleanup_bin/pnpm" "$cleanup_fixture/pnpm.saved"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/no-pnpm-force" \
+  || fail "--yes --force failed merely because pnpm is not installed"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "forced maintenance invoked pnpm while pnpm was absent"
+mv "$cleanup_fixture/pnpm.saved" "$cleanup_bin/pnpm"
+cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
+root = $cleanup_code/repo-custom
+max_depth = 1
+include_worktrees = true
+cache_ttl_seconds = 30
+trusted_pnpm_store_root = $cleanup_fixture/stores
+EOF
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/untrusted-only-force" \
+  || fail "--yes --force failed with only review-required pnpm stores"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "forced maintenance pruned an untrusted custom store"
+
+# Existing pending state is different: it remains a repair failure until a
+# trusted exact-pinned candidate is available or the owner clears the reminder.
+mkdir -p "$cleanup_home/.local/state/groundwork/update-all-pending"
+printf 'recorded pnpm failure\n' \
+  >"$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+set +e
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/pending-without-candidate" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "pending pnpm repair was cleared without a trusted candidate"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+rm -f "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+mv "$cleanup_fixture/repos.conf.saved" "$cleanup_home/.config/groundwork/repos.conf"
+
+# One canonical store selected by different pnpm majors is review-only. The
+# unrelated trusted v10 store remains eligible.
+mkdir -p "$cleanup_code/repo-conflict"
+git -C "$cleanup_code/repo-conflict" init -q
+printf '{"packageManager":"pnpm@10.1.0"}\n' >"$cleanup_code/repo-conflict/package.json"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/conflicting-majors"
+grep -qF 'conflicting pnpm majors (10,11)' "$cleanup_fixture/conflicting-majors" \
+  || fail "same-store conflicting pnpm majors were not refused"
+grep -qF 'Automatic candidates: 1' "$cleanup_fixture/conflicting-majors" \
+  || fail "a conflicting store suppressed an unrelated trusted candidate"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+[[ "$(grep -c '^pnpm store prune' "$cleanup_log")" -eq 1 ]] \
+  || fail "a conflicting pnpm-major store was pruned automatically"
+grep -qF "store=$cleanup_fixture/stores/v10" "$cleanup_log"
+mv "$cleanup_code/repo-conflict" "$cleanup_fixture/repo-conflict.hidden"
+
+# Independent failures become per-stage state. Retrying with pnpm repaired but
+# npm still failing clears only pnpm's record and remains nonzero for npm.
+rm -f "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" NPM_MAINTENANCE_STATUS=1 PNPM_V10_STATUS=1 \
+  "$cleanup_command" --yes >"$cleanup_fixture/partial" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] || fail "partial package maintenance must exit nonzero"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/npm"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm"
+[[ "$(grep -c '^pnpm store prune' "$cleanup_log")" -eq 2 ]] \
+  || fail "one failed pnpm store prevented a later independent store attempt"
+set +e
+env "${cleanup_env[@]}" NPM_MAINTENANCE_STATUS=1 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/retry" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] || fail "an unrepaired npm stage must keep the retry nonzero"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/npm"
+test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm" \
+  || fail "a repaired pnpm retry must clear only pnpm's pending record"
+
+# An old Homebrew-only marker migrates into generalized state. A still-failing
+# Homebrew repair remains nonzero and visible until a later pass completes it.
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+printf 'old cleanup failed\n' >"$cleanup_home/.local/state/groundwork/homebrew-cleanup-pending"
+set +e
+env "${cleanup_env[@]}" BREW_MAINTENANCE_STATUS=1 \
+  "$cleanup_command" --yes >"$cleanup_fixture/legacy-pending" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "a still-failing package manager must not silently clear its pending maintenance"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "the legacy Homebrew marker was not migrated into per-stage state"
+test ! -e "$cleanup_home/.local/state/groundwork/homebrew-cleanup-pending" \
+  || fail "the legacy marker remained after its state was migrated"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/pending-report"
+grep -qF 'Pending repair' "$cleanup_fixture/pending-report" \
+  || fail "the read-only cleanup report must expose pending repair state"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "a later successful Homebrew pass did not clear migrated pending state"
+
+# When a manager has intentionally disappeared, only the owner-confirmed
+# acknowledgement clears Groundwork's reminder. It performs no maintenance and
+# preserves an audit note naming the unresolved record.
+mkdir -p "$cleanup_home/.local/state/groundwork/update-all-pending"
+printf 'recorded Homebrew failure\n' \
+  >"$cleanup_home/.local/state/groundwork/update-all-pending/homebrew"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --clear-pending homebrew \
+  >"$cleanup_fixture/clear-pending"
+test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "owner-confirmed pending acknowledgement did not clear its reminder"
+test ! -s "$cleanup_log" \
+  || fail "--clear-pending ran package-manager maintenance"
+grep -qF 'No package-manager maintenance was performed' "$cleanup_fixture/clear-pending"
+grep -qF 'stage=homebrew' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending-cleared.log" \
+  || fail "--clear-pending did not preserve an audit note"
+
+# Direct maintenance is single-writer. The second process fails fast with 75
+# while the first owns the lock, and only the owner executes mutations.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" BREW_MAINTENANCE_DELAY=2 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/concurrent-owner" 2>&1 &
+cleanup_owner_pid=$!
+for _ in {1..50}; do
+  [[ -d "$cleanup_home/.local/state/groundwork/update-all.lock" ]] && break
+  sleep 0.1
+done
+set +e
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/concurrent-refused" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 75 ]] \
+  || fail "a concurrent cleanup must fail with 75, got $cleanup_status"
+grep -qF 'already active' "$cleanup_fixture/concurrent-refused"
+wait "$cleanup_owner_pid"
+[[ "$(grep -c '^brew ' "$cleanup_log")" -eq 2 ]] \
+  || fail "the refused concurrent cleanup executed package-manager mutations"
+
+# Dead owners are reclaimed. A live PID with a different recorded process
+# start is also stale rather than blocking forever after PID reuse.
+cleanup_lock="$cleanup_home/.local/state/groundwork/update-all.lock"
+mkdir -p "$cleanup_lock"
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS=2 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/young-incomplete-lock" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 75 ]] \
+  || fail "a young incomplete maintenance lock must fail fast with 75"
+touch -t 200001010000 "$cleanup_lock"
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS=1 \
+  "$cleanup_command" --yes --force >/dev/null \
+  || fail "an old incomplete maintenance lock was not reclaimed"
+mkdir -p "$cleanup_lock"
+printf '%s\n' "$$" >"$cleanup_lock/pid"
+printf 'partial\n' >"$cleanup_lock/operation"
+touch -t 200001010000 "$cleanup_lock"
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS=1 \
+  "$cleanup_command" --yes --force >/dev/null \
+  || fail "old partial metadata with a live or reused PID blocked forever"
+mkdir -p "$cleanup_lock"
+printf '99999999\n' >"$cleanup_lock/pid"
+printf 'old\n' >"$cleanup_lock/process-start"
+printf 'stale-token\n' >"$cleanup_lock/token"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null \
+  || fail "a dead-owner maintenance lock was not reclaimed"
+mkdir -p "$cleanup_lock"
+printf '%s\n' "$$" >"$cleanup_lock/pid"
+printf 'not-the-current-process-start\n' >"$cleanup_lock/process-start"
+printf 'reused-token\n' >"$cleanup_lock/token"
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE=current-process \
+  "$cleanup_command" --yes --force >/dev/null \
+  || fail "a reused-PID maintenance lock was not reclaimed"
+mkdir -p "$cleanup_lock"
+printf '99999999\n' >"$cleanup_lock/pid"
+printf 'old\n' >"$cleanup_lock/process-start"
+printf 'changed-token\n' >"$cleanup_lock/token"
+set +e
+HOME="$cleanup_home" GROUNDWORK_UPDATE_LOCK_DIR="$cleanup_lock" \
+  bash -c 'source "$1"; groundwork_lock_remove_stale 99999999 snapshot-token old' \
+  _ "$cleanup_home/.local/lib/groundwork/update-lock.sh"
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "stale-lock removal ignored a changed metadata snapshot"
+test -d "$cleanup_lock" \
+  || fail "stale-lock removal deleted metadata that changed during inspection"
+touch -t 200001010000 "$cleanup_lock"
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS=1 \
+  "$cleanup_command" --yes --force >/dev/null
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_HELD=1 \
+  GROUNDWORK_UPDATE_LOCK_TOKEN=forged "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/forged-inherited-lock" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 75 ]] \
+  || fail "a forged inherited maintenance lock was accepted"
+
+# Observation failures that carry conventional signal statuses are
+# authoritative. They must stop before the first package-manager mutation
+# instead of being converted into an unavailable measurement or review item.
+mv "$cleanup_bin/groundwork-repos" "$cleanup_fixture/groundwork-repos.real"
+cat >"$cleanup_bin/groundwork-repos" <<'SH'
+#!/usr/bin/env bash
+exit "${REPOSITORY_DISCOVERY_STATUS:-0}"
+SH
+chmod +x "$cleanup_bin/groundwork-repos"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" REPOSITORY_DISCOVERY_STATUS=129 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/observation-discovery-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 129 ]] \
+  || fail "repository-discovery signal status became $cleanup_status, expected 129"
+test ! -s "$cleanup_log" \
+  || fail "repository-discovery interruption allowed package-manager mutation"
+mv "$cleanup_fixture/groundwork-repos.real" "$cleanup_bin/groundwork-repos"
+
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" PNPM_STORE_PATH_STATUS=130 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/observation-store-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 130 ]] \
+  || fail "pnpm store-path signal status became $cleanup_status, expected 130"
+test ! -s "$cleanup_log" \
+  || fail "pnpm store-path interruption allowed package-manager mutation"
+
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" DU_STATUS=143 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/observation-du-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 143 ]] \
+  || fail "du signal status became $cleanup_status, expected 143"
+test ! -s "$cleanup_log" \
+  || fail "size-observation interruption allowed package-manager mutation"
+
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" BREW_CACHE_STATUS=129 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/observation-brew-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 129 ]] \
+  || fail "Homebrew cache signal status became $cleanup_status, expected 129"
+test ! -s "$cleanup_log" \
+  || fail "Homebrew-cache interruption allowed package-manager mutation"
+
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" NPM_CONFIG_STATUS=130 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/observation-npm-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 130 ]] \
+  || fail "npm cache signal status became $cleanup_status, expected 130"
+test ! -s "$cleanup_log" \
+  || fail "npm-cache interruption allowed package-manager mutation"
+
+# A real TERM during a bounded observation follows the same path and releases
+# the lock without creating pending mutation state.
+brew_cache_sentinel="$cleanup_fixture/brew-cache-observation.started"
+rm -f "$brew_cache_sentinel"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" BREW_CACHE_SENTINEL="$brew_cache_sentinel" \
+  BREW_CACHE_DELAY=30 "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/observation-real-term" 2>&1 &
+cleanup_signal_pid=$!
+for _ in {1..100}; do
+  [[ -f "$brew_cache_sentinel" ]] && break
+  sleep 0.1
+done
+test -f "$brew_cache_sentinel" \
+  || fail "the delayed Homebrew cache observation never started"
+kill -TERM "$cleanup_signal_pid"
+set +e
+wait "$cleanup_signal_pid"
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 143 ]] \
+  || fail "TERM during observation returned $cleanup_status, expected 143"
+test ! -s "$cleanup_log" \
+  || fail "TERM during observation allowed package-manager mutation"
+test ! -d "$cleanup_home/.local/state/groundwork/update-all.lock" \
+  || fail "TERM during observation left the maintenance lock behind"
+
+# A healthy command that stays quiet long enough emits a heartbeat and still
+# succeeds before its hard deadline.
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=5 \
+  BREW_MAINTENANCE_DELAY=2 "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/heartbeat" 2>&1 \
+  || fail "a healthy slow maintenance command failed before its deadline"
+grep -qF 'Still running: brew autoremove' "$cleanup_fixture/heartbeat" \
+  || fail "a quiet maintenance command emitted no heartbeat"
+
+# A timed-out package-manager stage cancels descendants in its process group,
+# not only the direct shell process.
+descendant_pid_file="$cleanup_fixture/descendant.pid"
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
+  BREW_SPAWN_DESCENDANT=1 BREW_DESCENDANT_PID_FILE="$descendant_pid_file" \
+  "$cleanup_command" --yes >"$cleanup_fixture/process-tree-timeout" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] || fail "a timed-out process tree returned success"
+descendant_pid="$(<"$descendant_pid_file")"
+for _ in {1..20}; do
+  descendant_state="$(ps -o stat= -p "$descendant_pid" 2>/dev/null | tr -d '[:space:]' || true)"
+  [[ -z "$descendant_state" || "$descendant_state" == Z* ]] && break
+  sleep 0.1
+done
+if [[ -n "$descendant_state" && "$descendant_state" != Z* ]]; then
+  fail "a package-manager descendant survived the hard deadline"
+fi
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
+# A child reporting interrupt status preserves pending state and propagates the
+# conventional 130 result.
+rm -rf "$cleanup_home/.local/state/groundwork/update-all-pending"
+set +e
+env "${cleanup_env[@]}" BREW_MAINTENANCE_STATUS=130 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/signal-INT" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 130 ]] \
+  || fail "an interrupted maintenance child returned $cleanup_status, expected 130"
+grep -qF 'interrupted (exit 130)' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "an interrupted maintenance child did not preserve Homebrew state"
+
+# TERM delivered to the helper cancels the active process group, preserves
+# pending state, escalates after a bounded grace when both child and grandchild
+# resist TERM, returns 143, and releases the transaction lock.
+rm -rf "$cleanup_home/.local/state/groundwork/update-all-pending"
+: >"$cleanup_log"
+resistant_parent_pid_file="$cleanup_fixture/resistant-parent.pid"
+resistant_descendant_pid_file="$cleanup_fixture/resistant-descendant.pid"
+env "${cleanup_env[@]}" BREW_RESIST_TERM=1 \
+  BREW_PARENT_PID_FILE="$resistant_parent_pid_file" \
+  BREW_DESCENDANT_PID_FILE="$resistant_descendant_pid_file" \
+  "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/signal-TERM" 2>&1 &
+cleanup_signal_pid=$!
+for _ in {1..100}; do
+  [[ -s "$resistant_parent_pid_file" && -s "$resistant_descendant_pid_file" ]] && break
+  sleep 0.1
+done
+test -s "$resistant_parent_pid_file" \
+  || fail "the TERM-resistant maintenance child never started"
+test -s "$resistant_descendant_pid_file" \
+  || fail "the TERM-resistant maintenance grandchild never started"
+kill -TERM "$cleanup_signal_pid"
+set +e
+wait "$cleanup_signal_pid"
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 143 ]] \
+  || fail "TERM returned $cleanup_status, expected 143"
+grep -qF 'interrupted (exit 143)' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "TERM did not preserve interrupted Homebrew state"
+test ! -d "$cleanup_home/.local/state/groundwork/update-all.lock" \
+  || fail "TERM left the machine-maintenance lock behind"
+for resistant_pid_file in "$resistant_parent_pid_file" "$resistant_descendant_pid_file"; do
+  resistant_pid="$(<"$resistant_pid_file")"
+  resistant_state="$(ps -o stat= -p "$resistant_pid" 2>/dev/null | tr -d '[:space:]' || true)"
+  [[ -z "$resistant_state" || "$resistant_state" == Z* ]] \
+    || fail "a TERM-resistant maintenance process survived cancellation"
+done
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
 check "groundwork-pnpm-store-tidy: hostile arguments, dry-run default, receipt"
 pnpm_tidy="$PWD/home/dot_local/bin/executable_groundwork-pnpm-store-tidy"
@@ -1803,8 +2756,8 @@ grep -qF 'npm cache path unavailable' "$storage_fixture/npm-fail-output" \
   || fail "a failed npm cache query must be reported as unavailable"
 grep -qF 'NOT verified as the active cache' "$storage_fixture/npm-fail-output" \
   || fail "an unverified ~/.npm must be labeled unverified, not configured"
-grep -qF 'groundwork-pnpm-store-tidy' "$storage_fixture/output" \
-  || fail "the storage report must point at the owning tidy command"
+grep -qF 'groundwork-cleanup' "$storage_fixture/output" \
+  || fail "the storage report must point at the automatic maintenance report"
 # Absent areas stay silent rather than being invented: no Xcode or Parallels
 # directories exist in this fixture HOME.
 assert_not_contains 'Parallels' "$storage_fixture/output" \
@@ -1892,6 +2845,12 @@ check "update-all migration notice"
 migration_home="$out_dir/update-all-migration-home"
 migration_flag="$migration_home/.local/state/groundwork/update-all-migration-pending"
 mkdir -p "$migration_home"
+HOME="$migration_home" /bin/bash home/run_once_after_97-package-maintenance-notice.sh \
+  >"$out_dir/package-maintenance-migration-notice"
+grep -qF 'update-all now includes automatic package-manager maintenance' \
+  "$out_dir/package-maintenance-migration-notice"
+grep -qF 'Whole pnpm store generations remain' \
+  "$out_dir/package-maintenance-migration-notice"
 cat >"$migration_home/.zshrc" <<'EOF'
 update-all() {
   echo old
@@ -5423,6 +6382,30 @@ repos_run '' "$repos_path" list >/dev/null
 rm -rf "$repos_root/charlie"
 repos_run '' "$repos_path" list | grep -qF "$repos_root/charlie" \
   || fail "warm cache inside TTL should still list the removed repo"
+# Maintenance discovery needs the same canonical roots without trusting or
+# rewriting interactive cache state. --no-cache sees live removal, and the
+# following plain run proves it did not replace the still-warm cache.
+repos_run '' "$repos_path" --no-cache list >"$repos_dir/list-no-cache"
+assert_no_matches "--no-cache still served the stale cache" \
+  grep -nF "$repos_root/charlie" "$repos_dir/list-no-cache"
+repos_run '' "$repos_path" list | grep -qF "$repos_root/charlie" \
+  || fail "--no-cache rewrote the interactive discovery cache"
+if repos_run '' "$repos_path" --no-cache status >/dev/null 2>&1; then
+  fail "groundwork-repos accepted --no-cache outside list mode"
+fi
+if repos_run '' "$repos_path" --no-cache --refresh list >/dev/null 2>&1; then
+  fail "groundwork-repos accepted conflicting cache controls"
+fi
+# The list protocol is deliberately tab-delimited, and every emitted path also
+# reaches a terminal-facing report. Real repositories containing either a
+# record delimiter or a terminal escape make live discovery fail closed.
+for repos_control_path in "$repos_root/control"$'\t'"repo" "$repos_root/control"$'\033'"repo"; do
+  repos_mk "$repos_control_path"
+  if repos_run '' "$repos_path" --no-cache list >/dev/null 2>&1; then
+    fail "groundwork-repos serialized a terminal-control repository path"
+  fi
+  rm -rf "$repos_control_path"
+done
 # --refresh bypasses AND rewrites the cache: the change shows immediately,
 # and the next plain run reads the rewritten cache, not the stale one.
 repos_run '' "$repos_path" --refresh list >"$repos_dir/list-refresh"
@@ -5586,7 +6569,8 @@ grep -qxF '.local/bin/groundwork-karabiner-start' home/.chezmoiremove
 test -x home/dot_local/bin/executable_update-all
 test -x home/dot_local/bin/executable_groundwork-update-run.tmpl
 grep -qF 'chezmoi update --init' home/dot_local/bin/executable_update-all
-grep -qF "exec \"\$runner\" \"\$@\"" home/dot_local/bin/executable_update-all
+# shellcheck disable=SC2016 # Match literal launcher source; these variables belong to that file.
+grep -qF 'exec "$runner" "${forward_args[@]}"' home/dot_local/bin/executable_update-all
 assert_no_matches "update stages leaked into the stable update-all launcher" \
   rg -n 'brew upgrade|mise upgrade|groundwork-brew-update' home/dot_local/bin/executable_update-all
 # Reconfigure-vs-regenerate UX: the launcher runs the source-branch preflight
@@ -5603,6 +6587,8 @@ assert_no_matches "substantive update-all shell function returned" rg -n '^updat
 grep -qF $'daily\tupdate-all\tcommand\t' home/dot_local/share/groundwork/commands.tsv
 test -f home/run_once_before_07-update-all-command-migration.sh
 test -f home/run_after_98-update-all-migration-reminder.sh
+test -x home/dot_local/bin/executable_groundwork-cleanup
+test -f home/run_once_after_97-package-maintenance-notice.sh
 # Destructive tmux keys must ask first. x sits next to z (zoom), so an
 # unconfirmed kill-pane silently destroys panes running agents or servers;
 # tmux's own default for x is confirm-before, and overriding that away is a

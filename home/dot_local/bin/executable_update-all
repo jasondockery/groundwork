@@ -8,6 +8,46 @@ set -euo pipefail
 # run; keep substantive logic out of this file.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+usage() {
+  cat <<'EOF'
+Synchronize Groundwork, upgrade managed tools, and maintain package managers.
+
+Usage:
+  update-all                    run the complete refresh and maintenance contract
+  update-all --skip-maintenance exceptional fast refresh; skip package-manager maintenance
+  update-all -h|--help          show this help
+
+The normal command applies current Groundwork configuration, upgrades the safe
+managed-tool lane, runs Homebrew and npm maintenance, prunes resolved pnpm
+stores when due, and prints receipts. It never removes project caches, whole
+pnpm store generations, Docker data, Xcode data, or application/user data.
+EOF
+}
+
+# Validate the complete invocation before source sync, apply, network access,
+# or any package operation. The freshly installed runner parses again because
+# it is also a directly invocable entry point.
+forward_args=("$@")
+while (($#)); do
+  case "$1" in
+    --skip-maintenance) ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "update-all: unknown option: $1" >&2
+      echo "Run 'update-all --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      echo "update-all: unexpected argument: $1 (this command takes no positional arguments)" >&2
+      exit 64
+      ;;
+  esac
+  shift
+done
+
 # One color decision for the whole refresh, made here while the user's
 # terminal is still what stdout points at. Every stage and hook script keys
 # on this signal instead of probing its own stdout, so a tee or capture
@@ -63,6 +103,26 @@ case "$platform" in
     exit 1
     ;;
 esac
+
+# Serialize source synchronization, apply, upgrades, and maintenance. The
+# freshly exec'd runner inherits and verifies this exact lock token.
+lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
+if [[ ! -r "$lock_lib" ]]; then
+  echo "Groundwork: the update lock helper is missing: $lock_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$lock_lib"
+groundwork_lock_acquire "update-all" || exit $?
+update_all_exit() {
+  local status=$?
+  groundwork_lock_release || true
+  exit "$status"
+}
+trap update_all_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Preflight the SOURCE branch before `chezmoi update` runs git pull: a local
 # development branch with no upstream (or a detached HEAD) gets Groundwork's
@@ -156,4 +216,7 @@ if [[ "$gw_regenerated" == 1 ]]; then
   echo "To review or change a setting: groundwork-configure"
 fi
 
-exec "$runner" "$@"
+if [[ "${#forward_args[@]}" -gt 0 ]]; then
+  exec "$runner" "${forward_args[@]}"
+fi
+exec "$runner"

@@ -10,6 +10,65 @@ set -euo pipefail
 # update-all, not this file, for a refresh that includes the sync.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+usage() {
+  cat <<'EOF'
+Complete the post-sync half of update-all.
+
+Usage:
+  groundwork-update-run                    apply and refresh with maintenance
+  groundwork-update-run --skip-maintenance apply and refresh without package-manager maintenance
+  groundwork-update-run -h|--help          show this help
+
+Run update-all for the normal full transaction. This runner is directly
+invocable for repair and testing, so it validates the same arguments before
+chezmoi apply or any package operation.
+EOF
+}
+
+skip_maintenance=0
+while (($#)); do
+  case "$1" in
+    --skip-maintenance) skip_maintenance=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "groundwork-update-run: unknown option: $1" >&2
+      echo "Run 'groundwork-update-run --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      echo "groundwork-update-run: unexpected argument: $1 (this command takes no positional arguments)" >&2
+      exit 64
+      ;;
+  esac
+  shift
+done
+
+# Direct runner invocations acquire the same lock as update-all. When the
+# launcher execs this file, the inherited token proves the transaction is
+# already locked.
+lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
+if [[ ! -r "$lock_lib" ]]; then
+  echo "Groundwork: the update lock helper is missing: $lock_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$lock_lib"
+groundwork_lock_acquire "groundwork-update-run" || exit $?
+runner_temp=""
+runner_exit() {
+  local status=$?
+  groundwork_lock_release || true
+  [[ -z "$runner_temp" ]] || rm -f -- "$runner_temp" || true
+  exit "$status"
+}
+trap runner_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # The update-all launcher decides color once for the whole run and exports
 # GROUNDWORK_COLOR before the sync, so every stage and hook script inherits
 # it. Recompute only when invoked directly (same rules: NO_COLOR off,
@@ -99,7 +158,7 @@ if command -v brew >/dev/null 2>&1; then
   # forever; the helper shows brew's exact suggested command and only acts
   # on a yes. A failed upgrade retries once after a repair actually ran.
   upgrade_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-upgrade.XXXXXX")"
-  trap 'rm -f -- "$upgrade_log"' EXIT
+  runner_temp="$upgrade_log"
   upgrade_status=0
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
     brew upgrade --require-sha 2>&1 | tee "$upgrade_log" || upgrade_status=$?
@@ -127,130 +186,12 @@ if command -v brew >/dev/null 2>&1; then
       brew upgrade --require-sha || upgrade_status=$?
   fi
   rm -f -- "$upgrade_log"
-  trap - EXIT
+  runner_temp=""
   [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
   {{- else }}
   # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades formulae only.
   HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade
   {{- end }}
-  # Remove formulae that were only ever dependencies and are no longer
-  # needed — this clears deprecated leftovers (a versioned icu4c, an old
-  # python) that otherwise warn on every upgrade forever.
-  brew autoremove
-
-  # Bytes under Homebrew's cache, or nothing at all when the query itself
-  # fails — a failed observation is reported as unavailable, never as an
-  # empty cache. du -sk is the portable form: -k on both BSD and GNU, and
-  # GNU-only -b would report zero here on macOS.
-  brew_cache_bytes() {
-    local cache blocks
-    cache="$(brew --cache 2>/dev/null)" || return 1
-    [[ -n "$cache" ]] || return 1
-    # A cache directory Homebrew has not created yet holds nothing; that is a
-    # measurement, not a failed one.
-    [[ -d "$cache" ]] || {
-      printf '0\n'
-      return 0
-    }
-    blocks="$(du -sk "$cache" 2>/dev/null | awk 'NR == 1 {print $1}')"
-    [[ "$blocks" =~ ^[0-9]+$ ]] || return 1
-    printf '%s\n' "$((blocks * 1024))"
-  }
-
-  # Binary units, labeled as binary: du reports 1024-byte blocks, so KiB/MiB
-  # is what these numbers actually are.
-  format_bytes() {
-    if [[ -z "$1" ]]; then
-      printf 'unavailable\n'
-      return 0
-    fi
-    awk -v bytes="$1" 'BEGIN {
-      split("B KiB MiB GiB TiB", unit, " ")
-      index_ = 1
-      while (bytes >= 1024 && index_ < 5) { bytes /= 1024; index_++ }
-      if (index_ == 1) printf "%d %s\n", bytes, unit[index_]
-      else printf "%.1f %s\n", bytes, unit[index_]
-    }'
-  }
-
-  # Durable state, not just a message on a screen that scrolls away. Withholding
-  # the success timestamp is NOT enough on its own: a refresh that succeeded
-  # three days ago leaves a timestamp that is still inside the stale window, so
-  # the reminder would stay quiet while the cache stayed full. The previous
-  # timestamp is truthful history and is left alone; this marker is what says
-  # something is still outstanding, and the shell reminder acts on it whatever
-  # the timestamp's age. It is written the moment cleanup fails, so a later
-  # stage that exits first cannot swallow the state.
-  cleanup_pending_marker="$HOME/.local/state/groundwork/homebrew-cleanup-pending"
-  mark_cleanup_pending() {
-    local temporary
-    mkdir -p "$(dirname "$cleanup_pending_marker")" || return 0
-    temporary="${cleanup_pending_marker}.tmp.$$"
-    printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >"$temporary" || return 0
-    mv -f -- "$temporary" "$cleanup_pending_marker" || return 0
-  }
-
-  # Homebrew's default cleanup is deliberately conservative: it prunes stale
-  # downloads and files older than 120 days, so a machine that refreshes often
-  # accumulates gigabytes of downloads a successful update-all never touches.
-  # --prune=all is Homebrew's documented option for removing all cached
-  # downloads. What it removes is reproducible: cached downloads, superseded
-  # formula versions, and stale lock files — never a package the user asked
-  # for, though the `brew autoremove` above it may drop a dependency nothing
-  # needs any more. Never substitute a raw recursive
-  # deletion of the cache directory: brew's own command respects its locking,
-  # its own reporting, and whatever it decides is not disposable.
-  #
-  # Placement is the contract: this runs only after the upgrade stage above
-  # succeeded (a failed upgrade exits before here), so partial downloads stay
-  # cached for the retry rather than being deleted out from under it.
-  cache_before="$(brew_cache_bytes || true)"
-  cleanup_status=0
-  brew cleanup --prune=all || cleanup_status=$?
-  case "$cleanup_status" in
-    130 | 143)
-      # Best-effort: this records the case where only the child died (brew
-      # exited on the signal while this runner survived). A terminal Ctrl-C
-      # signals the whole process group, which usually kills the runner
-      # before it gets here — that path has no durable record.
-      mark_cleanup_pending "brew cleanup --prune=all was interrupted (exit $cleanup_status)"
-      exit "$cleanup_status"
-      ;;
-  esac
-  cache_after="$(brew_cache_bytes || true)"
-  # Cache-scoped by construction: this measures $(brew --cache) alone, while
-  # the command it brackets also removes old formula versions and stale locks
-  # outside the cache. Labeling the numbers "cache" keeps the receipt from
-  # contradicting Homebrew's own wider report.
-  echo "Homebrew cleanup (brew autoremove; brew cleanup --prune=all)"
-  printf '  Cache before:    %s\n' "$(format_bytes "$cache_before")"
-  printf '  Cache after:     %s\n' "$(format_bytes "$cache_after")"
-  if [[ -z "$cache_before" || -z "$cache_after" ]]; then
-    printf '  Cache reclaimed: not measured (cache size unavailable)\n'
-  elif [[ "$cache_after" -lt "$cache_before" ]]; then
-    printf '  Cache reclaimed: %s\n' "$(format_bytes "$((cache_before - cache_after))")"
-  elif [[ "$cache_after" -eq "$cache_before" ]]; then
-    printf '  Cache reclaimed: nothing to reclaim\n'
-  else
-    # Two observations, not one atomic measurement: another process can write
-    # into the cache while cleanup runs. Say what was seen, not a negative
-    # number dressed up as a reclaim.
-    printf '  Cache reclaimed: indeterminate — the cache grew by %s during cleanup\n' \
-      "$(format_bytes "$((cache_after - cache_before))")"
-  fi
-  echo "  Every formula and cask you asked for stays installed. autoremove may drop dependencies nothing needs any more; cleanup removes superseded versions, stale lock files, and the download cache."
-  if [[ "$cleanup_status" -ne 0 ]]; then
-    # Cleanup can delete part of the cache and then fail on one locked or
-    # unreadable file, so never claim the cache was left untouched. The run
-    # continues through the remaining stages — they are independent, and
-    # discarding a completed upgrade would help nobody — but it records the
-    # outstanding work durably and does not report a successful refresh.
-    cleanup_warning="brew cleanup --prune=all was incomplete (exit $cleanup_status): some cached files may have been removed and others left behind. The upgrades above completed."
-    mark_cleanup_pending "$cleanup_warning"
-    echo "Groundwork: $cleanup_warning" >&2
-  else
-    rm -f -- "$cleanup_pending_marker"
-  fi
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
   {{- end }}
@@ -267,6 +208,7 @@ if [[ -x "$HOME/.local/bin/groundwork-docker-tidy" ]]; then
   "$HOME/.local/bin/groundwork-docker-tidy" --summary || true
 fi
 
+update_status=0
 if command -v mise >/dev/null 2>&1; then
   # The same 5-day floor the renovate-config preset applies to repo
   # dependencies, now applied to the machine: don't adopt a release the world
@@ -286,31 +228,84 @@ Groundwork: this mise cannot enforce the 5-day release floor
   Urgent security release? Pin that exact runtime version; pinned versions
   bypass the floor by design.
 EOF
-    exit 1
+    update_status=1
+  else
+    mise upgrade --minimum-release-age 5d || update_status=$?
   fi
-  mise upgrade --minimum-release-age 5d
+  case "$update_status" in
+    129 | 130 | 143) exit "$update_status" ;;
+  esac
 fi
 
-# npm's cache is content-addressed and self-healing; `verify` validates it and
-# garbage-collects data that is no longer needed. That conservative,
-# owner-provided operation belongs in every refresh; the full `npm cache clean
-# --force` reclaim stays an explicit owner action. Groundwork's Node is owned
-# by mise, whose shims are not on this script's PATH, so resolve npm through
-# mise first and fall back to a PATH npm for machines that install Node
-# another way. No npm anywhere is fine: there is nothing to verify.
-#
-# Every invocation runs from $HOME: update-all is machine maintenance, and the
-# directory it happens to be launched from must not decide anything — a
-# repository's mise config could select a different Node, and a project-local
-# .npmrc could point "the cache" at a per-project directory. The cd neutralizes
-# directory-based FILE lookup only: npm_config_* environment a shell exported
-# (direnv, say) still applies, deliberately — distinguishing a project's
-# ambient exports from the user's own configuration is not this stage's call.
-if command -v mise >/dev/null 2>&1 && (cd "$HOME" && mise which npm >/dev/null 2>&1); then
-  (cd "$HOME" && mise exec -- npm cache verify)
-elif command -v npm >/dev/null 2>&1; then
-  (cd "$HOME" && npm cache verify)
+# Supported package-manager cleanup is one stage with one receipt and durable
+# per-manager pending state. It runs after every required upgrade lane was
+# attempted. A failed mise lane does not suppress safe Homebrew, npm, or pnpm
+# maintenance; the final receipt remains nonzero for either kind of failure.
+# Independent cleanup lanes continue after one fails; their helper returns
+# nonzero only after recording every outcome. --skip-maintenance is the
+# exceptional fast path and never clears older pending work.
+maintenance_pending() {
+  local pending_dir="$HOME/.local/state/groundwork/update-all-pending" pending_file
+  [[ -f "$HOME/.local/state/groundwork/homebrew-cleanup-pending" ]] && return 0
+  [[ -d "$pending_dir" ]] || return 1
+  for pending_file in "$pending_dir"/*; do
+    [[ -f "$pending_file" ]] && return 0
+  done
+  return 1
+}
+
+maintenance_manager_pending() {
+  local pending_dir="$HOME/.local/state/groundwork/update-all-pending" pending_file
+  [[ -d "$pending_dir" ]] || return 1
+  for pending_file in "$pending_dir"/homebrew "$pending_dir"/npm "$pending_dir"/pnpm; do
+    [[ -f "$pending_file" ]] && return 0
+  done
+  return 1
+}
+
+mark_maintenance_helper_pending() {
+  local pending="$HOME/.local/state/groundwork/update-all-pending/maintenance-helper"
+  local temporary="${pending}.tmp.$$"
+  mkdir -p "$(dirname "$pending")"
+  printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >"$temporary"
+  mv -f -- "$temporary" "$pending"
+}
+
+clear_maintenance_helper_pending() {
+  local pending_dir="$HOME/.local/state/groundwork/update-all-pending"
+  rm -f -- "$pending_dir/maintenance-helper"
+  rmdir "$pending_dir" 2>/dev/null || true
+}
+
+maintenance_status=0
+if [[ "$skip_maintenance" -eq 1 ]]; then
+  echo
+  echo "Package-manager maintenance skipped for this exceptional refresh."
+  if maintenance_pending; then
+    maintenance_status=1
+    echo "Groundwork: earlier maintenance is still pending; run groundwork-cleanup --yes --force." >&2
+  fi
+elif [[ -x "$HOME/.local/bin/groundwork-cleanup" ]]; then
+  # Record helper-level intent before exec so an early crash cannot disappear
+  # behind a still-fresh successful update timestamp.
+  mark_maintenance_helper_pending "package-manager maintenance helper started but has not completed"
+  "$HOME/.local/bin/groundwork-cleanup" --yes || maintenance_status=$?
+  if [[ "$maintenance_status" -eq 0 ]]; then
+    clear_maintenance_helper_pending
+  elif maintenance_manager_pending; then
+    # The helper recorded a more precise per-manager failure.
+    clear_maintenance_helper_pending
+  else
+    mark_maintenance_helper_pending "package-manager maintenance helper failed before recording a manager stage (exit $maintenance_status)"
+  fi
+else
+  maintenance_status=1
+  mark_maintenance_helper_pending "package-manager maintenance helper is missing"
+  echo "Groundwork: the package-manager maintenance helper is missing: $HOME/.local/bin/groundwork-cleanup" >&2
 fi
+case "$maintenance_status" in
+  129 | 130 | 143) exit "$maintenance_status" ;;
+esac
 
 {{- if ne .chezmoi.os "darwin" }}
 
@@ -336,18 +331,22 @@ if command -v xcodes >/dev/null 2>&1; then
 fi
 {{- end }}
 
-# An incomplete cleanup is an incomplete transaction. The stages after it still
-# ran — they are independent of the cache, and throwing away a completed upgrade
-# would help nobody — but this run is not recorded as a successful refresh, and
-# a script or agent sees a nonzero status. The pending marker written at the
-# cleanup itself is what survives the process and keeps the shell reminder
-# asking, no matter how recent the last fully successful refresh was.
-if [[ -n "${cleanup_warning:-}" ]]; then
+# An incomplete maintenance stage is an incomplete transaction. Earlier
+# upgrades remain complete, but the success timestamp is withheld and callers
+# see a nonzero status. Per-stage pending records keep the shell reminder active.
+if [[ "$update_status" -ne 0 || "$maintenance_status" -ne 0 ]]; then
   cat >&2 <<EOF
 Groundwork: completed with warnings, so this refresh is not recorded as successful.
-  $cleanup_warning
-  Inspect the cache, then run update-all again:  du -sh "\$(brew --cache)"
 EOF
+  if [[ "$update_status" -ne 0 ]]; then
+    echo "  A required upgrade stage failed (exit $update_status); run update-all again after repairing it." >&2
+  fi
+  if [[ "$maintenance_status" -ne 0 ]]; then
+    cat >&2 <<EOF
+  Repair pending package-manager maintenance:
+    groundwork-cleanup --yes --force
+EOF
+  fi
   exit 1
 fi
 
@@ -357,9 +356,9 @@ fi
 timestamp="$HOME/.local/state/groundwork/last-update-all"
 mkdir -p "$(dirname "$timestamp")"
 temporary="${timestamp}.tmp.$$"
-trap 'rm -f -- "$temporary"' EXIT
+runner_temp="$temporary"
 date -u '+%Y-%m-%dT%H:%M:%SZ' >"$temporary"
 mv -f -- "$temporary" "$timestamp"
-trap - EXIT
+runner_temp=""
 
 echo "Groundwork tools refreshed. The shell reminder will stay quiet until the next stale window."

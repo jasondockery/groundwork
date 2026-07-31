@@ -753,8 +753,9 @@ storage_section() {
     note "Homebrew not installed; skipping its cache."
   fi
 
-  # pnpm store generations: rebuildable, but pruned deliberately — pnpm
-  # recommends occasional pruning, so this is owner-run, never automatic.
+  # pnpm store generations: rebuildable. update-all prunes offline-resolved
+  # selected stores on an occasional cadence; whole-generation retirement
+  # remains owner-confirmed.
   #
   # Discovery and selection are separate questions. Discovery walks the known
   # store roots WITHOUT executing pnpm, so 40 GiB of old stores is still found
@@ -834,9 +835,9 @@ storage_section() {
     note "pnpm store total incomplete (a measurement failed); threshold not evaluated."
   elif [[ "$pnpm_found" -eq 1 ]]; then
     if [[ "$pnpm_total" -gt $((pnpm_warn_gib * gib)) ]]; then
-      warn "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; above the ${pnpm_warn_gib} GiB threshold) — review with groundwork-pnpm-store-tidy; add --yes to prune the selected store."
+      warn "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; above the ${pnpm_warn_gib} GiB threshold) — review cadence and unmatched generations with groundwork-cleanup."
     else
-      ok "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; groundwork-pnpm-store-tidy when it grows)"
+      ok "pnpm stores total $(storage_format_bytes "$pnpm_total") (rebuildable; update-all prunes resolved stores when due; review with groundwork-cleanup)"
     fi
   fi
 

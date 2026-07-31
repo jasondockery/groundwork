@@ -32,6 +32,11 @@ include_worktrees = true
 # dirty state are always read live). 0 disables the cache.
 cache_ttl_seconds = 30
 
+# Automatic pnpm maintenance trusts only standard store roots by default.
+# To opt a custom store parent into automatic pruning, declare it explicitly
+# here or in repos.local.conf. The selected store must be one v<major> child.
+# trusted_pnpm_store_root = /Volumes/DeveloperCaches/pnpm/store
+
 # Directory names never descended into. The first `exclude` line replaces
 # the built-in defaults, so keep the full list when editing.
 exclude = node_modules
