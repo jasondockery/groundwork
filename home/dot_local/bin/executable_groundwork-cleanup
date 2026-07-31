@@ -35,10 +35,11 @@ Every observation is bounded. Each mutating package-manager command runs in
 its own process group with a hard deadline, visible heartbeat, and cancellation
 of that process tree.
 
-update-all runs the --yes mode automatically after required update lanes are
-attempted. A failed lane remains a final error but does not suppress independent
-safe maintenance. Use --force for maintenance-only repair regardless of cadence,
-and update-all --skip-maintenance only for an exceptional fast refresh.
+update-all runs the --yes mode automatically after configuration and any
+Homebrew upgrade complete successfully. A mise failure remains a final error
+but does not suppress independent package-manager maintenance. Use --force for
+maintenance-only repair regardless of cadence, and update-all
+--skip-maintenance only for an exceptional fast refresh.
 EOF
 }
 
@@ -105,6 +106,7 @@ deadline="${GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS:-1800}"
 observe_deadline="${GROUNDWORK_MAINTENANCE_OBSERVE_DEADLINE_SECONDS:-120}"
 heartbeat="${GROUNDWORK_MAINTENANCE_HEARTBEAT_SECONDS:-60}"
 cancel_grace="${GROUNDWORK_MAINTENANCE_CANCEL_GRACE_SECONDS:-2}"
+poll_seconds="${GROUNDWORK_MAINTENANCE_POLL_SECONDS:-1}"
 monthly_days="${GROUNDWORK_PNPM_PRUNE_DAYS:-30}"
 high_water_gib="${GROUNDWORK_PNPM_HIGH_WATER_GIB:-20}"
 high_water_retry_days="${GROUNDWORK_PNPM_HIGH_WATER_RETRY_DAYS:-7}"
@@ -116,6 +118,10 @@ for numeric_setting in "$deadline" "$observe_deadline" "$heartbeat" "$cancel_gra
     exit 64
   fi
 done
+if [[ ! "$poll_seconds" =~ ^(0\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(\.[0-9]+)?)$ ]]; then
+  echo "groundwork-cleanup: maintenance polling must be a positive number of seconds." >&2
+  exit 64
+fi
 
 store_selections=""
 store_candidates=""
@@ -203,7 +209,7 @@ bounded_kill() {
   local child="$1" pgid="$2" signal="${3:-TERM}"
   if [[ "$pgid" =~ ^[0-9]+$ ]]; then
     kill "-$signal" -- "-$pgid" 2>/dev/null || true
-  else
+  elif [[ "$child" =~ ^[0-9]+$ ]]; then
     kill "-$signal" "$child" 2>/dev/null || true
   fi
 }
@@ -252,9 +258,16 @@ bounded_shutdown() {
 run_bounded_internal() {
   local label="$1" seconds="$2" output="$3"
   shift 3
-  local started now next_heartbeat child pgid="" status=0 interrupted=0
+  local started now next_heartbeat child="" pgid="" status=0 interrupted=0
+  local child_reaped=0 descendants_observed=0
   started="$(date +%s)"
   next_heartbeat=$((started + heartbeat))
+  # Install local handlers before launch. A signal in the launch window records
+  # intent immediately; once child/pgid exist the same handler starts
+  # cancellation and the loop completes the bounded TERM-to-KILL sequence.
+  trap 'interrupted=129; bounded_kill "$child" "$pgid" TERM' HUP
+  trap 'interrupted=130; bounded_kill "$child" "$pgid" TERM' INT
+  trap 'interrupted=143; bounded_kill "$child" "$pgid" TERM' TERM
   set -m
   if [[ -n "$output" ]]; then
     "$@" </dev/null >"$output" &
@@ -266,10 +279,14 @@ run_bounded_internal() {
   # of a new process group whose ID is the child PID.
   pgid="$child"
   set +m
-  trap 'interrupted=129; bounded_kill "$child" "$pgid" TERM' HUP
-  trap 'interrupted=130; bounded_kill "$child" "$pgid" TERM' INT
-  trap 'interrupted=143; bounded_kill "$child" "$pgid" TERM' TERM
-  while bounded_child_running "$child"; do
+  while bounded_tree_running "$child" "$pgid"; do
+    if [[ "$child_reaped" -eq 0 ]] && ! bounded_child_running "$child"; then
+      wait "$child" || status=$?
+      child_reaped=1
+      if bounded_tree_running "$child" "$pgid"; then
+        descendants_observed=1
+      fi
+    fi
     if [[ "$interrupted" -ne 0 ]]; then
       trap '' HUP INT TERM
       bounded_shutdown "$child" "$pgid"
@@ -288,7 +305,7 @@ run_bounded_internal() {
       echo "  Still running: $label ($((now - started))s elapsed)" >&2
       next_heartbeat=$((now + heartbeat))
     fi
-    sleep 1
+    sleep "$poll_seconds"
   done
   if [[ "$interrupted" -ne 0 ]]; then
     trap '' HUP INT TERM
@@ -296,8 +313,14 @@ run_bounded_internal() {
     bounded_restore_traps
     return "$interrupted"
   fi
-  wait "$child" || status=$?
+  if [[ "$child_reaped" -eq 0 ]]; then
+    wait "$child" || status=$?
+  fi
   bounded_restore_traps
+  if [[ "$descendants_observed" -eq 1 && "$status" -eq 0 ]]; then
+    echo "  Groundwork: $label left a background process in its maintenance group." >&2
+    return 1
+  fi
   return "$status"
 }
 
@@ -339,9 +362,17 @@ dir_bytes() {
 }
 
 capture_dir_bytes() {
-  local destination="$1" path="$2" value="" status=0
+  local destination="$1" path="$2" pending_stage="${3:-}" value="" status=0
   value="$(dir_bytes "$path")" || status=$?
-  exit_if_signal_status "$status"
+  case "$status" in
+    129 | 130 | 143)
+      if [[ -n "$pending_stage" ]]; then
+        mark_pending "$pending_stage" \
+          "$pending_stage command completed, but post-maintenance measurement was interrupted (exit $status); final receipt was not completed"
+      fi
+      exit "$status"
+      ;;
+  esac
   printf -v "$destination" '%s' "$value"
   return "$status"
 }
@@ -511,6 +542,40 @@ npm_cache_from_path() {
   exec npm config get cache
 }
 
+brew_cache_at_home() {
+  cd "$HOME"
+  exec brew --cache
+}
+
+observed_cache_path() {
+  local file="$1" base="$2" label="$3" line_count value resolved canonical
+  line_count="$(awk 'END {print NR + 0}' "$file")"
+  if [[ "$line_count" -ne 1 ]]; then
+    echo "groundwork-cleanup: $label cache query returned an unsupported multi-line value; size is unavailable." >&2
+    return 1
+  fi
+  value="$(<"$file")"
+  if [[ -z "$value" ]] || has_terminal_control "$value"; then
+    echo "groundwork-cleanup: $label cache query returned an empty or control-bearing path; size is unavailable." >&2
+    return 1
+  fi
+  value="$(expand_home "$value")"
+  if [[ "$value" == /* ]]; then
+    resolved="$value"
+  else
+    resolved="$base/$value"
+  fi
+  if has_terminal_control "$resolved"; then
+    echo "groundwork-cleanup: $label cache path is unsafe to display; size is unavailable." >&2
+    return 1
+  fi
+  canonical="$(canonical_dir "$resolved" || true)"
+  if [[ -n "$canonical" ]]; then
+    resolved="$canonical"
+  fi
+  printf '%s\n' "$resolved"
+}
+
 add_store_selection() {
   local repo="$1" package_manager="$2" expected_version store version canonical output status=0
   if has_terminal_control "$repo" || has_terminal_control "$package_manager"; then
@@ -568,7 +633,7 @@ discover_exact_selections() {
     return 1
   fi
   run_bounded_capture "discover configured Git repositories" "$repository_records" \
-    "$repos_command" --no-cache list || status=$?
+    "$repos_command" --strict --no-cache list || status=$?
   exit_if_signal_status "$status"
   if [[ "$status" -ne 0 ]]; then
     append_review "Repository discovery" "canonical no-cache discovery failed or timed out; pnpm automatic maintenance is incomplete"
@@ -754,10 +819,10 @@ if command -v brew >/dev/null 2>&1; then
   brew_present=1
   observation="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-brew.XXXXXX")"
   observation_status=0
-  run_bounded_capture "query Homebrew cache" "$observation" brew --cache || observation_status=$?
+  run_bounded_capture "query Homebrew cache" "$observation" brew_cache_at_home || observation_status=$?
   exit_if_signal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
-    brew_cache="$(head -n 1 "$observation")"
+    brew_cache="$(observed_cache_path "$observation" "$HOME" "Homebrew" || true)"
   fi
   rm -f -- "$observation"
 fi
@@ -783,7 +848,7 @@ if [[ "$npm_provider" == "mise" ]]; then
   run_bounded_capture "query npm cache" "$observation" npm_cache_with_mise || observation_status=$?
   exit_if_signal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
-    npm_cache="$(head -n 1 "$observation")"
+    npm_cache="$(observed_cache_path "$observation" "$HOME" "npm" || true)"
   fi
   rm -f -- "$observation"
 elif [[ "$npm_provider" == "PATH" ]]; then
@@ -792,7 +857,7 @@ elif [[ "$npm_provider" == "PATH" ]]; then
   run_bounded_capture "query npm cache" "$observation" npm_cache_from_path || observation_status=$?
   exit_if_signal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
-    npm_cache="$(head -n 1 "$observation")"
+    npm_cache="$(observed_cache_path "$observation" "$HOME" "npm" || true)"
   fi
   rm -f -- "$observation"
 fi
@@ -821,7 +886,7 @@ print_candidates() {
 }
 
 print_review() {
-  local source message generation root canonical matched generation_size generation_bytes
+  local source message generation generation_name root canonical matched generation_size generation_bytes
   local seen_roots=$'\n' found=0
   while IFS=$'\t' read -r source message; do
     [[ -n "$source" ]] || continue
@@ -834,6 +899,18 @@ print_review() {
     case "$seen_roots" in *$'\n'"$root"$'\n'*) continue ;; esac
     seen_roots="$seen_roots$root"$'\n'
     for generation in "$root"/v*; do
+      generation_name="$(basename "$generation")"
+      if has_terminal_control "$generation_name"; then
+        found=1
+        printf '  %s\n    A store-generation entry containing terminal controls was not inspected.\n' "$root"
+        continue
+      fi
+      [[ "$generation_name" =~ ^v[0-9]+$ ]] || continue
+      if [[ -L "$generation" ]]; then
+        found=1
+        printf '  %s\n    Store-generation symlinks are not followed.\n' "$generation"
+        continue
+      fi
       [[ -d "$generation" ]] || continue
       canonical="$(canonical_dir "$generation" || printf '%s' "$generation")"
       matched="$(awk -F'\t' -v path="$canonical" '$1 == path {print "yes"; exit}' "$store_candidates")"
@@ -846,7 +923,7 @@ print_review() {
       else
         generation_size="not measured in automatic mode"
       fi
-      printf '  pnpm %s store: %s\n' "$(basename "$generation")" "$generation_size"
+      printf '  pnpm %s store: %s\n' "$generation_name" "$generation_size"
       printf '    No accepted automatic candidate matched it. Groundwork did not remove it; whole-generation retirement requires owner confirmation.\n'
     done
   done
@@ -946,7 +1023,7 @@ if [[ "$brew_present" -eq 1 ]]; then
   cleanup_command_status="$cleanup_status"
   [[ "$brew_status" -eq 0 ]] || cleanup_status="$brew_status"
   brew_after=""
-  [[ -z "$brew_cache" ]] || capture_dir_bytes brew_after "$brew_cache" || true
+  [[ -z "$brew_cache" ]] || capture_dir_bytes brew_after "$brew_cache" homebrew || true
   if [[ "$cleanup_status" -eq 0 ]]; then
     clear_pending "homebrew"
     echo "  Cleanup completed"
@@ -1003,7 +1080,7 @@ if [[ -n "$npm_provider" ]]; then
       ;;
   esac
   npm_after=""
-  [[ -z "$npm_cache" ]] || capture_dir_bytes npm_after "$npm_cache" || true
+  [[ -z "$npm_cache" ]] || capture_dir_bytes npm_after "$npm_cache" npm || true
   if [[ "$npm_status" -eq 0 ]]; then
     clear_pending "npm"
     echo "  Cache verified"
@@ -1077,7 +1154,7 @@ else
   pnpm_after_complete=1
   while IFS=$'\t' read -r store _; do
     size=""
-    capture_dir_bytes size "$store" || true
+    capture_dir_bytes size "$store" pnpm || true
     if [[ -z "$size" ]]; then
       pnpm_after_complete=0
     else

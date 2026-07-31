@@ -53,9 +53,10 @@ jobs:
           annotations: true
 
   # Runs on Linux deliberately: the darwin cases in validate-groundwork are
-  # chezmoi template *data* (rendered profiles), not host requirements — the
-  # full script passes on Ubuntu in ~2s. The previous macos-latest + brew
-  # install setup spent 30-40s per run at 10x the billing rate for no coverage.
+  # chezmoi template *data* (rendered profiles), not host requirements. The
+  # full fixture matrix runs here with a test-only fast polling interval while
+  # dedicated deadline/signal cases retain the production one-second contract.
+  # macOS remains required separately for current-tmux and PTY behavior.
   render-lint:
     name: render-lint
     runs-on: ubuntu-latest

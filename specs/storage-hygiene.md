@@ -31,9 +31,9 @@ wider.
 | Homebrew orphaned dependencies | automatic in `update-all` | `brew autoremove` after a successful upgrade (removes formulae no requested package depends on) |
 | Homebrew old versions, locks, download cache | automatic in `update-all` | `groundwork-cleanup --yes` runs `brew cleanup --prune=all` after `autoremove`; consolidated receipt + per-stage pending record on failure |
 | npm cache | automatic in `update-all` | `npm cache verify` (npm's own conservative GC), run from `$HOME`; `npm cache clean --force` stays owner-run |
-| pnpm selected stores | automatic when due in `update-all` | `groundwork-cleanup --yes` consumes live canonical `groundwork-repos --no-cache list` discovery, accepts exact repository pins only, resolves offline, and prunes standard or explicitly trusted stores on one machine-wide cadence |
+| pnpm selected stores | automatic when due in `update-all` | `groundwork-cleanup --yes` consumes strict live canonical `groundwork-repos --strict --no-cache list` discovery, accepts exact repository pins only, resolves offline, and prunes standard or explicitly trusted stores on one machine-wide cadence |
 | Package-manager report / exceptional pass | advanced | `groundwork-cleanup` is read-only; `--yes` runs due supported maintenance; `--yes --force` ignores pnpm cadence for eligible candidates and succeeds as a no-op when none exist; `--yes --clear-pending <stage>` acknowledges one intentionally unrepairable reminder without running cleanup |
-| Whole pnpm store generations | report / owner-confirmed | unmatched `v*` generations are reported for review and never raw-deleted |
+| Whole pnpm store generations | report / owner-confirmed | unmatched real `v<major>` directories are reported for review and never raw-deleted; symlinks are reported but not followed |
 | Docker | owner-run | `groundwork-docker-tidy` (label-scoped), `groundwork-docker-cache-tidy` (daemon-wide) |
 | Xcode device support / simulators | report only | doctor `--storage` points at Xcode Settings > Components and `simctl delete unavailable` |
 | Legacy `~/.nvm` | report only | doctor `--storage` names the intent (mise owns Node) and defers the live-owner question to `--node-toolchain` |
@@ -47,6 +47,9 @@ wider.
   discovery as repository navigation, with its cache disabled: false `.git`
   markers are rejected through read-only Git inspection, worktree policy is
   honored, hooks/fsmonitor are disabled, and no discovery cache is written.
+  Every configured root must exist and each `find` traversal must finish
+  successfully; partial output is discarded and acting mode records incomplete
+  pnpm inventory without touching a store.
   Exact stable `packageManager` pins are resolved with Corepack networking
   disabled. Integrity suffixes are accepted, but prerelease pins are
   review-only for unattended maintenance. Ambient HOME selection is
@@ -93,11 +96,12 @@ wider.
   selection labeling is a separate, network-disabled query. Sibling `v*`
   discovery runs only under recognized generation roots — a custom store-dir
   never causes v-named siblings of an arbitrary parent to be misclassified.
-- **Aliases deduplicate by canonical path; symlinks are never skipped as
-  such.** Two names for one store report once; a symlink to a distinct store
-  is a real generation (the mise `lts` lesson). The selected store is
-  reported directly whatever its name — a custom store-dir need not match
-  the `v*` layout sibling discovery assumes.
+- **Selected aliases deduplicate by canonical path.** Two accepted names for
+  one selected store report once, and a selected store is reported directly
+  whatever its original name. Unmatched-generation review is narrower: it
+  inspects only real `v<major>` directories directly under a trusted root,
+  reports symlinks without following or measuring them, and ignores malformed
+  names.
 - **npm resolves one way everywhere**: mise-managed npm first, PATH npm
   second, from `$HOME` — `update-all` and the doctor size and maintain the
   same cache, and the doctor names which provider answered.
@@ -114,7 +118,9 @@ wider.
   borrow that lock, and it never releases the runner's transaction. Young
   incomplete lock metadata gets a short creation grace; old incomplete,
   dead-owner, and reused-PID locks are reclaimed only after the observed PID,
-  token, and process-start snapshot is rechecked.
+  token, and process-start snapshot is rechecked. Process start is recorded and
+  compared under the `C` locale; failure to observe it aborts acquisition and
+  removes the new empty lock.
 - **Every failure is durable.** Per-manager files record Homebrew/npm/pnpm
   outcomes. The runner records `maintenance-helper` before invoking the helper,
   retains it for a missing or early-crashing helper, and clears it when either
@@ -136,9 +142,12 @@ wider.
   Discovery, package-manager path queries, and byte measurements preserve HUP,
   INT, and TERM as 129, 130, and 143 before any maintenance mutation begins.
   Every bounded process group receives TERM, a short grace, then KILL if the
-  child or a descendant resists; the helper waits for the group leader and
-  releases its lock. One-second polling limits overhead without creating a
-  busy loop.
+  child or a descendant resists. The process group remains authoritative after
+  its leader exits, so a background child cannot outlive the advertised
+  deadline and turn a partial command into success. Signal handlers are
+  installed before launch. Production polls once per second; the broad fixture
+  matrix uses a faster test-only value while dedicated heartbeat and deadline
+  cases retain one second.
 - **Machine maintenance runs from `$HOME`.** The npm stage `cd`s home first so
   a repository's mise config or project `.npmrc` is never consulted. The cd
   neutralizes directory-based file lookup only: `npm_config_*` environment a
@@ -146,7 +155,11 @@ wider.
   exports from the user's own configuration is not this stage's call.
 - **Failed measurements are never healthy.** An unmeasurable size reports as
   unavailable and skips threshold judgment; a partial total is reported
-  incomplete, not summed and blessed.
+  incomplete, not summed and blessed. Homebrew and npm cache queries run from
+  `$HOME`; relative values resolve against that same boundary, and multi-line,
+  control-bearing, or otherwise unsafe values are not measured. If a direct
+  cleanup is interrupted during post-mutation measurement, the manager record
+  says the command ended but its final receipt did not complete.
 - **Independent maintenance survives a later upgrade-lane failure.** Required
   update failures still make the final transaction nonzero and withhold its
   success timestamp, but a failed mise lane does not suppress supported

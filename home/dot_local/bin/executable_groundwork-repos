@@ -43,6 +43,9 @@ Usage:
   groundwork-repos --no-cache list
                               read-only plumbing: discover live without reading
                               or writing the path cache
+  groundwork-repos --strict --no-cache list
+                              fail if any configured root is missing or a
+                              traversal is incomplete; used by maintenance
   groundwork-repos --refresh  bypass and rewrite the discovery cache; combine
                               with any command (a fresh clone appears within
                               the cache TTL anyway — this makes it immediate)
@@ -91,6 +94,14 @@ cache_home="${XDG_CACHE_HOME:-$HOME/.cache}"
 config_file="$config_home/groundwork/repos.conf"
 local_config_file="$config_home/groundwork/repos.local.conf"
 cache_file="$cache_home/groundwork/repos.list"
+discovery_temp_files=()
+cleanup_discovery_temps() {
+  local file
+  for file in "${discovery_temp_files[@]}"; do
+    rm -f -- "$file" || true
+  done
+}
+trap cleanup_discovery_temps EXIT
 
 # Defaults; repos.conf normally restates them, so a missing config still works.
 roots=()
@@ -204,6 +215,7 @@ cache_is_fresh() {
 # physical toplevel).
 discover() {
   local root gitpath candidate canonical flag seen=$'\n' invalid=0
+  local results_file errors_file find_status error_line
   local depth_limit=$((max_depth + 1))
   local prune_expr=() ex results=""
   for ex in "${excludes[@]}"; do
@@ -212,7 +224,28 @@ discover() {
   # Terminator so the parenthesised group is valid; matches nothing.
   prune_expr+=(-name '')
   for root in "${roots[@]}"; do
-    [[ -d "$root" ]] || continue
+    if [[ ! -d "$root" ]]; then
+      if [[ "$strict" -eq 1 ]]; then
+        printf 'groundwork-repos: strict discovery requires configured root: %q\n' "$root" >&2
+        return 1
+      fi
+      continue
+    fi
+    results_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-repos-find.XXXXXX")"
+    errors_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-repos-errors.XXXXXX")"
+    discovery_temp_files+=("$results_file" "$errors_file")
+    find_status=0
+    "${GROUNDWORK_REPOS_FIND_BIN:-find}" -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
+      \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print0 \
+      >"$results_file" 2>"$errors_file" || find_status=$?
+    if [[ "$find_status" -ne 0 ]]; then
+      printf 'groundwork-repos: repository discovery failed for %q (find exit %s)\n' \
+        "$root" "$find_status" >&2
+      while IFS= read -r error_line || [[ -n "$error_line" ]]; do
+        printf '  %q\n' "$error_line" >&2
+      done <"$errors_file"
+      return 1
+    fi
     while IFS= read -r -d '' gitpath; do
       [[ -n "$gitpath" ]] || continue
       candidate="${gitpath%/.git}"
@@ -242,8 +275,7 @@ discover() {
         continue
       fi
       results="$results$canonical"$'\t'"$flag"$'\n'
-    done < <(find -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
-      \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print0 2>/dev/null)
+    done <"$results_file"
   done
   [[ "$invalid" -eq 0 ]] || return 1
   printf '%s' "$results" | sort
@@ -256,14 +288,14 @@ discover() {
 repo_list() {
   if [[ "$no_cache" -eq 1 ]]; then
     discover
-    return 0
+    return $?
   fi
   if [[ "$refresh" -eq 0 ]] && cache_is_fresh; then
     cat "$cache_file"
     return 0
   fi
   local listing tmp
-  listing="$(discover)"
+  listing="$(discover)" || return $?
   mkdir -p "${cache_file%/*}"
   tmp="$(mktemp "$cache_file.XXXXXX")"
   printf '%s' "$listing" >"$tmp"
@@ -489,11 +521,13 @@ cmd_changed() {
 
 refresh=0
 no_cache=0
+strict=0
 mode=""
 for arg in "$@"; do
   case "$arg" in
     --refresh) refresh=1 ;;
     --no-cache) no_cache=1 ;;
+    --strict) strict=1 ;;
     -h | --help)
       usage
       exit 0
@@ -511,6 +545,14 @@ done
 [[ -n "$mode" ]] || mode="status"
 if [[ "$no_cache" -eq 1 && "$mode" != "list" ]]; then
   echo "groundwork-repos: --no-cache is plumbing for the list command only." >&2
+  exit 2
+fi
+if [[ "$strict" -eq 1 && "$mode" != "list" ]]; then
+  echo "groundwork-repos: --strict is plumbing for the list command only." >&2
+  exit 2
+fi
+if [[ "$strict" -eq 1 && "$no_cache" -ne 1 ]]; then
+  echo "groundwork-repos: --strict requires --no-cache so discovery is live and complete." >&2
   exit 2
 fi
 if [[ "$no_cache" -eq 1 && "$refresh" -eq 1 ]]; then

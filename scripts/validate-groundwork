@@ -1509,6 +1509,11 @@ cleanup_home="$cleanup_fixture/home"
 cleanup_bin="$cleanup_home/.local/bin"
 cleanup_code="$cleanup_home/code"
 cleanup_log="$cleanup_fixture/commands.log"
+mkdir -p "$cleanup_fixture/external-generation/files" \
+  "$cleanup_fixture/stores/version-backup" \
+  "$cleanup_fixture/stores/v11-escape" \
+  "$cleanup_fixture/stores/"$'v12\033unsafe'
+ln -s "$cleanup_fixture/external-generation" "$cleanup_fixture/stores/v99"
 for cleanup_repo in repo-a repo-b repo-c repo-offline repo-version-fail repo-custom \
   repo-control repo-escape repo-prerelease no-pin; do
   git -C "$cleanup_code/$cleanup_repo" init -q
@@ -1555,6 +1560,16 @@ case "${1:-}" in
     ;;
   autoremove | cleanup)
     printf 'brew %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+    if [[ "${BREW_SIGNAL_PARENT_ON_START:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
+      kill -TERM "$PPID"
+      sleep 2
+    fi
+    if [[ "${BREW_EXIT_WITH_DESCENDANT:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
+      (trap '' TERM; sleep 30) &
+      descendant=$!
+      printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
+      exit 0
+    fi
     if [[ "${BREW_RESIST_TERM:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
       trap '' TERM
       printf '%s\n' "$$" >"$BREW_PARENT_PID_FILE"
@@ -1661,6 +1676,15 @@ SH
 cat >"$cleanup_bin/du" <<'SH'
 #!/usr/bin/env bash
 [[ "${DU_STATUS:-0}" == "0" ]] || exit "$DU_STATUS"
+if [[ -n "${DU_CALL_COUNT_FILE:-}" ]]; then
+  du_call_count=0
+  [[ ! -f "$DU_CALL_COUNT_FILE" ]] || du_call_count="$(<"$DU_CALL_COUNT_FILE")"
+  du_call_count=$((du_call_count + 1))
+  printf '%s\n' "$du_call_count" >"$DU_CALL_COUNT_FILE"
+  if [[ "$du_call_count" -eq "${DU_SIGNAL_ON_CALL:-0}" ]]; then
+    exit "${DU_SIGNAL_STATUS:-130}"
+  fi
+fi
 if [[ "${LOG_DU:-0}" == "1" ]]; then
   printf 'du %s\n' "${@: -1}" >>"$GROUNDWORK_TEST_LOG"
 fi
@@ -1684,6 +1708,7 @@ cleanup_env=(
   GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=5
   GROUNDWORK_MAINTENANCE_OBSERVE_DEADLINE_SECONDS=5
   GROUNDWORK_MAINTENANCE_HEARTBEAT_SECONDS=1
+  GROUNDWORK_MAINTENANCE_POLL_SECONDS=0.05
 )
 
 # Help and invalid intent are decided before every external query or mutation.
@@ -1727,6 +1752,18 @@ for invalid_deadline in 0 nope; do
     || fail "invalid maintenance deadline '$invalid_deadline' must exit 64"
   test ! -s "$cleanup_log" \
     || fail "invalid maintenance deadline '$invalid_deadline' invoked external commands"
+done
+for invalid_poll in 0 nope 0.0; do
+  : >"$cleanup_log"
+  set +e
+  env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS="$invalid_poll" \
+    "$cleanup_command" --yes >/dev/null 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 64 ]] \
+    || fail "invalid maintenance poll '$invalid_poll' must exit 64"
+  test ! -s "$cleanup_log" \
+    || fail "invalid maintenance poll '$invalid_poll' invoked external commands"
 done
 
 # Default report: canonical Git repositories and exact pins yield two trusted
@@ -1776,6 +1813,44 @@ assert_not_contains 'false marker queried' "$cleanup_log" \
 test ! -s "$cleanup_log" || fail "the read-only cleanup report invoked a mutating command"
 test ! -e "$cleanup_home/.local/state/groundwork/pnpm-prune-last-success" \
   || fail "the read-only cleanup report changed cadence state"
+
+# Review-only generation discovery accepts only real v<major> directories.
+# It never follows a generation symlink out of the trusted root, measures
+# malformed v* names, or emits a control-bearing filesystem name.
+: >"$cleanup_log"
+env "${cleanup_env[@]}" LOG_DU=1 "$cleanup_command" \
+  >"$cleanup_fixture/generation-safety" 2>&1
+grep -qF 'Store-generation symlinks are not followed' \
+  "$cleanup_fixture/generation-safety" \
+  || fail "a pnpm generation symlink was not reported safely"
+assert_not_contains 'external-generation|v11-escape|version-backup' "$cleanup_log" \
+  "review-only generation discovery measured an escaped or malformed v* entry"
+if LC_ALL=C grep -q $'\033' "$cleanup_fixture/generation-safety"; then
+  fail "a control-bearing pnpm generation name reached the terminal receipt"
+fi
+
+# Cache observations resolve relative package-manager paths against the same
+# $HOME boundary used for the query, and reject multi-line/control-bearing
+# values instead of measuring from the launch directory.
+mkdir -p "$cleanup_home/relative-brew-cache" "$cleanup_home/relative-npm-cache"
+: >"$cleanup_log"
+(cd "$cleanup_fixture/unrelated" && env "${cleanup_env[@]}" LOG_DU=1 \
+  CLEANUP_BREW_CACHE=relative-brew-cache CLEANUP_NPM_CACHE=relative-npm-cache \
+  "$cleanup_command") >"$cleanup_fixture/relative-cache-paths"
+grep -qF "du $cleanup_home/relative-brew-cache" "$cleanup_log" \
+  || fail "a relative Homebrew cache path was measured from the launch directory"
+grep -qF "du $cleanup_home/relative-npm-cache" "$cleanup_log" \
+  || fail "a relative npm cache path was measured from the launch directory"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" CLEANUP_BREW_CACHE=$'line-one\nline-two' \
+  CLEANUP_NPM_CACHE=$'unsafe\033path' "$cleanup_command" \
+  >"$cleanup_fixture/unsafe-cache-paths" 2>&1
+grep -qF 'Homebrew cache query returned an unsupported multi-line value' \
+  "$cleanup_fixture/unsafe-cache-paths"
+grep -qF 'npm cache query returned an empty or control-bearing path' \
+  "$cleanup_fixture/unsafe-cache-paths"
+assert_not_contains 'unsafe.*path|line-one|line-two' "$cleanup_fixture/unsafe-cache-paths" \
+  "an unsafe cache value reached the maintenance receipt"
 
 # First automatic pass is due, runs each canonical store exactly once from a
 # representative repository (not the unrelated launch directory), disables
@@ -1882,6 +1957,32 @@ set -e
 assert_not_contains '^pnpm store prune' "$cleanup_log" \
   "pnpm mutated a store while exact-pin parsing was unavailable"
 env "${cleanup_env[@]}" "$cleanup_command" --yes >/dev/null
+
+# Strict maintenance discovery rejects a partial repository stream whose
+# traversal exits nonzero. The partial row cannot create a candidate, pnpm is
+# untouched, and acting mode records the incomplete inventory durably.
+mv "$cleanup_bin/groundwork-repos" "$cleanup_fixture/groundwork-repos.strict-real"
+cat >"$cleanup_bin/groundwork-repos" <<'SH'
+#!/usr/bin/env bash
+printf '%s\t-\n' "${STRICT_PARTIAL_REPO:?}"
+exit 7
+SH
+chmod +x "$cleanup_bin/groundwork-repos"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" STRICT_PARTIAL_REPO="$cleanup_code/repo-a" \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/strict-partial-discovery" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "partial strict repository discovery returned success"
+assert_not_contains '^pnpm store prune' "$cleanup_log" \
+  "partial strict repository discovery produced an automatic pnpm mutation"
+grep -qF 'exact repository discovery is unavailable' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm" \
+  || fail "partial strict discovery did not record incomplete pnpm inventory"
+mv "$cleanup_fixture/groundwork-repos.strict-real" "$cleanup_bin/groundwork-repos"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
 # No exact pnpm pin means no automatic candidate and, specifically, no ambient
 # HOME launcher fallback.
@@ -2027,7 +2128,8 @@ grep -qF 'stage=homebrew' \
 # Direct maintenance is single-writer. The second process fails fast with 75
 # while the first owns the lock, and only the owner executes mutations.
 : >"$cleanup_log"
-env "${cleanup_env[@]}" BREW_MAINTENANCE_DELAY=2 \
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=1 \
+  BREW_MAINTENANCE_DELAY=2 \
   "$cleanup_command" --yes --force >"$cleanup_fixture/concurrent-owner" 2>&1 &
 cleanup_owner_pid=$!
 for _ in {1..50}; do
@@ -2070,12 +2172,16 @@ env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS=1 \
   || fail "old partial metadata with a live or reused PID blocked forever"
 mkdir -p "$cleanup_lock"
 printf '99999999\n' >"$cleanup_lock/pid"
+printf '2000-01-01T00:00:00Z\n' >"$cleanup_lock/started-at"
+printf 'fixture-dead-owner\n' >"$cleanup_lock/operation"
 printf 'old\n' >"$cleanup_lock/process-start"
 printf 'stale-token\n' >"$cleanup_lock/token"
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null \
   || fail "a dead-owner maintenance lock was not reclaimed"
 mkdir -p "$cleanup_lock"
 printf '%s\n' "$$" >"$cleanup_lock/pid"
+printf '2000-01-01T00:00:00Z\n' >"$cleanup_lock/started-at"
+printf 'fixture-reused-pid\n' >"$cleanup_lock/operation"
 printf 'not-the-current-process-start\n' >"$cleanup_lock/process-start"
 printf 'reused-token\n' >"$cleanup_lock/token"
 env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE=current-process \
@@ -2106,6 +2212,29 @@ cleanup_status=$?
 set -e
 [[ "$cleanup_status" -eq 75 ]] \
   || fail "a forged inherited maintenance lock was accepted"
+
+# Lock ownership is never declared when the process-start identity cannot be
+# observed. The failed acquisition removes its newly created empty directory.
+cat >"$cleanup_bin/ps" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+chmod +x "$cleanup_bin/ps"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/lock-identity-unavailable" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 75 ]] \
+  || fail "missing lock-owner identity returned $cleanup_status instead of 75"
+grep -qF 'could not establish update lock-owner identity' \
+  "$cleanup_fixture/lock-identity-unavailable"
+test ! -d "$cleanup_lock" \
+  || fail "failed lock identity left a reclaimable lock directory behind"
+test ! -s "$cleanup_log" \
+  || fail "maintenance mutated state without a validated lock-owner identity"
+rm -f "$cleanup_bin/ps"
 
 # Observation failures that carry conventional signal statuses are
 # authoritative. They must stop before the first package-manager mutation
@@ -2199,9 +2328,30 @@ test ! -s "$cleanup_log" \
 test ! -d "$cleanup_home/.local/state/groundwork/update-all.lock" \
   || fail "TERM during observation left the maintenance lock behind"
 
+# The local signal traps exist before launch. A maintenance child that signals
+# its parent immediately is still cancelled, returns 143, records pending
+# state, and cannot escape through the launch window.
+rm -rf "$cleanup_home/.local/state/groundwork/update-all-pending"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" BREW_SIGNAL_PARENT_ON_START=1 \
+  "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/signal-launch-window" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 143 ]] \
+  || fail "TERM in the child-launch window returned $cleanup_status, expected 143"
+grep -qF 'interrupted (exit 143)' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "launch-window TERM did not preserve Homebrew state"
+test ! -d "$cleanup_home/.local/state/groundwork/update-all.lock" \
+  || fail "launch-window TERM left the maintenance lock behind"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
 # A healthy command that stays quiet long enough emits a heartbeat and still
 # succeeds before its hard deadline.
-env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=5 \
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=5 \
   BREW_MAINTENANCE_DELAY=2 "$cleanup_command" --yes --force \
   >"$cleanup_fixture/heartbeat" 2>&1 \
   || fail "a healthy slow maintenance command failed before its deadline"
@@ -2212,7 +2362,8 @@ grep -qF 'Still running: brew autoremove' "$cleanup_fixture/heartbeat" \
 # not only the direct shell process.
 descendant_pid_file="$cleanup_fixture/descendant.pid"
 set +e
-env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
   BREW_SPAWN_DESCENDANT=1 BREW_DESCENDANT_PID_FILE="$descendant_pid_file" \
   "$cleanup_command" --yes >"$cleanup_fixture/process-tree-timeout" 2>&1
 cleanup_status=$?
@@ -2227,6 +2378,57 @@ done
 if [[ -n "$descendant_state" && "$descendant_state" != Z* ]]; then
   fail "a package-manager descendant survived the hard deadline"
 fi
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
+# A group leader cannot declare success while a background descendant remains.
+# The deadline continues to govern the process group after the leader exits,
+# then kills the TERM-resistant descendant and reports failure.
+orphan_descendant_pid_file="$cleanup_fixture/orphan-descendant.pid"
+rm -f "$orphan_descendant_pid_file"
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
+  BREW_EXIT_WITH_DESCENDANT=1 BREW_DESCENDANT_PID_FILE="$orphan_descendant_pid_file" \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/orphan-process-tree" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "a command with a surviving background process returned success"
+grep -qF 'exceeded its 1s hard deadline' "$cleanup_fixture/orphan-process-tree" \
+  || fail "a surviving background process was not governed by the deadline"
+orphan_descendant_pid="$(<"$orphan_descendant_pid_file")"
+orphan_descendant_state="$(ps -o stat= -p "$orphan_descendant_pid" 2>/dev/null | tr -d '[:space:]' || true)"
+[[ -z "$orphan_descendant_state" || "$orphan_descendant_state" == Z* ]] \
+  || fail "a background maintenance process survived after its leader exited"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
+# A direct cleanup interrupted only during post-mutation measurement keeps an
+# honest manager record: the command ended, but its final receipt did not.
+cp "$cleanup_home/.config/groundwork/repos.conf" "$cleanup_fixture/repos.post-measure.saved"
+cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
+root = $cleanup_code/no-pin
+max_depth = 1
+include_worktrees = true
+cache_ttl_seconds = 30
+trusted_pnpm_store_root = $cleanup_fixture/stores
+EOF
+du_call_count_file="$cleanup_fixture/post-measure-du.count"
+rm -f "$du_call_count_file" "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" DU_CALL_COUNT_FILE="$du_call_count_file" \
+  DU_SIGNAL_ON_CALL=2 DU_SIGNAL_STATUS=130 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/post-measure-signal" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 130 ]] \
+  || fail "post-mutation measurement signal returned $cleanup_status, expected 130"
+grep -qF 'command completed, but post-maintenance measurement was interrupted' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "direct cleanup lost post-mutation interruption context"
+grep -qxF 'brew autoremove' "$cleanup_log"
+grep -qxF 'brew cleanup --prune=all' "$cleanup_log"
+mv "$cleanup_fixture/repos.post-measure.saved" "$cleanup_home/.config/groundwork/repos.conf"
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
 # A child reporting interrupt status preserves pending state and propagates the
@@ -6116,7 +6318,7 @@ repos_dir="$(cd "$repos_dir" && pwd -P)"
 repos_root="$(cd "$repos_root" && pwd -P)"
 repos_root2="$(cd "$repos_root2" && pwd -P)"
 
-for repos_tool in git find sort awk grep head uniq stat date mktemp mv mkdir cat rm; do
+for repos_tool in git find sort awk grep head uniq stat date mktemp mv mkdir cat rm tr; do
   repos_tool_path="$(command -v "$repos_tool")" \
     || fail "groundwork-repos suite: required tool missing: $repos_tool"
   ln -s "$repos_tool_path" "$repos_tools/$repos_tool"
@@ -6241,6 +6443,53 @@ assert_no_matches "symlink-loop paths leaked past canonical dedupe" grep -n '/lo
 if [[ -n "$(awk -F'\t' '{print $1}' "$repos_dir/list-out" | sort | uniq -d)" ]]; then
   fail "groundwork-repos listed a repository more than once"
 fi
+
+# Strict live discovery is all-or-nothing. Even when find emits a valid prefix,
+# a nonzero traversal status produces no list and names the failed root.
+cat >"$repos_dir/find-partial" <<'SH'
+#!/bin/sh
+printf '%s\0' "${STRICT_FIND_GIT_PATH:?}"
+echo "fixture traversal failed" >&2
+exit 7
+SH
+chmod +x "$repos_dir/find-partial"
+export GROUNDWORK_REPOS_FIND_BIN="$repos_dir/find-partial"
+export STRICT_FIND_GIT_PATH="$repos_root/alpha/.git"
+set +e
+repos_run '' "$repos_path" --strict --no-cache list \
+  >"$repos_dir/strict-partial-list" 2>"$repos_dir/strict-partial-error"
+repos_status=$?
+set -e
+unset GROUNDWORK_REPOS_FIND_BIN STRICT_FIND_GIT_PATH
+[[ "$repos_status" -ne 0 ]] \
+  || fail "strict repository discovery accepted a partial find result"
+test ! -s "$repos_dir/strict-partial-list" \
+  || fail "strict repository discovery emitted a partial repository inventory"
+grep -qF 'repository discovery failed for' "$repos_dir/strict-partial-error"
+grep -qF 'fixture traversal failed' "$repos_dir/strict-partial-error"
+set +e
+repos_run '' "$repos_path" --strict list \
+  >"$repos_dir/strict-cache-list" 2>"$repos_dir/strict-cache-error"
+repos_status=$?
+set -e
+[[ "$repos_status" -ne 0 ]] \
+  || fail "strict repository discovery accepted a cache-backed inventory"
+grep -qF 'requires --no-cache' "$repos_dir/strict-cache-error"
+printf 'root = %s\n' "$repos_dir/missing-root" \
+  >"$repos_xdg/groundwork/repos.local.conf"
+set +e
+repos_run '' "$repos_path" --strict --no-cache list \
+  >"$repos_dir/strict-missing-list" 2>"$repos_dir/strict-missing-error"
+repos_status=$?
+set -e
+[[ "$repos_status" -ne 0 ]] \
+  || fail "strict repository discovery accepted a missing configured root"
+test ! -s "$repos_dir/strict-missing-list" \
+  || fail "strict repository discovery emitted an inventory with a missing root"
+grep -qF 'strict discovery requires configured root' "$repos_dir/strict-missing-error"
+repos_run '' "$repos_path" --no-cache list >/dev/null \
+  || fail "interactive non-strict discovery stopped treating missing roots as optional"
+rm -f "$repos_xdg/groundwork/repos.local.conf"
 
 # A fresh clone appears with zero config changes.
 repos_mk "$repos_root/charlie"

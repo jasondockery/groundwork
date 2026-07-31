@@ -17,6 +17,9 @@
 # scalar keys there OVERRIDE this file.
 
 # Where your repositories live. Repeat `root` for more than one location.
+# Interactive navigation skips a root that is currently absent. Automatic
+# pnpm maintenance uses strict live discovery instead and stops before pruning
+# if any configured root is absent or cannot be traversed completely.
 root = {{ .code_dir }}
 # root = ~/work
 

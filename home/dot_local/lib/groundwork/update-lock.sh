@@ -23,7 +23,8 @@ groundwork_lock_process_start() {
     printf '%s\n' "$GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE"
     return
   fi
-  ps -o lstart= -p "$1" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+  LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null \
+    | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
 groundwork_lock_mtime() {
@@ -64,7 +65,7 @@ groundwork_lock_remove_stale() {
 
 groundwork_lock_acquire() {
   local operation="$1" attempt owner_pid owner_started owner_operation owner_token
-  local owner_process_start current_process_start
+  local owner_process_start current_process_start new_process_start
 
   if [[ -n "${GROUNDWORK_UPDATE_LOCK_HELD:-}" ]]; then
     owner_pid="$(groundwork_lock_read "$groundwork_lock_dir/pid")"
@@ -93,12 +94,27 @@ groundwork_lock_acquire() {
   while [[ "$attempt" -lt 2 ]]; do
     attempt=$((attempt + 1))
     if mkdir "$groundwork_lock_dir" 2>/dev/null; then
+      new_process_start="$(groundwork_lock_process_start "$$" || true)"
+      if [[ -z "$new_process_start" ]]; then
+        rmdir "$groundwork_lock_dir" 2>/dev/null || true
+        echo "Groundwork: could not establish update lock-owner identity." >&2
+        return 75
+      fi
       groundwork_lock_token="$$.$RANDOM.$(date +%s)"
-      printf '%s\n' "$$" >"$groundwork_lock_dir/pid"
-      date -u '+%Y-%m-%dT%H:%M:%SZ' >"$groundwork_lock_dir/started-at"
-      printf '%s\n' "$operation" >"$groundwork_lock_dir/operation"
-      printf '%s\n' "$groundwork_lock_token" >"$groundwork_lock_dir/token"
-      groundwork_lock_process_start "$$" >"$groundwork_lock_dir/process-start"
+      if ! {
+        printf '%s\n' "$$" >"$groundwork_lock_dir/pid" \
+          && date -u '+%Y-%m-%dT%H:%M:%SZ' >"$groundwork_lock_dir/started-at" \
+          && printf '%s\n' "$operation" >"$groundwork_lock_dir/operation" \
+          && printf '%s\n' "$groundwork_lock_token" >"$groundwork_lock_dir/token" \
+          && printf '%s\n' "$new_process_start" >"$groundwork_lock_dir/process-start"
+      }; then
+        rm -f -- "$groundwork_lock_dir/pid" "$groundwork_lock_dir/started-at" \
+          "$groundwork_lock_dir/operation" "$groundwork_lock_dir/token" \
+          "$groundwork_lock_dir/process-start" || true
+        rmdir "$groundwork_lock_dir" 2>/dev/null || true
+        echo "Groundwork: could not write complete update lock metadata." >&2
+        return 75
+      fi
       groundwork_lock_owned=1
       export GROUNDWORK_UPDATE_LOCK_HELD=1
       export GROUNDWORK_UPDATE_LOCK_TOKEN="$groundwork_lock_token"
@@ -127,7 +143,7 @@ groundwork_lock_acquire() {
       return 75
     fi
     if kill -0 "$owner_pid" 2>/dev/null; then
-      current_process_start="$(groundwork_lock_process_start "$owner_pid")"
+      current_process_start="$(groundwork_lock_process_start "$owner_pid" || true)"
       if [[ -n "$owner_process_start" && -n "$current_process_start" &&
         "$owner_process_start" != "$current_process_start" ]]; then
         groundwork_lock_remove_stale "$owner_pid" "$owner_token" "$owner_process_start" || {
