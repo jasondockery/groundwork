@@ -238,7 +238,7 @@ discover() {
     "${GROUNDWORK_REPOS_FIND_BIN:-find}" -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
       \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print0 \
       >"$results_file" 2>"$errors_file" || find_status=$?
-    if [[ "$find_status" -ne 0 ]]; then
+    if [[ "$find_status" -ne 0 && "$strict" -eq 1 ]]; then
       printf 'groundwork-repos: repository discovery failed for %q (find exit %s)\n' \
         "$root" "$find_status" >&2
       while IFS= read -r error_line || [[ -n "$error_line" ]]; do

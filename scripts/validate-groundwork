@@ -6460,13 +6460,17 @@ repos_run '' "$repos_path" --strict --no-cache list \
   >"$repos_dir/strict-partial-list" 2>"$repos_dir/strict-partial-error"
 repos_status=$?
 set -e
-unset GROUNDWORK_REPOS_FIND_BIN STRICT_FIND_GIT_PATH
 [[ "$repos_status" -ne 0 ]] \
   || fail "strict repository discovery accepted a partial find result"
 test ! -s "$repos_dir/strict-partial-list" \
   || fail "strict repository discovery emitted a partial repository inventory"
 grep -qF 'repository discovery failed for' "$repos_dir/strict-partial-error"
 grep -qF 'fixture traversal failed' "$repos_dir/strict-partial-error"
+repos_run '' "$repos_path" --no-cache list >"$repos_dir/non-strict-partial-list" \
+  || fail "interactive repository discovery rejected a safe partial inventory"
+grep -qF "$repos_root/alpha"$'\t' "$repos_dir/non-strict-partial-list" \
+  || fail "interactive repository discovery lost its safe partial inventory"
+unset GROUNDWORK_REPOS_FIND_BIN STRICT_FIND_GIT_PATH
 set +e
 repos_run '' "$repos_path" --strict list \
   >"$repos_dir/strict-cache-list" 2>"$repos_dir/strict-cache-error"
