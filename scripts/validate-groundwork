@@ -6612,7 +6612,11 @@ grep -qF "$repos_root/alpha"$'\t' "$repos_dir/non-strict-partial-list" \
 if compgen -G "$repos_tmp/groundwork-repos-*" >/dev/null; then
   fail "failed interactive discovery leaked temporary files"
 fi
-rm -f "$repos_stub/find"
+# The loop has already proved bounded, canonical non-strict discovery above.
+# GNU find correctly reports a followed symlink loop as a traversal error, so
+# remove that fixture before the later strict tests isolate cache and missing
+# root failures.
+rm -f "$repos_stub/find" "$repos_root/loop/back"
 unset STRICT_FIND_GIT_PATH
 set +e
 repos_run '' "$repos_path" --strict list \
@@ -6633,7 +6637,8 @@ set -e
   || fail "strict repository discovery accepted a missing configured root"
 test ! -s "$repos_dir/strict-missing-list" \
   || fail "strict repository discovery emitted an inventory with a missing root"
-grep -qF 'strict discovery requires configured root' "$repos_dir/strict-missing-error"
+grep -qF 'strict discovery requires configured root' "$repos_dir/strict-missing-error" \
+  || fail "strict repository discovery did not report the missing configured root"
 repos_run '' "$repos_path" --no-cache list >/dev/null \
   || fail "interactive non-strict discovery stopped treating missing roots as optional"
 rm -f "$repos_xdg/groundwork/repos.local.conf"
