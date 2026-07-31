@@ -3,7 +3,7 @@
 # Portable single-writer lock for the complete Groundwork update transaction.
 # Callers validate their own arguments before sourcing or acquiring it.
 
-groundwork_lock_dir="${GROUNDWORK_UPDATE_LOCK_DIR:-$HOME/.local/state/groundwork/update-all.lock}"
+groundwork_lock_dir="$HOME/.local/state/groundwork/update-all.lock"
 groundwork_lock_owned=0
 groundwork_lock_token="${GROUNDWORK_UPDATE_LOCK_TOKEN:-}"
 groundwork_lock_incomplete_grace="${GROUNDWORK_UPDATE_LOCK_INCOMPLETE_GRACE_SECONDS:-5}"
@@ -19,10 +19,6 @@ groundwork_lock_read() {
 }
 
 groundwork_lock_process_start() {
-  if [[ -n "${GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE:-}" ]]; then
-    printf '%s\n' "$GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE"
-    return
-  fi
   LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null \
     | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
@@ -49,12 +45,17 @@ groundwork_lock_incomplete_is_stale() {
 }
 
 groundwork_lock_remove_stale() {
-  local expected_pid="$1" expected_token="$2" expected_process_start="$3"
-  local current_pid current_token current_process_start
+  local expected_pid="$1" expected_started="$2" expected_operation="$3"
+  local expected_token="$4" expected_process_start="$5"
+  local current_pid current_started current_operation current_token current_process_start
   current_pid="$(groundwork_lock_read "$groundwork_lock_dir/pid")"
+  current_started="$(groundwork_lock_read "$groundwork_lock_dir/started-at")"
+  current_operation="$(groundwork_lock_read "$groundwork_lock_dir/operation")"
   current_token="$(groundwork_lock_read "$groundwork_lock_dir/token")"
   current_process_start="$(groundwork_lock_read "$groundwork_lock_dir/process-start")"
   [[ "$current_pid" == "$expected_pid" &&
+    "$current_started" == "$expected_started" &&
+    "$current_operation" == "$expected_operation" &&
     "$current_token" == "$expected_token" &&
     "$current_process_start" == "$expected_process_start" ]] || return 1
   rm -f -- "$groundwork_lock_dir/pid" "$groundwork_lock_dir/started-at" \
@@ -132,7 +133,8 @@ groundwork_lock_acquire() {
       -z "$owner_token" ||
       -z "$owner_process_start" ]]; then
       if groundwork_lock_incomplete_is_stale; then
-        groundwork_lock_remove_stale "$owner_pid" "$owner_token" "$owner_process_start" || {
+        groundwork_lock_remove_stale \
+          "$owner_pid" "$owner_started" "$owner_operation" "$owner_token" "$owner_process_start" || {
           echo "Groundwork: incomplete update lock changed while it was being inspected; retry." >&2
           return 75
         }
@@ -146,7 +148,8 @@ groundwork_lock_acquire() {
       current_process_start="$(groundwork_lock_process_start "$owner_pid" || true)"
       if [[ -n "$owner_process_start" && -n "$current_process_start" &&
         "$owner_process_start" != "$current_process_start" ]]; then
-        groundwork_lock_remove_stale "$owner_pid" "$owner_token" "$owner_process_start" || {
+        groundwork_lock_remove_stale \
+          "$owner_pid" "$owner_started" "$owner_operation" "$owner_token" "$owner_process_start" || {
           echo "Groundwork: reused-PID update lock changed while it was being inspected; retry." >&2
           return 75
         }
@@ -157,7 +160,8 @@ groundwork_lock_acquire() {
         "$owner_pid" "${owner_started:-unknown}" "${owner_operation:-unknown}" >&2
       return 75
     fi
-    groundwork_lock_remove_stale "$owner_pid" "$owner_token" "$owner_process_start" || {
+    groundwork_lock_remove_stale \
+      "$owner_pid" "$owner_started" "$owner_operation" "$owner_token" "$owner_process_start" || {
       echo "Groundwork: stale update lock changed while it was being inspected; retry." >&2
       return 75
     }

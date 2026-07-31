@@ -190,14 +190,19 @@ fi
 
 runner="$HOME/.local/bin/groundwork-update-run"
 
-# Install ONLY the fresh runner (a targeted apply runs no hook scripts), then
-# prove it matches the synchronized source — a runner kept as a local edit
-# must never run wearing the "freshly applied" label. The full apply,
-# configuration files and install hooks alike, happens inside the runner.
-chezmoi apply "$runner"
-if ! chezmoi verify "$runner"; then
-  echo "Groundwork: $runner does not match the synchronized source (a kept local edit?)." >&2
-  echo "Refusing to run a stale updater. Review it with: chezmoi diff ~/.local/bin/groundwork-update-run" >&2
+# Install and verify both pieces of the post-sync updater before exec. A
+# targeted apply runs no hook scripts; the full configuration and its install
+# hooks still run inside the runner. Applying the lock library too means a
+# source update to transaction semantics governs this same invocation.
+chezmoi apply "$lock_lib" "$runner"
+if ! chezmoi verify "$lock_lib" "$runner"; then
+  echo "Groundwork: the update runner or lock helper does not match the synchronized source (a kept local edit?)." >&2
+  echo "Refusing to run a stale updater. Review with:" >&2
+  echo "  chezmoi diff ~/.local/lib/groundwork/update-lock.sh ~/.local/bin/groundwork-update-run" >&2
+  exit 1
+fi
+if [[ ! -r "$lock_lib" ]]; then
+  echo "Groundwork: chezmoi finished, but the update lock helper is missing: $lock_lib" >&2
   exit 1
 fi
 if [[ ! -x "$runner" ]]; then

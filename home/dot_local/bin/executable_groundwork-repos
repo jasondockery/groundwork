@@ -94,14 +94,6 @@ cache_home="${XDG_CACHE_HOME:-$HOME/.cache}"
 config_file="$config_home/groundwork/repos.conf"
 local_config_file="$config_home/groundwork/repos.local.conf"
 cache_file="$cache_home/groundwork/repos.list"
-discovery_temp_files=()
-cleanup_discovery_temps() {
-  local file
-  for file in "${discovery_temp_files[@]}"; do
-    rm -f -- "$file" || true
-  done
-}
-trap cleanup_discovery_temps EXIT
 
 # Defaults; repos.conf normally restates them, so a missing config still works.
 roots=()
@@ -232,10 +224,12 @@ discover() {
       continue
     fi
     results_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-repos-find.XXXXXX")"
-    errors_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-repos-errors.XXXXXX")"
-    discovery_temp_files+=("$results_file" "$errors_file")
+    if ! errors_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-repos-errors.XXXXXX")"; then
+      rm -f -- "$results_file" || true
+      return 1
+    fi
     find_status=0
-    "${GROUNDWORK_REPOS_FIND_BIN:-find}" -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
+    find -L "$root" -mindepth 1 -maxdepth "$depth_limit" \
       \( "${prune_expr[@]}" \) -prune -o -name .git -prune -print0 \
       >"$results_file" 2>"$errors_file" || find_status=$?
     if [[ "$find_status" -ne 0 && "$strict" -eq 1 ]]; then
@@ -244,6 +238,7 @@ discover() {
       while IFS= read -r error_line || [[ -n "$error_line" ]]; do
         printf '  %q\n' "$error_line" >&2
       done <"$errors_file"
+      rm -f -- "$results_file" "$errors_file" || true
       return 1
     fi
     while IFS= read -r -d '' gitpath; do
@@ -276,6 +271,7 @@ discover() {
       fi
       results="$results$canonical"$'\t'"$flag"$'\n'
     done <"$results_file"
+    rm -f -- "$results_file" "$errors_file" || true
   done
   [[ "$invalid" -eq 0 ]] || return 1
   printf '%s' "$results" | sort

@@ -117,15 +117,24 @@ wider.
   PID and adopts ownership of the same token. Only a direct cleanup child may
   borrow that lock, and it never releases the runner's transaction. Young
   incomplete lock metadata gets a short creation grace; old incomplete,
-  dead-owner, and reused-PID locks are reclaimed only after the observed PID,
-  token, and process-start snapshot is rechecked. Process start is recorded and
-  compared under the `C` locale; failure to observe it aborts acquisition and
-  removes the new empty lock.
+  dead-owner, and reused-PID locks are reclaimed only after the complete
+  observed PID, start time, operation, token, and process-start snapshot is
+  rechecked. Process start is recorded and compared under the `C` locale;
+  failure to observe it aborts acquisition and removes the new empty lock.
+- **The v1.9 handoff bootstraps the new lock dependency.** The v1.9 launcher
+  synchronizes source and target-applies only the fresh runner. If that runner
+  finds no lock library, it first confirms the supported platform, then
+  target-applies and verifies only the synchronized lock helper with scripts
+  excluded. Current launchers always target-apply and verify both runner and
+  lock helper, so future lock changes govern the same invocation.
 - **Every failure is durable.** Per-manager files record Homebrew/npm/pnpm
   outcomes. The runner records `maintenance-helper` before invoking the helper,
   retains it for a missing or early-crashing helper, and clears it when either
-  the helper succeeds or a more precise manager record exists. If a manager
-  was intentionally removed, the owner may use
+  the helper succeeds or a more precise manager record exists. Direct cleanup
+  writes each due manager's incomplete-intent record before its first mutation
+  and clears it only after final measurement and receipt, so even an untrappable
+  termination cannot turn "started" into "proven complete." If a manager was
+  intentionally removed, the owner may use
   `groundwork-cleanup --yes --clear-pending <stage>` to clear only that
   reminder; no cleanup is claimed, and a timestamped audit note remains.
 - **Untrusted records fail closed.** Repository discovery uses NUL-delimited
@@ -146,8 +155,11 @@ wider.
   its leader exits, so a background child cannot outlive the advertised
   deadline and turn a partial command into success. Signal handlers are
   installed before launch. Production polls once per second; the broad fixture
-  matrix uses a faster test-only value while dedicated heartbeat and deadline
-  cases retain one second.
+  matrix uses the minimum accepted 0.05-second value while dedicated heartbeat
+  and deadline cases retain one second. The installed override is constrained
+  to 0.05–1 second, so it cannot make a deadline sleep for an unbounded interval
+  or create a busy loop. After KILL, the whole group must be observed gone;
+  otherwise status 125 aborts later mutation.
 - **Machine maintenance runs from `$HOME`.** The npm stage `cd`s home first so
   a repository's mise config or project `.npmrc` is never consulted. The cd
   neutralizes directory-based file lookup only: `npm_config_*` environment a
@@ -157,9 +169,10 @@ wider.
   unavailable and skips threshold judgment; a partial total is reported
   incomplete, not summed and blessed. Homebrew and npm cache queries run from
   `$HOME`; relative values resolve against that same boundary, and multi-line,
-  control-bearing, or otherwise unsafe values are not measured. If a direct
-  cleanup is interrupted during post-mutation measurement, the manager record
-  says the command ended but its final receipt did not complete.
+  control-bearing, or otherwise unsafe values are not measured. The pre-mutation
+  intent remains pending throughout post-mutation bookkeeping; an observed
+  measurement interruption replaces it with the more precise fact that the
+  command ended but its final receipt did not complete.
 - **Independent maintenance survives a later upgrade-lane failure.** Required
   update failures still make the final transaction nonzero and withhold its
   success timestamp, but a failed mise lane does not suppress supported

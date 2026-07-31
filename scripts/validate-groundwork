@@ -397,8 +397,6 @@ update_all_had_xdg_config="${XDG_CONFIG_HOME+x}"
 update_all_had_xdg_cache="${XDG_CACHE_HOME+x}"
 export XDG_CONFIG_HOME="$update_all_home/.config"
 export XDG_CACHE_HOME="$update_all_home/.cache"
-cp home/dot_local/lib/groundwork/update-lock.sh \
-  "$update_all_home/.local/lib/groundwork/update-lock.sh"
 cp home/dot_local/bin/executable_groundwork-repos \
   "$update_all_bin/groundwork-repos"
 cat >"$update_all_home/.config/groundwork/repos.conf" <<EOF
@@ -407,12 +405,19 @@ max_depth = 2
 include_worktrees = true
 cache_ttl_seconds = 0
 EOF
-# The launcher under test is deliberately an "old" copy outside $HOME/.local/bin,
-# proving a stale process still hands off to whatever the sync just installed.
+# The current launcher under test is deliberately an already-open copy outside
+# $HOME/.local/bin, proving a stale process still hands off to whatever the sync
+# just installed. The exact v1.9 launcher separately proves the migration from
+# the latest release that did not yet install the shared lock helper.
 cp home/dot_local/bin/executable_update-all "$update_all_fixture/old-launcher"
+git cat-file -e v1.9.0:home/dot_local/bin/executable_update-all 2>/dev/null \
+  || fail "update-all migration proof requires the v1.9.0 tag and file history"
+git show v1.9.0:home/dot_local/bin/executable_update-all \
+  >"$update_all_fixture/v1.9-launcher"
 render linux false amd64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
   "$update_all_fixture/rendered-runner"
-chmod +x "$update_all_fixture/old-launcher" "$update_all_fixture/rendered-runner"
+chmod +x "$update_all_fixture/old-launcher" \
+  "$update_all_fixture/v1.9-launcher" "$update_all_fixture/rendered-runner"
 
 # The stub mirrors the real contract: ONLY a successful `apply` installs the
 # runner — an update or status call installing it would let the fixture pass
@@ -435,6 +440,13 @@ case "${1:-}" in
       cp "$FRESH_RUNNER" "$HOME/.local/bin/groundwork-update-run"
       chmod +x "$HOME/.local/bin/groundwork-update-run"
     fi
+    for target in "$@"; do
+      if [[ "$target" == "$HOME/.local/lib/groundwork/update-lock.sh" &&
+        -n "${FRESH_LOCK_HELPER:-}" ]]; then
+        mkdir -p "$HOME/.local/lib/groundwork"
+        cp "$FRESH_LOCK_HELPER" "$target"
+      fi
+    done
     ;;
 esac
 SH
@@ -578,6 +590,36 @@ chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise"
 update_all_log="$update_all_fixture/commands.log"
 update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
 update_all_path="/usr/bin:/bin"
+update_all_lock_path="$update_all_home/.local/lib/groundwork/update-lock.sh"
+update_all_runner_path="$update_all_home/.local/bin/groundwork-update-run"
+
+# Exact previous-release migration: v1.9 synchronizes source and applies only
+# the new runner. Begin without the post-v1.9 lock library and prove that the
+# fresh runner narrowly applies + verifies it before acquiring the transaction
+# lock and completing the full apply.
+test ! -e "$update_all_lock_path" \
+  || fail "the v1.9 migration fixture was pre-seeded with the new lock helper"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+  CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/rendered-runner" \
+  FRESH_LOCK_HELPER="$PWD/home/dot_local/lib/groundwork/update-lock.sh" \
+  "$update_all_fixture/v1.9-launcher" --skip-maintenance \
+  >"$update_all_fixture/v1.9-migration" 2>&1 \
+  || {
+    cat "$update_all_fixture/v1.9-migration" >&2
+    fail "the v1.9 launcher could not migrate to the lock-dependent runner"
+  }
+test -r "$update_all_lock_path" \
+  || fail "the v1.9 migration did not install the synchronized lock helper"
+grep -qF "chezmoi apply $update_all_runner_path color=0" "$update_all_log"
+grep -qF "chezmoi apply --exclude=scripts $update_all_lock_path color=0" "$update_all_log"
+grep -qF "chezmoi verify $update_all_lock_path color=0" "$update_all_log"
+grep -qxF 'chezmoi apply color=0' "$update_all_log" \
+  || fail "the v1.9 migration did not reach the runner-owned full apply"
+test ! -d "$update_all_home/.local/state/groundwork/update-all.lock" \
+  || fail "the migrated runner did not release its newly bootstrapped lock"
+rm -f "$update_all_stamp"
 
 # An old launcher process validates the supported flag, syncs once, then hands
 # that same invocation to the runner the sync just installed, with exit status
@@ -595,12 +637,11 @@ set -e
 # color=0 on the chezmoi line proves the launcher decided color BEFORE the
 # sync (hook scripts inherit it), and on the runner line that the exec'd
 # runner inherits the same decision; stdout is a file here, so it is 0.
-update_all_runner_path="$update_all_home/.local/bin/groundwork-update-run"
 cat >"$update_all_fixture/expected-handoff" <<EOF
 chezmoi update --init --apply=false color=0
 chezmoi status color=0
-chezmoi apply $update_all_runner_path color=0
-chezmoi verify $update_all_runner_path color=0
+chezmoi apply $update_all_lock_path $update_all_runner_path color=0
+chezmoi verify $update_all_lock_path $update_all_runner_path color=0
 fresh runner color=0
 arg=--skip-maintenance
 EOF
@@ -798,8 +839,9 @@ update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all continued without the freshly installed runner"
 grep -qF 'update runner is missing or not executable' "$update_all_fixture/missing-output"
-diff -u <(printf 'chezmoi update --init --apply=false color=0\nchezmoi status color=0\nchezmoi apply %s color=0\nchezmoi verify %s color=0\n' \
-  "$update_all_runner_path" "$update_all_runner_path") "$update_all_log"
+diff -u <(printf 'chezmoi update --init --apply=false color=0\nchezmoi status color=0\nchezmoi apply %s %s color=0\nchezmoi verify %s %s color=0\n' \
+  "$update_all_lock_path" "$update_all_runner_path" \
+  "$update_all_lock_path" "$update_all_runner_path") "$update_all_log"
 
 # The remaining transactions exercise the rendered runner directly, exactly as
 # the launcher execs it. Unsupported platforms fail closed before ANY stage:
@@ -1587,6 +1629,11 @@ case "${1:-}" in
       printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
       wait "$descendant"
     fi
+    if [[ "${1:-}" == "cleanup" && -n "${BREW_CLEANUP_SUCCESS_SENTINEL:-}" ]]; then
+      : >"$BREW_CLEANUP_SUCCESS_SENTINEL"
+      [[ -z "${BREW_CLEANUP_POST_SUCCESS_DELAY:-}" ]] \
+        || sleep "$BREW_CLEANUP_POST_SUCCESS_DELAY"
+    fi
     exit "${BREW_MAINTENANCE_STATUS:-0}"
     ;;
 esac
@@ -1753,7 +1800,7 @@ for invalid_deadline in 0 nope; do
   test ! -s "$cleanup_log" \
     || fail "invalid maintenance deadline '$invalid_deadline' invoked external commands"
 done
-for invalid_poll in 0 nope 0.0; do
+for invalid_poll in 0 nope 0.0 0.001 1.01 10; do
   : >"$cleanup_log"
   set +e
   env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS="$invalid_poll" \
@@ -1942,20 +1989,26 @@ grep -qF 'pnpm store prune' "$cleanup_log" \
 test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/pnpm" \
   || fail "ordinary --yes did not clear repaired pnpm state"
 
-# Exact-pin discovery fails closed: no jq means no automatic pnpm mutation.
+# Exact-pin discovery fails closed when the ambient jq command cannot parse:
+# the fixture replaces jq through PATH, never through an installed override.
+cat >"$cleanup_bin/jq" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+chmod +x "$cleanup_bin/jq"
 : >"$cleanup_log"
-env "${cleanup_env[@]}" GROUNDWORK_CLEANUP_JQ_BIN=/nonexistent \
-  "$cleanup_command" >"$cleanup_fixture/no-jq-report"
-grep -qF 'Automatic candidates: 0' "$cleanup_fixture/no-jq-report"
-grep -qF 'jq is unavailable' "$cleanup_fixture/no-jq-report"
+env "${cleanup_env[@]}" "$cleanup_command" >"$cleanup_fixture/jq-failure-report"
+grep -qF 'Automatic candidates: 0' "$cleanup_fixture/jq-failure-report"
+grep -qF 'jq failed its bounded self-check' "$cleanup_fixture/jq-failure-report"
 set +e
-env "${cleanup_env[@]}" GROUNDWORK_CLEANUP_JQ_BIN=/nonexistent \
-  "$cleanup_command" --yes >"$cleanup_fixture/no-jq-run" 2>&1
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force \
+  >"$cleanup_fixture/jq-failure-run" 2>&1
 cleanup_status=$?
 set -e
-[[ "$cleanup_status" -ne 0 ]] || fail "unavailable exact-pin parsing was reported as complete"
+[[ "$cleanup_status" -ne 0 ]] || fail "failed exact-pin parsing was reported as complete"
 assert_not_contains '^pnpm store prune' "$cleanup_log" \
-  "pnpm mutated a store while exact-pin parsing was unavailable"
+  "pnpm mutated a store while exact-pin parsing failed"
+rm -f "$cleanup_bin/jq"
 env "${cleanup_env[@]}" "$cleanup_command" --yes >/dev/null
 
 # Strict maintenance discovery rejects a partial repository stream whose
@@ -2184,21 +2237,33 @@ printf '2000-01-01T00:00:00Z\n' >"$cleanup_lock/started-at"
 printf 'fixture-reused-pid\n' >"$cleanup_lock/operation"
 printf 'not-the-current-process-start\n' >"$cleanup_lock/process-start"
 printf 'reused-token\n' >"$cleanup_lock/token"
-env "${cleanup_env[@]}" GROUNDWORK_UPDATE_LOCK_PROCESS_START_OVERRIDE=current-process \
+cat >"$cleanup_bin/ps" <<'SH'
+#!/usr/bin/env bash
+if [[ "$*" == *"lstart="* && "$*" == *"-p ${LOCK_REUSED_PID:?}"* ]]; then
+  echo "current-process-start"
+  exit 0
+fi
+exec /bin/ps "$@"
+SH
+chmod +x "$cleanup_bin/ps"
+env "${cleanup_env[@]}" LOCK_REUSED_PID="$$" \
   "$cleanup_command" --yes --force >/dev/null \
   || fail "a reused-PID maintenance lock was not reclaimed"
+rm -f "$cleanup_bin/ps"
 mkdir -p "$cleanup_lock"
 printf '99999999\n' >"$cleanup_lock/pid"
+printf '2000-01-01T00:00:00Z\n' >"$cleanup_lock/started-at"
+printf 'changed-operation\n' >"$cleanup_lock/operation"
 printf 'old\n' >"$cleanup_lock/process-start"
-printf 'changed-token\n' >"$cleanup_lock/token"
+printf 'snapshot-token\n' >"$cleanup_lock/token"
 set +e
-HOME="$cleanup_home" GROUNDWORK_UPDATE_LOCK_DIR="$cleanup_lock" \
-  bash -c 'source "$1"; groundwork_lock_remove_stale 99999999 snapshot-token old' \
+HOME="$cleanup_home" \
+  bash -c 'source "$1"; groundwork_lock_remove_stale 99999999 "2000-01-01T00:00:00Z" snapshot-operation snapshot-token old' \
   _ "$cleanup_home/.local/lib/groundwork/update-lock.sh"
 cleanup_status=$?
 set -e
 [[ "$cleanup_status" -ne 0 ]] \
-  || fail "stale-lock removal ignored a changed metadata snapshot"
+  || fail "stale-lock removal ignored a changed operation snapshot"
 test -d "$cleanup_lock" \
   || fail "stale-lock removal deleted metadata that changed during inspection"
 touch -t 200001010000 "$cleanup_lock"
@@ -2380,6 +2445,37 @@ if [[ -n "$descendant_state" && "$descendant_state" != Z* ]]; then
 fi
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
+# Acting mode records manager intent before the first mutation. Once the
+# successful cleanup stub has logged its work, a TERM before post-measurement
+# cannot erase that durable "completion not proven" state.
+rm -rf "$cleanup_home/.local/state/groundwork/update-all-pending"
+brew_success_sentinel="$cleanup_fixture/brew-cleanup-success.started"
+rm -f "$brew_success_sentinel"
+: >"$cleanup_log"
+env "${cleanup_env[@]}" BREW_CLEANUP_SUCCESS_SENTINEL="$brew_success_sentinel" \
+  BREW_CLEANUP_POST_SUCCESS_DELAY=30 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/pre-marked-term" 2>&1 &
+cleanup_signal_pid=$!
+for _ in {1..200}; do
+  [[ -f "$brew_success_sentinel" ]] && break
+  sleep 0.05
+done
+test -f "$brew_success_sentinel" \
+  || fail "the successful Homebrew mutation sentinel never appeared"
+grep -qF 'maintenance started' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "Homebrew intent was not durable before post-maintenance measurement"
+kill -TERM "$cleanup_signal_pid"
+set +e
+wait "$cleanup_signal_pid"
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 143 ]] \
+  || fail "TERM after a successful mutation returned $cleanup_status, expected 143"
+test -f "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "TERM after a successful mutation lost Homebrew pending state"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
 # A group leader cannot declare success while a background descendant remains.
 # The deadline continues to govern the process group after the leader exits,
 # then kills the TERM-resistant descendant and reports failure.
@@ -2484,6 +2580,44 @@ for resistant_pid_file in "$resistant_parent_pid_file" "$resistant_descendant_pi
   [[ -z "$resistant_state" || "$resistant_state" == Z* ]] \
     || fail "a TERM-resistant maintenance process survived cancellation"
 done
+
+# If even KILL cannot be confirmed (simulated by a fixture-only Bash function),
+# the helper returns its internal terminal status 125 and aborts before another
+# manager can mutate. The validator then cleans up the deliberately surviving
+# fixture group itself.
+kill_failure_env="$cleanup_fixture/kill-failure.bashenv"
+cat >"$kill_failure_env" <<'SH'
+kill() {
+  if [[ "${1:-}" == "-KILL" ]]; then
+    return 0
+  fi
+  builtin kill "$@"
+}
+SH
+kill_failure_parent="$cleanup_fixture/kill-failure-parent.pid"
+kill_failure_descendant="$cleanup_fixture/kill-failure-descendant.pid"
+rm -f "$kill_failure_parent" "$kill_failure_descendant"
+: >"$cleanup_log"
+set +e
+env "${cleanup_env[@]}" BASH_ENV="$kill_failure_env" \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
+  GROUNDWORK_MAINTENANCE_CANCEL_GRACE_SECONDS=1 \
+  BREW_RESIST_TERM=1 BREW_PARENT_PID_FILE="$kill_failure_parent" \
+  BREW_DESCENDANT_PID_FILE="$kill_failure_descendant" \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/kill-unconfirmed" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -eq 125 ]] \
+  || fail "an unconfirmed KILL returned $cleanup_status instead of 125"
+grep -qF 'process tree could not be fully stopped' "$cleanup_fixture/kill-unconfirmed" \
+  || fail "an unconfirmed KILL did not report the surviving process tree"
+assert_not_contains 'npm cache verify|pnpm store prune' "$cleanup_log" \
+  "maintenance continued after a process tree could not be stopped"
+grep -qF 'could not stop its complete process tree' \
+  "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "an unconfirmed KILL did not preserve Homebrew pending state"
+kill_failure_pgid="$(<"$kill_failure_parent")"
+kill -KILL -- "-$kill_failure_pgid" 2>/dev/null || true
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
 check "groundwork-pnpm-store-tidy: hostile arguments, dry-run default, receipt"
@@ -6427,7 +6561,12 @@ repos_path="$repos_stub:$repos_tools"
 # duplicate basenames, and nested repos all appear; excluded dirs and
 # repos beyond max_depth do not; the symlink loop terminates and the
 # canonical dedupe leaves every repo listed exactly once.
-repos_run '' "$repos_path" list >"$repos_dir/list-out"
+repos_tmp="$repos_dir/tmp"
+mkdir -p "$repos_tmp"
+TMPDIR="$repos_tmp" repos_run '' "$repos_path" list >"$repos_dir/list-out"
+if compgen -G "$repos_tmp/groundwork-repos-*" >/dev/null; then
+  fail "ordinary repository discovery leaked temporary files"
+fi
 grep -qF "$repos_root/alpha"$'\t' "$repos_dir/list-out"
 grep -qF "$repos_root/space repo"$'\t' "$repos_dir/list-out"
 grep -qF "$repos_root/one/app"$'\t' "$repos_dir/list-out"
@@ -6446,17 +6585,16 @@ fi
 
 # Strict live discovery is all-or-nothing. Even when find emits a valid prefix,
 # a nonzero traversal status produces no list and names the failed root.
-cat >"$repos_dir/find-partial" <<'SH'
+cat >"$repos_stub/find" <<'SH'
 #!/bin/sh
 printf '%s\0' "${STRICT_FIND_GIT_PATH:?}"
 echo "fixture traversal failed" >&2
 exit 7
 SH
-chmod +x "$repos_dir/find-partial"
-export GROUNDWORK_REPOS_FIND_BIN="$repos_dir/find-partial"
+chmod +x "$repos_stub/find"
 export STRICT_FIND_GIT_PATH="$repos_root/alpha/.git"
 set +e
-repos_run '' "$repos_path" --strict --no-cache list \
+TMPDIR="$repos_tmp" repos_run '' "$repos_path" --strict --no-cache list \
   >"$repos_dir/strict-partial-list" 2>"$repos_dir/strict-partial-error"
 repos_status=$?
 set -e
@@ -6465,12 +6603,17 @@ set -e
 test ! -s "$repos_dir/strict-partial-list" \
   || fail "strict repository discovery emitted a partial repository inventory"
 grep -qF 'repository discovery failed for' "$repos_dir/strict-partial-error"
-grep -qF 'fixture traversal failed' "$repos_dir/strict-partial-error"
-repos_run '' "$repos_path" --no-cache list >"$repos_dir/non-strict-partial-list" \
+grep -qF 'fixture\ traversal\ failed' "$repos_dir/strict-partial-error"
+TMPDIR="$repos_tmp" repos_run '' "$repos_path" list \
+  >"$repos_dir/non-strict-partial-list" \
   || fail "interactive repository discovery rejected a safe partial inventory"
 grep -qF "$repos_root/alpha"$'\t' "$repos_dir/non-strict-partial-list" \
   || fail "interactive repository discovery lost its safe partial inventory"
-unset GROUNDWORK_REPOS_FIND_BIN STRICT_FIND_GIT_PATH
+if compgen -G "$repos_tmp/groundwork-repos-*" >/dev/null; then
+  fail "failed interactive discovery leaked temporary files"
+fi
+rm -f "$repos_stub/find"
+unset STRICT_FIND_GIT_PATH
 set +e
 repos_run '' "$repos_path" --strict list \
   >"$repos_dir/strict-cache-list" 2>"$repos_dir/strict-cache-error"

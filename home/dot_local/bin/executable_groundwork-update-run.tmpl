@@ -3,11 +3,12 @@ set -euo pipefail
 
 # The post-sync half of update-all. The launcher pulls the source
 # (`chezmoi update --init --apply=false`), preflights drift, installs and
-# verifies just this file, then execs it — so every stage below, including
-# the full `chezmoi apply` and its install hooks, runs the implementation the
-# sync just delivered. Stages guard on `command -v`, so the same file works on
-# macOS, Linux, and WSL2 whether or not a given manager is installed. Run
-# update-all, not this file, for a refresh that includes the sync.
+# verifies this runner plus its lock library, then execs it — so every stage
+# below, including the full `chezmoi apply` and its install hooks, runs the
+# implementation the sync just delivered. Stages guard on `command -v`, so the
+# same file works on macOS, Linux, and WSL2 whether or not a given manager is
+# installed. Run update-all, not this file, for a refresh that includes the
+# sync.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 usage() {
@@ -46,13 +47,54 @@ while (($#)); do
   shift
 done
 
+# Fail closed before any bootstrap apply or package stage: the support contract
+# is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable WSL
+# environment. Existing v1.9 installations already have this detector even
+# though they do not yet have the lock library introduced after v1.9.
+if [[ ! -x "$HOME/.local/bin/groundwork-platform" ]]; then
+  echo "Groundwork: the platform helper is missing: $HOME/.local/bin/groundwork-platform" >&2
+  echo "Restore it from the source you already have (this cannot fetch an upstream fix):" >&2
+  echo "  chezmoi apply --exclude=scripts ~/.local/bin/groundwork-platform" >&2
+  exit 1
+fi
+platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
+case "$platform" in
+  darwin | linux | wsl2) ;;
+  wsl1)
+    echo "Groundwork requires WSL2; WSL1 is unsupported. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
+    exit 1
+    ;;
+  wsl-unknown)
+    echo "Groundwork detected WSL but could not verify WSL2. From PowerShell, run \`wsl --list --verbose\`; convert with \`wsl --set-version <DistributionName> 2\` if needed." >&2
+    exit 1
+    ;;
+  *)
+    echo "Groundwork does not support this platform: $platform" >&2
+    exit 1
+    ;;
+esac
+
 # Direct runner invocations acquire the same lock as update-all. When the
 # launcher execs this file, the inherited token proves the transaction is
-# already locked.
+# already locked. A v1.9 launcher installs only this freshly synchronized
+# runner before exec, so restore the one new lock dependency narrowly when it
+# is absent. Targeted apply excludes scripts and cannot run install hooks.
 lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
 if [[ ! -r "$lock_lib" ]]; then
-  echo "Groundwork: the update lock helper is missing: $lock_lib" >&2
-  exit 1
+  command -v chezmoi >/dev/null 2>&1 || {
+    echo "Groundwork: cannot restore the update lock helper because chezmoi is unavailable." >&2
+    exit 1
+  }
+  chezmoi apply --exclude=scripts "$lock_lib"
+  if ! chezmoi verify "$lock_lib"; then
+    echo "Groundwork: the restored update lock helper does not match the synchronized source." >&2
+    echo "Refusing to continue. Review it with: chezmoi diff ~/.local/lib/groundwork/update-lock.sh" >&2
+    exit 1
+  fi
+  if [[ ! -r "$lock_lib" ]]; then
+    echo "Groundwork: chezmoi finished, but the update lock helper is still missing: $lock_lib" >&2
+    exit 1
+  fi
 fi
 # shellcheck source=/dev/null
 source "$lock_lib"
@@ -93,37 +135,11 @@ if [[ "$GROUNDWORK_COLOR" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 
-# Fail closed before any stage can mutate tools or the timestamp: the support
-# contract is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable
-# WSL environment.
-if [[ ! -x "$HOME/.local/bin/groundwork-platform" ]]; then
-  echo "Groundwork: the platform helper is missing: $HOME/.local/bin/groundwork-platform" >&2
-  echo "Restore it from the source you already have (this cannot fetch an upstream fix):" >&2
-  echo "  chezmoi apply --exclude=scripts ~/.local/bin/groundwork-platform" >&2
-  exit 1
-fi
-platform="$("$HOME/.local/bin/groundwork-platform" 2>/dev/null || echo unknown)"
-case "$platform" in
-  darwin | linux | wsl2) ;;
-  wsl1)
-    echo "Groundwork requires WSL2; WSL1 is unsupported. From PowerShell: \`wsl --list --verbose\` to check versions, \`wsl --set-version <DistributionName> 2\` to convert." >&2
-    exit 1
-    ;;
-  wsl-unknown)
-    echo "Groundwork detected WSL but could not verify WSL2. From PowerShell, run \`wsl --list --verbose\`; convert with \`wsl --set-version <DistributionName> 2\` if needed." >&2
-    exit 1
-    ;;
-  *)
-    echo "Groundwork does not support this platform: $platform" >&2
-    exit 1
-    ;;
-esac
-
-# The launcher installs only this runner before exec'ing it; the FULL apply —
-# configuration files and install hooks, the Homebrew bundle among them —
-# runs here, under the freshly synchronized implementation. A hang or failure
-# inside a large install now happens in a phase the fresh runner owns, not
-# before it exists.
+# The launcher installs this runner and its lock helper before exec'ing it; the
+# FULL apply — configuration files and install hooks, the Homebrew bundle among
+# them — runs here, under the freshly synchronized implementation. A hang or
+# failure inside a large install now happens in a phase the fresh runner owns,
+# not before it exists.
 command -v chezmoi >/dev/null 2>&1 || {
   echo "Groundwork: chezmoi is not on PATH; cannot complete the synchronization." >&2
   exit 1

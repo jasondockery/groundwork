@@ -118,8 +118,9 @@ for numeric_setting in "$deadline" "$observe_deadline" "$heartbeat" "$cancel_gra
     exit 64
   fi
 done
-if [[ ! "$poll_seconds" =~ ^(0\.[0-9]*[1-9][0-9]*|[1-9][0-9]*(\.[0-9]+)?)$ ]]; then
-  echo "groundwork-cleanup: maintenance polling must be a positive number of seconds." >&2
+if ! awk -v value="$poll_seconds" \
+  'BEGIN { exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value >= 0.05 && value <= 1) }'; then
+  echo "groundwork-cleanup: maintenance polling must be between 0.05 and 1 second." >&2
   exit 64
 fi
 
@@ -252,7 +253,18 @@ bounded_shutdown() {
   if bounded_tree_running "$child" "$pgid"; then
     bounded_kill "$child" "$pgid" KILL
   fi
+  stopped_at="$(date +%s)"
+  while bounded_tree_running "$child" "$pgid"; do
+    now="$(date +%s)"
+    [[ "$now" -lt $((stopped_at + cancel_grace)) ]] || break
+    sleep "$poll_seconds"
+  done
+  if bounded_tree_running "$child" "$pgid"; then
+    echo "  Groundwork: the maintenance process tree could not be fully stopped." >&2
+    return 1
+  fi
   wait "$child" 2>/dev/null || true
+  return 0
 }
 
 run_bounded_internal() {
@@ -289,7 +301,10 @@ run_bounded_internal() {
     fi
     if [[ "$interrupted" -ne 0 ]]; then
       trap '' HUP INT TERM
-      bounded_shutdown "$child" "$pgid"
+      if ! bounded_shutdown "$child" "$pgid"; then
+        bounded_restore_traps
+        return 125
+      fi
       bounded_restore_traps
       return "$interrupted"
     fi
@@ -297,7 +312,10 @@ run_bounded_internal() {
     if [[ "$now" -ge $((started + seconds)) ]]; then
       echo "  Groundwork: $label exceeded its ${seconds}s hard deadline; cancelling its process tree." >&2
       trap '' HUP INT TERM
-      bounded_shutdown "$child" "$pgid"
+      if ! bounded_shutdown "$child" "$pgid"; then
+        bounded_restore_traps
+        return 125
+      fi
       bounded_restore_traps
       return 124
     fi
@@ -309,12 +327,19 @@ run_bounded_internal() {
   done
   if [[ "$interrupted" -ne 0 ]]; then
     trap '' HUP INT TERM
-    bounded_shutdown "$child" "$pgid"
+    if ! bounded_shutdown "$child" "$pgid"; then
+      bounded_restore_traps
+      return 125
+    fi
     bounded_restore_traps
     return "$interrupted"
   fi
   if [[ "$child_reaped" -eq 0 ]]; then
     wait "$child" || status=$?
+  fi
+  if [[ "$interrupted" -ne 0 ]]; then
+    bounded_restore_traps
+    return "$interrupted"
   fi
   bounded_restore_traps
   if [[ "$descendants_observed" -eq 1 && "$status" -eq 0 ]]; then
@@ -337,9 +362,9 @@ run_bounded_capture() {
   run_bounded_internal "$label" "$observe_deadline" "$output" "$@"
 }
 
-exit_if_signal_status() {
+exit_if_terminal_status() {
   case "$1" in
-    129 | 130 | 143) exit "$1" ;;
+    125 | 129 | 130 | 143) exit "$1" ;;
   esac
 }
 
@@ -365,10 +390,15 @@ capture_dir_bytes() {
   local destination="$1" path="$2" pending_stage="${3:-}" value="" status=0
   value="$(dir_bytes "$path")" || status=$?
   case "$status" in
-    129 | 130 | 143)
+    125 | 129 | 130 | 143)
       if [[ -n "$pending_stage" ]]; then
-        mark_pending "$pending_stage" \
-          "$pending_stage command completed, but post-maintenance measurement was interrupted (exit $status); final receipt was not completed"
+        if [[ "$status" -eq 125 ]]; then
+          mark_pending "$pending_stage" \
+            "$pending_stage command completed, but its measurement process tree could not be fully stopped; final receipt was not completed"
+        else
+          mark_pending "$pending_stage" \
+            "$pending_stage command completed, but post-maintenance measurement was interrupted (exit $status); final receipt was not completed"
+        fi
       fi
       exit "$status"
       ;;
@@ -586,7 +616,7 @@ add_store_selection() {
   expected_version="${expected_version%%+*}"
   output="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-pnpm.XXXXXX")"
   run_bounded_capture "resolve pnpm store for $repo" "$output" pnpm_store_path_at "$repo" || status=$?
-  exit_if_signal_status "$status"
+  exit_if_terminal_status "$status"
   if [[ "$status" -ne 0 ]]; then
     rm -f -- "$output"
     append_review "$repo" "$package_manager could not resolve a store offline; no store was touched"
@@ -601,7 +631,7 @@ add_store_selection() {
   : >"$output"
   status=0
   run_bounded_capture "resolve pnpm version for $repo" "$output" pnpm_version_at "$repo" || status=$?
-  exit_if_signal_status "$status"
+  exit_if_terminal_status "$status"
   if [[ "$status" -ne 0 ]]; then
     rm -f -- "$output"
     append_review "$repo" "$package_manager resolved a store but its pnpm version was unavailable; no automatic candidate was created"
@@ -626,7 +656,7 @@ add_store_selection() {
 }
 
 discover_exact_selections() {
-  local repos_command jq_bin repo _ package_manager output version status=0
+  local repos_command jq_bin jq_check repo _ package_manager output version status=0
   repos_command="$HOME/.local/bin/groundwork-repos"
   if [[ ! -x "$repos_command" ]]; then
     append_review "Repository discovery" "groundwork-repos is unavailable; pnpm automatic maintenance is incomplete"
@@ -634,17 +664,23 @@ discover_exact_selections() {
   fi
   run_bounded_capture "discover configured Git repositories" "$repository_records" \
     "$repos_command" --strict --no-cache list || status=$?
-  exit_if_signal_status "$status"
+  exit_if_terminal_status "$status"
   if [[ "$status" -ne 0 ]]; then
     append_review "Repository discovery" "canonical no-cache discovery failed or timed out; pnpm automatic maintenance is incomplete"
     return 1
   fi
-  jq_bin="${GROUNDWORK_CLEANUP_JQ_BIN:-}"
-  if [[ -z "$jq_bin" ]]; then
-    jq_bin="$(command -v jq 2>/dev/null || true)"
-  fi
+  jq_bin="$(command -v jq 2>/dev/null || true)"
   if [[ ! -x "$jq_bin" ]]; then
     append_review "Repository discovery" "jq is unavailable; exact packageManager pins were not inspected and no pnpm store is automatic"
+    return 1
+  fi
+  jq_check="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-jq-check.XXXXXX")"
+  status=0
+  run_bounded_capture "verify jq" "$jq_check" "$jq_bin" --version || status=$?
+  rm -f -- "$jq_check"
+  exit_if_terminal_status "$status"
+  if [[ "$status" -ne 0 ]]; then
+    append_review "Repository discovery" "jq failed its bounded self-check; exact packageManager pins were not inspected and no pnpm store is automatic"
     return 1
   fi
   while IFS=$'\t' read -r repo _; do
@@ -653,7 +689,7 @@ discover_exact_selections() {
     status=0
     run_bounded_capture "inspect $repo/package.json" "$output" \
       "$jq_bin" -r '.packageManager // empty' "$repo/package.json" || status=$?
-    exit_if_signal_status "$status"
+    exit_if_terminal_status "$status"
     if [[ "$status" -ne 0 ]]; then
       rm -f -- "$output"
       append_review "$repo/package.json" "invalid or unreadable JSON; pnpm selection was not inspected"
@@ -820,7 +856,7 @@ if command -v brew >/dev/null 2>&1; then
   observation="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-brew.XXXXXX")"
   observation_status=0
   run_bounded_capture "query Homebrew cache" "$observation" brew_cache_at_home || observation_status=$?
-  exit_if_signal_status "$observation_status"
+  exit_if_terminal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
     brew_cache="$(observed_cache_path "$observation" "$HOME" "Homebrew" || true)"
   fi
@@ -833,7 +869,7 @@ if command -v mise >/dev/null 2>&1; then
   observation="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-mise.XXXXXX")"
   observation_status=0
   run_bounded_capture "resolve mise-owned npm" "$observation" mise_npm_path_at_home || observation_status=$?
-  exit_if_signal_status "$observation_status"
+  exit_if_terminal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
     npm_provider="mise"
   fi
@@ -846,7 +882,7 @@ if [[ "$npm_provider" == "mise" ]]; then
   observation="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-npm.XXXXXX")"
   observation_status=0
   run_bounded_capture "query npm cache" "$observation" npm_cache_with_mise || observation_status=$?
-  exit_if_signal_status "$observation_status"
+  exit_if_terminal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
     npm_cache="$(observed_cache_path "$observation" "$HOME" "npm" || true)"
   fi
@@ -855,7 +891,7 @@ elif [[ "$npm_provider" == "PATH" ]]; then
   observation="$(mktemp "${TMPDIR:-/tmp}/groundwork-cleanup-npm.XXXXXX")"
   observation_status=0
   run_bounded_capture "query npm cache" "$observation" npm_cache_from_path || observation_status=$?
-  exit_if_signal_status "$observation_status"
+  exit_if_terminal_status "$observation_status"
   if [[ "$observation_status" -eq 0 ]]; then
     npm_cache="$(observed_cache_path "$observation" "$HOME" "npm" || true)"
   fi
@@ -1005,8 +1041,14 @@ brew_before=""
 if [[ "$brew_present" -eq 1 ]]; then
   echo
   echo "Homebrew"
+  mark_pending "homebrew" \
+    "Homebrew maintenance started, but its commands and final receipt have not completed"
   run_bounded "brew autoremove" brew autoremove || brew_status=$?
   case "$brew_status" in
+    125)
+      mark_pending "homebrew" "brew autoremove could not stop its complete process tree"
+      exit 125
+      ;;
     129 | 130 | 143)
       mark_pending "homebrew" "brew autoremove was interrupted (exit $brew_status)"
       exit "$brew_status"
@@ -1015,6 +1057,10 @@ if [[ "$brew_present" -eq 1 ]]; then
   cleanup_status=0
   run_bounded "brew cleanup --prune=all" brew cleanup --prune=all || cleanup_status=$?
   case "$cleanup_status" in
+    125)
+      mark_pending "homebrew" "brew cleanup --prune=all could not stop its complete process tree"
+      exit 125
+      ;;
     129 | 130 | 143)
       mark_pending "homebrew" "brew cleanup --prune=all was interrupted (exit $cleanup_status)"
       exit "$cleanup_status"
@@ -1025,7 +1071,6 @@ if [[ "$brew_present" -eq 1 ]]; then
   brew_after=""
   [[ -z "$brew_cache" ]] || capture_dir_bytes brew_after "$brew_cache" homebrew || true
   if [[ "$cleanup_status" -eq 0 ]]; then
-    clear_pending "homebrew"
     echo "  Cleanup completed"
   else
     brew_status="$cleanup_status"
@@ -1052,6 +1097,9 @@ if [[ "$brew_present" -eq 1 ]]; then
     echo "  Cache reclaimed: not measured (cache size unavailable)"
   fi
   echo "  Requested formulae and casks stay installed. autoremove may remove installed orphan formula dependencies; cleanup removes reproducible cached and superseded state."
+  if [[ "$cleanup_status" -eq 0 ]]; then
+    clear_pending "homebrew"
+  fi
 fi
 
 verify_npm_with_mise() {
@@ -1068,12 +1116,18 @@ if [[ -n "$npm_provider" ]]; then
   echo "npm"
   npm_before=""
   [[ -z "$npm_cache" ]] || capture_dir_bytes npm_before "$npm_cache" || true
+  mark_pending "npm" \
+    "npm maintenance started, but its command and final receipt have not completed"
   if [[ "$npm_provider" == "mise" ]]; then
     run_bounded "npm cache verify" verify_npm_with_mise || npm_status=$?
   else
     run_bounded "npm cache verify" verify_npm_from_path || npm_status=$?
   fi
   case "$npm_status" in
+    125)
+      mark_pending "npm" "npm cache verify could not stop its complete process tree"
+      exit 125
+      ;;
     129 | 130 | 143)
       mark_pending "npm" "npm cache verify was interrupted (exit $npm_status)"
       exit "$npm_status"
@@ -1082,7 +1136,6 @@ if [[ -n "$npm_provider" ]]; then
   npm_after=""
   [[ -z "$npm_cache" ]] || capture_dir_bytes npm_after "$npm_cache" npm || true
   if [[ "$npm_status" -eq 0 ]]; then
-    clear_pending "npm"
     echo "  Cache verified"
   else
     maintenance_failed=1
@@ -1091,6 +1144,9 @@ if [[ -n "$npm_provider" ]]; then
   fi
   printf '  Reclaimed: %s\n' \
     "$(if [[ -n "$npm_before" && -n "$npm_after" && "$npm_after" -le "$npm_before" ]]; then format_bytes "$((npm_before - npm_after))"; else printf 'not measured'; fi)"
+  if [[ "$npm_status" -eq 0 ]]; then
+    clear_pending "npm"
+  fi
 fi
 
 prune_pnpm_store() {
@@ -1129,6 +1185,8 @@ else
   echo "  Groundwork will run pnpm's supported store-prune operation on the exact candidates listed below."
   echo "  Repository dependency installations such as node_modules are not modified."
   print_candidates
+  mark_pending "pnpm" \
+    "pnpm maintenance started, but its commands and final receipt have not completed"
   write_state "$pnpm_attempt" "$(date +%s) $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   stores_pruned=0
   pnpm_before="$pnpm_total"
@@ -1138,6 +1196,10 @@ else
     run_bounded "pnpm store prune: $store" \
       prune_pnpm_store "$directory" "$store" "$version" "$store_base" || one_status=$?
     case "$one_status" in
+      125)
+        mark_pending "pnpm" "pnpm store prune could not stop its complete process tree"
+        exit 125
+        ;;
       129 | 130 | 143)
         mark_pending "pnpm" "pnpm store prune was interrupted (exit $one_status)"
         exit "$one_status"
@@ -1163,11 +1225,11 @@ else
   done <"$store_candidates"
   if [[ "$pnpm_status" -eq 0 ]]; then
     write_state "$pnpm_success" "$(date +%s) $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-    clear_pending "pnpm"
     echo "  Stores pruned: $stores_pruned"
     printf '  Reclaimed: %s\n' \
       "$(if [[ "$pnpm_sizes_complete" -eq 1 && "$pnpm_after_complete" -eq 1 && "$pnpm_after" -le "$pnpm_before" ]]; then format_bytes "$((pnpm_before - pnpm_after))"; else printf 'not measured'; fi)"
     echo "  Next machine-wide pnpm maintenance: approximately $monthly_days days"
+    clear_pending "pnpm"
   else
     mark_pending "pnpm" "pnpm store maintenance failed (exit $pnpm_status)"
     echo "  Store maintenance incomplete (exit $pnpm_status)" >&2
