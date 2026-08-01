@@ -6218,6 +6218,10 @@ case "$*" in
       esac
       prev="$a"
     done
+    if [ -n "$cidfile" ] && [ -e "$cidfile" ]; then
+      echo "container ID file found before create" >&2
+      exit 1
+    fi
     awk -F'\t' -v n="$name" '$4 == n { found = 1 } END { exit found ? 0 : 1 }' "$ctrs" \
       && { echo "container name is already in use" >&2; exit 1; }
     image_id="$(resolve_img "$image_ref")"; [ -n "$image_id" ] || exit 1
@@ -6914,7 +6918,11 @@ resolver_good="$(RESOLVER_PATH="$resolver_state/good-relative" DOCKER_LIB="$dock
   source "$DOCKER_LIB"
   gw_docker_canonical_executable "$RESOLVER_PATH"
 ')"
-[[ "$resolver_good" == /*/sh ]] \
+resolver_expected="$(DOCKER_LIB="$docker_lib" /bin/bash -c '
+  source "$DOCKER_LIB"
+  gw_docker_canonical_executable /bin/sh
+')"
+[[ -n "$resolver_expected" && "$resolver_good" == "$resolver_expected" ]] \
   || fail "trusted-executable canonicalization rejected a legitimate relative link chain"
 for resolver_hop in {41..1}; do
   if [[ "$resolver_hop" -eq 41 ]]; then
@@ -6929,7 +6937,7 @@ if RESOLVER_PATH="$resolver_state/hop-1" DOCKER_LIB="$docker_lib" /bin/bash -c '
 ' >/dev/null 2>&1; then
   fail "trusted-executable canonicalization followed more than 40 symlinks"
 fi
-unset resolver_bad resolver_good resolver_hop
+unset resolver_bad resolver_expected resolver_good resolver_hop
 
 docker_state_init "$tidy_state"
 printf 'sha256:auto0001\tgroundwork/scratch:auto\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.5GB\n' \
@@ -7119,11 +7127,11 @@ done
 cat >"$tidy_state/delay.conf" <<'EOF'
 DELAY_SUBSTR='image inspect sha256:total'
 DELAY_AFTER=5
-DELAY_SECONDS=0.8
+DELAY_SECONDS=2
 EOF
 set +e
 GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=5 \
-  GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=3 \
+  GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=8 \
   GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
   docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
   >"$out_dir/tidy-total-deadline" 2>&1

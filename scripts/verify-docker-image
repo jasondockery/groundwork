@@ -136,7 +136,8 @@ snapshot_built=""
 snapshot_tags=""
 observed_tag_id=""
 inspect_output="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-verify.XXXXXX")"
-container_cidfile="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-cid.XXXXXX")"
+container_receipt_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-docker-cid.XXXXXX")"
+container_cidfile="$container_receipt_dir/container.cid"
 cleanup_image=0
 cleanup_container=0
 build_may_have_created_tag=0
@@ -423,6 +424,7 @@ verify_cleanup() {
   fi
 
   rm -f -- "$inspect_output" "$container_cidfile"
+  rmdir "$container_receipt_dir" 2>/dev/null || true
   if [[ "$original_status" -eq 0 && "$cleanup_status" -ne 0 ]]; then
     original_status="$cleanup_status"
   fi
@@ -537,12 +539,14 @@ fi
 
 smoke_command='rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK'
 create_status=0
-: >"$container_cidfile"
 verify_capture "create verification container $container_name" "$observe_deadline" \
   "$docker_executable" container create --rm --cidfile "$container_cidfile" \
   --name "$container_name" \
   "$owned_image_id" zsh -ic "$smoke_command" || create_status=$?
-container_id="$(<"$container_cidfile")"
+container_id=""
+if [[ -f "$container_cidfile" ]]; then
+  container_id="$(<"$container_cidfile")"
+fi
 if [[ "$container_id" =~ ^[a-f0-9]{12,64}$ ]]; then
   cleanup_container=1
 elif [[ "$create_status" -eq 0 && "$container_name_preflight_clear" -eq 1 && "$runner_tree_uncertain" -eq 0 ]]; then
