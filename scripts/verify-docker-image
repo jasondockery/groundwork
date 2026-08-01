@@ -1,0 +1,578 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Repository-owned Dockerfile proof. The build wrapper owns the lifecycle
+# labels and scratch tag; this command owns the complete build-run-clean
+# transaction so a failed smoke test or interrupted agent cannot skip the
+# final exact-resource cleanup.
+
+usage() {
+  cat <<'EOF'
+Build, run, and remove Groundwork's Docker verification image.
+
+Usage:
+  scripts/verify-docker-image [--purpose <tag-part>] [-- <docker build args>]
+  scripts/verify-docker-image --existing --purpose <tag-part>
+  scripts/verify-docker-image -h|--help
+
+The default builds groundwork/scratch:<purpose> through the managed scratch
+wrapper, runs the repository smoke test in an auto-removed named container,
+and removes that exact image on every exit path. When --purpose is omitted,
+the process-specific purpose verify-<pid> avoids collisions.
+
+--existing is for CI systems that build the image through a cache-aware action.
+It accepts only an existing groundwork/scratch:<purpose> image carrying both
+Groundwork lifecycle labels, then runs and removes it. Build arguments are not
+accepted with --existing.
+
+Docker calls are bounded and use a trusted CLI against a verified local Unix
+endpoint. Defaults: build 1800s, smoke run 300s, cleanup 30s.
+The test-only GROUNDWORK_DOCKER_VERIFY_*_DEADLINE_SECONDS variables may shorten
+those bounds in repository fixtures.
+EOF
+}
+
+die() {
+  echo "verify-docker-image: $1" >&2
+  exit 64
+}
+
+purpose=""
+existing=0
+forward=()
+while (($#)); do
+  case "$1" in
+    --purpose)
+      [[ $# -ge 2 ]] || die "--purpose needs a value"
+      purpose="$2"
+      shift
+      ;;
+    --existing) existing=1 ;;
+    --)
+      shift
+      while (($#)); do
+        forward+=("$1")
+        shift
+      done
+      break
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *) die "unknown argument: $1" ;;
+  esac
+  shift
+done
+
+[[ -n "$purpose" ]] || purpose="verify-$$"
+if ! [[ "$purpose" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]] || ((${#purpose} > 128)); then
+  die "invalid purpose '$purpose'"
+fi
+if [[ "$existing" -eq 1 && ${#forward[@]} -ne 0 ]]; then
+  die "--existing cannot be combined with Docker build arguments"
+fi
+for docker_env_name in DOCKER_HOST DOCKER_CONTEXT DOCKER_CONFIG; do
+  if [[ -n "${!docker_env_name:-}" ]]; then
+    die "refusing ambient $docker_env_name; repository verification requires the selected canonical local Docker context"
+  fi
+done
+unset docker_env_name
+
+build_deadline="${GROUNDWORK_DOCKER_VERIFY_BUILD_DEADLINE_SECONDS:-1800}"
+run_deadline="${GROUNDWORK_DOCKER_VERIFY_RUN_DEADLINE_SECONDS:-300}"
+cleanup_deadline="${GROUNDWORK_DOCKER_VERIFY_CLEANUP_DEADLINE_SECONDS:-30}"
+for verify_deadline in "$build_deadline" "$run_deadline" "$cleanup_deadline"; do
+  if [[ ! "$verify_deadline" =~ ^[0-9]+$ || "$verify_deadline" -lt 1 ]]; then
+    die "Docker verification deadlines must be positive integers"
+  fi
+done
+unset verify_deadline
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+builder="$repo_root/home/dot_local/bin/executable_groundwork-docker-build-scratch"
+runner_lib="$repo_root/home/dot_local/share/groundwork/lib/maintenance-runner.sh"
+scanner_lib="$repo_root/home/dot_local/share/groundwork/lib/docker-scan.sh"
+[[ -x "$builder" ]] || die "scratch build wrapper is missing or not executable: $builder"
+[[ -r "$runner_lib" ]] || die "bounded maintenance runner is missing: $runner_lib"
+[[ -r "$scanner_lib" ]] || die "Docker lifecycle parser is missing: $scanner_lib"
+
+# Globals required by the shared bounded runner. The explicit operation
+# deadline is passed per call; these values own observation and cancellation.
+deadline="$build_deadline"
+observe_deadline=30
+heartbeat=30
+cancel_grace=2
+poll_seconds=0.2
+orphan_grace=5
+: "$deadline" "$observe_deadline" "$heartbeat" "$cancel_grace" "$poll_seconds" "$orphan_grace"
+# shellcheck source=/dev/null
+source "$runner_lib"
+# shellcheck source=/dev/null
+source "$scanner_lib"
+docker_executable="$(gw_docker_resolve_trusted_executable docker 2>/dev/null || true)"
+if [[ -z "$docker_executable" ]]; then
+  echo "verify-docker-image: no trusted Docker CLI was found." >&2
+  exit 1
+fi
+jq_executable="$(gw_docker_resolve_trusted_executable jq 2>/dev/null || true)"
+[[ -n "$jq_executable" ]] \
+  || die "a trusted jq is required to verify one complete Docker image snapshot"
+# shellcheck disable=SC2034 # Read dynamically by the sourced scanner parser.
+GW_DOCKER_JQ="$jq_executable"
+
+tag="groundwork/scratch:$purpose"
+container_nonce="${GROUNDWORK_DOCKER_VERIFY_CONTAINER_NONCE:-$$-$RANDOM}"
+if ! [[ "$container_nonce" =~ ^[A-Za-z0-9_.-]+$ ]] || ((${#container_nonce} > 64)); then
+  die "invalid verification-container nonce"
+fi
+container_name="groundwork-verify-$purpose-$container_nonce"
+container_id=""
+observed_container_name_id=""
+owned_image_id=""
+snapshot_id=""
+snapshot_ephemeral=""
+snapshot_built=""
+snapshot_tags=""
+observed_tag_id=""
+inspect_output="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-verify.XXXXXX")"
+container_cidfile="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-cid.XXXXXX")"
+cleanup_image=0
+cleanup_container=0
+build_may_have_created_tag=0
+container_name_preflight_clear=0
+runner_tree_uncertain=0
+
+verify_capture() {
+  local label="$1" seconds="$2" status=0
+  shift 2
+  : >"$inspect_output"
+  run_bounded_internal "$label" "$seconds" "$inspect_output" "$@" || status=$?
+  [[ "$status" -ne 125 ]] || runner_tree_uncertain=1
+  return "$status"
+}
+
+# Complete-enumeration proof helpers. Return 0 only when absent, 1 when the
+# resource is present, and 2 when absence cannot be observed completely.
+verify_image_tag_absent() {
+  local status=0 line listed_tag listed_id
+  observed_tag_id=""
+  verify_capture "enumerate Docker image tags" "$cleanup_deadline" \
+    "$docker_executable" images --no-trunc \
+    --format $'{{.Repository}}:{{.Tag}}\t{{.ID}}' || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" == *$'\t'* ]] || return 2
+    IFS=$'\t' read -r listed_tag listed_id <<<"$line"
+    [[ -n "$listed_tag" && "$listed_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 2
+    if [[ "$listed_tag" == "$tag" ]]; then
+      observed_tag_id="$listed_id"
+      return 1
+    fi
+  done <"$inspect_output"
+  return 0
+}
+
+# shellcheck disable=SC2329 # Called by EXIT-trap cleanup.
+verify_image_id_absent() {
+  local wanted="$1" status=0 listed_id
+  verify_capture "enumerate Docker image IDs" "$cleanup_deadline" \
+    "$docker_executable" images --all --no-trunc --quiet || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
+  while IFS= read -r listed_id; do
+    [[ -n "$listed_id" ]] || continue
+    [[ "$listed_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 2
+    [[ "$listed_id" == "$wanted" ]] && return 1
+  done <"$inspect_output"
+  return 0
+}
+
+verify_container_name_absent() {
+  local status=0 line listed_id listed_name matches=0
+  observed_container_name_id=""
+  verify_capture "enumerate Docker container names" "$cleanup_deadline" \
+    "$docker_executable" ps -a --no-trunc \
+    --format $'{{.ID}}\t{{.Names}}' || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" == *$'\t'* ]] || return 2
+    IFS=$'\t' read -r listed_id listed_name <<<"$line"
+    [[ "$listed_id" =~ ^[a-f0-9]{12,64}$ && -n "$listed_name" ]] || return 2
+    if [[ "$listed_name" == "$container_name" ]]; then
+      matches=$((matches + 1))
+      observed_container_name_id="$listed_id"
+    fi
+  done <"$inspect_output"
+  case "$matches" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
+# shellcheck disable=SC2329 # Called by EXIT-trap cleanup.
+verify_container_id_absent() {
+  local wanted="$1" status=0 listed_id
+  verify_capture "enumerate Docker container IDs" "$cleanup_deadline" \
+    "$docker_executable" ps -aq --no-trunc || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
+  while IFS= read -r listed_id; do
+    [[ -n "$listed_id" ]] || continue
+    [[ "$listed_id" =~ ^[a-f0-9]{12,64}$ ]] || return 2
+    [[ "$listed_id" == "$wanted" ]] && return 1
+  done <"$inspect_output"
+  return 0
+}
+
+# One raw Docker inspect is the authority for identity, lifecycle labels, and
+# the complete tag set. jq validates and extracts that same immutable payload.
+verify_image_snapshot() {
+  local ref="$1" seconds="${2:-$observe_deadline}" status=0
+  verify_capture "inspect verification image $ref" "$seconds" \
+    "$docker_executable" image inspect "$ref" || status=$?
+  [[ "$status" -eq 0 ]] || return "$status"
+  # Each possibly empty field is extracted independently from the same saved
+  # inspect payload. Bash tab-IFS parsing would collapse empty middle or final
+  # fields and silently move lifecycle facts into the wrong variable.
+  snapshot_id="$("$jq_executable" -er '
+    if length != 1 then error("wanted one image") else .[0].Id end
+    | if type == "string" and length > 0 then . else error("invalid Id") end
+  ' "$inspect_output" 2>/dev/null)" || return 2
+  snapshot_ephemeral="$("$jq_executable" -er '
+    if length != 1 then error("wanted one image") else .[0] end
+    | (.Config.Labels // {})
+    | if type != "object" then error("invalid Labels")
+      else (.["dev.roost.ephemeral"] // "") end
+    | if type == "string" then . else error("invalid ephemeral label") end
+  ' "$inspect_output" 2>/dev/null)" || return 2
+  snapshot_built="$("$jq_executable" -er '
+    if length != 1 then error("wanted one image") else .[0] end
+    | (.Config.Labels // {})
+    | if type != "object" then error("invalid Labels")
+      else (.["dev.roost.built"] // "") end
+    | if type == "string" then . else error("invalid built label") end
+  ' "$inspect_output" 2>/dev/null)" || return 2
+  snapshot_tags="$("$jq_executable" -er '
+    if length != 1 then error("wanted one image") else .[0] end
+    | if (has("RepoTags") | not) or (.RepoTags | type) != "array"
+        or (all(.RepoTags[]; type == "string") | not)
+        then error("invalid RepoTags")
+      else .RepoTags | join(",") end
+  ' "$inspect_output" 2>/dev/null)" || return 2
+  [[ "$snapshot_id" =~ ^sha256:[a-f0-9]{64}$ ]] || return 2
+  return 0
+}
+
+validate_owned_snapshot() {
+  local built_epoch
+  [[ "$snapshot_ephemeral" == "true" ]] \
+    || die "image did not opt in with dev.roost.ephemeral=true"
+  [[ "$snapshot_built" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
+    && built_epoch="$(gw_docker_built_epoch "$snapshot_built")" \
+    && [[ "$built_epoch" =~ ^-?[0-9]+$ ]] \
+    || die "image has an invalid dev.roost.built timestamp"
+  [[ "$snapshot_tags" == "$tag" ]] \
+    || die "verification-owned image must have exactly the expected scratch tag: $tag"
+}
+
+# shellcheck disable=SC2329 # Invoked by the EXIT trap below.
+verify_cleanup() {
+  local original_status=$? cleanup_status=0 remove_status=0 snapshot_status=0
+  local snapshot_tag id_absence=0 tag_absence=0 container_status=0
+  trap - EXIT
+  trap '' HUP INT TERM
+
+  if [[ "$cleanup_container" -eq 1 && "$runner_tree_uncertain" -eq 0 ]]; then
+    container_status=0
+    run_bounded_internal "stop verification container $container_id" \
+      "$cleanup_deadline" "" "$docker_executable" container stop --time 2 \
+      "$container_id" >/dev/null 2>&1 || container_status=$?
+    if [[ "$container_status" -eq 125 ]]; then
+      runner_tree_uncertain=1
+      cleanup_status=1
+    elif [[ "$container_status" =~ ^(129|130|143)$ ]]; then
+      echo "verify-docker-image: container stop returned $container_status during cleanup." >&2
+    fi
+
+    if [[ "$runner_tree_uncertain" -eq 0 ]]; then
+      container_status=0
+      run_bounded_internal "remove verification container $container_id" \
+        "$cleanup_deadline" "" "$docker_executable" container rm \
+        "$container_id" >/dev/null 2>&1 || container_status=$?
+      if [[ "$container_status" -eq 125 ]]; then
+        runner_tree_uncertain=1
+        cleanup_status=1
+      fi
+    fi
+
+    if [[ "$runner_tree_uncertain" -eq 0 ]]; then
+      container_status=0
+      verify_container_id_absent "$container_id" || container_status=$?
+      if [[ "$container_status" -eq 125 ]]; then
+        runner_tree_uncertain=1
+        cleanup_status=1
+      elif [[ "$container_status" -ne 0 ]]; then
+        echo "verify-docker-image: could not prove cleanup of container ID $container_id." >&2
+        echo "  Check exactly: docker container inspect $container_id" >&2
+        cleanup_status=1
+      fi
+    fi
+  fi
+
+  if [[ "$cleanup_image" -eq 1 && "$runner_tree_uncertain" -eq 0 ]]; then
+    snapshot_status=0
+    verify_image_snapshot "$owned_image_id" "$cleanup_deadline" || snapshot_status=$?
+    if [[ "$snapshot_status" -eq 125 ]]; then
+      runner_tree_uncertain=1
+      cleanup_status=1
+    elif [[ "$snapshot_status" -ne 0 ]]; then
+      id_absence=0
+      verify_image_id_absent "$owned_image_id" || id_absence=$?
+      if [[ "$id_absence" -eq 125 ]]; then
+        runner_tree_uncertain=1
+        cleanup_status=1
+      elif [[ "$id_absence" -eq 0 ]]; then
+        tag_absence=0
+        verify_image_tag_absent || tag_absence=$?
+        if [[ "$tag_absence" -eq 125 ]]; then
+          runner_tree_uncertain=1
+          cleanup_status=1
+        elif [[ "$tag_absence" -ne 0 ]]; then
+          echo "verify-docker-image: owned image ID $owned_image_id is absent, but $tag is present or unverified; refusing mutation." >&2
+          cleanup_status=1
+        fi
+      else
+        echo "verify-docker-image: could not prove the state of owned image ID $owned_image_id." >&2
+        cleanup_status=1
+      fi
+    elif [[ "$snapshot_id" != "$owned_image_id" ]]; then
+      echo "verify-docker-image: Docker returned a different image ID during cleanup; refusing mutation." >&2
+      cleanup_status=1
+    else
+      while IFS= read -r snapshot_tag; do
+        [[ -n "$snapshot_tag" ]] || continue
+        if [[ "$snapshot_tag" != "$tag" ]]; then
+          echo "verify-docker-image: retained image $owned_image_id because it gained another tag: $snapshot_tag." >&2
+          cleanup_status=1
+        fi
+      done < <(printf '%s\n' "$snapshot_tags" | tr ',' '\n')
+
+      if [[ "$cleanup_status" -eq 0 && "$runner_tree_uncertain" -eq 0 ]]; then
+        run_bounded_internal "remove verification image ID $owned_image_id" \
+          "$cleanup_deadline" "" "$docker_executable" image rm "$owned_image_id" >/dev/null \
+          || remove_status=$?
+        if [[ "$remove_status" -eq 125 ]]; then
+          runner_tree_uncertain=1
+          cleanup_status=1
+        fi
+
+        if [[ "$runner_tree_uncertain" -eq 0 ]]; then
+          id_absence=0
+          verify_image_id_absent "$owned_image_id" || id_absence=$?
+          if [[ "$id_absence" -eq 125 ]]; then
+            runner_tree_uncertain=1
+            cleanup_status=1
+          elif [[ "$id_absence" -ne 0 ]]; then
+            echo "verify-docker-image: could not prove owned image ID $owned_image_id was removed." >&2
+            cleanup_status=1
+          fi
+        fi
+
+        if [[ "$runner_tree_uncertain" -eq 0 ]]; then
+          tag_absence=0
+          verify_image_tag_absent || tag_absence=$?
+          if [[ "$tag_absence" -eq 125 ]]; then
+            runner_tree_uncertain=1
+            cleanup_status=1
+          elif [[ "$tag_absence" -eq 1 && "$observed_tag_id" != "$owned_image_id" ]]; then
+            echo "verify-docker-image: $tag now points to different image $observed_tag_id; left untouched." >&2
+            cleanup_status=1
+          elif [[ "$tag_absence" -ne 0 ]]; then
+            echo "verify-docker-image: could not prove $tag was not retained or repointed." >&2
+            cleanup_status=1
+          elif [[ "$remove_status" -ne 0 && "$id_absence" -ne 0 ]]; then
+            cleanup_status=1
+          fi
+        fi
+
+        if [[ "$cleanup_status" -eq 0 && "$runner_tree_uncertain" -eq 0 ]]; then
+          echo "verify-docker-image: removed image $owned_image_id (owned tag $tag)"
+        fi
+      fi
+    fi
+  elif [[ "$build_may_have_created_tag" -eq 1 && "$runner_tree_uncertain" -eq 0 ]]; then
+    tag_absence=0
+    verify_image_tag_absent || tag_absence=$?
+    if [[ "$tag_absence" -eq 125 ]]; then
+      runner_tree_uncertain=1
+      cleanup_status=1
+    elif [[ "$tag_absence" -ne 0 ]]; then
+      echo "verify-docker-image: build stopped before exact image ownership was captured; retained possible tag $tag." >&2
+      echo "  Inspect before owner-confirmed cleanup: docker image inspect $tag" >&2
+      cleanup_status=1
+    fi
+  fi
+
+  if [[ "$runner_tree_uncertain" -eq 1 ]]; then
+    echo "verify-docker-image: cleanup stopped because a bounded Docker process tree could not be fully stopped; no later Docker command was issued." >&2
+    [[ -z "$container_id" ]] || echo "  Inspect exactly: docker container inspect $container_id" >&2
+    [[ -z "$owned_image_id" ]] || echo "  Inspect exactly: docker image inspect $owned_image_id" >&2
+    cleanup_status=1
+  fi
+
+  rm -f -- "$inspect_output" "$container_cidfile"
+  if [[ "$original_status" -eq 0 && "$cleanup_status" -ne 0 ]]; then
+    original_status="$cleanup_status"
+  fi
+  exit "$original_status"
+}
+trap verify_cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+context_status=0
+verify_capture "inspect Docker endpoint" "$observe_deadline" \
+  "$docker_executable" context inspect --format '{{.Endpoints.docker.Host}}' \
+  || context_status=$?
+case "$context_status" in
+  0) ;;
+  124 | 125 | 129 | 130 | 143) exit "$context_status" ;;
+  *)
+    echo "verify-docker-image: could not verify the Docker endpoint." >&2
+    exit 1
+    ;;
+esac
+context_host="$(<"$inspect_output")"
+if [[ "$context_host" == *$'\n'* || "$context_host" == *$'\r'* ||
+  "$context_host" == *$'\t'* || "$context_host" == *$'\e'* ||
+  "$context_host" =~ [[:cntrl:]] ]]; then
+  echo "verify-docker-image: Docker returned an unsafe endpoint value." >&2
+  exit 1
+fi
+case "$context_host" in
+  unix://?*) ;;
+  *)
+    echo "verify-docker-image: refusing non-local Docker endpoint: ${context_host:-unknown}" >&2
+    exit 1
+    ;;
+esac
+
+info_status=0
+run_bounded_internal "verify Docker daemon" "$observe_deadline" "" \
+  "$docker_executable" info >/dev/null 2>&1 || info_status=$?
+[[ "$info_status" -ne 125 ]] || runner_tree_uncertain=1
+case "$info_status" in
+  0) ;;
+  124 | 125 | 129 | 130 | 143) exit "$info_status" ;;
+  *)
+    echo "verify-docker-image: Docker daemon not reachable." >&2
+    exit 1
+    ;;
+esac
+
+name_absence=0
+verify_container_name_absent || name_absence=$?
+case "$name_absence" in
+  0) container_name_preflight_clear=1 ;;
+  1) die "refusing to reuse an existing verification container: $container_name" ;;
+  *)
+    echo "verify-docker-image: could not prove the verification-container name is free." >&2
+    exit 1
+    ;;
+esac
+
+if [[ "$existing" -eq 1 ]]; then
+  snapshot_status=0
+  verify_image_snapshot "$tag" || snapshot_status=$?
+  if [[ "$snapshot_status" -ne 0 ]]; then
+    tag_absence=0
+    verify_image_tag_absent || tag_absence=$?
+    if [[ "$tag_absence" -eq 0 ]]; then
+      echo "verify-docker-image: expected scratch image is missing: $tag" >&2
+    else
+      echo "verify-docker-image: could not obtain a complete snapshot for existing image $tag." >&2
+    fi
+    exit 1
+  fi
+  validate_owned_snapshot
+  owned_image_id="$snapshot_id"
+  cleanup_image=1
+else
+  tag_absence=0
+  verify_image_tag_absent || tag_absence=$?
+  case "$tag_absence" in
+    0) ;;
+    1) die "refusing to overwrite an existing verification image: $tag" ;;
+    *)
+      echo "verify-docker-image: could not prove the verification image tag is free." >&2
+      exit 1
+      ;;
+  esac
+
+  build_may_have_created_tag=1
+  build_status=0
+  build_command=("$builder" "$purpose" "$repo_root" --project groundwork)
+  if ((${#forward[@]})); then
+    build_command+=(-- "${forward[@]}")
+  fi
+  run_bounded_internal "build verification image $tag" "$build_deadline" "" \
+    "${build_command[@]}" || build_status=$?
+  [[ "$build_status" -ne 125 ]] || runner_tree_uncertain=1
+  [[ "$build_status" -eq 0 ]] || exit "$build_status"
+
+  snapshot_status=0
+  verify_image_snapshot "$tag" || snapshot_status=$?
+  [[ "$snapshot_status" -eq 0 ]] || {
+    echo "verify-docker-image: build completed, but its exact image ownership could not be captured." >&2
+    exit 1
+  }
+  validate_owned_snapshot
+  owned_image_id="$snapshot_id"
+  cleanup_image=1
+  build_may_have_created_tag=0
+fi
+
+smoke_command='rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK'
+create_status=0
+: >"$container_cidfile"
+verify_capture "create verification container $container_name" "$observe_deadline" \
+  "$docker_executable" container create --rm --cidfile "$container_cidfile" \
+  --name "$container_name" \
+  "$owned_image_id" zsh -ic "$smoke_command" || create_status=$?
+container_id="$(<"$container_cidfile")"
+if [[ "$container_id" =~ ^[a-f0-9]{12,64}$ ]]; then
+  cleanup_container=1
+elif [[ "$create_status" -eq 0 && "$container_name_preflight_clear" -eq 1 && "$runner_tree_uncertain" -eq 0 ]]; then
+  # A successful create after an enumeration-backed absent-name preflight is
+  # enough to recover ownership by exact-name enumeration when Docker failed
+  # to write its CID receipt. The name is never itself used for cleanup.
+  name_lookup_status=0
+  verify_container_name_absent || name_lookup_status=$?
+  if [[ "$name_lookup_status" -eq 1 && "$observed_container_name_id" =~ ^[a-f0-9]{12,64}$ ]]; then
+    container_id="$observed_container_name_id"
+    cleanup_container=1
+  fi
+fi
+if [[ "$create_status" -ne 0 ]]; then
+  if [[ "$cleanup_container" -eq 0 && "$runner_tree_uncertain" -eq 0 ]]; then
+    name_lookup_status=0
+    verify_container_name_absent || name_lookup_status=$?
+    if [[ "$name_lookup_status" -eq 1 ]]; then
+      echo "verify-docker-image: container create failed while $container_name exists; ownership was not proven, so it was left untouched." >&2
+      echo "  Inspect exactly: docker container inspect $observed_container_name_id" >&2
+    fi
+  fi
+  exit "$create_status"
+fi
+if [[ "$cleanup_container" -ne 1 ]]; then
+  echo "verify-docker-image: Docker reported a successful create, but no exact container ID receipt could be recovered." >&2
+  exit 1
+fi
+run_status=0
+run_bounded_internal "run verification image $owned_image_id" "$run_deadline" "" \
+  "$docker_executable" container start --attach "$container_id" || run_status=$?
+[[ "$run_status" -ne 125 ]] || runner_tree_uncertain=1
+exit "$run_status"

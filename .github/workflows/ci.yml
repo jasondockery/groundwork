@@ -190,6 +190,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
+      - name: Declare scratch lifecycle metadata
+        id: scratch
+        shell: bash
+        run: echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       # Layer cache persists across runs via the GitHub Actions cache backend;
       # this is the job that was ~140s uncached. Trade-off: cached layers pin
       # the "latest release" tools until Dockerfile/install-script edits bust
@@ -201,7 +206,10 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
-          tags: groundwork:test
+          tags: groundwork/scratch:ci-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            dev.roost.ephemeral=true
+            dev.roost.built=${{ steps.scratch.outputs.built }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           secrets: |
@@ -212,7 +220,7 @@ jobs:
       - name: Smoke test image
         run: |
           set -o pipefail
-          docker run --rm groundwork:test zsh -ic 'rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK' | tee "$RUNNER_TEMP/smoke-versions.txt"
+          scripts/verify-docker-image --existing --purpose "ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" | tee "$RUNNER_TEMP/smoke-versions.txt"
           {
             echo "## docker-build smoke test"
             echo

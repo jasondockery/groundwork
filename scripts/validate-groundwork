@@ -156,7 +156,11 @@ annotation_escape_title() {
 }
 
 report_and_cleanup() {
-  local status=$?
+  local status="${1:-0}" failed_line="${2:-unknown}" failed_command="${3:-unknown}"
+  if [[ "$status" -ne 0 && -z "$fail_reason" ]]; then
+    fail_reason="line $failed_line exited $status: $failed_command"
+    echo "validate-groundwork: $current_check failed at line $failed_line: $failed_command (exit $status)" >&2
+  fi
   rm -rf "$out_dir"
   if [[ -n "${copylast_socket:-}" ]]; then
     tmux -L "$copylast_socket" kill-server 2>/dev/null || true
@@ -189,7 +193,7 @@ report_and_cleanup() {
   fi
   exit "$status"
 }
-trap report_and_cleanup EXIT
+trap 'report_and_cleanup "$?" "$LINENO" "$BASH_COMMAND"' EXIT
 
 # In GitHub Actions, gcc format feeds the shellcheck-gcc problem matcher
 # (.github/problem-matchers/shellcheck-gcc.json) so findings surface as
@@ -417,6 +421,7 @@ update_all_fixture="$out_dir/update-all-fixture"
 update_all_home="$update_all_fixture/home"
 update_all_bin="$update_all_home/.local/bin"
 mkdir -p "$update_all_bin" "$update_all_home/.local/lib/groundwork" \
+  "$update_all_home/.local/share/groundwork/lib" \
   "$update_all_home/.local/state/groundwork" \
   "$update_all_home/.config/groundwork" "$update_all_home/code"
 update_all_saved_xdg_config="${XDG_CONFIG_HOME-}"
@@ -609,8 +614,24 @@ fi
 [[ "${NPM_STUB_LOG:-0}" == "0" ]] || printf 'npm %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
 SH
 cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
+cp home/dot_local/share/groundwork/lib/maintenance-runner.sh \
+  "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
+cat >"$update_all_bin/groundwork-docker-tidy" <<'SH'
+#!/usr/bin/env bash
+printf 'docker-tidy %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+pending="$HOME/.local/state/groundwork/docker-tidy-pending"
+status="${DOCKER_TIDY_STATUS:-0}"
+if [[ "$status" -eq 0 ]]; then
+  rm -f -- "$pending"
+elif [[ "$status" -ne 3 && "${DOCKER_TIDY_RECORD_PENDING:-1}" -eq 1 ]]; then
+  mkdir -p "$(dirname "$pending")"
+  printf 'Docker scratch maintenance failed (exit %s)\n' "$status" >"$pending"
+fi
+exit "$status"
+SH
 chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
   "$update_all_bin/npm" "$update_all_bin/groundwork-cleanup" \
+  "$update_all_bin/groundwork-docker-tidy" \
   "$update_all_bin/groundwork-repos" "$update_all_bin/groundwork-brew-update" \
   "$update_all_bin/groundwork-platform" \
   "$update_all_fixture/fresh-runner"
@@ -940,6 +961,7 @@ brew upgrade auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
+docker-tidy --automatic
 EOF
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 test -f "$update_all_stamp"
@@ -954,6 +976,86 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
   >"$update_all_fixture/wsl-success-output" 2>&1
 diff -u "$update_all_fixture/expected-success" "$update_all_log"
 grep -qF 'managed separately on the host' "$update_all_fixture/wsl-success-output"
+
+# Docker scratch maintenance is part of the normal transaction, after package
+# maintenance. Its failure preserves earlier stages and the previous success
+# timestamp, records durable pending state, and names the same label-scoped
+# helper for maintenance-only repair. The exceptional skip neither runs nor
+# clears that pending work; an ordinary update-all later repairs it.
+docker_pending="$update_all_home/.local/state/groundwork/docker-tidy-pending"
+printf 'previous-docker-success\n' >"$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  DOCKER_TIDY_STATUS=9 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/docker-tidy-failure" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "a failed Docker scratch tidy was reported as a successful refresh"
+grep -qxF 'docker-tidy --automatic' "$update_all_log"
+test -f "$docker_pending" || fail "a failed Docker scratch tidy recorded no pending state"
+grep -qF 'failed (exit 9)' "$docker_pending"
+grep -qF 'groundwork-docker-tidy --yes' "$update_all_fixture/docker-tidy-failure"
+grep -qF 'Daemon-wide cleanup remains an owner-reviewed, separate command.' \
+  "$update_all_fixture/docker-tidy-failure"
+grep -qxF 'previous-docker-success' "$update_all_stamp"
+
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  "$update_all_fixture/rendered-runner" --skip-maintenance \
+  >"$update_all_fixture/docker-tidy-skip-pending" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "--skip-maintenance hid pending Docker scratch maintenance"
+assert_not_contains 'docker-tidy' "$update_all_log" \
+  "--skip-maintenance invoked the Docker tidy while preserving its pending record"
+test -f "$docker_pending" || fail "--skip-maintenance cleared Docker pending state"
+
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/docker-tidy-repaired" 2>&1 \
+  || fail "ordinary update-all did not repair pending Docker scratch maintenance"
+test ! -e "$docker_pending" || fail "successful Docker scratch maintenance left pending state"
+
+# Docker unavailability is not a cleanup result. With no older repair the
+# transaction records an honest skip and may still succeed; with older pending
+# state the exact record survives and the transaction remains incomplete.
+rm -f "$docker_pending" "$update_all_stamp"
+: >"$update_all_log"
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  DOCKER_TIDY_STATUS=3 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/docker-unavailable-clean" 2>&1 \
+  || fail "Docker unavailability without pending repair failed update-all"
+grep -qF 'no earlier repair is pending' "$update_all_fixture/docker-unavailable-clean"
+test ! -e "$docker_pending" || fail "an unavailable Docker lane invented pending state"
+test -f "$update_all_stamp" || fail "an honest Docker-unavailable skip withheld update-all success"
+
+printf 'older Docker failure must survive\n' >"$docker_pending"
+printf 'previous-success\n' >"$update_all_stamp"
+: >"$update_all_log"
+set +e
+HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+  DOCKER_TIDY_STATUS=3 "$update_all_fixture/rendered-runner" \
+  >"$update_all_fixture/docker-unavailable-pending" 2>&1
+update_all_status=$?
+set -e
+[[ "$update_all_status" -ne 0 ]] \
+  || fail "Docker unavailability hid an older pending repair"
+grep -qxF 'older Docker failure must survive' "$docker_pending" \
+  || fail "Docker unavailability rewrote or cleared the older pending record"
+grep -qF 'earlier Docker scratch maintenance remains pending' \
+  "$update_all_fixture/docker-unavailable-pending"
+grep -qxF 'previous-success' "$update_all_stamp"
+rm -f "$docker_pending"
 
 # The run-wide color signal reaches the brew stages: with GROUNDWORK_COLOR=1
 # the runner forces Homebrew's documented HOMEBREW_COLOR through any capture,
@@ -987,7 +1089,7 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
 update_all_status=$?
 set -e
 [[ "$update_all_status" -ne 0 ]] || fail "update-all runner recorded success after mise upgrade failed"
-diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\n') \
+diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\ndocker-tidy --automatic\n') \
   "$update_all_log"
 grep -qxF 'previous-success' "$update_all_stamp"
 
@@ -1050,6 +1152,7 @@ apps-start
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
+docker-tidy --automatic
 EOF
 diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
 test -f "$update_all_stamp"
@@ -1066,6 +1169,8 @@ HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all
   || fail "an empty pending directory must not make --skip-maintenance fail"
 assert_not_contains 'brew cleanup|npm cache verify|pnpm store prune' "$update_all_log" \
   "--skip-maintenance ran package-manager maintenance"
+assert_not_contains 'docker-tidy' "$update_all_log" \
+  "--skip-maintenance ran Docker scratch maintenance"
 test -f "$update_all_stamp" \
   || fail "--skip-maintenance did not record an otherwise complete refresh"
 
@@ -1197,11 +1302,14 @@ brew upgrade auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
+docker-tidy --automatic
 EOF
 diff -u "$update_all_fixture/expected-cleanup-transaction" "$update_all_log" \
-  || fail "the successful maintenance transaction changed its package-manager command set"
+  || fail "the successful maintenance transaction changed its approved command set"
 grep -qxF 'brew cleanup --prune=all' "$update_all_log" \
   || fail "the Homebrew phase must end with brew cleanup --prune=all"
+grep -qxF 'docker-tidy --automatic' "$update_all_log" \
+  || fail "update-all must run the label-scoped Docker scratch tidy automatically"
 grep -qE '^  Cache before:    [0-9.]+ MiB$' "$update_all_fixture/cache-receipt" \
   || fail "the cleanup receipt must report the measured cache size before cleanup"
 grep -qE '^  Cache after:     (0 B|[0-9.]+ KiB)$' "$update_all_fixture/cache-receipt" \
@@ -1388,6 +1496,25 @@ assert_not_contains 'completed with warnings' "$update_all_fixture/cache-recover
 run_reminder "$reminder_dir/recovered-output"
 assert_not_contains "could not finish" "$reminder_dir/recovered-output" \
   "the reminder still reports a cleanup that a later clean run completed"
+
+# Docker scratch maintenance has its own pending record and repair route; it
+# must not masquerade as package-manager maintenance or recommend the
+# daemon-wide cache tidy.
+printf '2001-01-01T00:00:00Z Docker scratch maintenance failed (exit 9)\n' \
+  >"$docker_pending"
+run_reminder "$reminder_dir/docker-pending-output"
+grep -qF 'could not finish Docker scratch maintenance' \
+  "$reminder_dir/docker-pending-output"
+grep -qF 'groundwork-docker-tidy --yes' "$reminder_dir/docker-pending-output"
+grep -qF 'Daemon-wide Docker cleanup remains owner-reviewed and separate.' \
+  "$reminder_dir/docker-pending-output"
+assert_not_contains 'groundwork-docker-cache-tidy|package-manager maintenance' \
+  "$reminder_dir/docker-pending-output" \
+  "the Docker-only reminder crossed into a broader or unrelated cleanup lane"
+rm -f "$docker_pending"
+run_reminder "$reminder_dir/docker-recovered-output"
+assert_not_contains 'Docker scratch maintenance' "$reminder_dir/docker-recovered-output" \
+  "the Docker reminder survived after its pending record was cleared"
 
 # An interrupted cleanup records the marker before propagating — in the one
 # shape this models: brew died on the signal while the runner survived. A real
@@ -1607,6 +1734,7 @@ cleanup_code="$cleanup_home/code"
 cleanup_log="$cleanup_fixture/commands.log"
 cleanup_command="$PWD/home/dot_local/bin/executable_groundwork-cleanup"
 mkdir -p "$cleanup_bin" "$cleanup_home/.local/lib/groundwork" \
+  "$cleanup_home/.local/share/groundwork/lib" \
   "$cleanup_home/.config/groundwork" \
   "$cleanup_code/repo-a" "$cleanup_code/repo-b" \
   "$cleanup_code/repo-c" "$cleanup_code/repo-offline" \
@@ -1636,6 +1764,8 @@ for cleanup_repo in repo-a repo-b repo-c repo-offline repo-version-fail repo-cus
 done
 cp home/dot_local/lib/groundwork/update-lock.sh \
   "$cleanup_home/.local/lib/groundwork/update-lock.sh"
+cp home/dot_local/share/groundwork/lib/maintenance-runner.sh \
+  "$cleanup_home/.local/share/groundwork/lib/maintenance-runner.sh"
 cp home/dot_local/bin/executable_groundwork-repos \
   "$cleanup_bin/groundwork-repos"
 cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
@@ -1685,6 +1815,13 @@ case "${1:-}" in
       descendant=$!
       printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
       exit 0
+    fi
+    if [[ "${BREW_EXIT_WITH_SHORT_DESCENDANT:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
+      (sleep "${BREW_SHORT_DESCENDANT_DELAY:-1}") &
+      descendant=$!
+      [[ -z "${BREW_DESCENDANT_PID_FILE:-}" ]] \
+        || printf '%s\n' "$descendant" >"$BREW_DESCENDANT_PID_FILE"
+      exit "${BREW_DESCENDANT_LEADER_STATUS:-0}"
     fi
     if [[ "${BREW_RESIST_TERM:-0}" == "1" && "${1:-}" == "autoremove" ]]; then
       trap '' TERM
@@ -1878,6 +2015,19 @@ for invalid_deadline in 0 nope; do
     || fail "invalid maintenance deadline '$invalid_deadline' must exit 64"
   test ! -s "$cleanup_log" \
     || fail "invalid maintenance deadline '$invalid_deadline' invoked external commands"
+done
+for invalid_orphan_grace in 0 nope; do
+  : >"$cleanup_log"
+  set +e
+  env "${cleanup_env[@]}" \
+    GROUNDWORK_MAINTENANCE_ORPHAN_GRACE_SECONDS="$invalid_orphan_grace" \
+    "$cleanup_command" --yes >/dev/null 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 64 ]] \
+    || fail "invalid maintenance orphan grace '$invalid_orphan_grace' must exit 64"
+  test ! -s "$cleanup_log" \
+    || fail "invalid maintenance orphan grace '$invalid_orphan_grace' invoked external commands"
 done
 for invalid_poll in 0 nope 0.0 0.001 1.01 10; do
   : >"$cleanup_log"
@@ -2564,26 +2714,84 @@ test -f "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
 
 # A group leader cannot declare success while a background descendant remains.
-# The deadline continues to govern the process group after the leader exits,
-# then kills the TERM-resistant descendant and reports failure.
+# After the post-leader drain grace, the helper identifies and cancels the
+# TERM-resistant descendant without waiting for the larger operation deadline.
 orphan_descendant_pid_file="$cleanup_fixture/orphan-descendant.pid"
 rm -f "$orphan_descendant_pid_file"
 set +e
-env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=1 \
-  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=1 \
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=0.1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=8 \
+  GROUNDWORK_MAINTENANCE_ORPHAN_GRACE_SECONDS=1 \
   BREW_EXIT_WITH_DESCENDANT=1 BREW_DESCENDANT_PID_FILE="$orphan_descendant_pid_file" \
   "$cleanup_command" --yes --force >"$cleanup_fixture/orphan-process-tree" 2>&1
 cleanup_status=$?
 set -e
 [[ "$cleanup_status" -ne 0 ]] \
   || fail "a command with a surviving background process returned success"
-grep -qF 'exceeded its 1s hard deadline' "$cleanup_fixture/orphan-process-tree" \
-  || fail "a surviving background process was not governed by the deadline"
+grep -qF 'after the 1s drain grace' "$cleanup_fixture/orphan-process-tree" \
+  || fail "a surviving background process was not governed by the orphan grace"
+grep -qE 'PID [0-9]+: executable (.+/)?sleep$' "$cleanup_fixture/orphan-process-tree" \
+  || fail "the orphan failure did not identify the remaining PID and executable"
+assert_not_contains 'sleep 30' "$cleanup_fixture/orphan-process-tree" \
+  "the shared runner exposed full process arguments in orphan diagnostics"
 orphan_descendant_pid="$(<"$orphan_descendant_pid_file")"
 orphan_descendant_state="$(ps -o stat= -p "$orphan_descendant_pid" 2>/dev/null | tr -d '[:space:]' || true)"
 [[ -z "$orphan_descendant_state" || "$orphan_descendant_state" == Z* ]] \
   || fail "a background maintenance process survived after its leader exited"
 env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
+# A short-lived subprocess that drains naturally after its leader exits is not
+# an orphan and must not synthesize a Homebrew failure. A nonzero leader keeps
+# its own status after the same natural drain.
+rm -rf "$cleanup_home/.local/state/groundwork/update-all-pending"
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=0.1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=8 \
+  GROUNDWORK_MAINTENANCE_ORPHAN_GRACE_SECONDS=3 \
+  BREW_EXIT_WITH_SHORT_DESCENDANT=1 BREW_SHORT_DESCENDANT_DELAY=1 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/short-descendant" 2>&1 \
+  || fail "a naturally draining Homebrew subprocess created a false maintenance failure"
+assert_not_contains 'left a background process|exceeded its .* hard deadline' \
+  "$cleanup_fixture/short-descendant" \
+  "a naturally draining Homebrew subprocess was reported as an orphan"
+test ! -e "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+  || fail "a naturally draining Homebrew subprocess left false pending state"
+
+set +e
+env "${cleanup_env[@]}" GROUNDWORK_MAINTENANCE_POLL_SECONDS=0.1 \
+  GROUNDWORK_MAINTENANCE_DEADLINE_SECONDS=8 \
+  GROUNDWORK_MAINTENANCE_ORPHAN_GRACE_SECONDS=3 \
+  BREW_EXIT_WITH_SHORT_DESCENDANT=1 BREW_SHORT_DESCENDANT_DELAY=1 \
+  BREW_DESCENDANT_LEADER_STATUS=7 \
+  "$cleanup_command" --yes --force >"$cleanup_fixture/nonzero-short-descendant" 2>&1
+cleanup_status=$?
+set -e
+[[ "$cleanup_status" -ne 0 ]] \
+  || fail "a nonzero Homebrew leader became successful after its child drained"
+grep -qF 'brew autoremove was incomplete (exit 7)' \
+  "$cleanup_fixture/nonzero-short-descendant" \
+  || fail "the bounded runner did not preserve the nonzero leader status"
+env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+
+# The bounded runner is a shared library: it restores the caller's exact trap,
+# including an ignored signal used to protect a cleanup transaction. A
+# hardcoded generic exit trap would let a second signal interrupt cleanup.
+RUNNER_LIB="$PWD/home/dot_local/share/groundwork/lib/maintenance-runner.sh" \
+  /bin/bash -c '
+    set -euo pipefail
+    deadline=5 observe_deadline=5 heartbeat=1 cancel_grace=1 poll_seconds=0.1 orphan_grace=1
+    source "$RUNNER_LIB"
+    trap "" TERM
+    before="$(trap -p TERM)"
+    run_bounded_internal "trap restoration probe" 5 "" /usr/bin/true
+    after="$(trap -p TERM)"
+    [[ "$before" == "$after" ]]
+    set -m
+    run_bounded_internal "monitor-on restoration probe" 5 "" /usr/bin/true
+    [[ "$-" == *m* ]]
+    set +m
+    run_bounded_internal "monitor-off restoration probe" 5 "" /usr/bin/true
+    [[ "$-" != *m* ]]
+  ' || fail "the shared bounded runner did not restore the caller's exact TERM trap and monitor state"
 
 # A direct cleanup interrupted only during post-mutation measurement keeps an
 # honest manager record: the command ended, but its final receipt did not.
@@ -3274,6 +3482,17 @@ grep -qF 'update-all now includes automatic package-manager maintenance' \
   "$out_dir/package-maintenance-migration-notice"
 grep -qF 'Whole pnpm store generations remain' \
   "$out_dir/package-maintenance-migration-notice"
+assert_not_contains 'Docker data remain owner-confirmed' \
+  "$out_dir/package-maintenance-migration-notice" \
+  "the package-maintenance notice retained the obsolete Docker contract"
+HOME="$migration_home" /bin/bash home/run_once_after_98-docker-scratch-maintenance-notice.sh \
+  >"$out_dir/docker-maintenance-migration-notice"
+grep -qF 'update-all now includes automatic Docker scratch maintenance' \
+  "$out_dir/docker-maintenance-migration-notice"
+grep -qF 'groundwork-doctor --docker' "$out_dir/docker-maintenance-migration-notice"
+grep -qF 'groundwork-docker-cache-tidy' "$out_dir/docker-maintenance-migration-notice"
+grep -qF -- '--rm-after' "$out_dir/docker-maintenance-migration-notice"
+grep -qF 'scripts/verify-docker-image' "$out_dir/docker-maintenance-migration-notice"
 cat >"$migration_home/.zshrc" <<'EOF'
 update-all() {
   echo old
@@ -5849,9 +6068,29 @@ check "docker helper suite setup"
 # a trip hook can swap the image or container state mid-run to prove the
 # apply-time re-checks.
 docker_lib="$PWD/home/dot_local/share/groundwork/lib/docker-scan.sh"
+docker_runner_lib="$PWD/home/dot_local/share/groundwork/lib/maintenance-runner.sh"
 test -f "$docker_lib"
+test -f "$docker_runner_lib"
 docker_stub_bin="$out_dir/docker-stub"
+docker_home="$out_dir/docker-home"
+docker_pending_file="$docker_home/.local/state/groundwork/docker-tidy-pending"
 mkdir -p "$docker_stub_bin"
+mkdir -p "$docker_home/.local/bin" "$docker_home/.local/lib/groundwork" \
+  "$docker_home/.local/share/groundwork/lib"
+cp home/dot_local/lib/groundwork/update-lock.sh \
+  "$docker_home/.local/lib/groundwork/update-lock.sh"
+cp "$docker_lib" "$docker_home/.local/share/groundwork/lib/docker-scan.sh"
+cp "$docker_runner_lib" "$docker_home/.local/share/groundwork/lib/maintenance-runner.sh"
+cp home/dot_local/bin/executable_groundwork-docker-build-scratch \
+  "$docker_home/.local/bin/groundwork-docker-build-scratch"
+# Production accepts Docker and jq only from platform-owned roots. The fixture
+# HOME owns a canonical test library whose final definition resolves the
+# declared stub PATH instead; no production environment seam is introduced.
+cat >>"$docker_home/.local/share/groundwork/lib/docker-scan.sh" <<'SH'
+gw_docker_resolve_trusted_executable() {
+  type -P "$1" 2>/dev/null
+}
+SH
 cat >"$docker_stub_bin/docker" <<'SH'
 #!/bin/bash
 set -eu
@@ -5874,25 +6113,81 @@ if [ -f "$state/trip.conf" ]; then
       if [ "$tc" -eq "$TRIP_AT" ]; then
         if [ -n "${TRIP_IMAGES:-}" ]; then cp "$TRIP_IMAGES" "$imgs"; fi
         if [ -n "${TRIP_CONTAINERS:-}" ]; then cp "$TRIP_CONTAINERS" "$ctrs"; fi
+        if [ -n "${TRIP_FAIL_PATTERN:-}" ]; then printf '%s\n' "$TRIP_FAIL_PATTERN" >"$state/fail.conf"; fi
+        if [ -n "${TRIP_EXIT:-}" ]; then exit "$TRIP_EXIT"; fi
+      fi
+      ;;
+  esac
+fi
+if [ -f "$state/delay.conf" ]; then
+  # shellcheck disable=SC1091
+  . "$state/delay.conf"
+  case "$*" in
+    *"$DELAY_SUBSTR"*)
+      should_delay=1
+      if [[ -n "${DELAY_AT:-}" || -n "${DELAY_AFTER:-}" ]]; then
+        delay_count="$(cat "$state/delay.count" 2>/dev/null || echo 0)"
+        delay_count=$((delay_count + 1))
+        printf '%s\n' "$delay_count" >"$state/delay.count"
+        if [[ -n "${DELAY_AT:-}" ]]; then
+          [[ "$delay_count" -eq "$DELAY_AT" ]] || should_delay=0
+        elif [[ "$delay_count" -le "$DELAY_AFTER" ]]; then
+          should_delay=0
+        fi
+      fi
+      if [[ "$should_delay" -eq 1 ]]; then
+        [[ -z "${DELAY_SENTINEL:-}" ]] || : >"$DELAY_SENTINEL"
+        if [[ "${DELAY_SPAWN_DESCENDANT:-0}" == "1" ]]; then
+          (trap '' TERM; sleep "${DELAY_DESCENDANT_SECONDS:-30}") &
+          delayed_child=$!
+          [[ -z "${DELAY_PID_FILE:-}" ]] || printf '%s\n' "$delayed_child" >"$DELAY_PID_FILE"
+          wait "$delayed_child"
+        else
+          sleep "${DELAY_SECONDS:-30}"
+        fi
       fi
       ;;
   esac
 fi
 img_field() { awk -F'\t' -v id="$1" -v n="$2" '$1 == id { print $n; exit }' "$imgs"; }
 img_exists() { awk -F'\t' -v id="$1" 'BEGIN { r = 1 } $1 == id { r = 0 } END { exit r }' "$imgs"; }
+resolve_img() {
+  if img_exists "$1"; then
+    printf '%s\n' "$1"
+    return 0
+  fi
+  awk -F'\t' -v ref="$1" '{
+    n = split($2, tags, ",")
+    for (i = 1; i <= n; i++) if (tags[i] == ref) { print $1; exit }
+  }' "$imgs"
+}
 last_arg() { eval "printf '%s\n' \"\${$#}\""; }
 case "$*" in
   info) exit 0 ;;
+  'context inspect --format {{.Endpoints.docker.Host}}')
+    cat "$state/context-host" 2>/dev/null || echo 'unix:///var/run/docker.sock' ;;
   'info --format {{.LoggingDriver}}') cat "$state/log-driver" 2>/dev/null || echo local ;;
   'info --format {{.Driver}}') echo overlayfs ;;
   'system df --format'*) printf 'Build Cache\t7.2GB\t7.2GB\n' ;;
   'system df') printf 'TYPE TOTAL ACTIVE SIZE RECLAIMABLE\n' ;;
+  'images --no-trunc --filter label=dev.roost.ephemeral=true --format {{.ID}}')
+    awk -F'\t' '$3 == "true" { print $1 }' "$imgs" ;;
   'images --no-trunc --filter label=dev.roost.ephemeral=true --format {{.ID}}'*)
     awk -F'\t' '$3 == "true" { n = split($2, t, ","); if ($2 == "-") n = 1; for (i = 1; i <= n; i++) print $1 "\t" $6 }' "$imgs" ;;
+  'images --no-trunc --format {{.Repository}}:{{.Tag}}	{{.ID}}')
+    awk -F'\t' '$2 != "-" { n = split($2, t, ","); for (i = 1; i <= n; i++) print t[i] "\t" $1 }' "$imgs" ;;
+  'images --no-trunc --format {{.Repository}}:{{.Tag}}')
+    awk -F'\t' '$2 != "-" { n = split($2, t, ","); for (i = 1; i <= n; i++) print t[i] }' "$imgs" ;;
+  'images --all --no-trunc --quiet')
+    awk -F'\t' '!seen[$1]++ { print $1 }' "$imgs" ;;
+  'images --no-trunc --format {{.ID}}'*)
+    awk -F'\t' '$2 != "-" { n = split($2, t, ","); for (i = 1; i <= n; i++) { split(t[i], p, ":"); repo = substr(t[i], 1, length(t[i]) - length(p[length(p)]) - 1); print $1 "\t" repo "\t" p[length(p)] "\t" $6 } }' "$imgs" ;;
   'images -q --filter dangling=true')
     awk -F'\t' '$2 == "-" { print substr($1, 8, 12) }' "$imgs" ;;
   'ps -aq --no-trunc' | 'ps -aq')
     awk -F'\t' '{ print $1 }' "$ctrs" ;;
+  'ps -a --no-trunc --format {{.ID}}	{{.Names}}')
+    awk -F'\t' '{ print $1 "\t" $4 }' "$ctrs" ;;
   'ps -aq --filter status=exited')
     awk -F'\t' '$3 == "exited" { print $1 }' "$ctrs" ;;
   'ps -a --no-trunc --filter status=exited --filter label=dev.roost.ephemeral=true --format {{.ID}}'*)
@@ -5905,19 +6200,104 @@ case "$*" in
   'container inspect --format {{.Created}}'*)
     cid="$(last_arg "$@")"
     awk -F'\t' -v c="$cid" '$1 == c { print ($7 == "" ? "-" : $7) "\t" $3 "\t" $2; f = 1 } END { exit f ? 0 : 1 }' "$ctrs" ;;
+  'container inspect --format {{.Id}} '*)
+    cref="$(last_arg "$@")"
+    awk -F'\t' -v c="$cref" '($1 == c || $4 == c) { print $1; f = 1; exit } END { exit f ? 0 : 1 }' "$ctrs" ;;
+  'container create '*)
+    name=""; image_ref=""; cidfile=""; prev=""
+    for a in "$@"; do
+      case "$prev" in
+        --name) name="$a" ;;
+        --cidfile) cidfile="$a" ;;
+      esac
+      case "$a" in
+        --rm | --name | --cidfile | container | create) ;;
+        *)
+          if [ -n "$name" ] && [ -z "$image_ref" ] && [ "$prev" != "--name" ] && [ "$prev" != "--cidfile" ]; then image_ref="$a"; fi
+          ;;
+      esac
+      prev="$a"
+    done
+    awk -F'\t' -v n="$name" '$4 == n { found = 1 } END { exit found ? 0 : 1 }' "$ctrs" \
+      && { echo "container name is already in use" >&2; exit 1; }
+    image_id="$(resolve_img "$image_ref")"; [ -n "$image_id" ] || exit 1
+    cid="dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    CREATE_APPEARS=1
+    CREATE_EXIT=0
+    CREATE_CID_MODE=valid
+    CREATE_STDOUT_MODE=valid
+    if [ -f "$state/create.conf" ]; then
+      # shellcheck disable=SC1091
+      . "$state/create.conf"
+    fi
+    if [ "$CREATE_APPEARS" -eq 1 ]; then
+      printf '%s\t%s\tcreated\t%s\ttrue\tCreated\t%s\n' \
+        "$cid" "$image_id" "$name" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$ctrs"
+    fi
+    case "$CREATE_CID_MODE" in
+      valid) [ -z "$cidfile" ] || printf '%s\n' "$cid" >"$cidfile" ;;
+      empty) [ -z "$cidfile" ] || : >"$cidfile" ;;
+      malformed) [ -z "$cidfile" ] || printf 'not-an-id\n' >"$cidfile" ;;
+      two-lines) [ -z "$cidfile" ] || printf '%s\n%s\n' "$cid" "$cid" >"$cidfile" ;;
+    esac
+    case "$CREATE_STDOUT_MODE" in
+      valid) printf '%s\n' "$cid" ;;
+      empty) ;;
+      malformed) printf 'not-an-id\n' ;;
+      two-lines) printf '%s\n%s\n' "$cid" "$cid" ;;
+    esac
+    exit "$CREATE_EXIT" ;;
+  'container start --attach '*)
+    cid="$(last_arg "$@")"
+    awk -F'\t' -v c="$cid" '$1 == c { found = 1 } END { exit found ? 0 : 1 }' "$ctrs" || exit 1
+    awk -F'\t' -v c="$cid" '$1 != c' "$ctrs" >"$ctrs.tmp"
+    mv "$ctrs.tmp" "$ctrs"
+    echo OK ;;
+  'container stop --time 2 '*)
+    cid="$(last_arg "$@")"
+    awk -F'\t' -v c="$cid" '$1 == c { found = 1 } END { exit found ? 0 : 1 }' "$ctrs" || exit 1
+    awk -F'\t' -v OFS='\t' -v c="$cid" '$1 == c { $3 = "exited"; $6 = "Exited (143)" } { print }' \
+      "$ctrs" >"$ctrs.tmp"
+    mv "$ctrs.tmp" "$ctrs"
+    printf '%s\n' "$cid" ;;
   'image inspect --format {{.Id}} '*)
-    id="$(last_arg "$@")"; img_exists "$id" || exit 1; printf '%s\n' "$id" ;;
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1; printf '%s\n' "$id" ;;
   'image inspect --format {{index .Config.Labels "dev.roost.ephemeral"}} '*)
-    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1
     v="$(img_field "$id" 3)"; [ "$v" = "-" ] && v="<no value>"; printf '%s\n' "$v" ;;
   'image inspect --format {{index .Config.Labels "dev.roost.built"}} '*)
-    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1
     v="$(img_field "$id" 4)"; [ "$v" = "-" ] && v="<no value>"; printf '%s\n' "$v" ;;
   'image inspect --format {{range .RepoTags}}{{println .}}{{end}} '*)
-    id="$(last_arg "$@")"; img_exists "$id" || exit 1
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1
     tags="$(img_field "$id" 2)"; [ "$tags" = "-" ] || printf '%s\n' "$tags" | tr ',' '\n' ;;
   'image inspect --format {{.Created}} '*)
-    id="$(last_arg "$@")"; img_exists "$id" || exit 1; img_field "$id" 5 ;;
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1; img_field "$id" 5 ;;
+  'image inspect '*)
+    id="$(resolve_img "$(last_arg "$@")")"; [ -n "$id" ] || exit 1
+    tags="$(img_field "$id" 2)"
+    eph="$(img_field "$id" 3)"
+    built="$(img_field "$id" 4)"
+    created="$(img_field "$id" 5)"
+    if [ "$tags" = "-" ]; then
+      tags_json='[]'
+    else
+      tags_json="$(printf '%s\n' "$tags" | awk -F, '{
+        printf "["
+        for (i = 1; i <= NF; i++) printf "%s\"%s\"", (i == 1 ? "" : ","), $i
+        printf "]"
+      }')"
+    fi
+    if grep -qxF "$id" "$state/inspect-empty-repotags" 2>/dev/null; then
+      tags_json='[]'
+    fi
+    printf '[{"Id":"%s",' "$id"
+    if ! grep -qxF "$id" "$state/inspect-omit-repotags" 2>/dev/null; then
+      printf '"RepoTags":%s,' "$tags_json"
+    fi
+    printf '"Created":"%s","Config":{"Labels":{"dev.roost.ephemeral":%s,"dev.roost.built":%s}}}]\n' \
+      "$created" "$([ "$eph" = "-" ] && printf null || printf '"%s"' "$eph")" \
+      "$([ "$built" = "-" ] && printf null || printf '"%s"' "$built")" ;;
   'container rm '*)
     cid="$(last_arg "$@")"
     grep -q "^$cid	" "$ctrs" || { echo "no such container" >&2; exit 1; }
@@ -5964,9 +6344,9 @@ case "$*" in
       esac
       prev="$a"
     done
-    [ -n "$iid" ] && printf 'sha256:builtimage000\n' >"$iid"
+    [ -n "$iid" ] && printf 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' >"$iid"
     if [ -n "$tag" ]; then
-      printf 'sha256:builtimage000\t%s\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' "$tag" >>"$imgs"
+      printf 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t%s\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' "$tag" >>"$imgs"
     fi
     echo "stub build ok" ;;
   *'prune'*) echo pruned ;;
@@ -5978,7 +6358,7 @@ chmod +x "$docker_stub_bin/docker"
 # exact real tools the tidy and the scanner may use — and no jq.
 docker_tools_nojq="$out_dir/docker-tools-nojq"
 mkdir -p "$docker_tools_nojq"
-for docker_tool in awk cat cp cut date grep head mv paste rm sed sort tr wc; do
+for docker_tool in awk cat cp cut date dirname grep head mkdir mktemp mv paste ps rm rmdir sed sleep sort stat tr wc; do
   docker_tool_path="$(command -v "$docker_tool")" \
     || fail "docker suite: required tool missing: $docker_tool"
   ln -s "$docker_tool_path" "$docker_tools_nojq/$docker_tool"
@@ -5994,8 +6374,21 @@ docker_state_init() {
 docker_run() {
   local state="$1" path_env="$2" script="$3"
   shift 3
-  DOCKER_STATE="$state" PATH="$path_env" GROUNDWORK_DOCKER_LIB="$docker_lib" \
-    /bin/bash "home/dot_local/bin/executable_$script" "$@"
+  local script_path="home/dot_local/bin/executable_$script"
+  if [[ "$script" == "groundwork-docker-build-scratch" ]]; then
+    script_path="$docker_home/.local/bin/groundwork-docker-build-scratch"
+  fi
+  HOME="$docker_home" DOCKER_STATE="$state" PATH="$path_env" \
+    /bin/bash "$script_path" "$@"
+}
+docker_run_automatic() {
+  local state="$1" path_env="$2"
+  shift 2
+  env -u GROUNDWORK_DOCKER_LIB -u GROUNDWORK_MAINTENANCE_RUNNER_LIB \
+    -u GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS \
+    -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_CONFIG \
+    HOME="$docker_home" DOCKER_STATE="$state" PATH="$path_env" \
+    /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --automatic "$@"
 }
 docker_now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -6023,6 +6416,29 @@ grep -qF 'in grace (fresh, not leftover): 1' "$out_dir/doctor-output"
 grep -qF 'groundwork-docker-cache-tidy' "$out_dir/doctor-output"
 grep -qF "avoid blanket" "$out_dir/doctor-output"
 assert_no_matches "the doctor must never prune or remove" grep -n 'prune\|rm ' "$doctor_state/argv.log"
+# Old ad hoc Groundwork proof tags are visible for owner review, while the
+# documented runnable groundwork:latest tag and another project's test tag
+# are not guessed disposable. The doctor remains read-only.
+docker_state_init "$doctor_state"
+{
+  printf 'sha256:legacy01\tgroundwork:test\t-\t-\t2001-01-01T00:00:00Z\t1.2GB\n'
+  printf 'sha256:legacy02\tgroundwork:dust-test\t-\t-\t2001-01-01T00:00:00Z\t1.8GB\n'
+  printf 'sha256:legacy03\tgroundwork:review-fix\t-\t-\t2001-01-01T00:00:00Z\t2.7GB\n'
+  printf 'sha256:labeled1\tgroundwork:verify-labeled\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t2.1GB\n'
+  printf 'sha256:runnable\tgroundwork:latest\t-\t-\t2001-01-01T00:00:00Z\t2.7GB\n'
+  printf 'sha256:foreign1\tother:test\t-\t-\t2001-01-01T00:00:00Z\t3.0GB\n'
+} >"$doctor_state/images.tsv"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker \
+  >"$out_dir/doctor-legacy"
+grep -qF 'Legacy tagged validation images' "$out_dir/doctor-legacy"
+grep -qF 'groundwork:test' "$out_dir/doctor-legacy"
+grep -qF 'groundwork:dust-test' "$out_dir/doctor-legacy"
+grep -qF 'groundwork:review-fix' "$out_dir/doctor-legacy"
+grep -qF 'docker image rm groundwork:test' "$out_dir/doctor-legacy"
+assert_not_contains 'groundwork:latest|other:test|groundwork:verify-labeled' "$out_dir/doctor-legacy" \
+  "doctor guessed a runnable, labeled, or foreign image was a legacy Groundwork proof build"
+assert_no_matches "legacy-image reporting must never remove an image" \
+  grep -n 'image rm ' "$doctor_state/argv.log"
 # A machine whose only labeled image is fresh and in grace is CLEAN: no
 # cleanup guidance, because an in-grace image is not a leftover.
 docker_state_init "$doctor_state"
@@ -6036,6 +6452,17 @@ assert_not_contains 'Cleanup guidance' "$out_dir/doctor-fresh" \
 printf 'ps -aq --filter status=exited\n' >"$doctor_state/fail.conf"
 docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker >"$out_dir/doctor-unknown"
 grep -qF 'stopped containers: unknown' "$out_dir/doctor-unknown"
+rm -f "$doctor_state/fail.conf"
+# A failed labeled-image enumeration keeps all four scanner counts unknown;
+# it must never turn an unavailable observation into four clean zeroes.
+printf 'images --no-trunc --filter label=dev.roost.ephemeral=true\n' \
+  >"$doctor_state/fail.conf"
+docker_run "$doctor_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker \
+  >"$out_dir/doctor-scan-unknown"
+grep -qF 'tidy-eligible (past grace):     unknown' "$out_dir/doctor-scan-unknown"
+grep -qF 'in grace (fresh, not leftover): unknown' "$out_dir/doctor-scan-unknown"
+grep -qF 'protected (tag/container ref):  unknown' "$out_dir/doctor-scan-unknown"
+grep -qF 'unverified (retained):          unknown' "$out_dir/doctor-scan-unknown"
 rm -f "$doctor_state/fail.conf"
 grep -qF 'groundwork-help doctor' < <(home/dot_local/bin/executable_groundwork-doctor --help)
 printf 'info\n' >"$doctor_state/fail.conf"
@@ -6109,7 +6536,9 @@ grep -F 'groundwork/scratch:badts' "$out_dir/tidy-dry" | grep -qF 'malformed'
 grep -F 'groundwork/scratch:nots' "$out_dir/tidy-dry" | grep -qF 'unverified'
 test "$(grep -cF 'sha256:multi000' "$out_dir/tidy-dry")" = 1 \
   || fail "a multi-scratch-tag image must be ONE candidate, not one per tag"
-grep -qF 'counts: 2 eligible, 1 retained (in grace), 3 protected, 2 unverified.' "$out_dir/tidy-dry"
+grep -qF 'counts: 1 eligible, 1 retained (in grace), 4 protected, 2 unverified.' "$out_dir/tidy-dry"
+grep -F 'groundwork/scratch:a, groundwork/scratch:b' "$out_dir/tidy-dry" \
+  | grep -qF 'multiple scratch tags require owner or creating-session cleanup'
 grep -qF 'Docker may retain an item if another reference exists' "$out_dir/tidy-dry"
 # Containers get the SAME grace policy, and the dry run enumerates each with
 # id, name, age, and image — the old one eligible, the young one retained.
@@ -6140,8 +6569,8 @@ grep -qF 'c-ephyng' "$tidy_state/containers.tsv" \
   || fail "young exited labeled container vanished despite being inside the grace"
 grep -F 'fresh-exit' "$out_dir/tidy-yes" | grep -qF 'retained'
 grep -qF 'image rm sha256:old1000' "$tidy_state/argv.log"
-grep -qF 'image rm groundwork/scratch:b' "$tidy_state/argv.log"
-grep -qF 'image rm sha256:multi000' "$tidy_state/argv.log"
+assert_no_matches "automatic tidy untagged or deleted a multi-tag scratch image" \
+  grep -nE 'image rm (groundwork/scratch:b|sha256:multi000)' "$tidy_state/argv.log"
 if [[ "$(grep -n 'container rm c-eph00' "$tidy_state/argv.log" | cut -d: -f1)" -gt "$(grep -n 'image rm' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)" ]]; then
   fail "the labeled exited container must be removed BEFORE image deletion"
 fi
@@ -6153,11 +6582,12 @@ unset tidy_kept
 assert_no_matches "default --yes must not prune anything (no dangling/builder/daemon-wide cleanup)" \
   grep -n 'prune' "$tidy_state/argv.log"
 assert_no_matches "tidy must never touch volumes" grep -n 'volume' "$tidy_state/argv.log"
-grep -qF 'removed 1 container(s) and 2 image(s)' "$out_dir/tidy-yes"
+grep -qF 'removed 1 container(s) and 1 image(s)' "$out_dir/tidy-yes"
 if grep -qF 'sha256:old1000' "$tidy_state/images.tsv"; then
   fail "eligible image survived apply"
 fi
 grep -qF 'sha256:hostile0' "$tidy_state/images.tsv" || fail "protected image was deleted"
+grep -qF 'sha256:multi000' "$tidy_state/images.tsv" || fail "multi-tag scratch image was deleted"
 grep -qF 'sha256:dang1000' "$tidy_state/images.tsv" || fail "unlabeled dangling image was deleted"
 
 # Scenario: the apply-time re-check. The image is eligible at scan time; the
@@ -6169,7 +6599,7 @@ printf 'sha256:reck0000\tgroundwork/scratch:reck\ttrue\t2001-01-01T00:00:00Z\t20
 printf 'sha256:reck0000\tgroundwork/scratch:reck,groundwork:latest\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.5GB\n' \
   >"$tidy_state/images-tripped.tsv"
 cat >"$tidy_state/trip.conf" <<EOF
-TRIP_SUBSTR='{{index .Config.Labels "dev.roost.ephemeral"}} sha256:reck0000'
+TRIP_SUBSTR='image inspect sha256:reck0000'
 TRIP_AT=2
 TRIP_IMAGES=$tidy_state/images-tripped.tsv
 EOF
@@ -6178,6 +6608,79 @@ grep -qF 'state changed since the scan' "$out_dir/tidy-recheck"
 assert_no_matches "apply deleted a candidate that changed after the scan" \
   grep -n 'image rm' "$tidy_state/argv.log"
 grep -qF 'sha256:reck0000' "$tidy_state/images.tsv" || fail "re-check failed to protect the retagged image"
+
+# Every deletion fact comes from one complete image inspection. Missing
+# RepoTags, a generic first-inspect error, or a failed apply-time recheck makes
+# the scan incomplete and cannot remove even one tag.
+docker_state_init "$tidy_state"
+printf 'sha256:notags01\tgroundwork:latest\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t2.0GB\n' \
+  >"$tidy_state/images.tsv"
+printf 'sha256:notags01\n' >"$tidy_state/inspect-omit-repotags"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-incomplete-tags" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] || fail "an image inspection without RepoTags returned success"
+assert_no_matches "an incomplete RepoTags observation removed or untagged the image" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+grep -qF 'groundwork:latest' "$tidy_state/images.tsv" \
+  || fail "an incomplete RepoTags observation deleted the real image tag"
+
+docker_state_init "$tidy_state"
+printf 'sha256:inspect1\tgroundwork/scratch:inspect\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$tidy_state/images.tsv"
+printf 'image inspect sha256:inspect1\n' >"$tidy_state/fail.conf"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-first-inspect-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] || fail "a generic first image-inspect failure returned success"
+assert_no_matches "a generic first image-inspect failure still deleted the image" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+rm -f "$tidy_state/fail.conf"
+
+docker_state_init "$tidy_state"
+printf 'sha256:recheck1\tgroundwork/scratch:recheck-fail\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$tidy_state/images.tsv"
+cat >"$tidy_state/trip.conf" <<EOF
+TRIP_SUBSTR='image inspect sha256:recheck1'
+TRIP_AT=1
+TRIP_FAIL_PATTERN='image inspect sha256:recheck1'
+EOF
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-recheck-inspect-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] || fail "a failed authoritative recheck returned success"
+grep -qF 'authoritative image inspection was incomplete' \
+  "$out_dir/tidy-recheck-inspect-failure"
+assert_no_matches "a failed authoritative recheck still deleted the image" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+rm -f "$tidy_state/trip.conf" "$tidy_state/trip.count" "$tidy_state/fail.conf"
+
+# A listed container is a mandatory reference fact. If its inspect fails, the
+# full snapshot is incomplete and a multi-tag scratch image must not even be
+# partially untagged before Docker's final reference check.
+docker_state_init "$tidy_state"
+printf 'sha256:referr01\tgroundwork/scratch:ref-a,groundwork/scratch:ref-b\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$tidy_state/images.tsv"
+printf 'c-referr\tsha256:referr01\texited\tinspect-fails\t-\tExited (0) 3 days ago\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_state/containers.tsv"
+printf 'container inspect --format {{.Image}}\n' >"$tidy_state/fail.conf"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-reference-inspect-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] || fail "a failed container-reference inspection returned success"
+assert_no_matches "an incomplete container-reference snapshot removed a tag" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+grep -qF 'groundwork/scratch:ref-a,groundwork/scratch:ref-b' "$tidy_state/images.tsv" \
+  || fail "an incomplete reference snapshot partially changed the image tags"
+rm -f "$tidy_state/fail.conf" "$tidy_state/inspect-omit-repotags"
 
 # Scenario: the container re-check. An old exited labeled container is
 # eligible at scan time; the trip hook restarts it just before the pre-rm
@@ -6199,21 +6702,60 @@ assert_no_matches "apply removed a container whose status changed after the scan
 grep -qF 'c-trip00' "$tidy_state/containers.tsv" || fail "status re-check failed to protect the restarted container"
 rm -f "$tidy_state/trip.conf" "$tidy_state/trip.count"
 
-# Scenario: partial multi-tag cleanup honesty. The extra scratch tag untags
-# cleanly, then the final ID delete is made to fail: the report must say
-# "partially cleaned" and name the removed tags — never a plain "kept" that
-# hides the untag that already happened.
+# A failed exited-container inspect has three states. A fresh complete listing
+# that omits the ID proves a race-to-absence; an ID that remains listed (or an
+# unavailable relist) makes cleanup incomplete and records pending state.
+docker_state_init "$tidy_state"
+printf 'c-gone00\tsha256:otherbase\texited\tdisappears\ttrue\tExited (0) 9 days ago\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_state/containers.tsv"
+: >"$tidy_state/containers-gone.tsv"
+cat >"$tidy_state/trip.conf" <<EOF
+TRIP_SUBSTR='container inspect --format {{.Created}}'
+TRIP_AT=1
+TRIP_CONTAINERS=$tidy_state/containers-gone.tsv
+EOF
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-ctr-disappeared"
+grep -qF 'already gone' "$out_dir/tidy-ctr-disappeared" \
+  || grep -qF 'no longer present' "$out_dir/tidy-ctr-disappeared"
+assert_no_matches "a container proven absent was still sent to docker rm" \
+  grep -n 'container rm c-gone00' "$tidy_state/argv.log"
+rm -f "$tidy_state/trip.conf" "$tidy_state/trip.count"
+
+docker_state_init "$tidy_state"
+printf 'c-still0\tsha256:otherbase\texited\tinspect-unavailable\ttrue\tExited (0) 9 days ago\t2001-01-01T00:00:00Z\n' \
+  >"$tidy_state/containers.tsv"
+printf 'container inspect --format {{.Created}}\n' >"$tidy_state/fail.conf"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-ctr-inspect-incomplete" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] \
+  || fail "a still-listed container with failed inspect returned success"
+grep -qF 'current container facts could not be completed' \
+  "$out_dir/tidy-ctr-inspect-incomplete"
+grep -qF 'c-still0' "$tidy_state/containers.tsv" \
+  || fail "an incompletely observed container was removed"
+test -f "$docker_pending_file" \
+  || fail "incomplete exited-container observation recorded no pending state"
+rm -f "$tidy_state/fail.conf" "$docker_pending_file"
+
+# Multiple scratch tags are owner/session cleanup, never an automatic untag.
+# Both tag relations and the image ID survive an acting pass unchanged.
 docker_state_init "$tidy_state"
 printf 'sha256:parti000\tgroundwork/scratch:pa,groundwork/scratch:pb\ttrue\t2001-01-02\t2001-01-02T00:00:00Z\t1.1GB\n' \
   >"$tidy_state/images.tsv"
-printf 'image rm sha256:parti000\n' >"$tidy_state/fail.conf"
-docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >"$out_dir/tidy-partial"
-grep -qF 'partially cleaned: removed tags groundwork/scratch:pb; image retained because' "$out_dir/tidy-partial"
-grep -F 'sha256:parti000' "$tidy_state/images.tsv" | grep -qF 'groundwork/scratch:pa' \
-  || fail "partial-cleanup fixture lost its remaining tag state"
-assert_no_matches "a partial multi-tag cleanup reported the plain kept verdict" \
-  grep -n 'kept.*parti000\|parti000.*— docker refused the removal' "$out_dir/tidy-partial"
-rm -f "$tidy_state/fail.conf"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  >"$out_dir/tidy-multitag-protected"
+grep -qF 'multiple scratch tags require owner or creating-session cleanup' \
+  "$out_dir/tidy-multitag-protected"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-multitag-yes"
+assert_no_matches "acting tidy mutated a protected multi-tag image" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+grep -qxF $'sha256:parti000\tgroundwork/scratch:pa,groundwork/scratch:pb\ttrue\t2001-01-02\t2001-01-02T00:00:00Z\t1.1GB' \
+  "$tidy_state/images.tsv" || fail "acting tidy changed protected multi-tag state"
 
 # Scenario: no jq. Age cannot be verified, so the verdict is unverified —
 # retained and explained, never "would remove", and never deleted.
@@ -6224,7 +6766,7 @@ printf 'sha256:oldnojq0\tgroundwork/scratch:nojq\ttrue\t2001-01-01T00:00:00Z\t20
 printf 'c-nojq00\tsha256:otherbase\texited\tnojq-c\ttrue\tExited (0) 9 days ago\t2001-01-01T00:00:00Z\n' \
   >"$tidy_nojq_state/containers.tsv"
 docker_run "$tidy_nojq_state" "$docker_stub_bin:$docker_tools_nojq" groundwork-docker-tidy >"$out_dir/tidy-nojq"
-grep -F 'groundwork/scratch:nojq' "$out_dir/tidy-nojq" | grep -qF 'unverified'
+grep -F 'sha256:oldnojq0' "$out_dir/tidy-nojq" | grep -qF 'unverified'
 grep -F 'nojq-c' "$out_dir/tidy-nojq" | grep -qF 'unverified'
 grep -qF 'jq' "$out_dir/tidy-nojq"
 grep -qF 'counts: 0 eligible, 0 retained (in grace), 0 protected, 1 unverified.' "$out_dir/tidy-nojq"
@@ -6253,16 +6795,473 @@ printf 'c-ephyng\tsha256:otherbase\texited\tfresh-exit\ttrue\tExited (0) 1 minut
   "$docker_now" >"$tidy_state/containers.tsv"
 docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --summary >"$out_dir/tidy-summary-clean"
 test ! -s "$out_dir/tidy-summary-clean"
+# Read-only modes also distinguish an incomplete observation from a clean
+# zero result. They never mutate pending state, but they return nonzero so a
+# caller cannot publish an unproved clean receipt.
+printf 'images --no-trunc --filter label=dev.roost.ephemeral=true\n' \
+  >"$tidy_state/fail.conf"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  >"$out_dir/tidy-dry-scan-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 1 ]] || fail "an incomplete Docker dry-run scan returned $tidy_status"
+grep -qF 'reported as unknown, not zero' "$out_dir/tidy-dry-scan-failure"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --summary \
+  >"$out_dir/tidy-summary-scan-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 1 ]] || fail "an incomplete Docker summary returned $tidy_status"
+rm -f "$tidy_state/fail.conf"
 
 # Daemon down, option hygiene, conflicting modes, garbled policy env, and the
 # missing shared scanner all fail the safe way.
 docker_state_init "$tidy_state"
 printf 'info\n' >"$tidy_state/fail.conf"
+set +e
 docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy >"$out_dir/tidy-down"
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] \
+  || fail "an unavailable Docker daemon returned $tidy_status, expected 3"
 grep -qF 'Docker daemon not reachable' "$out_dir/tidy-down"
 rm -f "$tidy_state/fail.conf"
-grep -qF 'groundwork-help docker' < <(GROUNDWORK_DOCKER_LIB="$docker_lib" \
-  home/dot_local/bin/executable_groundwork-docker-tidy --help)
+
+# Unavailable is an explicit status, not proof that older work completed. With
+# no prior pending record it is an honest skip; with one, the exact record is
+# retained until cleanup succeeds or the owner explicitly acknowledges that
+# Docker was removed.
+rm -f "$docker_pending_file"
+printf 'info\n' >"$tidy_state/fail.conf"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-down-no-pending" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] || fail "acting tidy did not preserve unavailable status 3"
+test ! -e "$docker_pending_file" \
+  || fail "an unavailable daemon invented new pending state without attempted cleanup"
+mkdir -p "$(dirname "$docker_pending_file")"
+printf 'old failure must survive\n' >"$docker_pending_file"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-down-with-pending" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] || fail "pending unavailable tidy did not return status 3"
+grep -qxF 'old failure must survive' "$docker_pending_file" \
+  || fail "an unavailable daemon falsely cleared or rewrote prior Docker failure state"
+rm -f "$tidy_state/fail.conf"
+: >"$tidy_state/argv.log"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  --yes --clear-pending >"$out_dir/tidy-clear-pending"
+test ! -e "$docker_pending_file" || fail "explicit Docker acknowledgement left the reminder active"
+grep -qF 'No Docker cleanup was performed' "$out_dir/tidy-clear-pending"
+grep -qF 'owner\ cleared\ Docker\ reminder\ without\ running\ cleanup:' \
+  "$docker_home/.local/state/groundwork/docker-tidy-pending-cleared.log"
+test ! -s "$tidy_state/argv.log" \
+  || fail "Docker pending acknowledgement queried or mutated the daemon"
+
+# Automatic mode uses the managed scanner, canonical grace, and a verified
+# local endpoint. It removes an eligible opted-in image, but refuses both a
+# remote context and ambient attempts to redirect its code or policy.
+docker_trust_home="$out_dir/docker-trust-home"
+docker_fake_bin="$out_dir/docker-fake-bin"
+docker_fake_marker="$out_dir/docker-fake-ran"
+mkdir -p "$docker_trust_home/.local/lib/groundwork" \
+  "$docker_trust_home/.local/share/groundwork/lib" "$docker_fake_bin"
+cp home/dot_local/lib/groundwork/update-lock.sh \
+  "$docker_trust_home/.local/lib/groundwork/update-lock.sh"
+cp "$docker_lib" "$docker_trust_home/.local/share/groundwork/lib/docker-scan.sh"
+cp "$docker_runner_lib" \
+  "$docker_trust_home/.local/share/groundwork/lib/maintenance-runner.sh"
+cat >"$docker_fake_bin/docker" <<EOF
+#!/bin/sh
+printf ran >'$docker_fake_marker'
+exit 0
+EOF
+chmod +x "$docker_fake_bin/docker"
+set +e
+HOME="$docker_trust_home" PATH="$docker_fake_bin:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --automatic \
+  >"$out_dir/tidy-untrusted-docker" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] || fail "automatic mode accepted a repository-controlled Docker executable"
+grep -qF 'no trusted Docker CLI was found' "$out_dir/tidy-untrusted-docker"
+test ! -e "$docker_fake_marker" || fail "automatic mode invoked an untrusted Docker executable"
+
+# Canonicalization itself runs before Docker's process bound, so it must be
+# finite even when a platform-owned executable link is broken or cyclic.
+resolver_state="$out_dir/docker-resolver-links"
+mkdir -p "$resolver_state"
+ln -s self "$resolver_state/self"
+ln -s two-b "$resolver_state/two-a"
+ln -s two-a "$resolver_state/two-b"
+ln -s missing "$resolver_state/broken"
+ln -s /bin/sh "$resolver_state/good-target"
+ln -s good-target "$resolver_state/good-relative"
+for resolver_bad in self two-a broken; do
+  if RESOLVER_PATH="$resolver_state/$resolver_bad" DOCKER_LIB="$docker_lib" /bin/bash -c '
+    source "$DOCKER_LIB"
+    gw_docker_canonical_executable "$RESOLVER_PATH"
+  ' >/dev/null 2>&1; then
+    fail "trusted-executable canonicalization accepted $resolver_bad symlink state"
+  fi
+done
+resolver_good="$(RESOLVER_PATH="$resolver_state/good-relative" DOCKER_LIB="$docker_lib" /bin/bash -c '
+  source "$DOCKER_LIB"
+  gw_docker_canonical_executable "$RESOLVER_PATH"
+')"
+[[ "$resolver_good" == /*/sh ]] \
+  || fail "trusted-executable canonicalization rejected a legitimate relative link chain"
+for resolver_hop in {41..1}; do
+  if [[ "$resolver_hop" -eq 41 ]]; then
+    ln -s /bin/sh "$resolver_state/hop-$resolver_hop"
+  else
+    ln -s "hop-$((resolver_hop + 1))" "$resolver_state/hop-$resolver_hop"
+  fi
+done
+if RESOLVER_PATH="$resolver_state/hop-1" DOCKER_LIB="$docker_lib" /bin/bash -c '
+  source "$DOCKER_LIB"
+  gw_docker_canonical_executable "$RESOLVER_PATH"
+' >/dev/null 2>&1; then
+  fail "trusted-executable canonicalization followed more than 40 symlinks"
+fi
+unset resolver_bad resolver_good resolver_hop
+
+docker_state_init "$tidy_state"
+printf 'sha256:auto0001\tgroundwork/scratch:auto\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.5GB\n' \
+  >"$tidy_state/images.tsv"
+docker_run_automatic "$tidy_state" "$docker_stub_bin:$PATH" >"$out_dir/tidy-automatic"
+grep -qF 'image rm sha256:auto0001' "$tidy_state/argv.log"
+test ! -s "$tidy_state/images.tsv" || fail "automatic mode left an eligible scratch image"
+test ! -e "$docker_pending_file" || fail "successful automatic mode left pending state"
+
+docker_state_init "$tidy_state"
+printf 'tcp://shared.example:2376\n' >"$tidy_state/context-host"
+set +e
+docker_run_automatic "$tidy_state" "$docker_stub_bin:$PATH" >"$out_dir/tidy-remote" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] || fail "automatic mode did not refuse a remote endpoint with status 3"
+grep -qF 'refuses non-local Docker endpoint' "$out_dir/tidy-remote"
+assert_no_matches "automatic mode queried or deleted through a refused remote endpoint" \
+  grep -nE '^info$|image rm|container rm' "$tidy_state/argv.log"
+
+# Endpoint text is untrusted daemon metadata. Embedded line/control content is
+# rejected before it can enter pending state or terminal output.
+docker_state_init "$tidy_state"
+printf 'unix:///var/run/docker.sock\nforged-endpoint-line' >"$tidy_state/context-host"
+set +e
+docker_run_automatic "$tidy_state" "$docker_stub_bin:$PATH" \
+  >"$out_dir/tidy-hostile-endpoint" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] || fail "automatic mode accepted a multiline Docker endpoint"
+grep -qF 'unsafe or incomplete Docker endpoint' "$out_dir/tidy-hostile-endpoint"
+assert_not_contains 'forged-endpoint-line' "$out_dir/tidy-hostile-endpoint" \
+  "hostile Docker endpoint content reached terminal output"
+test ! -e "$docker_pending_file" \
+  || fail "hostile Docker endpoint content reached pending state"
+assert_no_matches "hostile endpoint validation reached Docker info or mutation" \
+  grep -nE '^info$|image rm|container rm' "$tidy_state/argv.log"
+
+docker_state_init "$tidy_state"
+for automatic_override in \
+  'GROUNDWORK_DOCKER_LIB=/tmp/repository-controlled-scan.sh' \
+  'GROUNDWORK_MAINTENANCE_RUNNER_LIB=/tmp/repository-controlled-runner.sh' \
+  'GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS=1' \
+  'GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=1' \
+  'DOCKER_HOST=tcp://shared.example:2376' \
+  'DOCKER_CONTEXT=project-context' \
+  'DOCKER_CONFIG=/tmp/repository-docker-config'; do
+  : >"$tidy_state/argv.log"
+  set +e
+  env HOME="$docker_home" DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
+    "$automatic_override" \
+    /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --automatic \
+    >"$out_dir/tidy-ambient-refused" 2>&1
+  tidy_status=$?
+  set -e
+  [[ "$tidy_status" -eq 3 ]] \
+    || fail "automatic mode accepted ambient override: $automatic_override"
+  automatic_name="${automatic_override%%=*}"
+  grep -qF "refuses ambient $automatic_name" "$out_dir/tidy-ambient-refused"
+  test ! -s "$tidy_state/argv.log" \
+    || fail "automatic mode reached Docker after refusing $automatic_name"
+done
+unset automatic_override automatic_name
+
+# The recommended maintenance-only retry uses the same canonical code, grace,
+# endpoint rule, and pending namespace as update-all. Ambient daemon or policy
+# selectors are refused before Docker is queried and cannot clear an older
+# local automatic record.
+docker_state_init "$tidy_state"
+mkdir -p "$(dirname "$docker_pending_file")"
+printf 'local automatic failure must survive\n' >"$docker_pending_file"
+set +e
+HOME="$docker_home" DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
+  DOCKER_HOST=tcp://shared.example:2376 \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-direct-ambient-refused" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 3 ]] \
+  || fail "the routine direct repair accepted an ambient remote Docker host"
+grep -qxF 'local automatic failure must survive' "$docker_pending_file" \
+  || fail "a refused noncanonical direct repair altered local pending state"
+test ! -s "$tidy_state/argv.log" \
+  || fail "a noncanonical direct repair reached Docker before refusal"
+
+# Acting mode is a single writer. An already-held update lock returns 75
+# before the helper performs even a Docker query.
+docker_state_init "$tidy_state"
+docker_lock_dir="$docker_home/.local/state/groundwork/update-all.lock"
+rm -rf "$docker_lock_dir"
+
+# Failure to persist pre-mutation intent aborts before any removal, but the
+# EXIT path still releases an owned lock and cleans its temporary state.
+docker_state_init "$tidy_state"
+rm -f "$docker_pending_file"
+mkdir -p "$docker_pending_file"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-pending-write-failure" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -ne 0 ]] || fail "a failed Docker pending-state write returned success"
+grep -qF 'could not persist intent before Docker cleanup' \
+  "$out_dir/tidy-pending-write-failure"
+assert_no_matches "Docker mutation occurred without durable pre-mutation intent" \
+  grep -nE 'image rm|container rm' "$tidy_state/argv.log"
+test ! -d "$docker_lock_dir" \
+  || fail "a failed Docker pending-state write left the machine lock behind"
+rmdir "$docker_pending_file"
+
+# A helper invoked as update-all's direct child validates and borrows the
+# inherited lock token. It does not race a second lock or release its parent's
+# transaction when the Docker lane completes.
+docker_state_init "$tidy_state"
+mkdir -p "$docker_lock_dir"
+docker_lock_start="$(LC_ALL=C ps -o lstart= -p "$$" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+printf '%s\n' "$$" >"$docker_lock_dir/pid"
+printf '2001-01-01T00:00:00Z\n' >"$docker_lock_dir/started-at"
+printf 'update-all\n' >"$docker_lock_dir/operation"
+printf 'borrow-token\n' >"$docker_lock_dir/token"
+printf '%s\n' "$docker_lock_start" >"$docker_lock_dir/process-start"
+GROUNDWORK_UPDATE_LOCK_HELD=1 GROUNDWORK_UPDATE_LOCK_TOKEN=borrow-token \
+  docker_run_automatic "$tidy_state" "$docker_stub_bin:$PATH" \
+  >"$out_dir/tidy-lock-borrowed"
+test -d "$docker_lock_dir" \
+  || fail "a borrowed Docker tidy released update-all's parent-owned lock"
+grep -qxF 'borrow-token' "$docker_lock_dir/token"
+rm -rf "$docker_lock_dir"
+: >"$tidy_state/argv.log"
+mkdir -p "$docker_lock_dir"
+docker_lock_start="$(LC_ALL=C ps -o lstart= -p "$$" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+printf '%s\n' "$$" >"$docker_lock_dir/pid"
+printf '2001-01-01T00:00:00Z\n' >"$docker_lock_dir/started-at"
+printf 'update-all\n' >"$docker_lock_dir/operation"
+printf 'validator-token\n' >"$docker_lock_dir/token"
+printf '%s\n' "$docker_lock_start" >"$docker_lock_dir/process-start"
+set +e
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-lock-busy" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 75 ]] || fail "a concurrent acting Docker tidy returned $tidy_status, expected 75"
+test ! -s "$tidy_state/argv.log" || fail "a lock-refused Docker tidy queried the daemon"
+rm -rf "$docker_lock_dir"
+
+# A stalled Docker observation is bounded as a process group. The helper kills
+# its descendant, returns 124, and preserves pending repair state.
+docker_state_init "$tidy_state"
+docker_timeout_pid_file="$tidy_state/delayed-child.pid"
+cat >"$tidy_state/delay.conf" <<EOF
+DELAY_SUBSTR='images --no-trunc --filter label=dev.roost.ephemeral=true'
+DELAY_SPAWN_DESCENDANT=1
+DELAY_DESCENDANT_SECONDS=30
+DELAY_PID_FILE='$docker_timeout_pid_file'
+EOF
+set +e
+GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-timeout" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 124 ]] || fail "a stalled Docker observation returned $tidy_status, expected 124"
+grep -qF 'exceeded its 1s hard deadline' "$out_dir/tidy-timeout"
+test -f "$docker_pending_file" || fail "a timed-out Docker tidy recorded no pending state"
+docker_timeout_pid="$(<"$docker_timeout_pid_file")"
+for _ in {1..20}; do
+  docker_timeout_state="$(ps -o stat= -p "$docker_timeout_pid" 2>/dev/null | tr -d '[:space:]' || true)"
+  [[ -z "$docker_timeout_state" || "$docker_timeout_state" == Z* ]] && break
+  sleep 0.1
+done
+[[ -z "$docker_timeout_state" || "$docker_timeout_state" == Z* ]] \
+  || fail "a Docker CLI descendant survived the helper deadline"
+rm -f "$tidy_state/delay.conf"
+docker_state_init "$tidy_state"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >/dev/null
+test ! -e "$docker_pending_file" || fail "successful retry did not clear timeout pending state"
+
+# Per-call bounds are not the lane bound: enough individually healthy slow
+# candidates must exhaust the total budget before their cumulative runtime can
+# stretch update-all indefinitely.
+docker_state_init "$tidy_state"
+for total_candidate in 1 2 3 4 5; do
+  printf 'sha256:total000%s\tgroundwork/scratch:total-%s\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+    "$total_candidate" "$total_candidate" >>"$tidy_state/images.tsv"
+done
+cat >"$tidy_state/delay.conf" <<'EOF'
+DELAY_SUBSTR='image inspect sha256:total'
+DELAY_AFTER=5
+DELAY_SECONDS=0.8
+EOF
+set +e
+GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=5 \
+  GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=3 \
+  GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-total-deadline" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 124 ]] \
+  || fail "many individually bounded Docker candidates returned $tidy_status instead of total-deadline status 124"
+grep -qF 'total Docker lane deadline expired' "$out_dir/tidy-total-deadline"
+grep -qE 'Progress: [0-4] of 5 eligible-image candidates completed; [1-5] remained\.' \
+  "$out_dir/tidy-total-deadline" \
+  || fail "the total Docker deadline did not report completed and remaining candidates"
+[[ "$(grep -c '^image rm sha256:total' "$tidy_state/argv.log" || true)" -lt 5 ]] \
+  || fail "the total Docker deadline allowed every slow candidate to be mutated"
+test -f "$docker_pending_file" || fail "the total Docker lane deadline recorded no pending state"
+unset total_candidate
+rm -f "$tidy_state/delay.conf"
+docker_state_init "$tidy_state"
+docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes >/dev/null
+test ! -e "$docker_pending_file" || fail "successful retry did not clear total-deadline pending state"
+
+# Terminal Docker statuses stop the transaction immediately. No later query
+# or mutation may run after a timeout or owner cancellation.
+docker_state_init "$tidy_state"
+printf 'sha256:termlist\tgroundwork/scratch:term-list\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$tidy_state/images.tsv"
+tidy_term_sentinel="$tidy_state/exited-list.started"
+cat >"$tidy_state/delay.conf" <<EOF
+DELAY_SUBSTR='ps -a --no-trunc --filter status=exited'
+DELAY_SECONDS=30
+DELAY_SENTINEL='$tidy_term_sentinel'
+EOF
+# Launch the helper itself in the background so the recorded PID owns both the
+# signal trap and the maintenance lock. Backgrounding docker_run would record
+# an intermediate function subshell and could kill that wrapper instead.
+HOME="$docker_home" DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-term-exited-list" 2>&1 &
+tidy_signal_pid=$!
+for _ in {1..100}; do
+  [[ -f "$tidy_term_sentinel" ]] && break
+  sleep 0.1
+done
+test -f "$tidy_term_sentinel" || fail "TERM fixture never reached exited-container listing"
+kill -TERM "$tidy_signal_pid"
+set +e
+wait "$tidy_signal_pid"
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 143 ]] || fail "TERM during exited-container listing returned $tidy_status"
+test ! -d "$docker_lock_dir" \
+  || fail "TERM during exited-container listing left the machine lock behind"
+assert_no_matches "TERM during exited-container listing allowed later image work" \
+  grep -nE 'images --no-trunc|image rm' "$tidy_state/argv.log"
+
+docker_state_init "$tidy_state"
+printf 'sha256:firstinspect\tgroundwork/scratch:first-inspect\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$tidy_state/images.tsv"
+cat >"$tidy_state/delay.conf" <<'EOF'
+DELAY_SUBSTR='image inspect sha256:firstinspect'
+DELAY_SECONDS=30
+EOF
+set +e
+GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-timeout-first-inspect" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 124 ]] || fail "first image-inspect timeout returned $tidy_status"
+first_inspect_line="$(grep -nF 'image inspect sha256:firstinspect' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)"
+[[ "$(wc -l <"$tidy_state/argv.log" | tr -d '[:space:]')" -eq "$first_inspect_line" ]] \
+  || fail "timeout during first image inspection allowed a later Docker call"
+
+docker_state_init "$tidy_state"
+{
+  printf 'sha256:intfirst\tgroundwork/scratch:int-first\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
+  printf 'sha256:intsecond\tgroundwork/scratch:int-second\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
+} >"$tidy_state/images.tsv"
+tidy_int_sentinel="$tidy_state/recheck.started"
+cat >"$tidy_state/delay.conf" <<EOF
+DELAY_SUBSTR='image inspect sha256:intfirst'
+DELAY_AT=2
+DELAY_SECONDS=30
+DELAY_SENTINEL='$tidy_int_sentinel'
+EOF
+rm -f "$tidy_int_sentinel"
+test ! -d "$docker_lock_dir" || fail "the prior Docker fixture left the machine lock behind"
+# Background jobs inherit SIGINT ignored. Keep the helper in the foreground and
+# let a sender read its exact owned PID from the lock after the delayed command
+# starts, so this exercises the helper's real INT trap instead of a shell quirk.
+(
+  for _ in {1..100}; do
+    [[ -f "$tidy_int_sentinel" ]] && break
+    sleep 0.1
+  done
+  [[ -f "$tidy_int_sentinel" ]] || exit 1
+  IFS= read -r tidy_signal_pid <"$docker_lock_dir/pid"
+  [[ "$tidy_signal_pid" =~ ^[0-9]+$ ]] || exit 1
+  kill -INT "$tidy_signal_pid"
+) &
+tidy_signal_sender=$!
+set +e
+HOME="$docker_home" DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-int-recheck" 2>&1
+tidy_status=$?
+tidy_signal_sender_status=0
+wait "$tidy_signal_sender" || tidy_signal_sender_status=$?
+set -e
+[[ "$tidy_signal_sender_status" -eq 0 ]] || fail "INT fixture never reached candidate inspection"
+[[ "$tidy_status" -eq 130 ]] || fail "INT during candidate inspection returned $tidy_status"
+assert_no_matches "INT during one candidate allowed image deletion" \
+  grep -n 'image rm' "$tidy_state/argv.log"
+
+docker_state_init "$tidy_state"
+{
+  printf 'sha256:rmfirst0\tgroundwork/scratch:rm-first\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
+  printf 'sha256:rmsecond\tgroundwork/scratch:rm-second\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
+} >"$tidy_state/images.tsv"
+cat >"$tidy_state/delay.conf" <<'EOF'
+DELAY_SUBSTR='image rm sha256:rmfirst0'
+DELAY_SECONDS=30
+EOF
+set +e
+GROUNDWORK_DOCKER_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
+  >"$out_dir/tidy-timeout-image-delete" 2>&1
+tidy_status=$?
+set -e
+[[ "$tidy_status" -eq 124 ]] || fail "image-deletion timeout returned $tidy_status"
+assert_no_matches "timeout deleting one image continued to the next candidate" \
+  grep -n 'image rm sha256:rmsecond' "$tidy_state/argv.log"
+
+rm -f "$tidy_state/delay.conf" "$tidy_state/delay.count" \
+  "$docker_pending_file"
+
+grep -qF 'groundwork-help docker' < <(home/dot_local/bin/executable_groundwork-docker-tidy --help)
 if docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --bogus >/dev/null 2>&1; then
   fail "groundwork-docker-tidy accepted an unknown option"
 fi
@@ -6282,13 +7281,28 @@ if GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS=99999 \
   >/dev/null 2>&1; then
   fail "groundwork-docker-tidy accepted an out-of-range grace window"
 fi
-if DOCKER_STATE="$tidy_state" PATH="$docker_stub_bin:$PATH" \
-  GROUNDWORK_DOCKER_LIB=/nonexistent-groundwork-docker-lib \
-  /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy \
-  >"$out_dir/tidy-nolib" 2>&1; then
-  fail "groundwork-docker-tidy ran without the shared docker-scan probe"
-fi
-grep -qF 'docker-scan probe is missing' "$out_dir/tidy-nolib"
+
+# Installed read-only surfaces ignore ambient source paths. Repository or
+# direnv variables cannot execute shell code merely by running a report.
+ambient_scan_marker="$out_dir/ambient-scan-ran"
+ambient_runner_marker="$out_dir/ambient-runner-ran"
+cat >"$out_dir/ambient-scan.sh" <<EOF
+printf ran >'$ambient_scan_marker'
+EOF
+cat >"$out_dir/ambient-runner.sh" <<EOF
+printf ran >'$ambient_runner_marker'
+EOF
+docker_state_init "$tidy_state"
+GROUNDWORK_DOCKER_LIB="$out_dir/ambient-scan.sh" \
+  GROUNDWORK_MAINTENANCE_RUNNER_LIB="$out_dir/ambient-runner.sh" \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy \
+  >"$out_dir/tidy-ambient-readonly"
+GROUNDWORK_DOCKER_LIB="$out_dir/ambient-scan.sh" \
+  GROUNDWORK_MAINTENANCE_RUNNER_LIB="$out_dir/ambient-runner.sh" \
+  docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-doctor --docker \
+  >"$out_dir/doctor-ambient-readonly"
+test ! -e "$ambient_scan_marker" || fail "read-only Docker report sourced ambient scanner code"
+test ! -e "$ambient_runner_marker" || fail "read-only Docker report sourced ambient runner code"
 
 check "groundwork-docker-cache-tidy helper"
 # Daemon-wide cleanup is a SEPARATE, owner-only command: it says it reaches
@@ -6302,15 +7316,24 @@ assert_no_matches "the daemon-wide cache tidy leaked into a scheduled or refresh
   home/dot_local/bin/executable_groundwork-update-run.tmpl \
   home/dot_zshrc.tmpl home/run_after_20-tools.sh.tmpl \
   home/run_onchange_after_10-brew-bundle.sh.tmpl
-# update-all keeps only the tidy's silent one-liner, and the helper owns
-# docker reachability itself — no duplicated probe in the runner.
-grep -qF 'groundwork-docker-tidy" --summary' home/dot_local/bin/executable_groundwork-update-run.tmpl
+# update-all runs only the label-scoped tidy in acting mode; the helper owns
+# Docker reachability itself, so no duplicated probe belongs in the runner.
+grep -qF 'groundwork-docker-tidy" --automatic' home/dot_local/bin/executable_groundwork-update-run.tmpl
+assert_not_contains 'groundwork-docker-tidy" --summary' \
+  home/dot_local/bin/executable_groundwork-update-run.tmpl \
+  "update-all only reported Docker leftovers instead of maintaining the opted-in scratch lane"
 assert_no_matches "update-run must not duplicate the tidy's docker reachability probe" \
   rg -n 'docker info' home/dot_local/bin/executable_groundwork-update-run.tmpl
 cache_state="$out_dir/cache-state"
 docker_state_init "$cache_state"
 printf 'sha256:dangx000\t-\t-\t-\t2001-01-01T00:00:00Z\t300MB\n' >"$cache_state/images.tsv"
 printf 'c-plain\tsha256:otherbase\texited\told-c\t-\tExited (0) 3 days ago\n' >"$cache_state/containers.tsv"
+GROUNDWORK_DOCKER_LIB="$out_dir/ambient-scan.sh" \
+  GROUNDWORK_MAINTENANCE_RUNNER_LIB="$out_dir/ambient-runner.sh" \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy \
+  >"$out_dir/cache-ambient-readonly"
+test ! -e "$ambient_scan_marker" || fail "read-only Docker cache report sourced ambient scanner code"
+test ! -e "$ambient_runner_marker" || fail "read-only Docker cache report sourced ambient runner code"
 docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy >"$out_dir/cache-dry"
 grep -qF 'DAEMON-WIDE' "$out_dir/cache-dry"
 grep -qF 'ALL projects' "$out_dir/cache-dry"
@@ -6323,6 +7346,63 @@ grep -qF 'image prune --force' "$cache_state/argv.log"
 grep -qF 'builder prune --force --keep-storage 5GB' "$cache_state/argv.log"
 grep -qF 'retention target' "$out_dir/cache-yes"
 assert_no_matches "cache tidy must never touch volumes" grep -n 'volume' "$cache_state/argv.log"
+
+docker_state_init "$cache_state"
+printf 'tcp://shared.example:2376\n' >"$cache_state/context-host"
+set +e
+docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes \
+  >"$out_dir/cache-remote-refused" 2>&1
+cache_status=$?
+set -e
+[[ "$cache_status" -eq 3 ]] || fail "daemon-wide cache cleanup accepted a remote endpoint"
+grep -qF 'refusing daemon-wide cleanup on non-local endpoint' "$out_dir/cache-remote-refused"
+assert_no_matches "remote cache cleanup reached a prune operation" \
+  grep -n 'prune' "$cache_state/argv.log"
+
+docker_state_init "$cache_state"
+set +e
+DOCKER_HOST=tcp://shared.example:2376 \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes \
+  >"$out_dir/cache-ambient-remote-refused" 2>&1
+cache_status=$?
+set -e
+[[ "$cache_status" -eq 3 ]] || fail "daemon-wide cache cleanup accepted ambient DOCKER_HOST"
+test ! -s "$cache_state/argv.log" \
+  || fail "daemon-wide cache cleanup queried Docker after refusing ambient DOCKER_HOST"
+
+docker_state_init "$cache_state"
+cat >"$cache_state/delay.conf" <<'EOF'
+DELAY_SUBSTR='container prune --force'
+DELAY_SECONDS=30
+EOF
+set +e
+GROUNDWORK_DOCKER_CACHE_TIDY_OPERATION_DEADLINE_SECONDS=1 \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes \
+  >"$out_dir/cache-prune-timeout" 2>&1
+cache_status=$?
+set -e
+[[ "$cache_status" -eq 124 ]] || fail "bounded daemon-wide prune returned $cache_status"
+assert_no_matches "cache cleanup continued after a prune deadline" \
+  grep -nE 'image prune|builder prune' "$cache_state/argv.log"
+rm -f "$cache_state/delay.conf"
+
+docker_state_init "$cache_state"
+cat >"$cache_state/delay.conf" <<'EOF'
+DELAY_SUBSTR='prune --force'
+DELAY_SECONDS=0.8
+EOF
+set +e
+GROUNDWORK_DOCKER_CACHE_TIDY_OPERATION_DEADLINE_SECONDS=5 \
+  GROUNDWORK_DOCKER_CACHE_TIDY_TOTAL_DEADLINE_SECONDS=2 \
+  docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes \
+  >"$out_dir/cache-total-timeout" 2>&1
+cache_status=$?
+set -e
+[[ "$cache_status" -eq 124 ]] || fail "daemon-wide total deadline returned $cache_status"
+grep -qF 'total deadline expired' "$out_dir/cache-total-timeout"
+[[ "$(grep -c 'prune --force' "$cache_state/argv.log" || true)" -lt 3 ]] \
+  || fail "daemon-wide cleanup completed every slow prune after its total deadline"
+rm -f "$cache_state/delay.conf"
 : >"$cache_state/argv.log"
 GROUNDWORK_DOCKER_CACHE_TIDY_KEEP_STORAGE=20GiB \
   docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes >/dev/null
@@ -6340,8 +7420,8 @@ fi
 if docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --bogus >/dev/null 2>&1; then
   fail "groundwork-docker-cache-tidy accepted an unknown option"
 fi
-grep -qF 'groundwork-help docker' < <(GROUNDWORK_DOCKER_LIB="$docker_lib" \
-  home/dot_local/bin/executable_groundwork-docker-cache-tidy --help)
+grep -qF 'groundwork-help docker' < <(home/dot_local/bin/executable_groundwork-docker-cache-tidy --help)
+unset cache_status
 
 check "groundwork-docker-build-scratch helper"
 # The wrapper owns the contract's syntax: both labels, a generated RFC 3339
@@ -6359,13 +7439,60 @@ grep -qF -- '--label dev.roost.ephemeral=true' "$build_state/argv.log"
 grep -qE -- '--label dev\.roost\.built=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z ' "$build_state/argv.log"
 grep -qF -- '-t buildctx/scratch:review' "$build_state/argv.log"
 grep -qF -- '--build-arg FOO=bar' "$build_state/argv.log"
-grep -qF 'image id: sha256:builtimage000' "$out_dir/build-out"
+grep -qF 'image id: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$out_dir/build-out"
 docker_state_init "$build_state"
 docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
   review "$build_ctx" --project myproj --rm-after >"$out_dir/build-rmafter"
 grep -qF -- '-t myproj/scratch:review' "$build_state/argv.log"
-grep -qF 'image rm sha256:builtimage000' "$build_state/argv.log"
+grep -qF 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$build_state/argv.log"
 grep -qF 'removed after build' "$out_dir/build-rmafter"
+
+docker_state_init "$build_state"
+printf 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' \
+  >"$build_state/fail.conf"
+set +e
+docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" --project myproj --rm-after \
+  >"$out_dir/build-rmafter-failed" 2>&1
+build_status=$?
+set -e
+[[ "$build_status" -ne 0 ]] || fail "failed --rm-after exact-ID cleanup returned success"
+grep -qF 'docker image inspect sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' \
+  "$out_dir/build-rmafter-failed"
+grep -qF 'docker image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' \
+  "$out_dir/build-rmafter-failed"
+assert_not_contains 'docker rmi myproj/scratch:review' "$out_dir/build-rmafter-failed" \
+  "scratch builder recommended mutable-tag recovery after exact-ID cleanup failed"
+
+docker_state_init "$build_state"
+printf 'tcp://shared.example:2376\n' >"$build_state/context-host"
+set +e
+docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" >"$out_dir/build-remote-refused" 2>&1
+build_status=$?
+set -e
+[[ "$build_status" -ne 0 ]] || fail "scratch builder accepted a remote Docker endpoint"
+assert_no_matches "remote scratch build reached docker build" grep -n '^build ' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+set +e
+DOCKER_HOST=tcp://shared.example:2376 \
+  docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
+  review "$build_ctx" >"$out_dir/build-ambient-refused" 2>&1
+build_status=$?
+set -e
+[[ "$build_status" -eq 2 ]] || fail "scratch builder accepted ambient DOCKER_HOST"
+test ! -s "$build_state/argv.log" || fail "ambient-refused scratch build queried Docker"
+
+rm -f "$docker_fake_marker"
+set +e
+HOME="$docker_home" PATH="$docker_fake_bin:/usr/bin:/bin" \
+  /bin/bash home/dot_local/bin/executable_groundwork-docker-build-scratch \
+  review "$build_ctx" >"$out_dir/build-untrusted-docker" 2>&1
+build_status=$?
+set -e
+[[ "$build_status" -eq 2 ]] || fail "scratch builder accepted a repository-controlled Docker executable"
+test ! -e "$docker_fake_marker" || fail "scratch builder invoked an untrusted Docker executable"
 docker_state_init "$build_state"
 if docker_run "$build_state" "$docker_stub_bin:$PATH" groundwork-docker-build-scratch \
   'bad purpose!' "$build_ctx" >"$out_dir/build-badpurpose" 2>&1; then
@@ -6417,10 +7544,553 @@ grep -qF 'not in the allowlist' "$out_dir/build-unknown-refused"
 assert_no_matches "an option outside the allowlist still reached docker build" \
   grep -n 'build' "$build_state/argv.log"
 grep -qF 'groundwork-help docker' < <(home/dot_local/bin/executable_groundwork-docker-build-scratch --help)
+
+check "repository Docker image verification transaction"
+test -x scripts/verify-docker-image
+scripts/verify-docker-image --help >"$out_dir/verify-docker-help"
+grep -qF 'Build, run, and remove' "$out_dir/verify-docker-help"
+verify_fixture_root="$out_dir/verify-repository"
+mkdir -p "$verify_fixture_root/scripts" "$verify_fixture_root/home/dot_local/bin" \
+  "$verify_fixture_root/home/dot_local/share/groundwork/lib"
+cp scripts/verify-docker-image "$verify_fixture_root/scripts/verify-docker-image"
+cp home/dot_local/bin/executable_groundwork-docker-build-scratch \
+  "$verify_fixture_root/home/dot_local/bin/executable_groundwork-docker-build-scratch"
+cp home/dot_local/share/groundwork/lib/maintenance-runner.sh \
+  "$verify_fixture_root/home/dot_local/share/groundwork/lib/maintenance-runner.sh"
+cp home/dot_local/share/groundwork/lib/docker-scan.sh \
+  "$verify_fixture_root/home/dot_local/share/groundwork/lib/docker-scan.sh"
+# The production resolver is tested independently against hostile PATH state.
+# This isolated dependency copy supplies the Docker fixture without adding a
+# production bypass to the exact verification script under test.
+cat >>"$verify_fixture_root/home/dot_local/share/groundwork/lib/docker-scan.sh" <<'SH'
+gw_docker_resolve_trusted_executable() {
+  type -P "$1" 2>/dev/null
+}
+SH
+cat >>"$verify_fixture_root/home/dot_local/share/groundwork/lib/maintenance-runner.sh" <<'SH'
+eval "$(declare -f run_bounded_internal | sed '1s/run_bounded_internal/run_bounded_internal_fixture_real/')"
+run_bounded_internal() {
+  if [[ -n "${GROUNDWORK_TEST_RUNNER_125_MATCH:-}" && "$1" == *"$GROUNDWORK_TEST_RUNNER_125_MATCH"* ]]; then
+    return 125
+  fi
+  run_bounded_internal_fixture_real "$@"
+}
+SH
+cmp -s scripts/verify-docker-image "$verify_fixture_root/scripts/verify-docker-image" \
+  || fail "the Docker verification fixture changed the repository script under test"
+verify_docker_run() {
+  HOME="$docker_home" DOCKER_STATE="$build_state" PATH="$docker_stub_bin:$PATH" \
+    GROUNDWORK_DOCKER_VERIFY_CONTAINER_NONCE=fixture \
+    "$verify_fixture_root/scripts/verify-docker-image" "$@"
+}
+
+docker_state_init "$build_state"
+set +e
+verify_docker_run --bogus >"$out_dir/verify-docker-invalid" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "invalid Docker verification arguments returned $verify_docker_status, expected 64"
+test ! -s "$build_state/argv.log" \
+  || fail "invalid Docker verification arguments reached Docker"
+
+rm -f "$docker_fake_marker"
+set +e
+HOME="$docker_home" PATH="$docker_fake_bin:/usr/bin:/bin" \
+  scripts/verify-docker-image --purpose untrusted-cli \
+  >"$out_dir/verify-docker-untrusted-cli" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "repository Docker verification accepted an untrusted executable"
+test ! -e "$docker_fake_marker" \
+  || fail "repository Docker verification invoked an untrusted executable"
+
+docker_state_init "$build_state"
+printf 'tcp://shared.example:2376\n' >"$build_state/context-host"
+set +e
+verify_docker_run --purpose remote-endpoint \
+  >"$out_dir/verify-docker-remote-endpoint" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "repository Docker verification accepted a remote endpoint"
+assert_no_matches "remote repository verification reached a build" \
+  grep -n '^build ' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+set +e
+DOCKER_HOST=tcp://shared.example:2376 \
+  verify_docker_run --purpose ambient-endpoint \
+  >"$out_dir/verify-docker-ambient-endpoint" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "repository Docker verification accepted ambient DOCKER_HOST"
+test ! -s "$build_state/argv.log" \
+  || fail "ambient-refused repository verification queried Docker"
+
+# Preflight absence is enumeration-backed. A generic observation failure is
+# unavailable, not shorthand for a free container name or image tag.
+docker_state_init "$build_state"
+printf 'ps -a --no-trunc --format {{.ID}}\n' >"$build_state/fail.conf"
+set +e
+verify_docker_run --purpose container-list-unavailable \
+  >"$out_dir/verify-docker-container-list-unavailable" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "unavailable container-name enumeration was treated as absence"
+assert_no_matches "container-name preflight failure still reached build" \
+  grep -n '^build ' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+printf 'images --no-trunc --format {{.Repository}}:{{.Tag}}\n' >"$build_state/fail.conf"
+set +e
+verify_docker_run --purpose tag-list-unavailable \
+  >"$out_dir/verify-docker-tag-list-unavailable" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "unavailable image-tag enumeration was treated as absence"
+assert_no_matches "image-tag preflight failure still reached build" \
+  grep -n '^build ' "$build_state/argv.log"
+
+# The normal path mechanically owns build, run, and exact-tag removal.
+docker_state_init "$build_state"
+verify_docker_run --purpose validator-ok \
+  >"$out_dir/verify-docker-ok" 2>&1
+grep -qF -- '-t groundwork/scratch:validator-ok' "$build_state/argv.log"
+grep -qF -- '--label dev.roost.ephemeral=true' "$build_state/argv.log"
+grep -qE 'container create --rm --cidfile [^ ]+ --name groundwork-verify-validator-ok-fixture sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' \
+  "$build_state/argv.log"
+[[ "$(grep -cF -- '--name groundwork-verify-validator-ok-fixture' \
+  "$build_state/argv.log")" -eq 1 ]] \
+  || fail "Docker verification created its smoke container more than once"
+grep -qF 'container start --attach dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' "$build_state/argv.log"
+grep -qF 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$build_state/argv.log"
+test ! -s "$build_state/images.tsv" \
+  || fail "the repository Docker verification command left its proof image behind"
+test ! -s "$build_state/containers.tsv" \
+  || fail "the repository Docker verification command left its proof container behind"
+grep -qF 'images --all --no-trunc --quiet' "$build_state/argv.log" \
+  || fail "successful verification did not prove exact image-ID absence"
+grep -qF 'ps -aq --no-trunc' "$build_state/argv.log" \
+  || fail "successful verification did not prove exact container-ID absence"
+grep -qF 'removed image sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$out_dir/verify-docker-ok"
+
+# Container ownership comes from Docker's CID-file receipt, not stdout.
+# Successful creates remain self-cleaning when stdout is empty, malformed, or
+# duplicated; a malformed CID file falls back to exact-name enumeration only
+# because this transaction proved the name absent and create returned success.
+for create_stdout_mode in empty malformed two-lines; do
+  docker_state_init "$build_state"
+  cat >"$build_state/create.conf" <<EOF
+CREATE_STDOUT_MODE=$create_stdout_mode
+EOF
+  verify_docker_run --purpose "stdout-$create_stdout_mode" \
+    >"$out_dir/verify-docker-stdout-$create_stdout_mode" 2>&1
+  test ! -s "$build_state/containers.tsv" \
+    || fail "successful create with $create_stdout_mode stdout leaked its CID-file-owned container"
+  test ! -s "$build_state/images.tsv" \
+    || fail "successful create with $create_stdout_mode stdout leaked its proof image"
+done
+for create_cid_mode in empty malformed two-lines; do
+  docker_state_init "$build_state"
+  cat >"$build_state/create.conf" <<EOF
+CREATE_CID_MODE=$create_cid_mode
+CREATE_STDOUT_MODE=empty
+EOF
+  verify_docker_run --purpose "cid-$create_cid_mode" \
+    >"$out_dir/verify-docker-cid-$create_cid_mode" 2>&1
+  test ! -s "$build_state/containers.tsv" \
+    || fail "successful create with $create_cid_mode CID receipt escaped exact-name recovery"
+  test ! -s "$build_state/images.tsv" \
+    || fail "successful create with $create_cid_mode CID receipt leaked its proof image"
+done
+unset create_stdout_mode create_cid_mode
+
+docker_state_init "$build_state"
+cat >"$build_state/create.conf" <<'EOF'
+CREATE_APPEARS=0
+CREATE_EXIT=1
+CREATE_CID_MODE=empty
+CREATE_STDOUT_MODE=empty
+EOF
+set +e
+verify_docker_run --purpose create-fails-cleanly \
+  >"$out_dir/verify-docker-create-fails-cleanly" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] || fail "failed container create returned success"
+test ! -s "$build_state/containers.tsv" \
+  || fail "failed create without a container invented cleanup ownership"
+
+docker_state_init "$build_state"
+cat >"$build_state/create.conf" <<'EOF'
+CREATE_APPEARS=1
+CREATE_EXIT=1
+CREATE_CID_MODE=empty
+CREATE_STDOUT_MODE=malformed
+EOF
+set +e
+verify_docker_run --purpose create-fails-with-name \
+  >"$out_dir/verify-docker-create-fails-with-name" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "failed create with an exact-name container returned success"
+grep -qF 'ownership was not proven, so it was left untouched' \
+  "$out_dir/verify-docker-create-fails-with-name"
+grep -qF $'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\t' \
+  "$build_state/containers.tsv" \
+  || fail "failed create deleted a same-name container without a durable receipt"
+assert_no_matches "failed create without a receipt mutated the same-name container" \
+  grep -nE 'container (stop|rm) dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd' \
+  "$build_state/argv.log"
+
+# A failed build never reaches container creation, and the cleanup trap proves
+# that the invocation's unique scratch tag is absent.
+docker_state_init "$build_state"
+printf 'build \n' >"$build_state/fail.conf"
+set +e
+verify_docker_run --purpose validator-build-fail \
+  >"$out_dir/verify-docker-build-fail" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] || fail "a failed Docker build returned success"
+assert_no_matches "a failed Docker build still created a verification container" \
+  grep -n 'container create' "$build_state/argv.log"
+test ! -s "$build_state/images.tsv" \
+  || fail "a failed Docker build left a proof image behind"
+rm -f "$build_state/fail.conf"
+
+# A failed smoke command still runs the same exact cleanup and preserves the
+# smoke failure. Cleanup is a trap-owned outcome, not a third command an agent
+# can forget after seeing the test fail.
+docker_state_init "$build_state"
+printf 'container start --attach\n' >"$build_state/fail.conf"
+set +e
+verify_docker_run --purpose validator-fail \
+  >"$out_dir/verify-docker-run-fail" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] || fail "a failed Docker smoke run returned success"
+grep -qF 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$build_state/argv.log"
+failed_verify_id="$(awk '/container start --attach / { print $NF; exit }' "$build_state/argv.log")"
+[[ -n "$failed_verify_id" ]] || fail "failed smoke fixture captured no created container ID"
+grep -qF "container stop --time 2 $failed_verify_id" "$build_state/argv.log"
+grep -qF "container rm $failed_verify_id" "$build_state/argv.log"
+test ! -s "$build_state/containers.tsv" \
+  || fail "a failed Docker smoke run left its exact container behind"
+test ! -s "$build_state/images.tsv" \
+  || fail "a failed Docker smoke run left its proof image behind"
+rm -f "$build_state/fail.conf"
+
+# Runner status 125 means its previous process tree may still be alive. The
+# cleanup trap reports exact manual inspection and issues no later Docker
+# query or mutation.
+docker_state_init "$build_state"
+set +e
+GROUNDWORK_TEST_RUNNER_125_MATCH='stop verification container' \
+  verify_docker_run --purpose cleanup-tree-uncertain \
+  >"$out_dir/verify-docker-cleanup-125" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] || fail "cleanup runner status 125 returned success"
+grep -qF 'no later Docker command was issued' "$out_dir/verify-docker-cleanup-125"
+cleanup_125_start_line="$(grep -nF 'container start --attach' "$build_state/argv.log" | tail -n 1 | cut -d: -f1)"
+[[ -n "$cleanup_125_start_line" ]] || fail "cleanup status-125 fixture never ran its container"
+[[ "$(wc -l <"$build_state/argv.log" | tr -d '[:space:]')" -eq "$cleanup_125_start_line" ]] \
+  || fail "cleanup continued with Docker work after runner status 125"
+test -s "$build_state/images.tsv" \
+  || fail "cleanup status 125 mutated the proof image after losing process-tree certainty"
+unset cleanup_125_start_line
+
+# An interrupt cancels the run process group, then the EXIT trap still removes
+# the exact owned resources and returns the conventional signal status.
+docker_state_init "$build_state"
+verify_signal_sentinel="$build_state/run.started"
+cat >"$build_state/delay.conf" <<EOF
+DELAY_SUBSTR='container start --attach'
+DELAY_SECONDS=30
+DELAY_SENTINEL='$verify_signal_sentinel'
+EOF
+HOME="$docker_home" DOCKER_STATE="$build_state" PATH="$docker_stub_bin:$PATH" \
+  GROUNDWORK_DOCKER_VERIFY_CONTAINER_NONCE=fixture \
+  "$verify_fixture_root/scripts/verify-docker-image" --purpose validator-signal \
+  >"$out_dir/verify-docker-signal" 2>&1 &
+verify_docker_pid=$!
+for _ in {1..100}; do
+  [[ -f "$verify_signal_sentinel" ]] && break
+  sleep 0.1
+done
+test -f "$verify_signal_sentinel" || fail "the delayed Docker smoke run never started"
+kill -TERM "$verify_docker_pid"
+set +e
+wait "$verify_docker_pid"
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 143 ]] \
+  || fail "TERM during Docker verification returned $verify_docker_status, expected 143"
+signal_verify_id="$(awk '/container start --attach / { print $NF; exit }' "$build_state/argv.log")"
+[[ -n "$signal_verify_id" ]] || fail "interrupted smoke fixture captured no created container ID"
+grep -qF "container stop --time 2 $signal_verify_id" "$build_state/argv.log"
+grep -qF "container rm $signal_verify_id" "$build_state/argv.log"
+test ! -s "$build_state/containers.tsv" \
+  || fail "an interrupted Docker smoke run left its exact container behind"
+grep -qF 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$build_state/argv.log"
+test ! -s "$build_state/images.tsv" \
+  || fail "an interrupted Docker smoke run left its proof image behind"
+rm -f "$build_state/delay.conf"
+
+# Cleanup re-snapshots the exact owned image ID. A real tag added after the
+# smoke run revokes deletion consent; a generic inspect failure while the ID
+# remains listed is incomplete; an image that a fresh listing proves absent is
+# accepted as an already-completed race.
+docker_state_init "$build_state"
+printf 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\tgroundwork/scratch:ownership-retag,groundwork:latest\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images-tripped.tsv"
+cat >"$build_state/trip.conf" <<EOF
+TRIP_SUBSTR='image inspect sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+TRIP_AT=1
+TRIP_IMAGES=$build_state/images-tripped.tsv
+EOF
+set +e
+verify_docker_run --purpose ownership-retag \
+  >"$out_dir/verify-docker-ownership-retag" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "verification cleanup deleted through a newly added real tag"
+grep -qF 'gained another tag: groundwork:latest' \
+  "$out_dir/verify-docker-ownership-retag"
+assert_no_matches "verification cleanup mutated an image after a real retag" \
+  grep -n 'image rm' "$build_state/argv.log"
+grep -qF 'groundwork:latest' "$build_state/images.tsv" \
+  || fail "verification cleanup removed a newly real-tagged image"
+
+docker_state_init "$build_state"
+cat >"$build_state/trip.conf" <<EOF
+TRIP_SUBSTR='image inspect sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+TRIP_AT=1
+TRIP_EXIT=1
+EOF
+set +e
+verify_docker_run --purpose ownership-inspect-fail \
+  >"$out_dir/verify-docker-ownership-inspect-fail" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "a generic cleanup inspect failure was treated as image absence"
+grep -qF 'could not prove the state of owned image ID' \
+  "$out_dir/verify-docker-ownership-inspect-fail"
+assert_no_matches "failed exact-ID observation still removed an image tag" \
+  grep -n 'image rm' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+: >"$build_state/images-gone.tsv"
+cat >"$build_state/trip.conf" <<EOF
+TRIP_SUBSTR='image inspect sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+TRIP_AT=1
+TRIP_IMAGES=$build_state/images-gone.tsv
+EOF
+verify_docker_run --purpose ownership-disappears \
+  >"$out_dir/verify-docker-ownership-disappears" 2>&1
+test ! -s "$build_state/images.tsv" \
+  || fail "image proven absent during cleanup reappeared in fixture state"
+assert_no_matches "cleanup tried to remove an image already proven absent" \
+  grep -n 'image rm' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+{
+  printf 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t-\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n'
+  printf 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\tgroundwork/scratch:ownership-repoint\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n'
+} >"$build_state/images-repointed.tsv"
+cat >"$build_state/trip.conf" <<EOF
+TRIP_SUBSTR='image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+TRIP_AT=1
+TRIP_IMAGES=$build_state/images-repointed.tsv
+EOF
+set +e
+verify_docker_run --purpose ownership-repoint \
+  >"$out_dir/verify-docker-ownership-repoint" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "a repointed verification tag was reported as fully cleaned"
+grep -qF 'now points to different image sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff; left untouched' \
+  "$out_dir/verify-docker-ownership-repoint"
+grep -qF $'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\tgroundwork/scratch:ownership-repoint' \
+  "$build_state/images.tsv" || fail "verification cleanup removed a repointed tag from its new image"
+assert_no_matches "verification cleanup deleted the image that received a repointed tag" \
+  grep -n 'image rm sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' \
+  "$build_state/argv.log"
+
+# A pre-existing same-purpose container is not ours. The deterministic fixture
+# nonce lets the test occupy the exact generated name; the command refuses it
+# before build and never stops or removes that container.
+docker_state_init "$build_state"
+printf 'aaaaaaaaaaaa\tsha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trunning\tgroundwork-verify-container-collision-fixture\t-\tUp 2 hours\t2001-01-01T00:00:00Z\n' \
+  >"$build_state/containers.tsv"
+set +e
+verify_docker_run --purpose container-collision \
+  >"$out_dir/verify-docker-container-collision" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "an occupied verification-container name returned $verify_docker_status, expected 64"
+grep -qF 'aaaaaaaaaaaa' "$build_state/containers.tsv" \
+  || fail "the verification trap deleted a container it did not create"
+assert_no_matches "a refused container collision still mutated Docker" \
+  grep -nE '^build |container (stop|rm|create|start)' "$build_state/argv.log"
+
+# The command also refuses to overwrite an existing tag. CI's explicit
+# --existing lane accepts only a correctly labeled scratch artifact, then owns
+# its run and cleanup too.
+docker_state_init "$build_state"
+printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tgroundwork/scratch:occupied\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+set +e
+verify_docker_run --purpose occupied \
+  >"$out_dir/verify-docker-occupied" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "an existing scratch-tag collision returned $verify_docker_status, expected 64"
+grep -qF 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$build_state/images.tsv" \
+  || fail "the verification command removed a pre-existing image it did not create"
+assert_no_matches "a refused tag collision still built or ran an image" \
+  grep -nE '^build |^run ' "$build_state/argv.log"
+
+docker_state_init "$build_state"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\tgroundwork/scratch:ci-fixture\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+verify_docker_run --existing --purpose ci-fixture \
+  >"$out_dir/verify-docker-existing" 2>&1
+grep -qE 'container create --rm --cidfile [^ ]+ --name groundwork-verify-ci-fixture-fixture sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' \
+  "$build_state/argv.log"
+grep -qF 'image rm sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' "$build_state/argv.log"
+test ! -s "$build_state/images.tsv" \
+  || fail "the cache-aware existing-image verification lane left its scratch image"
+
+docker_state_init "$build_state"
+printf 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\tgroundwork/scratch:unowned\t-\t-\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+set +e
+verify_docker_run --existing --purpose unowned \
+  >"$out_dir/verify-docker-unowned" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "--existing accepted an image outside the lifecycle contract"
+grep -qF 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' "$build_state/images.tsv" \
+  || fail "--existing removed an image without lifecycle consent"
+
+docker_state_init "$build_state"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\tgroundwork/scratch:empty-built\ttrue\t-\t2001-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+set +e
+verify_docker_run --existing --purpose empty-built \
+  >"$out_dir/verify-docker-empty-built" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "--existing accepted an empty lifecycle timestamp"
+grep -qF 'invalid dev.roost.built timestamp' "$out_dir/verify-docker-empty-built"
+test -s "$build_state/images.tsv" || fail "empty built-label rejection removed the image"
+
+docker_state_init "$build_state"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\tgroundwork/scratch:empty-tags\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n' \
+  >"$build_state/inspect-empty-repotags"
+set +e
+verify_docker_run --existing --purpose empty-tags \
+  >"$out_dir/verify-docker-empty-tags" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "--existing accepted a snapshot with an empty final RepoTags field"
+grep -qF 'must have exactly the expected scratch tag' "$out_dir/verify-docker-empty-tags"
+test -s "$build_state/images.tsv" || fail "empty RepoTags rejection removed the image"
+
+docker_state_init "$build_state"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\tgroundwork/scratch:bad-clock\ttrue\t2026-99-99T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+set +e
+verify_docker_run --existing --purpose bad-clock \
+  >"$out_dir/verify-docker-bad-clock" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "--existing accepted a malformed lifecycle timestamp"
+grep -qF 'invalid dev.roost.built timestamp' "$out_dir/verify-docker-bad-clock"
+grep -qF 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' \
+  "$build_state/images.tsv" || fail "timestamp rejection removed an unowned existing image"
+
+docker_state_init "$build_state"
+printf 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\tgroundwork/scratch:multi-owned,groundwork/scratch:other\ttrue\t2026-01-01T00:00:00Z\t2026-01-01T00:00:00Z\t1.0GB\n' \
+  >"$build_state/images.tsv"
+set +e
+verify_docker_run --existing --purpose multi-owned \
+  >"$out_dir/verify-docker-multi-owned" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -eq 64 ]] \
+  || fail "--existing accepted an image with multiple tags"
+assert_no_matches "multiple-tag ownership refusal mutated Docker" \
+  grep -n 'image rm' "$build_state/argv.log"
+
+# If Docker refuses exact-ID cleanup after an otherwise green proof, cleanup
+# becomes the failure and the retained ID plus exact retry command are explicit.
+docker_state_init "$build_state"
+printf 'image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' >"$build_state/fail.conf"
+set +e
+verify_docker_run --purpose cleanup-refused \
+  >"$out_dir/verify-docker-cleanup-refused" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "a refused verification-image cleanup returned success"
+grep -qF 'could not prove owned image ID' \
+  "$out_dir/verify-docker-cleanup-refused"
+grep -qF 'groundwork/scratch:cleanup-refused' "$build_state/images.tsv" \
+  || fail "the cleanup-refusal fixture did not retain the reported image"
+rm -f "$build_state/fail.conf"
+
+# A failed removal plus a failed confirming inspection is not proof of
+# absence. The independent tag relist must also complete; if it cannot, a
+# green smoke test becomes a cleanup failure rather than a false success.
+docker_state_init "$build_state"
+cat >"$build_state/trip.conf" <<'EOF'
+TRIP_SUBSTR='image rm sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+TRIP_AT=1
+TRIP_FAIL_PATTERN='images --no-trunc --format {{.Repository}}:{{.Tag}}	{{.ID}}'
+TRIP_EXIT=1
+EOF
+set +e
+verify_docker_run --purpose cleanup-unproved \
+  >"$out_dir/verify-docker-cleanup-unproved" 2>&1
+verify_docker_status=$?
+set -e
+[[ "$verify_docker_status" -ne 0 ]] \
+  || fail "unproved verification-image cleanup returned success"
+grep -qF 'could not prove owned image ID' \
+  "$out_dir/verify-docker-cleanup-unproved"
+grep -qF 'groundwork/scratch:cleanup-unproved' "$build_state/images.tsv" \
+  || fail "the cleanup-proof failure did not retain the image it reported"
+rm -f "$build_state/trip.conf"
+
 # Catalog rows for the whole docker family stay discoverable.
 grep -qF $'daily\tgroundwork-docker-tidy\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'daily\tgroundwork-docker-tidy --yes --clear-pending\tcommand\t' \
+  home/dot_local/share/groundwork/commands.tsv
 grep -qF $'daily\tgroundwork-docker-cache-tidy\tcommand\t' home/dot_local/share/groundwork/commands.tsv
-grep -qF $'project\tgroundwork-docker-build-scratch <purpose> <context>\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'project\tgroundwork-docker-build-scratch <purpose> <context> --rm-after\tcommand\t' \
+  home/dot_local/share/groundwork/commands.tsv
+grep -qF $'project\tscripts/verify-docker-image\tcommand\t' \
+  home/dot_local/share/groundwork/commands.tsv
 
 check "groundwork-repos helper"
 test -x home/dot_local/bin/executable_groundwork-repos
@@ -7077,6 +8747,7 @@ test -f home/run_once_before_07-update-all-command-migration.sh
 test -f home/run_after_98-update-all-migration-reminder.sh
 test -x home/dot_local/bin/executable_groundwork-cleanup
 test -f home/run_once_after_97-package-maintenance-notice.sh
+test -f home/run_once_after_98-docker-scratch-maintenance-notice.sh
 # Destructive tmux keys must ask first. x sits next to z (zoom), so an
 # unconfirmed kill-pane silently destroys panes running agents or servers;
 # tmux's own default for x is confirm-before, and overriding that away is a
@@ -7402,6 +9073,13 @@ if [[ -e .agents/skills || -L .agents/skills ]]; then
   echo ".agents/skills must not exist in this repo; keep canonical skills in skills/" >&2
   exit 1
 fi
+test -f skills/docker-lifecycle/SKILL.md
+grep -qF 'skills/docker-lifecycle' AGENTS.md
+grep -qF -- '--rm-after' skills/docker-lifecycle/SKILL.md
+grep -qF -- '--rm-after' AGENTS.md
+assert_no_matches "proof-build examples must not recreate legacy Groundwork validation tags" \
+  rg -n 'docker build[^#\n]*(-t|--tag)[ =]+groundwork:(test|test-|[^ ]*-test|review|review-|[^ ]*-review|verify|verify-|[^ ]*-verify|spike|spike-|[^ ]*-spike)' \
+  .github/workflows scripts AGENTS.md README.md docs skills home specs
 
 check "Codex skill metadata"
 allowed_openai_metadata='^[[:space:]]*$|^[[:space:]]*#|^interface:[[:space:]]*$|^[[:space:]]+display_name:[[:space:]]*"[^"]+"[[:space:]]*$'
