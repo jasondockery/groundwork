@@ -50,8 +50,12 @@ The wrapper builds with:
   --label dev.roost.built=<RFC 3339 UTC timestamp, generated here>
   -t <project>/scratch:<purpose>
 and prints the resulting image ID. groundwork-docker-tidy removes the image
-after the grace window; same-session cleanup (--rm-after or docker rmi) is
+after the grace window; same-session exact-ID cleanup through --rm-after is
 still the ideal.
+
+The wrapper uses Groundwork's trusted Docker resolver, refuses ambient remote
+selectors, verifies a local Unix endpoint, and bounds daemon checks, builds,
+and exact-ID cleanup.
 
 More help:
   groundwork-help docker
@@ -107,6 +111,12 @@ while (($#)); do
 done
 
 [[ -n "$purpose" && -n "$context" ]] || err "usage: groundwork-docker-build-scratch <purpose> <context> [-- <docker build args>] (see --help)"
+for docker_env_name in DOCKER_HOST DOCKER_CONTEXT DOCKER_CONFIG; do
+  if [[ -n "${!docker_env_name:-}" ]]; then
+    err "refusing ambient $docker_env_name; scratch verification builds require the selected canonical local Docker context"
+  fi
+done
+unset docker_env_name
 
 # The purpose becomes the tag component after the colon; docker's rule is
 # [A-Za-z0-9_][A-Za-z0-9._-]{0,127}.
@@ -168,19 +178,66 @@ fi
 tag="$project/scratch:$purpose"
 built="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+scanner_lib="$script_dir/../share/groundwork/lib/docker-scan.sh"
+runner_lib="$script_dir/../share/groundwork/lib/maintenance-runner.sh"
+[[ -r "$scanner_lib" ]] || err "managed Docker scanner is missing: $scanner_lib"
+[[ -r "$runner_lib" ]] || err "managed bounded runner is missing: $runner_lib"
+
+build_deadline="${GROUNDWORK_DOCKER_BUILD_DEADLINE_SECONDS:-1800}"
+observe_deadline="${GROUNDWORK_DOCKER_BUILD_OBSERVE_DEADLINE_SECONDS:-30}"
+cleanup_deadline="${GROUNDWORK_DOCKER_BUILD_CLEANUP_DEADLINE_SECONDS:-120}"
+heartbeat=30
+cancel_grace=2
+poll_seconds=0.2
+orphan_grace=5
+deadline="$build_deadline"
+# shellcheck disable=SC2034 # Read dynamically by the sourced bounded runner.
+: "$deadline" "$heartbeat" "$cancel_grace" "$poll_seconds" "$orphan_grace"
+for docker_deadline in "$build_deadline" "$observe_deadline" "$cleanup_deadline"; do
+  if [[ ! "$docker_deadline" =~ ^[0-9]+$ || "$docker_deadline" -lt 1 || "$docker_deadline" -gt 3600 ]]; then
+    err "Docker deadlines must be whole seconds from 1 through 3600"
+  fi
+done
+unset docker_deadline
+# shellcheck source=/dev/null
+source "$runner_lib"
+# shellcheck source=/dev/null
+source "$scanner_lib"
+docker_executable="$(gw_docker_resolve_trusted_executable docker 2>/dev/null || true)"
+[[ -n "$docker_executable" ]] || err "no trusted Docker CLI was found"
+
 iidfile="$(mktemp "${TMPDIR:-/tmp}/groundwork-scratch-iid.XXXXXX")"
-trap 'rm -f -- "$iidfile"' EXIT
+docker_output="$(mktemp "${TMPDIR:-/tmp}/groundwork-scratch-output.XXXXXX")"
+trap 'rm -f -- "$iidfile" "$docker_output"' EXIT
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "groundwork-docker-build-scratch: docker CLI not installed." >&2
-  exit 1
+context_status=0
+: >"$docker_output"
+run_bounded_internal "inspect Docker endpoint" "$observe_deadline" "$docker_output" \
+  "$docker_executable" context inspect --format '{{.Endpoints.docker.Host}}' \
+  || context_status=$?
+[[ "$context_status" -eq 0 ]] || exit "$context_status"
+context_host="$(<"$docker_output")"
+if [[ "$context_host" == *$'\n'* || "$context_host" == *$'\r'* ||
+  "$context_host" == *$'\t'* || "$context_host" == *$'\e'* ||
+  "$context_host" =~ [[:cntrl:]] ]]; then
+  err "Docker returned an unsafe endpoint value"
 fi
-if ! docker info >/dev/null 2>&1; then
+case "$context_host" in
+  unix://?*) ;;
+  *) err "refusing non-local Docker endpoint: ${context_host:-unknown}" ;;
+esac
+
+info_status=0
+run_bounded_internal "verify Docker daemon" "$observe_deadline" "" \
+  "$docker_executable" info >/dev/null 2>&1 || info_status=$?
+if [[ "$info_status" -ne 0 ]]; then
   echo "groundwork-docker-build-scratch: Docker daemon not reachable. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun." >&2
-  exit 1
+  exit "$info_status"
 fi
 
-docker build \
+run_bounded_internal "build scratch image $tag" "$build_deadline" "" \
+  "$docker_executable" build \
   --label "$EPHEMERAL_LABEL=true" \
   --label "$BUILT_LABEL=$built" \
   -t "$tag" \
@@ -190,20 +247,35 @@ docker build \
 
 image_id="$(cat "$iidfile" 2>/dev/null || true)"
 if [[ -z "$image_id" ]]; then
-  image_id="$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null || true)"
+  : >"$docker_output"
+  inspect_status=0
+  run_bounded_internal "capture scratch image ID $tag" "$observe_deadline" "$docker_output" \
+    "$docker_executable" image inspect --format '{{.Id}}' "$tag" 2>/dev/null \
+    || inspect_status=$?
+  [[ "$inspect_status" -eq 0 ]] || exit "$inspect_status"
+  image_id="$(<"$docker_output")"
+fi
+if [[ ! "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+  echo "groundwork-docker-build-scratch: Docker returned an invalid image ID; refusing automatic cleanup." >&2
+  exit 1
 fi
 
 echo "built $tag"
-echo "image id: ${image_id:-unknown}"
+echo "image id: $image_id"
 echo "labels: $EPHEMERAL_LABEL=true, $BUILT_LABEL=$built"
 
 if [[ "$rm_after" == true ]]; then
-  if [[ -n "$image_id" ]] && docker image rm "$image_id" >/dev/null; then
+  remove_status=0
+  run_bounded_internal "remove scratch image ID $image_id" "$cleanup_deadline" "" \
+    "$docker_executable" image rm "$image_id" >/dev/null || remove_status=$?
+  if [[ "$remove_status" -eq 0 ]]; then
     echo "removed after build (--rm-after): $image_id"
   else
-    echo "groundwork-docker-build-scratch: --rm-after could not remove the image; remove it with: docker rmi $tag" >&2
-    exit 1
+    echo "groundwork-docker-build-scratch: --rm-after could not remove image ID $image_id (tag at build time: $tag)." >&2
+    echo "  Inspect exactly: docker image inspect $image_id" >&2
+    echo "  Retry exactly:   docker image rm $image_id" >&2
+    exit "$remove_status"
   fi
 else
-  echo "clean up in the same session (docker rmi $tag), or groundwork-docker-tidy removes it after the grace window."
+  echo "clean up in the same session by exact ID (docker image rm $image_id), or groundwork-docker-tidy removes it after the grace window."
 fi

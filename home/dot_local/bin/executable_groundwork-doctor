@@ -34,7 +34,9 @@ Sections (all run by default):
                 acts on, with tidy-eligible, in-grace, protected, and
                 unverified counts reported separately (a fresh in-grace
                 image is not a leftover). Each finding is paired with the
-                owner-scoped cleanup command, never a blanket prune.
+                owner-scoped cleanup command, never a blanket prune. Old
+                unlabeled groundwork:* validation tags are reported for
+                manual review and never deleted automatically.
   Storage       (--storage only, never in the default run) sizes of the known
                 large developer-storage areas — Homebrew cache, pnpm store
                 generations, npm cache, Xcode device support and simulators,
@@ -60,10 +62,22 @@ note() { printf '  note  %s\n' "$1"; }
 docker_section() {
   heading "Docker"
 
-  if ! command -v docker >/dev/null 2>&1; then
-    note "docker CLI not installed; skipping. Personal Mac: Docker Desktop. Work Mac: Colima + Docker CLI (both ship with Groundwork)."
+  local docker_lib="$HOME/.local/share/groundwork/lib/docker-scan.sh" docker_executable
+  if [[ ! -r "$docker_lib" ]]; then
+    warn "Groundwork's docker-scan probe is missing: $docker_lib — Docker checks skipped."
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
     return 0
   fi
+  # shellcheck source=/dev/null
+  . "$docker_lib"
+  docker_executable="$(gw_docker_resolve_trusted_executable docker 2>/dev/null || true)"
+  if [[ -z "$docker_executable" ]]; then
+    note "trusted docker CLI not found; skipping. Personal Mac: Docker Desktop. Work Mac: Colima + Docker CLI (both ship with Groundwork)."
+    return 0
+  fi
+  GW_DOCKER_JQ="$(gw_docker_resolve_trusted_executable jq 2>/dev/null || true)"
+  [[ -n "$GW_DOCKER_JQ" ]] || GW_DOCKER_JQ="/groundwork/unavailable/jq"
+  docker() { "$docker_executable" "$@"; }
   if ! docker info >/dev/null 2>&1; then
     note "Docker daemon not reachable; skipping Docker checks. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun groundwork-doctor."
     return 0
@@ -94,14 +108,7 @@ docker_section() {
   # acts on (lib/docker-scan.sh), so the doctor's counts and the tidy's
   # decisions can never disagree. A count of "unknown" means the query
   # failed — a different fact from zero, and reported as such.
-  local docker_lib="${GROUNDWORK_DOCKER_LIB:-$HOME/.local/share/groundwork/lib/docker-scan.sh}"
-  if [[ ! -r "$docker_lib" ]]; then
-    warn "Groundwork's docker-scan probe is missing: $docker_lib — leftover counts skipped."
-    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
-  else
-    # shellcheck source=/dev/null
-    . "$docker_lib"
-
+  {
     local max_age
     if ! max_age="$(gw_docker_max_age_hours)"; then
       warn "invalid GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS='${GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS:-}' — reporting with the ${max_age}h default (groundwork-docker-tidy refuses to act until it is fixed)."
@@ -112,12 +119,23 @@ docker_section() {
     dangling_images="$(gw_docker_count images -q --filter dangling=true)"
     dangling_volumes="$(gw_docker_count volume ls -q --filter dangling=true)"
 
-    local scan n_eligible n_retained n_protected n_unverified
-    scan="$(gw_docker_scan "$max_age")"
-    n_eligible="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "eligible" { n++ } END { print n + 0 }')"
-    n_retained="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "retained" { n++ } END { print n + 0 }')"
-    n_protected="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "protected" { n++ } END { print n + 0 }')"
-    n_unverified="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "unverified" { n++ } END { print n + 0 }')"
+    local scan n_eligible n_retained n_protected n_unverified scan_ok=true
+    if ! scan="$(gw_docker_scan "$max_age")"; then
+      warn "could not complete the labeled Docker image scan; counts are unknown."
+      scan=""
+      scan_ok=false
+    fi
+    if [[ "$scan_ok" == true ]]; then
+      n_eligible="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "eligible" { n++ } END { print n + 0 }')"
+      n_retained="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "retained" { n++ } END { print n + 0 }')"
+      n_protected="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "protected" { n++ } END { print n + 0 }')"
+      n_unverified="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "unverified" { n++ } END { print n + 0 }')"
+    else
+      n_eligible=unknown
+      n_retained=unknown
+      n_protected=unknown
+      n_unverified=unknown
+    fi
 
     printf '\n  Leftovers (unknown = the query failed, not zero):\n'
     printf '    stopped containers: %s\n' "$stopped"
@@ -129,9 +147,30 @@ docker_section() {
     printf '      protected (tag/container ref):  %s\n' "$n_protected"
     printf '      unverified (retained):          %s\n' "$n_unverified"
 
+    local legacy_scan legacy_tag legacy_age legacy_size legacy_id legacy_count=0
+    if legacy_scan="$(gw_docker_legacy_validation_images "$max_age")"; then
+      if [[ -n "$legacy_scan" ]]; then
+        printf '\n  Legacy tagged validation images (manual review; never automatic):\n'
+        while IFS=$'\t' read -r legacy_tag legacy_age legacy_size legacy_id; do
+          [[ -n "$legacy_tag" ]] || continue
+          printf '    %-32s %6sh  %8s  %s\n' \
+            "$legacy_tag" "$legacy_age" "$legacy_size" "$legacy_id"
+          legacy_count=$((legacy_count + 1))
+        done <<<"$legacy_scan"
+        printf '    These tags bypassed the scratch lifecycle. After confirming each is disposable:\n'
+        while IFS=$'\t' read -r legacy_tag _ _ _; do
+          [[ -n "$legacy_tag" ]] || continue
+          printf '      docker image rm %s\n' "$legacy_tag"
+        done <<<"$legacy_scan"
+      fi
+    else
+      warn "could not enumerate legacy Groundwork validation tags; reported as unknown, not zero."
+    fi
+
     # A fresh in-grace image is NOT a leftover — it never triggers guidance.
-    if [[ "$stopped" != 0 || "$dangling_images" != 0 || "$dangling_volumes" != 0 ]] \
-      || ((n_eligible + n_protected + n_unverified > 0)); then
+    if [[ "$stopped" != 0 || "$dangling_images" != 0 || "$dangling_volumes" != 0 ||
+      "$n_eligible" == unknown || "$n_protected" == unknown || "$n_unverified" == unknown ]] \
+      || ((n_eligible + n_protected + n_unverified + legacy_count > 0)); then
       cat <<'EOF'
 
   Cleanup guidance (review first; the doctor never deletes):
@@ -154,7 +193,7 @@ docker_section() {
     'docker system prune' — it reaches into every project's state at once.
 EOF
     fi
-  fi
+  }
 
   if [[ "$settings_hint" == true ]]; then
     note "engine settings live in Docker Desktop -> Settings -> Docker Engine (work Macs: the managed Colima template already sets them). See the Platforms page for the exact JSON."

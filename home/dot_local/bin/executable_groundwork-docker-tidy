@@ -16,8 +16,9 @@ set -euo pipefail
 # daemon-wide state (dangling images, stopped containers, builder cache) is
 # groundwork-docker-cache-tidy, a separate owner-only command.
 #
-# groundwork-doctor reports; this command acts — and still defaults to a dry
-# run, because deleting stays the owner's decision.
+# groundwork-doctor reports; this command acts. Direct use defaults to a dry
+# run. Acting mode owns the shared lock, bounded Docker calls, durable pending
+# state, and the receipt, whether invoked directly or by update-all.
 
 EPHEMERAL_LABEL="dev.roost.ephemeral=true"
 BUILT_LABEL="dev.roost.built"
@@ -28,10 +29,13 @@ Safe Docker tidy for ephemeral build images (dry run by default).
 
 Usage:
   groundwork-docker-tidy             dry run: scan and report every candidate
-  groundwork-docker-tidy --yes       remove what the scan proves eligible
+  groundwork-docker-tidy --yes       canonical local 72h maintenance-only retry
+  groundwork-docker-tidy --yes --clear-pending
+                                     acknowledge a reminder after Docker was
+                                     intentionally removed; run no cleanup
+  groundwork-docker-tidy --automatic update-all-only canonical local mode
   groundwork-docker-tidy --summary   one line when tidy-eligible leftovers
-                                     exist, silence when clean (update-all
-                                     uses this)
+                                     exist, silence when clean
   groundwork-docker-tidy -h|--help   show this help
 
 --yes removes ONLY:
@@ -44,14 +48,15 @@ Usage:
        - carry $EPHEMERAL_LABEL, verified again on inspect
        - a strict-parsed $BUILT_LABEL timestamp older than the grace window
          (absent, malformed, or unverifiable = retained, never removed)
-       - every tag inside the scratch namespace (*/scratch:*) — any other
-         tag protects the image, even though a retag keeps the label
+       - exactly one tag inside the scratch namespace (*/scratch:*); any
+         other or additional tag protects the image because automatic
+         cleanup never untags a mutable name
        - no container references it, running or stopped
      Candidates are deduplicated by image ID, re-checked immediately before
      deletion, and deleted by explicit image ID.
 
 Verdicts: eligible (passes every check now), retained (inside the grace
-window), protected (non-scratch tag or a container reference), unverified
+window), protected (multiple tags, a non-scratch tag, or a container reference), unverified
 (missing jq, or a missing/malformed $BUILT_LABEL — retained and explained).
 
 Never touched: volumes, running containers and their images, unlabeled
@@ -60,10 +65,22 @@ images), dangling images, and builder cache. Daemon-wide cleanup — which
 reaches every project on this machine — is the separate, owner-run
 groundwork-docker-cache-tidy.
 
-Grace window: ${MAX_AGE_HOURS}h (GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS, 1-8760).
+Acting modes always use Groundwork's managed scanner and runner, canonical
+72h policy, and a verified local Docker endpoint. Ambient library, grace,
+Docker host, context, and config overrides are refused. Read-only dry-run and
+summary modes may use GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS (1-8760).
 
 Build scratch images with the wrapper so the contract cannot be mistyped:
-  groundwork-docker-build-scratch <purpose> <context>
+  groundwork-docker-build-scratch <purpose> <context> --rm-after
+
+update-all runs --automatic. It never runs the daemon-wide
+groundwork-docker-cache-tidy command. Automatic mode has a fixed five-minute
+total lane deadline in addition to per-call bounds; direct --yes defaults to
+ten minutes and accepts GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS (1-3600) as
+a safely bounded test/repair override.
+
+Exit status: 0 complete, 1 incomplete, 3 Docker unavailable/unaccepted,
+64 usage, 75 transaction busy, 124 deadline, 129/130/143 signal.
 
 More help:
   groundwork-help docker
@@ -76,18 +93,349 @@ item() { printf '  %-11s %s\n' "$1" "$2"; }
 detail() { printf '  %-11s %s\n' "" "$1"; }
 note() { printf '  note  %s\n' "$1"; }
 
-lib="${GROUNDWORK_DOCKER_LIB:-$HOME/.local/share/groundwork/lib/docker-scan.sh}"
+mode=""
+clear_pending=0
+set_mode() {
+  if [[ -n "$mode" && "$mode" != "$1" ]]; then
+    echo "groundwork-docker-tidy: conflicting modes: --$mode and --$1 are mutually exclusive." >&2
+    exit 64
+  fi
+  mode="$1"
+}
+
+while (($#)); do
+  case "$1" in
+    --dry-run) set_mode "dry-run" ;;
+    --yes) set_mode "yes" ;;
+    --automatic) set_mode "automatic" ;;
+    --summary) set_mode "summary" ;;
+    --clear-pending) clear_pending=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "groundwork-docker-tidy: unknown option: $1" >&2
+      echo "Run 'groundwork-docker-tidy --help' for usage." >&2
+      exit 64
+      ;;
+  esac
+  shift
+done
+[[ -n "$mode" ]] || mode="dry-run"
+if [[ "$clear_pending" -eq 1 && "$mode" != "yes" ]]; then
+  echo "groundwork-docker-tidy: --clear-pending requires --yes and cannot be automatic." >&2
+  exit 64
+fi
+
+acting=0
+case "$mode" in
+  yes | automatic) acting=1 ;;
+esac
+
+state_dir="$HOME/.local/state/groundwork"
+pending_file="$state_dir/docker-tidy-pending"
+cleared_log="$state_dir/docker-tidy-pending-cleared.log"
+canonical_docker_lib="$HOME/.local/share/groundwork/lib/docker-scan.sh"
+canonical_runner_lib="$HOME/.local/share/groundwork/lib/maintenance-runner.sh"
+lib="$canonical_docker_lib"
+maintenance_runner_lib="$canonical_runner_lib"
+automatic_refusal=""
+canonical_policy=0
+if [[ "$mode" == "automatic" || ("$mode" == "yes" && "$clear_pending" -eq 0) ]]; then
+  canonical_policy=1
+fi
+
+if [[ "$canonical_policy" -eq 1 ]]; then
+  MAX_AGE_HOURS=72
+  if [[ "$mode" == "automatic" ]]; then
+    deadline=120
+    observe_deadline=30
+    total_deadline=300
+    heartbeat=15
+    cancel_grace=2
+    poll_seconds=0.2
+    orphan_grace=5
+  else
+    deadline="${GROUNDWORK_DOCKER_DEADLINE_SECONDS:-120}"
+    observe_deadline="${GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS:-30}"
+    total_deadline="${GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS:-600}"
+    heartbeat="${GROUNDWORK_DOCKER_HEARTBEAT_SECONDS:-15}"
+    cancel_grace="${GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS:-2}"
+    poll_seconds="${GROUNDWORK_DOCKER_POLL_SECONDS:-0.2}"
+    orphan_grace="${GROUNDWORK_DOCKER_ORPHAN_GRACE_SECONDS:-5}"
+  fi
+  for automatic_name in GROUNDWORK_DOCKER_LIB GROUNDWORK_MAINTENANCE_RUNNER_LIB \
+    GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS DOCKER_HOST DOCKER_CONTEXT DOCKER_CONFIG; do
+    if [[ -n "${!automatic_name:-}" ]]; then
+      automatic_refusal="canonical acting mode refuses ambient $automatic_name"
+      break
+    fi
+  done
+  if [[ "$mode" == "automatic" ]]; then
+    for automatic_name in GROUNDWORK_DOCKER_DEADLINE_SECONDS \
+      GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS \
+      GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS \
+      GROUNDWORK_DOCKER_HEARTBEAT_SECONDS \
+      GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS \
+      GROUNDWORK_DOCKER_POLL_SECONDS GROUNDWORK_DOCKER_ORPHAN_GRACE_SECONDS; do
+      if [[ -n "${!automatic_name:-}" ]]; then
+        automatic_refusal="canonical automatic mode refuses ambient $automatic_name"
+        break
+      fi
+    done
+  fi
+  unset automatic_name
+else
+  deadline="${GROUNDWORK_DOCKER_DEADLINE_SECONDS:-120}"
+  observe_deadline="${GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS:-30}"
+  total_deadline="${GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS:-300}"
+  heartbeat="${GROUNDWORK_DOCKER_HEARTBEAT_SECONDS:-15}"
+  cancel_grace="${GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS:-2}"
+  poll_seconds="${GROUNDWORK_DOCKER_POLL_SECONDS:-0.2}"
+  orphan_grace="${GROUNDWORK_DOCKER_ORPHAN_GRACE_SECONDS:-5}"
+fi
+
+for numeric_setting in "$deadline" "$observe_deadline" "$heartbeat" "$cancel_grace" "$orphan_grace" "$total_deadline"; do
+  if [[ ! "$numeric_setting" =~ ^[0-9]+$ || "$numeric_setting" -lt 1 ]]; then
+    echo "groundwork-docker-tidy: Docker deadlines and grace values must be positive integers." >&2
+    exit 64
+  fi
+done
+if ((total_deadline > 3600)); then
+  echo "groundwork-docker-tidy: the total Docker lane deadline must not exceed 3600 seconds." >&2
+  exit 64
+fi
+if ! awk -v value="$poll_seconds" \
+  'BEGIN { exit !(value ~ /^[0-9]+([.][0-9]+)?$/ && value >= 0.05 && value <= 1) }'; then
+  echo "groundwork-docker-tidy: Docker polling must be between 0.05 and 1 second." >&2
+  exit 64
+fi
+
+mark_pending() {
+  local message="$1" temporary="${pending_file}.tmp.$$"
+  mkdir -p "$state_dir" || return 1
+  [[ ! -d "$pending_file" ]] || return 1
+  if ! printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$message" >"$temporary"; then
+    rm -f -- "$temporary" 2>/dev/null || true
+    return 1
+  fi
+  if ! mv -f -- "$temporary" "$pending_file"; then
+    rm -f -- "$temporary" 2>/dev/null || true
+    return 1
+  fi
+}
+
+attempt_started=0
+policy_identity="mode=canonical-local endpoint=unverified grace=72h"
+docker_temp=""
+docker_bound_status_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-status.XXXXXX")"
+docker_bound_diagnostic_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-diagnostic.XXXXXX")"
+lock_loaded=0
+# shellcheck disable=SC2329 # Invoked by the EXIT trap below.
+docker_tidy_exit() {
+  local status=$? pending_status=0
+  trap - EXIT
+  if [[ "$acting" -eq 1 && "$attempt_started" -eq 1 && "$status" -ne 0 && "$status" -ne 3 ]]; then
+    if ! mark_pending "Docker scratch maintenance incomplete (exit $status; $policy_identity)"; then
+      echo "groundwork-docker-tidy: could not persist Docker pending state." >&2
+      pending_status=1
+    fi
+  fi
+  if [[ "$lock_loaded" -eq 1 ]]; then
+    groundwork_lock_release || true
+  fi
+  [[ -z "$docker_temp" ]] || rm -f -- "$docker_temp" || true
+  rm -f -- "$docker_bound_status_file" "$docker_bound_diagnostic_file" || true
+  if [[ "$status" -eq 0 && "$pending_status" -ne 0 ]]; then
+    status=1
+  fi
+  exit "$status"
+}
+trap docker_tidy_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if [[ "$acting" -eq 1 ]]; then
+  lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
+  if [[ ! -r "$lock_lib" ]]; then
+    echo "groundwork-docker-tidy: the update lock helper is missing: $lock_lib" >&2
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  source "$lock_lib"
+  lock_loaded=1
+  groundwork_lock_acquire "groundwork-docker-tidy --$mode" || exit $?
+fi
+
+if [[ "$clear_pending" -eq 1 ]]; then
+  if [[ ! -f "$pending_file" ]]; then
+    echo "Groundwork: no pending Docker scratch reminder is recorded; nothing changed."
+    exit 0
+  fi
+  IFS= read -r pending_message <"$pending_file" || pending_message="repair state was recorded"
+  mkdir -p "$state_dir"
+  printf '%s message=%q\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    "owner cleared Docker reminder without running cleanup: $pending_message" >>"$cleared_log"
+  rm -f -- "$pending_file"
+  echo "Groundwork: cleared the Docker scratch reminder only."
+  echo "  No Docker cleanup was performed; the audit note was preserved."
+  exit 0
+fi
+
+if [[ -n "$automatic_refusal" ]]; then
+  echo "groundwork-docker-tidy: $automatic_refusal; acting cleanup was skipped." >&2
+  exit 3
+fi
+
 if [[ ! -r "$lib" ]]; then
   echo "groundwork-docker-tidy: the docker-scan probe is missing: $lib" >&2
   echo "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork" >&2
   exit 1
 fi
+if [[ ! -r "$maintenance_runner_lib" ]]; then
+  echo "groundwork-docker-tidy: the bounded maintenance runner is missing: $maintenance_runner_lib" >&2
+  exit 1
+fi
 # shellcheck source=/dev/null
 . "$lib"
+# shellcheck source=/dev/null
+. "$maintenance_runner_lib"
 
-if ! MAX_AGE_HOURS="$(gw_docker_max_age_hours)"; then
-  echo "groundwork-docker-tidy: invalid GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS='${GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS:-}' — want whole hours, 1-8760. Refusing to act on a garbled policy." >&2
-  exit 2
+if [[ "$canonical_policy" -eq 0 ]] && ! MAX_AGE_HOURS="$(gw_docker_max_age_hours)"; then
+  echo "groundwork-docker-tidy: invalid GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS='${GROUNDWORK_DOCKER_TIDY_MAX_AGE_HOURS:-}' — want whole hours, 1-8760. Refusing to use a garbled report policy." >&2
+  exit 64
+fi
+
+[[ "$acting" -eq 0 ]] || attempt_started=1
+docker_executable="$(gw_docker_resolve_trusted_executable docker 2>/dev/null || true)"
+if [[ -z "$docker_executable" ]]; then
+  [[ "$mode" == summary ]] \
+    || echo "groundwork-docker-tidy: no trusted Docker CLI was found; cleanup result unavailable."
+  exit 3
+fi
+GW_DOCKER_JQ="$(gw_docker_resolve_trusted_executable jq 2>/dev/null || true)"
+[[ -n "$GW_DOCKER_JQ" ]] || GW_DOCKER_JQ="/groundwork/unavailable/jq"
+lane_started_seconds=$SECONDS
+lane_progress_phase="endpoint and daemon preflight"
+lane_candidate_index=0
+lane_candidate_total=0
+lane_candidate_total_known=0
+
+record_lane_deadline() {
+  local position="$1" completed=0 remained=0
+  {
+    printf 'groundwork-docker-tidy: the %ss total Docker lane deadline expired %s; stopping.\n' \
+      "$total_deadline" "$position"
+    if [[ "$lane_candidate_total_known" -eq 1 ]]; then
+      completed=$((lane_candidate_index > 0 ? lane_candidate_index - 1 : 0))
+      remained=$((lane_candidate_total - completed))
+      printf '  Progress: %s of %s %s candidates completed; %s remained.\n' \
+        "$completed" "$lane_candidate_total" "$lane_progress_phase" "$remained"
+    else
+      printf '  Progress: %s did not complete, so the remaining candidate count is unknown.\n' \
+        "$lane_progress_phase"
+    fi
+  } >"$docker_bound_diagnostic_file"
+}
+
+emit_docker_terminal_diagnostic() {
+  [[ ! -s "$docker_bound_diagnostic_file" ]] || cat "$docker_bound_diagnostic_file" >&2
+}
+
+# Every Docker call, including observations, gets its own process-group bound.
+# A timeout or signal is recorded out-of-band because many conservative scan
+# branches intentionally treat a vanished image as a race and keep going.
+docker() {
+  local label="docker ${1:-command} ${2:-}" seconds="$observe_deadline" status=0
+  local elapsed remaining limited_by_lane=0 completed=0 remained=0
+  case "${1:-} ${2:-}" in
+    "image rm" | "container rm") seconds="$deadline" ;;
+  esac
+  elapsed=$((SECONDS - lane_started_seconds))
+  remaining=$((total_deadline - elapsed))
+  if ((remaining <= 0)); then
+    record_lane_deadline "before another command"
+    printf '124\n' >"$docker_bound_status_file"
+    return 124
+  fi
+  if ((seconds > remaining)); then
+    seconds="$remaining"
+    limited_by_lane=1
+  fi
+  docker_temp="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-call.XXXXXX")"
+  run_bounded_internal "$label" "$seconds" "$docker_temp" \
+    "$docker_executable" "$@" || status=$?
+  cat "$docker_temp"
+  rm -f -- "$docker_temp"
+  docker_temp=""
+  if [[ "$status" -eq 124 && "$limited_by_lane" -eq 1 ]]; then
+    record_lane_deadline "during a bounded Docker command"
+  elif [[ "$status" -eq 124 ]]; then
+    printf 'groundwork-docker-tidy: a Docker command exceeded its %ss hard deadline; stopping.\n' \
+      "$seconds" >"$docker_bound_diagnostic_file"
+  elif [[ "$status" -eq 125 ]]; then
+    printf 'groundwork-docker-tidy: Docker process-tree shutdown could not be confirmed; stopping before more Docker work.\n' \
+      >"$docker_bound_diagnostic_file"
+  elif [[ "$status" -eq 129 || "$status" -eq 130 || "$status" -eq 143 ]]; then
+    printf 'groundwork-docker-tidy: a Docker command was interrupted (exit %s); stopping.\n' \
+      "$status" >"$docker_bound_diagnostic_file"
+  fi
+  case "$status" in
+    124 | 125 | 129 | 130 | 143) printf '%s\n' "$status" >"$docker_bound_status_file" ;;
+  esac
+  return "$status"
+}
+
+exit_if_docker_terminal() {
+  local status
+  [[ -s "$docker_bound_status_file" ]] || return 0
+  IFS= read -r status <"$docker_bound_status_file" || status=124
+  emit_docker_terminal_diagnostic
+  exit "$status"
+}
+
+if [[ "$canonical_policy" -eq 1 ]]; then
+  context_host="$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)"
+  exit_if_docker_terminal
+  context_host_safe=1
+  if [[ -z "$context_host" || "$context_host" == *$'\n'* ||
+    "$context_host" == *$'\r'* || "$context_host" == *$'\t'* ||
+    "$context_host" == *$'\e'* ]]; then
+    context_host_safe=0
+  else
+    [[ ! "$context_host" =~ [[:cntrl:]] ]] || context_host_safe=0
+  fi
+  if [[ "$context_host_safe" -ne 1 ]]; then
+    echo "groundwork-docker-tidy: canonical acting mode received an unsafe or incomplete Docker endpoint; cleanup was skipped." >&2
+    exit 3
+  fi
+  case "$context_host" in
+    unix://?*) policy_identity="mode=canonical-local endpoint=$context_host grace=72h" ;;
+    unix://)
+      echo "groundwork-docker-tidy: canonical acting mode received an incomplete local Docker endpoint; cleanup was skipped." >&2
+      exit 3
+      ;;
+    *)
+      echo "groundwork-docker-tidy: canonical acting mode refuses non-local Docker endpoint: $context_host" >&2
+      exit 3
+      ;;
+  esac
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  exit_if_docker_terminal
+  [[ "$mode" == summary ]] \
+    || echo "groundwork-docker-tidy: Docker daemon not reachable; cleanup result unavailable. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun."
+  exit 3
+fi
+
+if [[ "$acting" -eq 1 ]]; then
+  if ! mark_pending "Docker scratch maintenance started; completion not proven ($policy_identity)"; then
+    echo "groundwork-docker-tidy: could not persist intent before Docker cleanup; nothing was removed." >&2
+    exit 1
+  fi
 fi
 
 # The exited-container listing shared by every mode. One tab-separated line
@@ -106,15 +454,35 @@ container_facts() {
     --format $'{{.Created}}\t{{.State.Status}}\t{{.Config.Image}}' "$1" 2>/dev/null
 }
 
+# An inspect failure is not proof that a previously listed container vanished.
+# Only a fresh, complete enumeration that omits its exact ID proves absence.
+container_id_absent() {
+  local wanted="$1" listing listed_id query_status=0
+  listing="$(docker ps -aq --no-trunc 2>/dev/null)" || query_status=$?
+  [[ "$query_status" -eq 0 ]] || return "$query_status"
+  while IFS= read -r listed_id; do
+    [[ "$listed_id" == "$wanted" ]] && return 1
+  done <<<"$listing"
+  return 0
+}
+
 # Judge one exited labeled container against the SAME grace policy as images:
 # its CreatedAt is the clock, and an age that cannot be proven retains it.
 # Prints "verdict<TAB>reason<TAB>age<TAB>image"; verdict is eligible,
 # retained, unverified, or missing.
 container_verdict() {
-  local cid="$1" facts created state image epoch now age
-  if ! facts="$(container_facts "$cid")"; then
-    printf 'missing\tno longer present\t-\t-\n'
-    return 0
+  local cid="$1" facts created state image epoch now age fact_status=0 absence_status=0
+  facts="$(container_facts "$cid")" || fact_status=$?
+  if [[ "$fact_status" -ne 0 ]]; then
+    case "$fact_status" in
+      124 | 125 | 129 | 130 | 143) return "$fact_status" ;;
+    esac
+    container_id_absent "$cid" || absence_status=$?
+    if [[ "$absence_status" -eq 0 ]]; then
+      printf 'missing\tno longer present\t-\t-\n'
+      return 0
+    fi
+    return "$absence_status"
   fi
   IFS=$'\t' read -r created state image <<<"$facts"
   if [[ "$state" != "exited" ]]; then
@@ -158,8 +526,12 @@ dry_run() {
   echo "groundwork-docker-tidy: dry run — nothing was changed. Add --yes to act."
 
   heading "Ephemeral build images (label $EPHEMERAL_LABEL, ${MAX_AGE_HOURS}h grace)"
-  local scan n_eligible n_retained n_protected n_unverified
-  scan="$(gw_docker_scan "$MAX_AGE_HOURS")"
+  local scan n_eligible n_retained n_protected n_unverified failures=0
+  if ! scan="$(gw_docker_scan "$MAX_AGE_HOURS")"; then
+    exit_if_docker_terminal
+    note "could not complete the labeled-image scan — reported as unknown, not zero."
+    return 1
+  fi
   if [[ -z "$scan" ]]; then
     note "none found. Scratch builds opt in via groundwork-docker-build-scratch (see --help)."
     n_eligible=0
@@ -179,14 +551,21 @@ dry_run() {
   fi
 
   heading "Exited ephemeral containers (same label, same ${MAX_AGE_HOURS}h grace)"
-  local exited verdict vreason vage vimage age_display
+  local exited verdict vreason vage vimage age_display verdict_line
   if exited="$(list_exited_ephemeral)"; then
     if [[ -z "$exited" ]]; then
       note "none found."
     else
       while IFS=$'\t' read -r cid name cstatus; do
         [[ -n "$cid" ]] || continue
-        IFS=$'\t' read -r verdict vreason vage vimage <<<"$(container_verdict "$cid")"
+        if ! verdict_line="$(container_verdict "$cid")"; then
+          exit_if_docker_terminal
+          item "unverified" "$name ($cstatus) — current container facts could not be completed"
+          detail "id ${cid}; retained because absence or current state was not proven"
+          failures=$((failures + 1))
+          continue
+        fi
+        IFS=$'\t' read -r verdict vreason vage vimage <<<"$verdict_line"
         age_display="unverified"
         [[ "$vage" == "-" ]] || age_display="${vage}h"
         item "$verdict" "$name ($cstatus) — $vreason"
@@ -195,7 +574,9 @@ dry_run() {
       note "container state under an ephemeral image is disposable only after the grace window; --yes re-checks each container's status immediately before removal."
     fi
   else
+    exit_if_docker_terminal
     note "could not list exited containers — reported as unknown, not zero."
+    failures=$((failures + 1))
   fi
 
   heading "Never touched"
@@ -203,22 +584,37 @@ dry_run() {
   note "running containers and their images."
   note "unlabeled images: your real 'groundwork' image, base images, and every other project's images — including unlabeled dangling images."
   note "builder cache. Dangling images, stopped containers, and builder cache are daemon-wide state (every project on this machine): that cleanup is the separate groundwork-docker-cache-tidy, which update-all never runs."
+  ((failures == 0))
 }
 
 apply() {
   echo "groundwork-docker-tidy: tidying by the label contract ($EPHEMERAL_LABEL), by enumeration."
 
-  local removed_containers=0 removed_images=0 skipped=0
+  local removed_containers=0 removed_images=0 skipped=0 failures=0
 
   heading "1/2 exited containers labeled $EPHEMERAL_LABEL, past the ${MAX_AGE_HOURS}h grace"
-  local exited verdict vreason vage vimage rstatus2 rreason2
+  local exited verdict vreason vage vimage rstatus2 rreason2 verdict_line recheck_line
+  lane_progress_phase="exited-container discovery"
+  lane_candidate_total_known=0
+  lane_candidate_index=0
   if exited="$(list_exited_ephemeral)"; then
     if [[ -z "$exited" ]]; then
       note "none found."
     else
+      lane_progress_phase="exited-container"
+      lane_candidate_total="$(printf '%s\n' "$exited" | awk 'NF { n++ } END { print n + 0 }')"
+      lane_candidate_total_known=1
       while IFS=$'\t' read -r cid name cstatus; do
         [[ -n "$cid" ]] || continue
-        IFS=$'\t' read -r verdict vreason vage vimage <<<"$(container_verdict "$cid")"
+        lane_candidate_index=$((lane_candidate_index + 1))
+        if ! verdict_line="$(container_verdict "$cid")"; then
+          exit_if_docker_terminal
+          item "kept" "$name (id $cid) — current container facts could not be completed"
+          skipped=$((skipped + 1))
+          failures=$((failures + 1))
+          continue
+        fi
+        IFS=$'\t' read -r verdict vreason vage vimage <<<"$verdict_line"
         if [[ "$verdict" != "eligible" ]]; then
           item "$verdict" "$name (id $cid) — $vreason"
           [[ "$verdict" == "missing" ]] || skipped=$((skipped + 1))
@@ -226,7 +622,14 @@ apply() {
         fi
         # Re-check with fresh facts immediately before removal: the container
         # may have been restarted or removed since the scan.
-        IFS=$'\t' read -r rstatus2 rreason2 _ _ <<<"$(container_verdict "$cid")"
+        if ! recheck_line="$(container_verdict "$cid")"; then
+          exit_if_docker_terminal
+          item "kept" "$name (id $cid) — pre-removal container facts could not be completed"
+          skipped=$((skipped + 1))
+          failures=$((failures + 1))
+          continue
+        fi
+        IFS=$'\t' read -r rstatus2 rreason2 _ _ <<<"$recheck_line"
         if [[ "$rstatus2" == "missing" ]]; then
           item "skipped" "$name (id $cid) — already gone"
           continue
@@ -240,29 +643,57 @@ apply() {
           item "removed" "$name ($cstatus, id $cid, age ${vage}h, image $vimage)"
           removed_containers=$((removed_containers + 1))
         else
+          exit_if_docker_terminal
           item "kept" "$name (id $cid) — docker refused the removal"
           skipped=$((skipped + 1))
+          failures=$((failures + 1))
         fi
       done <<<"$exited"
     fi
   else
+    exit_if_docker_terminal
     note "could not list exited containers; none were removed."
+    failures=$((failures + 1))
   fi
 
   heading "2/2 labeled images past the ${MAX_AGE_HOURS}h grace, each re-checked before deletion"
   local scan candidates id status reason tags built age created size refs
-  scan="$(gw_docker_scan "$MAX_AGE_HOURS")"
+  lane_progress_phase="labeled-image discovery"
+  lane_candidate_total_known=0
+  lane_candidate_index=0
+  if ! scan="$(gw_docker_scan "$MAX_AGE_HOURS")"; then
+    exit_if_docker_terminal
+    note "could not complete the labeled-image scan; no image deletion was attempted."
+    failures=$((failures + 1))
+    scan=""
+  fi
   candidates="$(printf '%s\n' "$scan" | awk -F'\t' '$2 == "eligible"')"
   if [[ -z "$candidates" ]]; then
     note "no eligible images."
   else
+    lane_progress_phase="eligible-image"
+    lane_candidate_total="$(printf '%s\n' "$candidates" | awk 'NF { n++ } END { print n + 0 }')"
+    lane_candidate_total_known=1
     while IFS=$'\t' read -r id status reason tags built age created size refs; do
       [[ -n "$id" ]] || continue
+      lane_candidate_index=$((lane_candidate_index + 1))
       # Re-check with fresh facts immediately before deletion: the state may
       # have changed since the scan (a new tag, a new container, a rebuild).
-      gw_docker_refresh_refs
+      if ! gw_docker_refresh_refs; then
+        exit_if_docker_terminal
+        item "kept" "$tags (id $id) — container references could not be refreshed"
+        skipped=$((skipped + 1))
+        failures=$((failures + 1))
+        continue
+      fi
       local recheck rstatus rreason rtags
-      recheck="$(gw_docker_image_verdict "$id" "$MAX_AGE_HOURS" "$size")"
+      if ! recheck="$(gw_docker_image_verdict "$id" "$MAX_AGE_HOURS" "$size")"; then
+        exit_if_docker_terminal
+        item "kept" "$tags (id $id) — authoritative image inspection was incomplete"
+        skipped=$((skipped + 1))
+        failures=$((failures + 1))
+        continue
+      fi
       rstatus="$(printf '%s' "$recheck" | cut -f2)"
       rreason="$(printf '%s' "$recheck" | cut -f3)"
       rtags="$(printf '%s' "$recheck" | cut -f4)"
@@ -275,45 +706,20 @@ apply() {
         skipped=$((skipped + 1))
         continue
       fi
-      # All tags are verified scratch tags on THIS image ID. Docker refuses an
-      # ID delete while several tags point at the image, so release the extra
-      # references first (each rm of a non-final tag only untags), then delete
-      # by explicit image ID — never --force. A partial outcome is reported as
-      # exactly that: which tags came off, and why the image stayed — never a
-      # plain "kept" that hides work already done.
-      local tag first_tag=true removed_tags="" failed_tag="" rm_err=""
-      while IFS= read -r tag; do
-        [[ -n "$tag" && "$tag" != "-" ]] || continue
-        if [[ "$first_tag" == true ]]; then
-          first_tag=false
-          continue
-        fi
-        if docker image rm "$tag" >/dev/null 2>&1; then
-          removed_tags="${removed_tags:+$removed_tags, }$tag"
-        else
-          failed_tag="$tag"
-          break
-        fi
-      done < <(printf '%s\n' "$rtags" | tr ',' '\n' | sed 's/^ *//')
-      if [[ -n "$failed_tag" ]]; then
-        if [[ -n "$removed_tags" ]]; then
-          item "partial" "$rtags (id $id) — partially cleaned: removed tags $removed_tags; image retained because docker refused to untag $failed_tag"
-        else
-          item "kept" "$rtags (id $id) — docker refused to untag $failed_tag"
-        fi
-        skipped=$((skipped + 1))
-      elif rm_err="$(docker image rm "$id" 2>&1 >/dev/null)"; then
+      # Delete only the immutable image ID, never a mutable tag name. A tag
+      # added after the re-check makes Docker's non-force ID removal refuse;
+      # that safe retention is preferable to untagging another build's image.
+      local rm_err=""
+      if rm_err="$(docker image rm "$id" 2>&1 >/dev/null)"; then
         item "removed" "$rtags (id $id, est. size $size, built label $built)"
         removed_images=$((removed_images + 1))
       else
+        exit_if_docker_terminal
         rm_err="$(printf '%s' "$rm_err" | head -n 1)"
         [[ -n "$rm_err" ]] || rm_err="docker refused the removal"
-        if [[ -n "$removed_tags" ]]; then
-          item "partial" "$rtags (id $id) — partially cleaned: removed tags $removed_tags; image retained because $rm_err"
-        else
-          item "kept" "$rtags (id $id) — $rm_err"
-        fi
+        item "kept" "$rtags (id $id) — exact-ID deletion refused: $rm_err"
         skipped=$((skipped + 1))
+        failures=$((failures + 1))
       fi
     done <<<"$candidates"
   fi
@@ -321,11 +727,18 @@ apply() {
   heading "Result"
   note "removed $removed_containers container(s) and $removed_images image(s); kept or skipped $skipped."
   note "volumes, running containers, unlabeled images, dangling images, and builder cache were not touched. Daemon-wide cleanup is groundwork-docker-cache-tidy — a separate command, run only by you."
+  if ((failures > 0)); then
+    note "$failures eligible cleanup operation(s) or required observation(s) did not complete."
+    return 1
+  fi
 }
 
 summary() {
-  local scan n_eligible n_unverified exited n_exited=0 cid verdict
-  scan="$(gw_docker_scan "$MAX_AGE_HOURS")"
+  local scan n_eligible n_unverified exited n_exited=0 cid verdict verdict_line
+  if ! scan="$(gw_docker_scan "$MAX_AGE_HOURS")"; then
+    exit_if_docker_terminal
+    return 1
+  fi
   n_eligible="$(count_status eligible <<<"$scan")"
   n_unverified="$(count_status unverified <<<"$scan")"
   # Containers count only when they are actually removable under the policy:
@@ -333,9 +746,16 @@ summary() {
   if exited="$(list_exited_ephemeral)"; then
     while IFS=$'\t' read -r cid _ _; do
       [[ -n "$cid" ]] || continue
-      IFS=$'\t' read -r verdict _ _ _ <<<"$(container_verdict "$cid")"
+      if ! verdict_line="$(container_verdict "$cid")"; then
+        exit_if_docker_terminal
+        return 1
+      fi
+      IFS=$'\t' read -r verdict _ _ _ <<<"$verdict_line"
       [[ "$verdict" == "eligible" ]] && n_exited=$((n_exited + 1))
     done <<<"$exited"
+  else
+    exit_if_docker_terminal
+    return 1
   fi
   if ((n_eligible == 0 && n_unverified == 0 && n_exited == 0)); then
     return 0
@@ -348,49 +768,28 @@ summary() {
   echo "$line Review: groundwork-docker-tidy — clean: groundwork-docker-tidy --yes"
 }
 
-mode=""
-set_mode() {
-  if [[ -n "$mode" && "$mode" != "$1" ]]; then
-    echo "groundwork-docker-tidy: conflicting modes: --$mode and --$1 are mutually exclusive." >&2
-    exit 2
-  fi
-  mode="$1"
-}
-
-while (($#)); do
-  case "$1" in
-    --dry-run) set_mode "dry-run" ;;
-    --yes) set_mode "yes" ;;
-    --summary) set_mode "summary" ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "groundwork-docker-tidy: unknown option: $1" >&2
-      echo "Run 'groundwork-docker-tidy --help' for usage." >&2
-      exit 2
-      ;;
-  esac
-  shift
-done
-[[ -n "$mode" ]] || mode="dry-run"
-
-if ! command -v docker >/dev/null 2>&1; then
-  if [[ "$mode" != summary ]]; then
-    echo "groundwork-docker-tidy: docker CLI not installed; nothing to tidy."
-  fi
-  exit 0
-fi
-if ! docker info >/dev/null 2>&1; then
-  if [[ "$mode" != summary ]]; then
-    echo "groundwork-docker-tidy: Docker daemon not reachable. Start Docker Desktop, or run 'colima start' on a work Mac, then rerun."
-  fi
-  exit 0
-fi
-
+operation_status=0
 case "$mode" in
-  dry-run) dry_run ;;
-  yes) apply ;;
-  summary) summary ;;
+  dry-run) dry_run || operation_status=$? ;;
+  yes | automatic) apply || operation_status=$? ;;
+  summary) summary || operation_status=$? ;;
 esac
+if [[ -s "$docker_bound_status_file" ]]; then
+  IFS= read -r operation_status <"$docker_bound_status_file" || operation_status=124
+  emit_docker_terminal_diagnostic
+fi
+
+if [[ "$acting" -eq 1 ]]; then
+  if [[ "$operation_status" -eq 0 ]]; then
+    if ! rm -f -- "$pending_file"; then
+      echo "groundwork-docker-tidy: cleanup completed, but its pending record could not be cleared." >&2
+      operation_status=1
+    fi
+  else
+    if ! mark_pending "Docker scratch maintenance incomplete (exit $operation_status; $policy_identity)"; then
+      echo "groundwork-docker-tidy: cleanup was incomplete and its pending record could not be updated." >&2
+    fi
+  fi
+  attempt_started=0
+fi
+exit "$operation_status"
