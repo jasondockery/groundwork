@@ -77,7 +77,7 @@ docker build -t groundwork .
 docker run -it --rm groundwork
 ```
 
-Keep the `groundwork` tag for the image you actually run. A build that only verifies a Dockerfile change (yours or an agent's) goes through the managed wrapper instead — `groundwork-docker-build-scratch <purpose> .` — which owns the ephemeral-build contract: it applies `dev.roost.ephemeral=true`, generates the RFC 3339 `dev.roost.built` timestamp itself, tags `groundwork/scratch:<purpose>`, and prints the image ID (add `--rm-after` to prove-and-delete in one step). Never hand-type the labels, and never `docker tag` a scratch image into a real name — labels live on the image, so promote by rebuilding. Scratch images are removed in the same session or left for `groundwork-docker-tidy` to remove after the 72-hour grace (see `docs/platforms.html`).
+Keep the `groundwork` tag for the image you actually run. A build that only verifies a Dockerfile change (yours or an agent's) goes through the managed wrapper instead — `groundwork-docker-build-scratch <purpose> . --rm-after` — which owns the ephemeral-build contract, prints the image ID, and removes it after a successful build. When the Groundwork proof must run the image, use `scripts/verify-docker-image`: it mechanically owns build, smoke run, signal handling, exact-image-ID cleanup, and proof that its expected tag was not retained or repointed. Never hand-type the labels, and never `docker tag` a scratch image into a real name — labels live on the image, so promote by rebuilding. `update-all` removes only aged labeled scratch leftovers after the 72-hour grace (see `docs/platforms.html`).
 
 ## AI-native by default
 
@@ -119,7 +119,7 @@ GROUNDWORK_REPO_URL=git@github.com:jasondockery/groundwork.git bash /tmp/bootstr
 
 `chezmoi update` runs `git pull` from this repo and applies the result. If the repo changes an install hook, such as the Brewfile bundle, that hook can add newly declared tools; it still does not chase newer Homebrew or mise releases for tools already installed. The public repo does not require GitHub login for normal pulls.
 
-Run `update-all` as the one normal machine-maintenance command. Under one machine-wide lock, it synchronizes Groundwork, upgrades Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode, then automatically runs supported package-manager maintenance. pnpm automation accepts only exact pins from canonically discovered Git repositories and standard or explicitly trusted store roots; conflicts and custom stores remain review-only. Cleanup failures preserve completed updates, exit nonzero, and keep the shell reminder active until repaired. Repository dependency installations such as `node_modules`, whole pnpm store generations, Docker data, Xcode data, and application or user data stay owner-confirmed; Homebrew may remove installed orphan formula dependencies while retaining requested formulae and casks. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence the stale/pending reminder.
+Run `update-all` as the one normal machine-maintenance command. Under one machine-wide lock, it synchronizes Groundwork, upgrades Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode, then automatically runs supported package-manager maintenance and the label-scoped Docker scratch tidy. pnpm automation accepts only exact pins from canonically discovered Git repositories and standard or explicitly trusted store roots; conflicts and custom stores remain review-only. Docker automation accepts only aged images and exited containers that explicitly opted in through Groundwork's ephemeral labels and scratch-only tag contract. Cleanup failures preserve completed updates, exit nonzero, and keep the shell reminder active until repaired. Repository dependency installations such as `node_modules`, whole pnpm store generations, unlabeled or legacy tagged Docker images, daemon-wide Docker cache, Xcode data, and application or user data stay owner-confirmed; Homebrew may remove installed orphan formula dependencies while retaining requested formulae and casks. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence the stale/pending reminder.
 
 ## Customizing Without Forking
 
@@ -207,10 +207,10 @@ One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 groundwork-help                     # show Groundwork commands, aliases, keys, and helper scripts
 groundwork-help update              # filter the command catalog
 largest ~                           # find large files/folders, then show cleanup guidance
-groundwork-doctor                   # read-only machine health report (Docker hygiene, disk, leftovers)
+groundwork-doctor                   # read-only health report, including legacy Docker proof tags
 groundwork-docker-tidy              # dry-run tidy of ephemeral-labeled Docker scratch images, by enumeration (--yes to act)
 groundwork-docker-cache-tidy        # DAEMON-WIDE Docker cleanup preview (all projects; owner-run only, --yes to act)
-groundwork-docker-build-scratch review .   # build a disposable image under the ephemeral contract (wrapper owns labels + scratch tag)
+groundwork-docker-build-scratch review . --rm-after   # proof-only build that removes itself on success
 groundwork-repos                    # table of every discovered repo: branch, dirty/clean, ahead/behind
 groundwork-repos pick               # fuzzy-pick a repo -> its lazygit tmux window (prefix+R in tmux)
 groundwork-repos changed            # lazygit window per dirty repo (prefix+G in tmux)
@@ -233,7 +233,8 @@ report, repair, force, and pending-acknowledgement forms remain discoverable
 with `groundwork-help maintenance`.
 Pending maintenance is normally retried by `update-all`; use
 `groundwork-cleanup --yes` to retry without repeating upgrades. `--force` is
-only a pnpm-cadence override.
+only a pnpm-cadence override. Retry only the label-scoped Docker lane with
+`groundwork-docker-tidy --yes`; daemon-wide Docker cleanup stays owner-run.
 
 > If `chezmoi apply` says **"run chezmoi init first,"** the config template (`.chezmoi.toml.tmpl`) changed. Run `chezmoi init` (it only regenerates the config and won't re-ask questions you've already answered), then `chezmoi apply`. This is expected after pulling changes that touch the prompts or defaults.
 

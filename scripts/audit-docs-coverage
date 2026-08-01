@@ -767,7 +767,20 @@ def item_is_mentioned(item: str, kind: str, document: GroundworkHTML) -> bool:
         candidates = [item]
         if kind == "alias" and " / " in item:
             candidates.extend(part.strip() for part in item.split(" / "))
-        needles = [normalized_tokens(candidate, strip_placeholders=True) for candidate in candidates]
+        # Prefer an exact usage-form match when the teaching page carries the
+        # same placeholders. Also retain the historical placeholder-stripped
+        # match so a concrete example can teach a catalog surface. The exact
+        # form matters when a trailing option follows positional placeholders:
+        # stripping them must not falsely require the option immediately after
+        # the executable name.
+        needles = [
+            needle
+            for candidate in candidates
+            for needle in (
+                normalized_tokens(candidate),
+                normalized_tokens(candidate, strip_placeholders=True),
+            )
+        ]
         return any(
             contains_tokens(code, needle)
             for code in document.code_texts

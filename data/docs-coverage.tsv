@@ -9,7 +9,8 @@ daily	groundwork-distro [--family]	command	executable	home/dot_local/share/groun
 daily	groundwork-docker-cache-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
 daily	groundwork-docker-cache-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
 daily	groundwork-docker-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
-daily	groundwork-docker-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-docker-tidy --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all; requires docker
+daily	groundwork-docker-tidy --yes --clear-pending	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all; requires docker
 daily	groundwork-doctor	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-doctor --docker	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
 daily	groundwork-doctor --node-toolchain	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
@@ -78,12 +79,13 @@ practice	Practice drill: tmux drill	competency	docs-competency	docs/practice.htm
 project	copy-context <paths>	command	executable	home/dot_local/share/groundwork/commands.tsv	shell.html	yes	no	all
 project	gh auth login	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	yes	all; requires gh
 project	gh auth setup-git	command	external-command	home/dot_local/share/groundwork/commands.tsv	git.html	no	yes	all; requires gh
-project	groundwork-docker-build-scratch <purpose> <context>	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+project	groundwork-docker-build-scratch <purpose> <context> --rm-after	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
 project	groundwork-repos	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all
 project	groundwork-repos changed	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all
 project	groundwork-repos pick	command	executable	home/dot_local/share/groundwork/commands.tsv	repo-navigation.html	no	no	all; requires fzf
 project	new-project <path>	command	executable	home/dot_local/share/groundwork/commands.tsv	new-project.html	yes	no	all
 project	obsidian-plugins <vault>	command	executable	home/dot_local/share/groundwork/commands.tsv	knowledge.html	yes	no	macOS desktop; requires obsidian
+project	scripts/verify-docker-image	command	external-command	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
 project	new-twelve-log [path]	function	shell-function	home/dot_local/share/groundwork/commands.tsv	groundwork-twelve.html	no	no	all
 project	new-wiki <path>	function	shell-function	home/dot_local/share/groundwork/commands.tsv	knowledge.html	yes	no	all
 shell	cat	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	shell.html	no	no	all

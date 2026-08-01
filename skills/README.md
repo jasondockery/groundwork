@@ -27,4 +27,8 @@ Good candidates:
 - Validate a Groundwork release: render chezmoi templates, check generated scripts,
   inspect public-repo hygiene, and verify the bootstrap path from a clean clone.
 
+Current repository workflows:
+- `docker-lifecycle`: classify local Docker builds, make proof images clean up
+  in the same session, and preserve the machine-wide cleanup boundary.
+
 Before adding a skill, ask whether a normal doc page, script, or test would solve the problem better.
