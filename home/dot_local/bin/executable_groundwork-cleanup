@@ -10,7 +10,7 @@ Report or run Groundwork's supported package-manager maintenance.
 Usage:
   groundwork-cleanup                read-only report; change no persistent state
   groundwork-cleanup --yes          run Homebrew and npm maintenance, plus pnpm when due
-  groundwork-cleanup --yes --force  run every supported maintenance stage now
+  groundwork-cleanup --yes --force  exceptional: attempt Homebrew/npm and every eligible pnpm candidate now
   groundwork-cleanup --yes --clear-pending <stage>
                                     acknowledge one unrepairable reminder only
   groundwork-cleanup -h|--help      show this help
@@ -37,15 +37,17 @@ of that process tree.
 
 update-all runs the --yes mode automatically after configuration and any
 Homebrew upgrade complete successfully. A mise failure remains a final error
-but does not suppress independent package-manager maintenance. Use --force for
-maintenance-only repair regardless of cadence, and update-all
---skip-maintenance only for an exceptional fast refresh.
+but does not suppress independent package-manager maintenance. Use --yes for a
+maintenance-only retry without repeating upgrades. Use --force only to ignore
+pnpm cadence deliberately, and update-all --skip-maintenance only for an
+exceptional fast refresh.
 EOF
 }
 
 act=0
 force=0
 clear_pending_stage=""
+nested_update_transaction=0
 while (($#)); do
   case "$1" in
     --yes) act=1 ;;
@@ -161,6 +163,10 @@ if [[ "$act" -eq 1 ]]; then
     cleanup_operation="$cleanup_operation --force"
   fi
   groundwork_lock_acquire "$cleanup_operation" || exit $?
+  if [[ "${GROUNDWORK_UPDATE_LOCK_HELD:-}" == "1" &&
+    "${groundwork_lock_owned:-0}" -eq 0 ]]; then
+    nested_update_transaction=1
+  fi
 fi
 
 if [[ -n "$clear_pending_stage" ]]; then
@@ -1247,15 +1253,21 @@ fi
 has_pending && maintenance_failed=1
 
 if [[ "$maintenance_failed" -ne 0 ]]; then
-  cat >&2 <<'EOF'
+  if [[ "$nested_update_transaction" -eq 0 ]]; then
+    cat >&2 <<'EOF'
 
 Groundwork: package-manager maintenance is incomplete.
 Completed updates and cleanup are preserved. Pending stages will keep the
-shell reminder active. Repair with:
-  update-all
-or run maintenance only:
-  groundwork-cleanup --yes --force
+shell reminder active.
+
+Run update-all again to retry the normal maintenance transaction.
+
+To retry maintenance without repeating upgrades:
+  groundwork-cleanup --yes
+
+See `groundwork-cleanup --help` for exceptional overrides.
 EOF
+  fi
   exit 1
 fi
 

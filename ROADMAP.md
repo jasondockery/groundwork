@@ -7,16 +7,17 @@ after the work is verified, never aspirationally.
 
 ## Current execution order
 
-Reconciled 2026-07-31 against `origin/main` at `9d5b335`; `v1.9.0` is the
+Reconciled 2026-08-01 against `origin/main` at `0c76d39`; `v1.9.0` is the
 current release tag. Detailed acceptance criteria live in the specs; this list
 is only sequence.
 
-1. **Finish safe automatic package-manager maintenance and ship it as
-   `v1.10.0`.** Land the single-writer transaction, exact trusted pnpm
-   selection, bounded process-tree cancellation, independent failure state,
-   read-only report, troubleshooting loop, and complete validator proof in
-   `specs/storage-hygiene.md`. This is release-affecting minor functionality;
-   cut only after the exact final `main` SHA is green.
+1. **Ship safe automatic package-manager maintenance as `v1.10.0`.** The
+   single-writer transaction, exact trusted pnpm selection, bounded
+   process-tree cancellation, independent failure state, read-only report,
+   troubleshooting loop, and validator proof live in
+   `specs/storage-hygiene.md`. Land the final recovery-guidance correction,
+   then cut only after the exact final `main` SHA is green. This is
+   release-affecting minor functionality.
 2. **Immutable, verified bootstrap releases.** Close the inspect-one-fetch /
    execute-another trust gap with tag-pinned bootstrap assets and published
    SHA-256 verification; keep a clearly separate rolling-`main` contributor
@@ -79,6 +80,16 @@ done nor lost in review prose.
       `--only <check>`, retaining `scripts/validate-groundwork` as the exact
       full gate. Split physical files only after shared fixture ownership is
       explicit and the full run proves identical coverage.
+
+### Maintenance repair UX
+
+- [ ] After `v1.10.0`, add a manager-scoped repair surface such as
+      `groundwork-cleanup --yes --only <homebrew|npm|pnpm>`. Specify and test
+      selection, lock, pending-state, receipt, and hostile-argument behavior
+      before implementation. The command must validate the manager before any
+      side effect, run only that manager, preserve unrelated pending records,
+      honor pnpm cadence unless `--force` is also explicit, and never present
+      force as the routine retry.
 
 ### Discoverability and public proof
 

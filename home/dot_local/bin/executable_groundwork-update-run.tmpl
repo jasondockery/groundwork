@@ -299,7 +299,7 @@ if [[ "$skip_maintenance" -eq 1 ]]; then
   echo "Package-manager maintenance skipped for this exceptional refresh."
   if maintenance_pending; then
     maintenance_status=1
-    echo "Groundwork: earlier maintenance is still pending; run groundwork-cleanup --yes --force." >&2
+    echo "Groundwork: earlier package-manager maintenance is still pending." >&2
   fi
 elif [[ -x "$HOME/.local/bin/groundwork-cleanup" ]]; then
   # Record helper-level intent before exec so an early crash cannot disappear
@@ -358,9 +358,15 @@ EOF
     echo "  A required upgrade stage failed (exit $update_status); run update-all again after repairing it." >&2
   fi
   if [[ "$maintenance_status" -ne 0 ]]; then
-    cat >&2 <<EOF
-  Repair pending package-manager maintenance:
-    groundwork-cleanup --yes --force
+    cat >&2 <<'EOF'
+  Package-manager maintenance is incomplete.
+
+  Run update-all again to retry the normal maintenance transaction.
+
+  To retry maintenance without repeating upgrades:
+    groundwork-cleanup --yes
+
+  See `groundwork-cleanup --help` for exceptional overrides.
 EOF
   fi
   exit 1

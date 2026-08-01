@@ -78,6 +78,14 @@ wider.
   `--yes --force` advances no pnpm state when there is no eligible candidate;
   that is a successful no-op unless an existing pnpm pending record still
   requires repair.
+- **Recovery guidance preserves the default boundary.** A later `update-all`
+  is the normal retry for pending maintenance. `groundwork-cleanup --yes`
+  retries maintenance without repeating upgrades and still honors pnpm
+  cadence; `--yes --force` exists only to ignore that cadence deliberately.
+  Neither route expands automatic cleanup into project data or whole-store
+  retirement. A direct cleanup invocation owns its recovery footer. When the
+  helper borrows the runner's existing transaction lock, it leaves generic
+  recovery guidance to the runner so one invocation prints the hierarchy once.
 - **Selection provenance is truthful, and a valid pin is enforced.** The tidy
   prints the nearest *observed* `packageManager` declaration when one applies
   (parsed with jq — repo-standard, Brewfile-shipped, `/usr/bin/jq` on current

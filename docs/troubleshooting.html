@@ -192,7 +192,7 @@
         <pre><code><span class="prompt">$ </span>update-all                              <span class="comment"># normal retry; pending pnpm overrides cadence</span>
 <span class="prompt">$ </span>groundwork-cleanup                      <span class="comment"># read-only report, including every pending stage</span>
 <span class="prompt">$ </span>groundwork-cleanup --yes                <span class="comment"># run due supported maintenance only</span>
-<span class="prompt">$ </span>groundwork-cleanup --yes --force        <span class="comment"># immediate supported repair pass</span></code></pre>
+<span class="prompt">$ </span>groundwork-cleanup --yes --force        <span class="comment"># exceptional override: ignore pnpm cadence</span></code></pre>
       </div>
       <p>If Homebrew, npm, pnpm, or the maintenance helper was intentionally removed, an old reminder cannot prove the omitted cleanup completed. Acknowledge that one record explicitly with <code>groundwork-cleanup --yes --clear-pending &lt;homebrew|npm|pnpm|maintenance-helper&gt;</code>. That command clears only Groundwork&apos;s reminder, runs no package-manager operation, and preserves a timestamped note in <code>~/.local/state/groundwork/update-all-pending-cleared.log</code>.</p>
 

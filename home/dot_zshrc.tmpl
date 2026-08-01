@@ -367,8 +367,12 @@ groundwork-update-reminder() {
       read -r pending_note <"$legacy_pending" 2>/dev/null
       print -r -- "  homebrew: ${pending_note:-legacy cleanup repair is pending}"
     fi
-    print "Run update-all, or repair maintenance only with:"
-    print "  groundwork-cleanup --yes --force"
+    print "Run update-all again to retry the normal maintenance transaction."
+    print ""
+    print "To retry maintenance without repeating upgrades:"
+    print "  groundwork-cleanup --yes"
+    print ""
+    print 'See `groundwork-cleanup --help` for exceptional overrides.'
     print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
     mkdir -p "$state_dir" && : >| "$shown"
     return

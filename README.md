@@ -231,6 +231,9 @@ new-wiki ~/code/notes        # scaffold an LLM knowledge wiki repo
 `update-all` is the one normal maintenance command. Advanced package-manager
 report, repair, force, and pending-acknowledgement forms remain discoverable
 with `groundwork-help maintenance`.
+Pending maintenance is normally retried by `update-all`; use
+`groundwork-cleanup --yes` to retry without repeating upgrades. `--force` is
+only a pnpm-cadence override.
 
 > If `chezmoi apply` says **"run chezmoi init first,"** the config template (`.chezmoi.toml.tmpl`) changed. Run `chezmoi init` (it only regenerates the config and won't re-ask questions you've already answered), then `chezmoi apply`. This is expected after pulling changes that touch the prompts or defaults.
 
