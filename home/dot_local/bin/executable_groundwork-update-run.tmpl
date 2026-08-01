@@ -17,12 +17,12 @@ Complete the post-sync half of update-all.
 
 Usage:
   groundwork-update-run                    apply and refresh with maintenance
-  groundwork-update-run --skip-maintenance apply and refresh without package-manager maintenance
+  groundwork-update-run --skip-maintenance apply and refresh without routine maintenance
   groundwork-update-run -h|--help          show this help
 
 Run update-all for the normal full transaction. This runner is directly
 invocable for repair and testing, so it validates the same arguments before
-chezmoi apply or any package operation.
+chezmoi apply or any update or maintenance operation.
 EOF
 }
 
@@ -213,17 +213,6 @@ if command -v brew >/dev/null 2>&1; then
   {{- end }}
 fi
 
-# Docker hygiene: one line, and only when disposable build leftovers have
-# piled up. Like shell adoption, deletion is never something a refresh does
-# silently — groundwork-docker-tidy --yes is the explicit owner step, and the
-# tidy only ever touches images that opted in with the ephemeral label. The
-# helper owns docker CLI and daemon reachability itself (--summary stays
-# silent when either is missing), so no probe is duplicated here — and
-# daemon-wide cleanup stays owner-run only, never invoked from a refresh.
-if [[ -x "$HOME/.local/bin/groundwork-docker-tidy" ]]; then
-  "$HOME/.local/bin/groundwork-docker-tidy" --summary || true
-fi
-
 update_status=0
 if command -v mise >/dev/null 2>&1; then
   # The same 5-day floor the renovate-config preset applies to repo
@@ -323,6 +312,50 @@ case "$maintenance_status" in
   129 | 130 | 143) exit "$maintenance_status" ;;
 esac
 
+# Docker scratch maintenance is a separate bounded lane. The helper owns the
+# shared lock borrow, per-Docker-call deadlines and cancellation, candidate
+# re-checks, durable pending state, and direct-repair clearing. Automatic mode
+# uses only managed code, the canonical grace, and a verified local endpoint.
+# Daemon-wide cleanup remains structurally absent from update-all.
+docker_pending="$HOME/.local/state/groundwork/docker-tidy-pending"
+mark_docker_pending() {
+  local temporary="${docker_pending}.tmp.$$"
+  mkdir -p "$(dirname "$docker_pending")"
+  printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >"$temporary"
+  mv -f -- "$temporary" "$docker_pending"
+}
+
+docker_maintenance_status=0
+if [[ "$skip_maintenance" -eq 1 ]]; then
+  echo "Docker scratch maintenance skipped for this exceptional refresh."
+  if [[ -f "$docker_pending" ]]; then
+    docker_maintenance_status=1
+    echo "Groundwork: earlier Docker scratch maintenance is still pending." >&2
+  fi
+elif [[ -x "$HOME/.local/bin/groundwork-docker-tidy" ]]; then
+  docker_pending_before=0
+  [[ -f "$docker_pending" ]] && docker_pending_before=1
+  "$HOME/.local/bin/groundwork-docker-tidy" --automatic || docker_maintenance_status=$?
+  if [[ "$docker_maintenance_status" -eq 3 ]]; then
+    if [[ "$docker_pending_before" -eq 1 || -f "$docker_pending" ]]; then
+      docker_maintenance_status=1
+      echo "Groundwork: Docker is unavailable or unaccepted, so earlier Docker scratch maintenance remains pending." >&2
+    else
+      docker_maintenance_status=0
+      echo "Groundwork: Docker scratch maintenance skipped because no canonical local daemon was available; no earlier repair is pending."
+    fi
+  elif [[ "$docker_maintenance_status" -ne 0 && ! -f "$docker_pending" ]]; then
+    mark_docker_pending "Docker scratch helper failed before recording its acting stage (exit $docker_maintenance_status)"
+  fi
+else
+  docker_maintenance_status=1
+  mark_docker_pending "Docker scratch maintenance helper is missing"
+  echo "Groundwork: the Docker scratch maintenance helper is missing: $HOME/.local/bin/groundwork-docker-tidy" >&2
+fi
+case "$docker_maintenance_status" in
+  124 | 125 | 129 | 130 | 143) exit "$docker_maintenance_status" ;;
+esac
+
 {{- if ne .chezmoi.os "darwin" }}
 
 # Ownership boundary: Groundwork updates the developer environment it manages
@@ -350,7 +383,7 @@ fi
 # An incomplete maintenance stage is an incomplete transaction. Earlier
 # upgrades remain complete, but the success timestamp is withheld and callers
 # see a nonzero status. Per-stage pending records keep the shell reminder active.
-if [[ "$update_status" -ne 0 || "$maintenance_status" -ne 0 ]]; then
+if [[ "$update_status" -ne 0 || "$maintenance_status" -ne 0 || "$docker_maintenance_status" -ne 0 ]]; then
   cat >&2 <<EOF
 Groundwork: completed with warnings, so this refresh is not recorded as successful.
 EOF
@@ -367,6 +400,21 @@ EOF
     groundwork-cleanup --yes
 
   See `groundwork-cleanup --help` for exceptional overrides.
+EOF
+  fi
+  if [[ "$docker_maintenance_status" -ne 0 ]]; then
+    cat >&2 <<'EOF'
+  Docker scratch maintenance is incomplete.
+
+  Run update-all again to retry the normal update and maintenance transaction.
+
+  To retry only the label-scoped Docker scratch maintenance:
+    groundwork-docker-tidy --yes
+
+  If Docker was intentionally removed, acknowledge only the reminder with:
+    groundwork-docker-tidy --yes --clear-pending
+
+  Daemon-wide cleanup remains an owner-reviewed, separate command.
 EOF
   fi
   exit 1

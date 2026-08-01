@@ -332,6 +332,7 @@ groundwork-update-reminder() {
   local shown="$state_dir/update-reminder-last-shown"
   local pending_dir="$state_dir/update-all-pending"
   local legacy_pending="$state_dir/homebrew-cleanup-pending"
+  local docker_pending="$state_dir/docker-tidy-pending"
   local now shown_epoch last_epoch age_days pending_note pending_file pending_stage
   local -a pending_files
 
@@ -373,6 +374,31 @@ groundwork-update-reminder() {
     print "  groundwork-cleanup --yes"
     print ""
     print 'See `groundwork-cleanup --help` for exceptional overrides.'
+    if [[ -f "$docker_pending" ]]; then
+      pending_note=""
+      read -r pending_note <"$docker_pending" 2>/dev/null
+      print ""
+      print -P "%F{yellow}Groundwork:%f Docker scratch maintenance is also incomplete."
+      print -r -- "  docker-tidy: ${pending_note:-repair is pending}"
+      print "Run update-all, or retry only the label-scoped lane with:"
+      print "  groundwork-docker-tidy --yes"
+      print "If Docker was intentionally removed, see: groundwork-docker-tidy --help"
+      print "Daemon-wide Docker cleanup remains owner-reviewed and separate."
+    fi
+    print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
+    mkdir -p "$state_dir" && : >| "$shown"
+    return
+  fi
+
+  if [[ -f "$docker_pending" ]]; then
+    pending_note=""
+    read -r pending_note <"$docker_pending" 2>/dev/null
+    print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish Docker scratch maintenance."
+    print -r -- "  docker-tidy: ${pending_note:-repair is pending}"
+    print "Run update-all, or retry only the label-scoped lane with:"
+    print "  groundwork-docker-tidy --yes"
+    print "If Docker was intentionally removed, see: groundwork-docker-tidy --help"
+    print "Daemon-wide Docker cleanup remains owner-reviewed and separate."
     print "Set GROUNDWORK_UPDATE_REMINDER=0 in ~/.zshrc.local to silence this reminder."
     mkdir -p "$state_dir" && : >| "$shown"
     return

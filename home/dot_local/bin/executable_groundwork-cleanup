@@ -109,11 +109,12 @@ observe_deadline="${GROUNDWORK_MAINTENANCE_OBSERVE_DEADLINE_SECONDS:-120}"
 heartbeat="${GROUNDWORK_MAINTENANCE_HEARTBEAT_SECONDS:-60}"
 cancel_grace="${GROUNDWORK_MAINTENANCE_CANCEL_GRACE_SECONDS:-2}"
 poll_seconds="${GROUNDWORK_MAINTENANCE_POLL_SECONDS:-1}"
+orphan_grace="${GROUNDWORK_MAINTENANCE_ORPHAN_GRACE_SECONDS:-5}"
 monthly_days="${GROUNDWORK_PNPM_PRUNE_DAYS:-30}"
 high_water_gib="${GROUNDWORK_PNPM_HIGH_WATER_GIB:-20}"
 high_water_retry_days="${GROUNDWORK_PNPM_HIGH_WATER_RETRY_DAYS:-7}"
 
-for numeric_setting in "$deadline" "$observe_deadline" "$heartbeat" "$cancel_grace" "$monthly_days" \
+for numeric_setting in "$deadline" "$observe_deadline" "$heartbeat" "$cancel_grace" "$orphan_grace" "$monthly_days" \
   "$high_water_gib" "$high_water_retry_days"; do
   if [[ ! "$numeric_setting" =~ ^[0-9]+$ || "$numeric_setting" -lt 1 ]]; then
     echo "groundwork-cleanup: maintenance deadlines, cadence, and thresholds must be positive integers." >&2
@@ -125,6 +126,14 @@ if ! awk -v value="$poll_seconds" \
   echo "groundwork-cleanup: maintenance polling must be between 0.05 and 1 second." >&2
   exit 64
 fi
+
+maintenance_runner_lib="$HOME/.local/share/groundwork/lib/maintenance-runner.sh"
+if [[ ! -r "$maintenance_runner_lib" ]]; then
+  echo "groundwork-cleanup: the bounded maintenance runner is missing: $maintenance_runner_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$maintenance_runner_lib"
 
 store_selections=""
 store_candidates=""
@@ -210,168 +219,6 @@ format_bytes() {
 
 canonical_dir() {
   cd "$1" 2>/dev/null && pwd -P
-}
-
-bounded_kill() {
-  local child="$1" pgid="$2" signal="${3:-TERM}"
-  if [[ "$pgid" =~ ^[0-9]+$ ]]; then
-    kill "-$signal" -- "-$pgid" 2>/dev/null || true
-  elif [[ "$child" =~ ^[0-9]+$ ]]; then
-    kill "-$signal" "$child" 2>/dev/null || true
-  fi
-}
-
-bounded_child_running() {
-  local child="$1" state
-  kill -0 "$child" 2>/dev/null || return 1
-  state="$(ps -o stat= -p "$child" 2>/dev/null | tr -d '[:space:]' || true)"
-  if [[ -z "$state" ]]; then
-    kill -0 "$child" 2>/dev/null
-    return
-  fi
-  [[ "$state" != Z* ]]
-}
-
-bounded_tree_running() {
-  local child="$1" pgid="$2"
-  if [[ "$pgid" =~ ^[0-9]+$ ]]; then
-    kill -0 -- "-$pgid" 2>/dev/null
-  else
-    kill -0 "$child" 2>/dev/null
-  fi
-}
-
-bounded_restore_traps() {
-  trap 'exit 129' HUP
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
-}
-
-bounded_shutdown() {
-  local child="$1" pgid="$2" stopped_at now
-  bounded_kill "$child" "$pgid" TERM
-  stopped_at="$(date +%s)"
-  while bounded_tree_running "$child" "$pgid"; do
-    now="$(date +%s)"
-    [[ "$now" -lt $((stopped_at + cancel_grace)) ]] || break
-    sleep 1
-  done
-  if bounded_tree_running "$child" "$pgid"; then
-    bounded_kill "$child" "$pgid" KILL
-  fi
-  stopped_at="$(date +%s)"
-  while bounded_tree_running "$child" "$pgid"; do
-    now="$(date +%s)"
-    [[ "$now" -lt $((stopped_at + cancel_grace)) ]] || break
-    sleep "$poll_seconds"
-  done
-  if bounded_tree_running "$child" "$pgid"; then
-    echo "  Groundwork: the maintenance process tree could not be fully stopped." >&2
-    return 1
-  fi
-  wait "$child" 2>/dev/null || true
-  return 0
-}
-
-run_bounded_internal() {
-  local label="$1" seconds="$2" output="$3"
-  shift 3
-  local started now next_heartbeat child="" pgid="" status=0 interrupted=0
-  local child_reaped=0 descendants_observed=0
-  started="$(date +%s)"
-  next_heartbeat=$((started + heartbeat))
-  # Install local handlers before launch. A signal in the launch window records
-  # intent immediately; once child/pgid exist the same handler starts
-  # cancellation and the loop completes the bounded TERM-to-KILL sequence.
-  trap 'interrupted=129; bounded_kill "$child" "$pgid" TERM' HUP
-  trap 'interrupted=130; bounded_kill "$child" "$pgid" TERM' INT
-  trap 'interrupted=143; bounded_kill "$child" "$pgid" TERM' TERM
-  set -m
-  if [[ -n "$output" ]]; then
-    "$@" </dev/null >"$output" &
-  else
-    "$@" </dev/null &
-  fi
-  child=$!
-  # With monitor mode enabled for the launch, Bash makes the child the leader
-  # of a new process group whose ID is the child PID.
-  pgid="$child"
-  set +m
-  while bounded_tree_running "$child" "$pgid"; do
-    if [[ "$child_reaped" -eq 0 ]] && ! bounded_child_running "$child"; then
-      wait "$child" || status=$?
-      child_reaped=1
-      if bounded_tree_running "$child" "$pgid"; then
-        descendants_observed=1
-      fi
-    fi
-    if [[ "$interrupted" -ne 0 ]]; then
-      trap '' HUP INT TERM
-      if ! bounded_shutdown "$child" "$pgid"; then
-        bounded_restore_traps
-        return 125
-      fi
-      bounded_restore_traps
-      return "$interrupted"
-    fi
-    now="$(date +%s)"
-    if [[ "$now" -ge $((started + seconds)) ]]; then
-      echo "  Groundwork: $label exceeded its ${seconds}s hard deadline; cancelling its process tree." >&2
-      trap '' HUP INT TERM
-      if ! bounded_shutdown "$child" "$pgid"; then
-        bounded_restore_traps
-        return 125
-      fi
-      bounded_restore_traps
-      return 124
-    fi
-    if [[ "$now" -ge "$next_heartbeat" ]]; then
-      echo "  Still running: $label ($((now - started))s elapsed)" >&2
-      next_heartbeat=$((now + heartbeat))
-    fi
-    sleep "$poll_seconds"
-  done
-  if [[ "$interrupted" -ne 0 ]]; then
-    trap '' HUP INT TERM
-    if ! bounded_shutdown "$child" "$pgid"; then
-      bounded_restore_traps
-      return 125
-    fi
-    bounded_restore_traps
-    return "$interrupted"
-  fi
-  if [[ "$child_reaped" -eq 0 ]]; then
-    wait "$child" || status=$?
-  fi
-  if [[ "$interrupted" -ne 0 ]]; then
-    bounded_restore_traps
-    return "$interrupted"
-  fi
-  bounded_restore_traps
-  if [[ "$descendants_observed" -eq 1 && "$status" -eq 0 ]]; then
-    echo "  Groundwork: $label left a background process in its maintenance group." >&2
-    return 1
-  fi
-  return "$status"
-}
-
-run_bounded() {
-  local label="$1"
-  shift
-  echo "  Running: $label (deadline ${deadline}s; Ctrl-C cancels)"
-  run_bounded_internal "$label" "$deadline" "" "$@"
-}
-
-run_bounded_capture() {
-  local label="$1" output="$2"
-  shift 2
-  run_bounded_internal "$label" "$observe_deadline" "$output" "$@"
-}
-
-exit_if_terminal_status() {
-  case "$1" in
-    125 | 129 | 130 | 143) exit "$1" ;;
-  esac
 }
 
 dir_bytes() {

@@ -34,7 +34,10 @@ wider.
 | pnpm selected stores | automatic when due in `update-all` | `groundwork-cleanup --yes` consumes strict live canonical `groundwork-repos --strict --no-cache list` discovery, accepts exact repository pins only, resolves offline, and prunes standard or explicitly trusted stores on one machine-wide cadence |
 | Package-manager report / exceptional pass | advanced | `groundwork-cleanup` is read-only; `--yes` runs due supported maintenance; `--yes --force` ignores pnpm cadence for eligible candidates and succeeds as a no-op when none exist; `--yes --clear-pending <stage>` acknowledges one intentionally unrepairable reminder without running cleanup |
 | Whole pnpm store generations | report / owner-confirmed | unmatched real `v<major>` directories are reported for review and never raw-deleted; symlinks are reported but not followed |
-| Docker | owner-run | `groundwork-docker-tidy` (label-scoped), `groundwork-docker-cache-tidy` (daemon-wide) |
+| Docker ephemeral scratch resources | automatic in `update-all` | `groundwork-docker-tidy --automatic` uses canonical managed code and a verified local endpoint to enumerate only aged opted-in images and exited containers, re-check them, and remove by explicit ID; direct repair is `--yes`; no broad prune |
+| Docker legacy tagged validation images | report / owner-confirmed | `groundwork-doctor --docker` reports old unlabeled test/review/verify/spike tags; it excludes `groundwork:latest` and never deletes |
+| Docker stopped containers, dangling images, builder cache | owner-run | `groundwork-docker-cache-tidy` is daemon-wide, dry-run by default, and never invoked by `update-all` or an agent |
+| Docker volumes | out of scope | never removed by Groundwork; a dangling volume can be the only copy of a database |
 | Xcode device support / simulators | report only | doctor `--storage` points at Xcode Settings > Components and `simctl delete unavailable` |
 | Legacy `~/.nvm` | report only | doctor `--storage` names the intent (mise owns Node) and defers the live-owner question to `--node-toolchain` |
 | Parallels / VMs | report only | doctor `--storage` points at Parallels' own Reclaim; Groundwork never touches VM files |

@@ -10,17 +10,20 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 usage() {
   cat <<'EOF'
-Synchronize Groundwork, upgrade managed tools, and maintain package managers.
+Synchronize Groundwork, upgrade managed tools, and run safe routine maintenance.
 
 Usage:
   update-all                    run the complete refresh and maintenance contract
-  update-all --skip-maintenance exceptional fast refresh; skip package-manager maintenance
+  update-all --skip-maintenance exceptional fast refresh; skip package-manager
+                                and Docker scratch maintenance
   update-all -h|--help          show this help
 
 The normal command applies current Groundwork configuration, upgrades the safe
 managed-tool lane, runs Homebrew and npm maintenance, prunes resolved pnpm
-stores when due, and prints receipts. It never removes project caches, whole
-pnpm store generations, Docker data, Xcode data, or application/user data.
+stores when due, and removes only aged Docker resources that explicitly opted
+in through Groundwork's labels and scratch-only tags. It never removes project
+caches, whole pnpm store generations, unlabeled or legacy tagged Docker images,
+daemon-wide Docker cache, volumes, Xcode data, or application/user data.
 EOF
 }
 
