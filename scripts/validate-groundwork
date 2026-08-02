@@ -3639,6 +3639,14 @@ SH
   install_fixture_runtime_runner \
     "$cleanup_home/.local/share/groundwork/lib/maintenance-runner.sh"
   install_fixture_runtime_clock "$cleanup_bin/date"
+  cp "$cleanup_home/.config/groundwork/repos.conf" \
+    "$cleanup_fixture/repos.runtime.saved"
+  cat >"$cleanup_home/.config/groundwork/repos.conf" <<EOF
+root = $cleanup_code/no-pin
+max_depth = 1
+include_worktrees = true
+cache_ttl_seconds = 0
+EOF
 
   # A real TERM during a bounded observation follows the same path and releases
   # the lock without creating pending mutation state.
@@ -4031,6 +4039,8 @@ SH
   [[ -z "$failed_kill_state" || "$failed_kill_state" == Z* ]] \
     || fail "the validator could not clean up the failed unconfirmed descendant"
   env "${cleanup_env[@]}" "$cleanup_command" --yes --force >/dev/null
+  mv "$cleanup_fixture/repos.runtime.saved" \
+    "$cleanup_home/.config/groundwork/repos.conf"
 
   check "groundwork-pnpm-store-tidy: hostile arguments, dry-run default, receipt"
   pnpm_tidy="$PWD/home/dot_local/bin/executable_groundwork-pnpm-store-tidy"
