@@ -179,9 +179,10 @@ start and finish times. A validation job is a source transaction: its initial
 identity comes from the embedded validation detail and its parent adds the
 authoritative final observation. A detail whose final observation failed stays
 explicitly unavailable even when the parent can supplement it. Workflow-lint,
-secret-scan, Docker-build, and deployment receipts instead declare a final-source
-snapshot only; they do not claim initial-to-final read-only proof. Validation
-details count passed, skipped, and failed
+Docker-build, and deployment receipts instead declare a final-source snapshot
+only; they do not claim initial-to-final read-only proof. Secret-scan records the
+clean checkout before Gitleaks starts and fails if that Git-visible identity
+changes. Validation details count passed, skipped, and failed
 checks and require a typed code plus a human reason for every skip. The gate
 accepts platform skips only through an exact check-name/code allowlist. Final
 job receipts are written only
