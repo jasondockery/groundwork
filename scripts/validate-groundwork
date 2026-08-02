@@ -10979,18 +10979,34 @@ validate_platform_macos() {
 }
 
 validate_full() {
-  # Full composes the public focused entry points in fresh Bash processes. This
-  # prevents one suite's globals, traps, or dynamically defined fixtures from
-  # leaking into another and makes focused/full behavior share one dispatcher.
-  local entry focused_suite child_report child_status
+  # Full composes the public focused entry points concurrently in fresh Bash
+  # processes. Each focused invocation owns a separate temporary state root, so
+  # independent suites share one outer deadline without sharing fixture state.
+  # Receipts are still checked and merged in registry order after every child
+  # finishes, keeping the final evidence deterministic.
+  local entry focused_suite child_report child_status child_pid child_index=0
+  local -a focused_suites=() child_reports=() child_pids=() child_statuses=()
   for entry in "${suite_registry[@]}"; do
     IFS='|' read -r focused_suite _ <<<"$entry"
     child_report="$out_dir/full-$focused_suite.json"
-    child_status=0
+    focused_suites+=("$focused_suite")
+    child_reports+=("$child_report")
     GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$" \
       GROUNDWORK_FULL_COMPOSITION=1 GROUNDWORK_SUPPRESS_SUMMARY=1 \
       "$repo/scripts/validate-groundwork" --suite "$focused_suite" \
-      --report "$child_report" || child_status=$?
+      --report "$child_report" &
+    child_pids+=("$!")
+  done
+
+  for child_pid in "${child_pids[@]}"; do
+    child_status=0
+    wait "$child_pid" || child_status=$?
+    child_statuses+=("$child_status")
+  done
+
+  for focused_suite in "${focused_suites[@]}"; do
+    child_report="${child_reports[$child_index]}"
+    child_status="${child_statuses[$child_index]}"
     [[ -f "$child_report" ]] \
       || fail "full composition received no receipt from focused suite $focused_suite"
     python3 - "$child_report" "$timing_rows" "$focused_suite" "$source_before" "$repo" <<'PY'
@@ -11025,6 +11041,7 @@ with open(sys.argv[2], "a", encoding="utf-8") as rows:
 PY
     [[ "$child_status" -eq 0 ]] \
       || fail "focused suite $focused_suite failed during full composition"
+    child_index=$((child_index + 1))
   done
 }
 
