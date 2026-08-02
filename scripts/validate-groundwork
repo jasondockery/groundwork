@@ -3708,7 +3708,11 @@ SH
     "$cleanup_command" --yes >"$cleanup_fixture/process-tree-timeout" 2>&1
   cleanup_status=$?
   set -e
-  [[ "$cleanup_status" -ne 0 ]] || fail "a timed-out process tree returned success"
+  [[ "$cleanup_status" -eq 124 ]] \
+    || fail "a timed-out process tree returned $cleanup_status instead of deadline status 124"
+  grep -qF 'brew autoremove was incomplete (exit 124)' \
+    "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+    || fail "the hard deadline was not preserved in Homebrew pending state"
   test -s "$descendant_pid_file" \
     || fail "the process-tree timeout did not reach the descendant fixture"
   descendant_pid="$(<"$descendant_pid_file")"
@@ -3768,6 +3772,12 @@ SH
   set -e
   [[ "$cleanup_status" -eq 70 ]] \
     || fail "a successful command with a surviving background process returned $cleanup_status instead of leak status 70"
+  grep -qF 'brew autoremove was incomplete (exit 70)' \
+    "$cleanup_home/.local/state/groundwork/update-all-pending/homebrew" \
+    || fail "the process-leak status was not preserved in Homebrew pending state"
+  grep -qF 'package-manager maintenance is incomplete' \
+    "$cleanup_fixture/orphan-process-tree" \
+    || fail "the process-leak result omitted the consolidated failure footer"
   grep -qF 'after the 1s drain grace' "$cleanup_fixture/orphan-process-tree" \
     || fail "a surviving background process was not governed by the orphan grace"
   grep -qE 'PID [0-9]+: executable (.+/)?sleep$' "$cleanup_fixture/orphan-process-tree" \
@@ -7491,7 +7501,7 @@ SH
   # exact real tools the tidy and the scanner may use — and no jq.
   docker_tools_nojq="$out_dir/docker-tools-nojq"
   mkdir -p "$docker_tools_nojq"
-  for docker_tool in awk cat cp cut date dirname grep head mkdir mktemp mv paste ps rm rmdir sed sleep sort stat tr wc; do
+  for docker_tool in awk bash cat cp cut date dirname grep head mkdir mktemp mv paste ps rm rmdir sed sleep sort stat tr wc; do
     docker_tool_path="$(command -v "$docker_tool")" \
       || fail "docker suite: required tool missing: $docker_tool"
     ln -s "$docker_tool_path" "$docker_tools_nojq/$docker_tool"
