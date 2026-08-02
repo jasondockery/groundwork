@@ -15,6 +15,7 @@ from ci_receipt import atomic_write_json, common_envelope, tree_snapshot, valida
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 AGGREGATOR = REPO / "scripts" / "aggregate-ci-receipts"
+WRITER = REPO / "scripts" / "write-ci-receipt"
 
 
 def initialize_repo(path: pathlib.Path) -> str:
@@ -219,6 +220,151 @@ def assert_failed_receipt(completed: subprocess.CompletedProcess[str], output: p
     assert receipt["body"]["errors"]
 
 
+def write_secret_scan_receipt(
+    workspace: pathlib.Path,
+    env: dict[str, str],
+    source_before: pathlib.Path,
+    output: pathlib.Path,
+    phase_file: pathlib.Path,
+    fact_file: pathlib.Path,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            str(WRITER),
+            "--output",
+            str(output),
+            "--receipt-kind",
+            "ci-job",
+            "--title",
+            "Secret scan",
+            "--result",
+            "passed",
+            "--scope",
+            "Gitleaks over the complete repository history",
+            "--platform-os",
+            "linux",
+            "--platform-image",
+            "ubuntu24",
+            "--platform-arch",
+            "X64",
+            "--job-budget-seconds",
+            "60",
+            "--workflow-safety-timeout-seconds",
+            "600",
+            "--started-epoch",
+            str(int(time.time()) - 1),
+            "--phase-file",
+            str(phase_file),
+            "--fact-file",
+            str(fact_file),
+            "--source-before",
+            str(source_before),
+            "--require-clean-source",
+            "--proof-type",
+            "full-history security scan",
+            "--cache-state",
+            "not-applicable",
+            "--local-equivalent",
+            "gitleaks git --log-opts=--all",
+        ],
+        cwd=REPO,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def assert_secret_scan_source_transaction(
+    temporary: pathlib.Path,
+    workspace: pathlib.Path,
+    sha: str,
+) -> None:
+    secret_env = environment(workspace, sha, "secret-scan")
+    source_before = temporary / "secret-source-before.json"
+    captured = subprocess.run(
+        [str(WRITER), "--capture-source", str(source_before)],
+        cwd=REPO,
+        env=secret_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert captured.returncode == 0, captured.stderr
+
+    # Exercise the same read-only full-history Git boundary used by Gitleaks.
+    subprocess.run(
+        ["git", "-C", str(workspace), "log", "--all", "--format=%H"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    phase_file = temporary / "secret-phases.tsv"
+    phase_file.write_text("Gitleaks full-history scan\t1\tpassed\n", encoding="utf-8")
+    fact_file = temporary / "secret-facts.tsv"
+    fact_file.write_text("History scope\tfull git history\n", encoding="utf-8")
+    artifact_directory = temporary / "secret-artifacts"
+    artifact_directory.mkdir()
+    receipt_path = artifact_directory / "groundwork-job-secret-scan.json"
+    completed = write_secret_scan_receipt(
+        workspace,
+        secret_env,
+        source_before,
+        receipt_path,
+        phase_file,
+        fact_file,
+    )
+    assert completed.returncode == 0, completed.stderr
+    receipt = validate_receipt(
+        json.loads(receipt_path.read_text(encoding="utf-8")),
+        expected_kind="ci-job",
+    )
+    assert receipt["source"]["treeChangedDuringValidation"] is False
+    assert receipt["source"]["treeFingerprintAfter"] == receipt["source"]["treeFingerprint"]
+    assert receipt["body"]["phases"][-1]["name"] == "Source identity"
+    assert receipt["body"]["phases"][-1]["result"] == "passed"
+
+    gate_output = temporary / "secret-gate.json"
+    gate = invoke(
+        artifact_directory,
+        workspace,
+        secret_env,
+        gate_output,
+        lane="secret-scan|Security|full-history read-only scan|-|none",
+    )
+    assert gate.returncode == 0, gate.stderr
+
+    mutation_before = temporary / "secret-mutation-before.json"
+    captured = subprocess.run(
+        [str(WRITER), "--capture-source", str(mutation_before)],
+        cwd=REPO,
+        env=secret_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert captured.returncode == 0, captured.stderr
+    generated_report = workspace / "results.sarif"
+    generated_report.write_text("generated in the checkout\n", encoding="utf-8")
+    mutation_receipt = temporary / "secret-mutation.json"
+    completed = write_secret_scan_receipt(
+        workspace,
+        secret_env,
+        mutation_before,
+        mutation_receipt,
+        phase_file,
+        fact_file,
+    )
+    assert completed.returncode == 1, completed.stderr
+    rejected = validate_receipt(
+        json.loads(mutation_receipt.read_text(encoding="utf-8")),
+        expected_kind="ci-job",
+    )
+    assert rejected["result"] == "failed"
+    assert rejected["source"]["treeChangedDuringValidation"] is True
+    assert rejected["body"]["phases"][-1]["result"] == "failed"
+    generated_report.unlink()
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="groundwork-gate-test.") as temporary_name:
         temporary = pathlib.Path(temporary_name)
@@ -243,6 +389,7 @@ def main() -> int:
         assert gate["body"]["lanes"][0]["workflowSafetyTimeoutSeconds"] == 60
         summary = valid_output.with_suffix(".md").read_text(encoding="utf-8")
         assert "| Static Linux | passed | 10s | 30s (within) | 20s | 1m 00s |" in summary
+        assert_secret_scan_source_transaction(temporary, workspace, sha)
 
         for github_result, receipt_result in (
             ("failure", "failed"),

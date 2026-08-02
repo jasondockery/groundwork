@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import sys
+import tempfile
 import time
 
 from ci_receipt import (
@@ -31,6 +32,26 @@ class Parser(argparse.ArgumentParser):
         self.print_usage(sys.stderr)
         print(f"write-ci-receipt: {message}", file=sys.stderr)
         raise SystemExit(64)
+
+
+def atomic_write_source_snapshot(path: pathlib.Path, payload: dict) -> None:
+    temporary: pathlib.Path | None = None
+    try:
+        descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.tmp.", dir=path.parent)
+        temporary = pathlib.Path(name)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+            json.dump(payload, output, indent=2)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
 
 
 def read_tsv(path: pathlib.Path | None, widths: set[int], label: str) -> list[list[str]]:
@@ -70,6 +91,8 @@ def build_parser() -> Parser:
     parser.add_argument("--phase-file")
     parser.add_argument("--fact-file")
     parser.add_argument("--detail-file", action="append", default=[])
+    parser.add_argument("--source-before")
+    parser.add_argument("--require-clean-source", action="store_true")
     parser.add_argument("--proof-type", default="CI job proof")
     parser.add_argument(
         "--cache-state",
@@ -82,20 +105,47 @@ def build_parser() -> Parser:
     return parser
 
 
+def capture_source() -> int:
+    parser = Parser(allow_abbrev=False)
+    parser.add_argument("--capture-source", required=True)
+    arguments = parser.parse_args()
+    try:
+        output = pathlib.Path(arguments.capture_source)
+        if not output.parent.is_dir():
+            raise ReceiptError(f"source snapshot parent does not exist: {output.parent}")
+        repo = pathlib.Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve()
+        atomic_write_source_snapshot(output, tree_snapshot(repo))
+    except (ReceiptError, OSError) as error:
+        print(f"write-ci-receipt: {error}", file=sys.stderr)
+        return 64 if isinstance(error, ReceiptError) else 1
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "--capture-source":
+        return capture_source()
     arguments = build_parser().parse_args()
     try:
+        if arguments.require_clean_source and not arguments.source_before:
+            raise ReceiptError("--require-clean-source requires --source-before")
+        if arguments.source_before and arguments.detail_file:
+            raise ReceiptError("--source-before and --detail-file are mutually exclusive")
         output = pathlib.Path(arguments.output)
         summary = pathlib.Path(arguments.summary) if arguments.summary else None
         phase_path = pathlib.Path(arguments.phase_file) if arguments.phase_file else None
         fact_path = pathlib.Path(arguments.fact_file) if arguments.fact_file else None
         detail_paths = [pathlib.Path(value) for value in arguments.detail_file]
+        source_before_path = (
+            pathlib.Path(arguments.source_before) if arguments.source_before else None
+        )
         for path, label in ((phase_path, "phase"), (fact_path, "fact")):
             if path is not None and not path.is_file():
                 raise ReceiptError(f"{label} input does not exist: {path}")
         for path in detail_paths:
             if not path.is_file():
                 raise ReceiptError(f"detail input does not exist: {path}")
+        if source_before_path is not None and not source_before_path.is_file():
+            raise ReceiptError(f"source snapshot input does not exist: {source_before_path}")
         if not output.parent.is_dir():
             raise ReceiptError(f"output parent does not exist: {output.parent}")
 
@@ -165,7 +215,55 @@ def main() -> int:
 
         repo = pathlib.Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve()
         final_source = tree_snapshot(repo)
-        if details:
+        source_policy_failed = False
+        receipt_result = arguments.result
+        if source_before_path is not None:
+            try:
+                initial_source = json.loads(source_before_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise ReceiptError(
+                    f"invalid source snapshot {source_before_path}: {error}"
+                ) from error
+            if not isinstance(initial_source, dict):
+                raise ReceiptError(f"source snapshot {source_before_path} must be a JSON object")
+            observation_complete = True
+            if any(phase["name"] == "Source identity" for phase in phases):
+                raise ReceiptError("phase input must not define the reserved Source identity phase")
+            initial_tree = initial_source.get("workingTree", {})
+            if not isinstance(initial_tree, dict):
+                raise ReceiptError("source snapshot workingTree must be a JSON object")
+            initial_dirty = bool(
+                initial_tree.get("staged")
+                or initial_tree.get("unstaged")
+                or initial_tree.get("untrackedPathCount")
+            )
+            source_changed = initial_source.get("treeFingerprint") != final_source.get(
+                "treeFingerprint"
+            )
+            source_policy_failed = arguments.require_clean_source and (
+                initial_dirty or source_changed
+            )
+            source_result = "failed" if source_policy_failed else "passed"
+            source_reason = (
+                "checkout was dirty before execution"
+                if initial_dirty
+                else ("checkout changed during execution" if source_changed else None)
+            )
+            source_phase = {
+                "name": "Source identity",
+                "durationSeconds": 0,
+                "result": source_result,
+            }
+            if source_reason is not None:
+                source_phase["reason"] = source_reason
+            phases.append(source_phase)
+            facts.setdefault(
+                "Source observation",
+                "authoritative before-and-after Git-visible checkout identity",
+            )
+            if source_policy_failed:
+                receipt_result = "failed"
+        elif details:
             if arguments.receipt_kind != "ci-job" or len(details) != 1:
                 raise ReceiptError("a validation job receipt requires exactly one validation detail")
             initial_source = details[0]["source"]
@@ -186,7 +284,7 @@ def main() -> int:
         envelope = common_envelope(
             repo=repo,
             receipt_kind=arguments.receipt_kind,
-            result=arguments.result,
+            result=receipt_result,
             started_epoch=started_epoch,
             finished_epoch=finished_epoch,
             platform_os=arguments.platform_os,
@@ -210,12 +308,13 @@ def main() -> int:
             "commands": commands,
             "validationDetails": details,
         }
+        validate_receipt(envelope, expected_kind=arguments.receipt_kind)
         atomic_write_json(output, envelope)
-    except (ReceiptError, OSError) as error:
+    except (ReceiptError, OSError, KeyError, TypeError) as error:
         print(f"write-ci-receipt: {error}", file=sys.stderr)
         return 64 if isinstance(error, ReceiptError) else 1
 
-    result_label = arguments.result.capitalize()
+    result_label = receipt_result.capitalize()
     lines = [
         f"## {title} · {result_label}",
         "",
@@ -257,7 +356,7 @@ def main() -> int:
         lines.append(f"- {command_labels[name]}: {inline_code(value)}")
     lines.append("")
     append_summary(summary, "\n".join(lines))
-    return 0
+    return 1 if source_policy_failed else 0
 
 
 if __name__ == "__main__":

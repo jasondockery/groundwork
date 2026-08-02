@@ -351,12 +351,14 @@ jobs:
         id: gitleaks-start
         run: echo "epoch=$(date +%s)" >>"$GITHUB_OUTPUT"
 
+      - name: Record secret-scan source identity
+        run: scripts/write-ci-receipt --capture-source "$RUNNER_TEMP/secret-scan-source-before.json"
+
       - name: Gitleaks
         id: gitleaks
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_ENABLE_SUMMARY: "false"
+        uses: docker://ghcr.io/gitleaks/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055 # v8.24.3
+        with:
+          args: git --redact --verbose --log-opts=--all .
 
       - name: Publish secret-scan receipt
         if: ${{ always() }}
@@ -408,6 +410,8 @@ jobs:
             --started-epoch "$JOB_STARTED_EPOCH" \
             --phase-file "$RUNNER_TEMP/secret-scan-phases.tsv" \
             --fact-file "$RUNNER_TEMP/secret-scan-facts.tsv" \
+            --source-before "$RUNNER_TEMP/secret-scan-source-before.json" \
+            --require-clean-source \
             --proof-type "full-history security scan" \
             --cache-state not-applicable \
             --local-equivalent "gitleaks git --log-opts=--all" \
