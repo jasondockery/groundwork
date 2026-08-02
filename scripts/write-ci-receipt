@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""Write one authoritative typed receipt, then render its optional summary."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pathlib
+import sys
+import time
+
+from ci_receipt import (
+    ReceiptError,
+    append_summary,
+    atomic_write_json,
+    common_envelope,
+    escape_table,
+    inline_code,
+    parse_nonnegative_integer,
+    seconds_label,
+    tree_snapshot,
+    unique_labels,
+    validate_receipt,
+    validate_text,
+)
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        print(f"write-ci-receipt: {message}", file=sys.stderr)
+        raise SystemExit(64)
+
+
+def read_tsv(path: pathlib.Path | None, widths: set[int], label: str) -> list[list[str]]:
+    if path is None:
+        return []
+    try:
+        raw_rows = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise ReceiptError(f"could not read {label} file {path}: {error}") from error
+    rows: list[list[str]] = []
+    for number, raw in enumerate(raw_rows, 1):
+        values = raw.split("\t")
+        if len(values) not in widths or any(not value for value in values[: min(widths)]):
+            raise ReceiptError(f"invalid {label} TSV row {number} in {path}")
+        for index, value in enumerate(values):
+            validate_text(value, f"{label} row {number} field {index + 1}", allow_empty=index == 3)
+        rows.append(values)
+    unique_labels(rows, label)
+    return rows
+
+
+def build_parser() -> Parser:
+    parser = Parser(allow_abbrev=False)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--summary")
+    parser.add_argument("--receipt-kind", choices=("ci-job", "deployment"), default="ci-job")
+    parser.add_argument("--title", required=True)
+    parser.add_argument("--result", choices=("passed", "failed", "cancelled", "skipped"), required=True)
+    parser.add_argument("--scope", required=True)
+    parser.add_argument("--platform-os", required=True)
+    parser.add_argument("--platform-image", required=True)
+    parser.add_argument("--platform-arch", required=True)
+    parser.add_argument("--job-budget-seconds", required=True)
+    parser.add_argument("--workflow-safety-timeout-seconds")
+    parser.add_argument("--started-epoch", required=True)
+    parser.add_argument("--finished-epoch")
+    parser.add_argument("--phase-file")
+    parser.add_argument("--fact-file")
+    parser.add_argument("--detail-file", action="append", default=[])
+    parser.add_argument("--proof-type", default="CI job proof")
+    parser.add_argument(
+        "--cache-state",
+        choices=("warm", "cold", "not-applicable", "unavailable", "mixed"),
+        required=True,
+    )
+    parser.add_argument("--local-equivalent")
+    parser.add_argument("--rerun")
+    parser.add_argument("--inspect")
+    return parser
+
+
+def main() -> int:
+    arguments = build_parser().parse_args()
+    try:
+        output = pathlib.Path(arguments.output)
+        summary = pathlib.Path(arguments.summary) if arguments.summary else None
+        phase_path = pathlib.Path(arguments.phase_file) if arguments.phase_file else None
+        fact_path = pathlib.Path(arguments.fact_file) if arguments.fact_file else None
+        detail_paths = [pathlib.Path(value) for value in arguments.detail_file]
+        for path, label in ((phase_path, "phase"), (fact_path, "fact")):
+            if path is not None and not path.is_file():
+                raise ReceiptError(f"{label} input does not exist: {path}")
+        for path in detail_paths:
+            if not path.is_file():
+                raise ReceiptError(f"detail input does not exist: {path}")
+        if not output.parent.is_dir():
+            raise ReceiptError(f"output parent does not exist: {output.parent}")
+
+        title = validate_text(arguments.title, "title")
+        scope = validate_text(arguments.scope, "scope")
+        proof_type = validate_text(arguments.proof_type, "proof type")
+        started_epoch = parse_nonnegative_integer(arguments.started_epoch, "started epoch")
+        if started_epoch <= 0:
+            raise ReceiptError("started epoch must be a positive integer")
+        now = int(time.time())
+        if arguments.finished_epoch is None:
+            if started_epoch > now:
+                raise ReceiptError("started epoch must not be in the future")
+            finished_epoch = now
+        else:
+            finished_epoch = parse_nonnegative_integer(arguments.finished_epoch, "finished epoch")
+        if finished_epoch < started_epoch:
+            raise ReceiptError("finished epoch must be at or after started epoch")
+        budget = parse_nonnegative_integer(arguments.job_budget_seconds, "job budget seconds")
+        workflow_safety_timeout = (
+            parse_nonnegative_integer(
+                arguments.workflow_safety_timeout_seconds,
+                "workflow safety timeout seconds",
+            )
+            if arguments.workflow_safety_timeout_seconds is not None
+            else None
+        )
+        if workflow_safety_timeout == 0:
+            raise ReceiptError("workflow safety timeout seconds must be positive")
+
+        phase_rows = read_tsv(phase_path, {3, 4}, "phase")
+        phases = []
+        for row in phase_rows:
+            name, seconds, result = row[:3]
+            reason = row[3] if len(row) == 4 and row[3] else None
+            duration = parse_nonnegative_integer(seconds, f"phase duration for {name}")
+            if result not in {"passed", "failed", "cancelled", "skipped"}:
+                raise ReceiptError(f"invalid phase result for {name}: {result}")
+            if result == "skipped" and reason is None:
+                raise ReceiptError(f"skipped phase {name} requires a reason")
+            phase = {"name": name, "durationSeconds": duration, "result": result}
+            if reason is not None:
+                phase["reason"] = reason
+            phases.append(phase)
+
+        fact_rows = read_tsv(fact_path, {2}, "fact")
+        facts = {label: value for label, value in fact_rows}
+        commands = {}
+        for argument_name, schema_name in (
+            ("local_equivalent", "localEquivalent"),
+            ("rerun", "rerun"),
+            ("inspect", "inspect"),
+        ):
+            value = getattr(arguments, argument_name)
+            if value:
+                commands[schema_name] = validate_text(value, schema_name)
+        if not commands:
+            raise ReceiptError("at least one of --local-equivalent, --rerun, or --inspect is required")
+
+        details = []
+        for path in detail_paths:
+            try:
+                detail = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                raise ReceiptError(f"invalid validation detail {path}: {error}") from error
+            details.append(validate_receipt(detail, expected_kind="validation-suite"))
+
+        repo = pathlib.Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve()
+        final_source = tree_snapshot(repo)
+        if details:
+            if arguments.receipt_kind != "ci-job" or len(details) != 1:
+                raise ReceiptError("a validation job receipt requires exactly one validation detail")
+            initial_source = details[0]["source"]
+            observation_complete = True
+            facts.setdefault(
+                "Source observation",
+                "validation detail initial identity plus authoritative parent final identity",
+            )
+        else:
+            initial_source = final_source
+            final_source = None
+            observation_complete = False
+            facts.setdefault(
+                "Source observation",
+                "final-source snapshot only; no initial-to-final transaction proof",
+            )
+        duration = finished_epoch - started_epoch
+        envelope = common_envelope(
+            repo=repo,
+            receipt_kind=arguments.receipt_kind,
+            result=arguments.result,
+            started_epoch=started_epoch,
+            finished_epoch=finished_epoch,
+            platform_os=arguments.platform_os,
+            platform_image=arguments.platform_image,
+            platform_arch=arguments.platform_arch,
+            source_before=initial_source,
+            source_after=final_source,
+            tree_observation_complete=observation_complete,
+        )
+        envelope["body"] = {
+            "title": title,
+            "scope": scope,
+            "proofType": proof_type,
+            "cacheState": arguments.cache_state,
+            "jobDurationSeconds": duration,
+            "jobBudgetSeconds": None if budget == 0 else budget,
+            "jobBudgetState": "not-set" if budget == 0 else ("within" if duration <= budget else "exceeded"),
+            "workflowSafetyTimeoutSeconds": workflow_safety_timeout,
+            "phases": phases,
+            "facts": facts,
+            "commands": commands,
+            "validationDetails": details,
+        }
+        atomic_write_json(output, envelope)
+    except (ReceiptError, OSError) as error:
+        print(f"write-ci-receipt: {error}", file=sys.stderr)
+        return 64 if isinstance(error, ReceiptError) else 1
+
+    result_label = arguments.result.capitalize()
+    lines = [
+        f"## {title} · {result_label}",
+        "",
+        f"- Duration: **{seconds_label(duration)}**",
+    ]
+    if budget:
+        lines[-1] += f" · advisory job budget: **{seconds_label(budget)}** · {envelope['body']['jobBudgetState']}"
+    if workflow_safety_timeout is not None:
+        lines[-1] += (
+            " · GitHub workflow safety timeout: "
+            f"**{seconds_label(workflow_safety_timeout)}**"
+        )
+    lines.extend(
+        [
+            f"- Tested SHA: {inline_code(envelope['testedSha'] or 'local modified tree')}",
+            (
+                "- Platform: "
+                f"{inline_code(arguments.platform_os)} / {inline_code(arguments.platform_image)} / "
+                f"{inline_code(arguments.platform_arch)}"
+            ),
+            f"- Scope: {scope}",
+            f"- Cache state: {inline_code(arguments.cache_state)}",
+        ]
+    )
+    if phases:
+        lines.extend(["", "### Phases", "", "| Phase | Duration | Result | Reason |", "| --- | ---: | --- | --- |"])
+        for phase in sorted(phases, key=lambda item: item["durationSeconds"], reverse=True):
+            lines.append(
+                f"| {escape_table(phase['name'])} | {seconds_label(phase['durationSeconds'])} | "
+                f"{phase['result']} | {escape_table(phase.get('reason', ''))} |"
+            )
+    if facts:
+        lines.extend(["", "### Key facts", "", "| Fact | Value |", "| --- | --- |"])
+        for label, value in facts.items():
+            lines.append(f"| {escape_table(label)} | {escape_table(value)} |")
+    lines.extend(["", "### Commands", ""])
+    command_labels = {"localEquivalent": "Local equivalent", "rerun": "Rerun", "inspect": "Inspect"}
+    for name, value in commands.items():
+        lines.append(f"- {command_labels[name]}: {inline_code(value)}")
+    lines.append("")
+    append_summary(summary, "\n".join(lines))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,396 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+runner="$repo/scripts/run-validation-deadline"
+[[ -x "$runner" ]] || {
+  echo "validation deadline supervisor must be executable" >&2
+  exit 1
+}
+fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-deadline-test.XXXXXX")"
+fixture="$(cd "$fixture" && pwd -P)"
+cleanup() {
+  local group_file process_group
+  for group_file in \
+    "$fixture/process-group" \
+    "$fixture/owner-death-group" \
+    "$fixture/nested-group" \
+    "$fixture/release-refused-group" \
+    "$fixture/status-channel-exception-group"; do
+    [[ -s "$group_file" ]] || continue
+    process_group="$(<"$group_file")"
+    [[ "$process_group" =~ ^[1-9][0-9]*$ ]] || continue
+    kill -KILL -- "-$process_group" 2>/dev/null || true
+  done
+  rm -rf "$fixture"
+}
+trap cleanup EXIT
+
+assert_process_group_gone() {
+  local process_group="$1"
+  if kill -0 -- "-$process_group" 2>/dev/null; then
+    echo "process group $process_group survived bounded cleanup" >&2
+    return 1
+  fi
+}
+
+wait_for_process_group_gone() {
+  local process_group="$1" attempts="${2:-40}"
+  while [[ "$attempts" -gt 0 ]]; do
+    if ! kill -0 -- "-$process_group" 2>/dev/null; then
+      return 0
+    fi
+    sleep 0.05
+    attempts=$((attempts - 1))
+  done
+  assert_process_group_gone "$process_group"
+}
+
+wait_for_file() {
+  local file="$1" attempts="${2:-40}"
+  while [[ "$attempts" -gt 0 ]]; do
+    [[ -s "$file" ]] && return 0
+    sleep 0.05
+    attempts=$((attempts - 1))
+  done
+  echo "timed out waiting for fixture file: $file" >&2
+  return 1
+}
+
+cat >"$fixture/mark" <<'SH'
+#!/usr/bin/env bash
+: >"$1"
+SH
+cat >"$fixture/hang" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$1"
+trap '' TERM
+(trap '' TERM; while :; do sleep 1; done) &
+printf '%s\n' "$!" >"$2"
+while :; do sleep 1; done
+SH
+cat >"$fixture/orphan" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$1"
+(trap '' TERM; while :; do sleep 1; done) &
+printf '%s\n' "$!" >"$2"
+exit 0
+SH
+cat >"$fixture/fail-orphan" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$1"
+(trap '' TERM; while :; do sleep 1; done) &
+printf '%s\n' "$!" >"$2"
+exit 3
+SH
+chmod +x "$fixture/mark" "$fixture/hang" "$fixture/orphan" "$fixture/fail-orphan"
+
+mkdir -p "$fixture/no-argument/scripts"
+cp "$repo/scripts/validate-groundwork" \
+  "$fixture/no-argument/scripts/validate-groundwork"
+cat >"$fixture/no-argument/scripts/run-validation-deadline" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$GROUNDWORK_TEST_DEADLINE_ARGUMENTS"
+exit 73
+SH
+chmod +x "$fixture/no-argument/scripts/run-validation-deadline"
+set +e
+GROUNDWORK_TEST_DEADLINE_ARGUMENTS="$fixture/no-argument/arguments" \
+  /bin/bash "$fixture/no-argument/scripts/validate-groundwork" \
+  >"$fixture/no-argument/stdout" 2>"$fixture/no-argument/stderr"
+status=$?
+set -e
+[[ "$status" -eq 73 ]]
+diff -u <(printf '%s\n' \
+  --seconds 300 --grace-seconds 5 -- \
+  "$fixture/no-argument/scripts/validate-groundwork") \
+  "$fixture/no-argument/arguments"
+test ! -s "$fixture/no-argument/stdout"
+
+for suite_case in static:540 update:840 docker:540 platform-macos:840 full:300; do
+  suite_name="${suite_case%%:*}"
+  suite_deadline="${suite_case#*:}"
+  : >"$fixture/no-argument/arguments"
+  set +e
+  GROUNDWORK_TEST_DEADLINE_ARGUMENTS="$fixture/no-argument/arguments" \
+    /bin/bash "$fixture/no-argument/scripts/validate-groundwork" --suite "$suite_name" \
+    >"$fixture/no-argument/stdout" 2>"$fixture/no-argument/stderr"
+  status=$?
+  set -e
+  [[ "$status" -eq 73 ]]
+  diff -u <(printf '%s\n' \
+    --seconds "$suite_deadline" --grace-seconds 5 -- \
+    "$fixture/no-argument/scripts/validate-groundwork" --suite "$suite_name") \
+    "$fixture/no-argument/arguments"
+done
+
+cat >"$fixture/integration-validator" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+original_arguments=("$@")
+deadline=300
+if [[ "${1:-}" == --deadline-seconds ]]; then
+  deadline="${2:-}"
+  shift 2
+fi
+[[ "$#" -eq 0 ]]
+if [[ "${GROUNDWORK_VALIDATION_DEADLINE_PARENT:-}" != "$PPID" ]]; then
+  printf 'wrapper\n' >>"$GROUNDWORK_TEST_INTEGRATION_EVENTS"
+  exec "$GROUNDWORK_TEST_REAL_RUNNER" \
+    --seconds "$deadline" --grace-seconds 1 -- "$0" \
+    ${original_arguments[@]+"${original_arguments[@]}"}
+fi
+printf 'body\n' >>"$GROUNDWORK_TEST_INTEGRATION_EVENTS"
+printf '%s\n' "$GROUNDWORK_VALIDATION_DEADLINE_PARENT" >"$GROUNDWORK_TEST_INTEGRATION_PARENT"
+printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$GROUNDWORK_TEST_INTEGRATION_GROUP"
+printf '%s\n' "${original_arguments[@]+"${original_arguments[@]}"}" \
+  >"$GROUNDWORK_TEST_INTEGRATION_ARGUMENTS"
+SH
+chmod +x "$fixture/integration-validator"
+grep -qF 'GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$"' \
+  "$repo/scripts/validate-groundwork"
+for integration_case in no-arguments explicit-deadline; do
+  : >"$fixture/integration-events"
+  : >"$fixture/integration-arguments"
+  integration_arguments=()
+  if [[ "$integration_case" == explicit-deadline ]]; then
+    integration_arguments=(--deadline-seconds 9)
+  fi
+  GROUNDWORK_TEST_REAL_RUNNER="$runner" \
+    GROUNDWORK_TEST_INTEGRATION_EVENTS="$fixture/integration-events" \
+    GROUNDWORK_TEST_INTEGRATION_PARENT="$fixture/integration-parent" \
+    GROUNDWORK_TEST_INTEGRATION_GROUP="$fixture/integration-group" \
+    GROUNDWORK_TEST_INTEGRATION_ARGUMENTS="$fixture/integration-arguments" \
+    "$fixture/integration-validator" "${integration_arguments[@]}"
+  [[ "$(grep -c '^wrapper$' "$fixture/integration-events")" -eq 1 ]]
+  [[ "$(grep -c '^body$' "$fixture/integration-events")" -eq 1 ]]
+  [[ "$(<"$fixture/integration-parent")" == "$(<"$fixture/integration-group")" ]]
+  if [[ "$integration_case" == no-arguments ]]; then
+    test ! -s "$fixture/integration-arguments"
+  else
+    diff -u <(printf '%s\n' --deadline-seconds 9) "$fixture/integration-arguments"
+  fi
+done
+
+: >"$fixture/integration-events"
+: >"$fixture/integration-arguments"
+GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$" \
+  GROUNDWORK_TEST_REAL_RUNNER="$runner" \
+  GROUNDWORK_TEST_INTEGRATION_EVENTS="$fixture/integration-events" \
+  GROUNDWORK_TEST_INTEGRATION_PARENT="$fixture/integration-parent" \
+  GROUNDWORK_TEST_INTEGRATION_GROUP="$fixture/integration-group" \
+  GROUNDWORK_TEST_INTEGRATION_ARGUMENTS="$fixture/integration-arguments" \
+  "$fixture/integration-validator"
+if grep -q '^wrapper$' "$fixture/integration-events"; then
+  echo "exact-parent handoff unexpectedly launched a nested deadline supervisor" >&2
+  exit 1
+fi
+[[ "$(grep -c '^body$' "$fixture/integration-events")" -eq 1 ]]
+
+set +e
+"$runner" --seconds 0 --grace-seconds 1 -- "$fixture/mark" "$fixture/mutated" \
+  >"$fixture/invalid.out" 2>"$fixture/invalid.err"
+status=$?
+set -e
+[[ "$status" -eq 64 ]]
+test ! -e "$fixture/mutated"
+
+set +e
+GROUNDWORK_TEST_VALIDATION_LAUNCH_DELAY_SECONDS=2 \
+  "$runner" --seconds 1 --grace-seconds 1 -- "$fixture/mark" "$fixture/mutated" \
+  >"$fixture/launch-timeout.out" 2>"$fixture/launch-timeout.err"
+status=$?
+set -e
+[[ "$status" -eq 124 ]]
+test ! -e "$fixture/mutated"
+
+set +e
+GROUNDWORK_TEST_VALIDATION_LAUNCH_DELAY_SECONDS=2 \
+  "$runner" --seconds 5 --grace-seconds 1 -- "$fixture/mark" "$fixture/mutated" \
+  >"$fixture/launch-signal.out" 2>"$fixture/launch-signal.err" &
+launch_runner=$!
+sleep 0.1
+kill -TERM "$launch_runner"
+wait "$launch_runner"
+status=$?
+set -e
+[[ "$status" -eq 143 ]]
+test ! -e "$fixture/mutated"
+
+set +e
+"$runner" --seconds 1 --grace-seconds 1 -- \
+  "$fixture/hang" "$fixture/process-group" "$fixture/descendant" \
+  >"$fixture/timeout.out" 2>"$fixture/timeout.err"
+status=$?
+set -e
+[[ "$status" -eq 124 ]]
+grep -qF '1s hard deadline reached' "$fixture/timeout.err"
+process_group="$(<"$fixture/process-group")"
+assert_process_group_gone "$process_group"
+rm -f "$fixture/process-group" "$fixture/descendant"
+
+set +e
+"$runner" --seconds 30 --grace-seconds 1 -- \
+  "$fixture/hang" "$fixture/owner-death-group" "$fixture/owner-death-descendant" \
+  >"$fixture/owner-death.out" 2>"$fixture/owner-death.err" &
+owner_runner=$!
+set -e
+wait_for_file "$fixture/owner-death-group"
+kill -KILL "$owner_runner"
+set +e
+wait "$owner_runner"
+status=$?
+set -e
+[[ "$status" -eq 137 ]]
+owner_death_group="$(<"$fixture/owner-death-group")"
+wait_for_process_group_gone "$owner_death_group"
+grep -qF 'outer owner disappeared; cancelling validator process group' \
+  "$fixture/owner-death.err"
+rm -f "$fixture/owner-death-group" "$fixture/owner-death-descendant"
+
+cat >"$fixture/nested-runner" <<'SH'
+#!/usr/bin/env bash
+exec "$1" --seconds 30 --grace-seconds 1 -- "$2" "$3" "$4"
+SH
+chmod +x "$fixture/nested-runner"
+nested_started="$SECONDS"
+set +e
+"$runner" --seconds 1 --grace-seconds 1 -- \
+  "$fixture/nested-runner" "$runner" "$fixture/hang" \
+  "$fixture/nested-group" "$fixture/nested-descendant" \
+  >"$fixture/nested.out" 2>"$fixture/nested.err"
+status=$?
+set -e
+[[ "$status" -eq 124 ]]
+grep -qF '1s hard deadline reached' "$fixture/nested.err"
+wait_for_file "$fixture/nested-group"
+nested_group="$(<"$fixture/nested-group")"
+wait_for_process_group_gone "$nested_group"
+nested_elapsed=$((SECONDS - nested_started))
+[[ "$nested_elapsed" -le 4 ]]
+rm -f "$fixture/nested-group" "$fixture/nested-descendant"
+
+set +e
+"$runner" --seconds 5 --grace-seconds 1 -- \
+  "$fixture/orphan" "$fixture/process-group" "$fixture/descendant" \
+  >"$fixture/orphan.out" 2>"$fixture/orphan.err"
+status=$?
+set -e
+[[ "$status" -eq 70 ]]
+grep -qF 'successful child left a process-group member' "$fixture/orphan.err"
+process_group="$(<"$fixture/process-group")"
+assert_process_group_gone "$process_group"
+rm -f "$fixture/process-group" "$fixture/descendant"
+
+set +e
+"$runner" --seconds 5 --grace-seconds 1 -- \
+  "$fixture/fail-orphan" "$fixture/process-group" "$fixture/descendant" \
+  >"$fixture/fail-orphan.out" 2>"$fixture/fail-orphan.err"
+status=$?
+set -e
+[[ "$status" -eq 3 ]]
+grep -qF 'preserving original child status 3' "$fixture/fail-orphan.err"
+process_group="$(<"$fixture/process-group")"
+assert_process_group_gone "$process_group"
+rm -f "$fixture/process-group" "$fixture/descendant"
+
+set +e
+python3 - "$runner" "$fixture/fail-orphan" "$fixture/process-group" \
+  "$fixture/descendant" <<'PY' \
+  >"$fixture/unconfirmed.out" 2>"$fixture/unconfirmed.err"
+import importlib.util
+from importlib.machinery import SourceFileLoader
+import os
+import signal
+import sys
+
+loader = SourceFileLoader("deadline_runner", sys.argv[1])
+spec = importlib.util.spec_from_loader("deadline_runner", loader)
+module = importlib.util.module_from_spec(spec)
+loader.exec_module(module)
+
+def unconfirmed(process, process_group, status_channel, grace_seconds):
+    del status_channel, grace_seconds
+    try:
+        os.killpg(process_group, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    module.wait_for_group_absence(process, process_group, 1)
+    return False
+
+raise SystemExit(module.run(5, 1, sys.argv[2:], stop_group_fn=unconfirmed))
+PY
+status=$?
+set -e
+[[ "$status" -eq 125 ]]
+grep -qF 'original child status: 3' "$fixture/unconfirmed.err"
+rm -f "$fixture/process-group" "$fixture/descendant"
+
+cat >"$fixture/mark-group" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$1"
+SH
+chmod +x "$fixture/mark-group"
+set +e
+python3 - "$runner" "$fixture/mark-group" "$fixture/release-refused-group" <<'PY' \
+  >"$fixture/release-refused.out" 2>"$fixture/release-refused.err"
+import importlib.util
+from importlib.machinery import SourceFileLoader
+import sys
+
+loader = SourceFileLoader("deadline_runner_release_refused", sys.argv[1])
+spec = importlib.util.spec_from_loader("deadline_runner_release_refused", loader)
+module = importlib.util.module_from_spec(spec)
+loader.exec_module(module)
+
+def refuse_release(process):
+    del process
+    return False, False
+
+raise SystemExit(module.run(5, 1, sys.argv[2:], release_supervisor_fn=refuse_release))
+PY
+status=$?
+set -e
+[[ "$status" -eq 125 ]]
+grep -qF 'original child status: 0' "$fixture/release-refused.err"
+release_refused_group="$(<"$fixture/release-refused-group")"
+assert_process_group_gone "$release_refused_group"
+rm -f "$fixture/release-refused-group"
+
+set +e
+python3 - "$runner" "$fixture/status-channel-exception-group" <<'PY' \
+  >"$fixture/status-channel-exception.out" 2>"$fixture/status-channel-exception.err"
+import importlib.util
+from importlib.machinery import SourceFileLoader
+import pathlib
+import sys
+
+loader = SourceFileLoader("deadline_runner_status_channel_exception", sys.argv[1])
+spec = importlib.util.spec_from_loader("deadline_runner_status_channel_exception", loader)
+module = importlib.util.module_from_spec(spec)
+loader.exec_module(module)
+real_popen = module.subprocess.Popen
+
+def recording_popen(*args, **kwargs):
+    process = real_popen(*args, **kwargs)
+    pathlib.Path(sys.argv[2]).write_text(f"{process.pid}\n", encoding="utf-8")
+    return process
+
+class BrokenStatusChannel:
+    def __init__(self, descriptor):
+        del descriptor
+        raise OSError("injected status-channel setup failure")
+
+module.subprocess.Popen = recording_popen
+module.StatusChannel = BrokenStatusChannel
+raise SystemExit(module.run(5, 1, ["/usr/bin/env", "bash", "-c", "sleep 30"]))
+PY
+status=$?
+set -e
+[[ "$status" -eq 125 ]]
+grep -qF 'injected status-channel setup failure' "$fixture/status-channel-exception.err"
+status_channel_exception_group="$(<"$fixture/status-channel-exception-group")"
+assert_process_group_gone "$status_channel_exception_group"
+rm -f "$fixture/status-channel-exception-group"
+
+echo "ok: validation deadline is bounded and removes hostile process groups"

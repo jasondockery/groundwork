@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+# Run one canonical validator suite and publish a final, authoritative CI job receipt.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/run-validation-job --suite <name> --detail-output <path>
+       --job-output <path> --summary <path> --job-budget-seconds <seconds>
+       --workflow-safety-timeout-seconds <seconds>
+       --job-started-epoch <epoch> [--validation-deadline-seconds <seconds>]
+       [--with-cask-audit]
+EOF
+}
+
+suite=""
+detail_output=""
+job_output=""
+summary=""
+job_budget_seconds=""
+workflow_safety_timeout_seconds=""
+job_started_epoch=""
+validation_deadline_seconds=""
+with_cask_audit=0
+while (($#)); do
+  case "$1" in
+    --suite | --detail-output | --job-output | --summary | --job-budget-seconds | \
+      --workflow-safety-timeout-seconds | --job-started-epoch | --validation-deadline-seconds)
+      [[ $# -ge 2 && -n "${2:-}" ]] || {
+        usage >&2
+        exit 64
+      }
+      key="${1#--}"
+      key="${key//-/_}"
+      printf -v "$key" '%s' "$2"
+      shift 2
+      ;;
+    --with-cask-audit)
+      with_cask_audit=1
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+for required in suite detail_output job_output summary job_budget_seconds \
+  workflow_safety_timeout_seconds job_started_epoch; do
+  [[ -n "${!required}" ]] || {
+    printf 'run-validation-job: --%s is required\n' "${required//_/-}" >&2
+    exit 64
+  }
+done
+case "$suite" in
+  static | update | docker | platform-macos | full) ;;
+  *)
+    echo "run-validation-job: unknown suite: $suite" >&2
+    exit 64
+    ;;
+esac
+[[ "$job_budget_seconds" =~ ^[0-9]+$ && "$job_budget_seconds" -gt 0 ]] || {
+  echo "run-validation-job: --job-budget-seconds must be a positive integer" >&2
+  exit 64
+}
+[[ "$workflow_safety_timeout_seconds" =~ ^[0-9]+$ && "$workflow_safety_timeout_seconds" -gt 0 ]] || {
+  echo "run-validation-job: --workflow-safety-timeout-seconds must be a positive integer" >&2
+  exit 64
+}
+[[ "$job_started_epoch" =~ ^[0-9]+$ && "$job_started_epoch" -gt 0 ]] || {
+  echo "run-validation-job: --job-started-epoch must be a positive epoch" >&2
+  exit 64
+}
+if [[ -n "$validation_deadline_seconds" ]]; then
+  [[ "$validation_deadline_seconds" =~ ^[1-9][0-9]*$ ]] || {
+    echo "run-validation-job: --validation-deadline-seconds must be a positive integer" >&2
+    exit 64
+  }
+fi
+for output_path in "$detail_output" "$job_output" "$summary"; do
+  [[ -d "$(dirname "$output_path")" ]] || {
+    echo "run-validation-job: output parent does not exist: $(dirname "$output_path")" >&2
+    exit 64
+  }
+done
+
+case "$suite" in
+  static)
+    title="Static validation"
+    scope="source, rendered profiles, documentation, and repository policy"
+    proof_type="focused deterministic and rendered-artifact job proof"
+    ;;
+  update)
+    title="Update contracts"
+    scope="update orchestration and package-manager maintenance"
+    proof_type="focused real-clock and process-lifecycle job proof"
+    ;;
+  docker)
+    title="Docker contracts"
+    scope="Docker ownership, cleanup, and image verification"
+    proof_type="focused exact-resource lifecycle job proof"
+    ;;
+  platform-macos)
+    title="Platform macOS"
+    scope="tmux, PTY, BSD primitives, Homebrew processes, and cask integrity"
+    proof_type="focused native macOS job proof"
+    ;;
+  full)
+    title="Full validation"
+    scope="every canonical Groundwork suite in isolated subprocesses"
+    proof_type="complete single-platform validator job proof"
+    ;;
+esac
+
+phase_file="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/groundwork-validation-phases.XXXXXX")"
+fact_file="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/groundwork-validation-facts.XXXXXX")"
+# shellcheck disable=SC2329 # Invoked by the EXIT trap below.
+cleanup_temporary_receipt_inputs() {
+  rm -f -- "$phase_file" "$fact_file"
+}
+trap cleanup_temporary_receipt_inputs EXIT
+validation_started_epoch="$(date +%s)"
+printf 'Checkout and setup\t%s\tpassed\t\n' "$((validation_started_epoch - job_started_epoch))" >"$phase_file"
+
+validation_status=0
+validation_arguments=(--suite "$suite" --report "$detail_output")
+if [[ -n "$validation_deadline_seconds" ]]; then
+  validation_arguments+=(--deadline-seconds "$validation_deadline_seconds")
+fi
+GROUNDWORK_SUPPRESS_SUMMARY=1 scripts/validate-groundwork \
+  "${validation_arguments[@]}" || validation_status=$?
+validator_status="$validation_status"
+validation_finished_epoch="$(date +%s)"
+validation_result=passed
+[[ "$validation_status" -eq 0 ]] || validation_result=failed
+printf 'Validator suite\t%s\t%s\t\n' \
+  "$((validation_finished_epoch - validation_started_epoch))" "$validation_result" >>"$phase_file"
+
+cask_result=not-requested
+if [[ "$with_cask_audit" -eq 1 ]]; then
+  cask_started_epoch="$(date +%s)"
+  if [[ "$validation_status" -ne 0 ]]; then
+    cask_result=skipped
+    printf 'Homebrew cask integrity\t0\tskipped\tvalidator did not pass\n' >>"$phase_file"
+  elif scripts/audit-brew-casks; then
+    cask_result=passed
+    printf 'Homebrew cask integrity\t%s\tpassed\t\n' \
+      "$(($(date +%s) - cask_started_epoch))" >>"$phase_file"
+  else
+    cask_result=failed
+    validation_status=1
+    printf 'Homebrew cask integrity\t%s\tfailed\t\n' \
+      "$(($(date +%s) - cask_started_epoch))" >>"$phase_file"
+  fi
+fi
+
+detail_result=missing
+detail_counts=unavailable
+detail_failed_count=unavailable
+detail_parse_failure="detail receipt was not produced"
+detail_consistency_failure=""
+detail_valid=0
+if [[ -f "$detail_output" ]]; then
+  detail_parse_output="$(
+    python3 - "$detail_output" <<'PY'
+import json
+import sys
+
+sys.path.insert(0, "scripts")
+from ci_receipt import ReceiptError, validate_receipt
+
+
+def bounded_reason(error: Exception) -> str:
+    reason = " ".join(str(error).split())
+    reason = "".join(character if ord(character) >= 32 else "?" for character in reason)
+    return (reason or error.__class__.__name__)[:240]
+
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as source:
+        receipt = validate_receipt(json.load(source), expected_kind="validation-suite")
+except (OSError, UnicodeError, json.JSONDecodeError, ReceiptError, TypeError, ValueError) as error:
+    print(f"unreadable\tunavailable\tunavailable\t{bounded_reason(error)}")
+else:
+    body = receipt["body"]
+    print(
+        receipt["result"],
+        f"{body['passedCount']} passed, {body['skippedCount']} skipped, {body['failedCount']} failed",
+        body["failedCount"],
+        "",
+        sep="\t",
+    )
+PY
+  )" || detail_parse_output=$'unreadable\tunavailable\tunavailable\tdetail parser could not run'
+  IFS=$'\t' read -r detail_result detail_counts detail_failed_count detail_parse_failure \
+    <<<"$detail_parse_output" || true
+  case "$detail_result" in
+    passed)
+      detail_valid=1
+      detail_parse_failure=""
+      ;;
+    failed | cancelled | skipped)
+      detail_valid=1
+      detail_parse_failure=""
+      validation_status=1
+      ;;
+    unreadable)
+      validation_status=1
+      ;;
+    *)
+      detail_result=unreadable
+      detail_counts=unavailable
+      detail_failed_count=unavailable
+      detail_parse_failure="detail parser returned invalid output"
+      validation_status=1
+      ;;
+  esac
+fi
+if [[ "$detail_valid" -eq 1 ]]; then
+  if [[ "$validator_status" -eq 0 && "$detail_result" == passed && "$detail_failed_count" -eq 0 ]]; then
+    :
+  elif [[ "$validator_status" -ne 0 && "$detail_result" == failed && "$detail_failed_count" -gt 0 ]]; then
+    :
+  else
+    detail_consistency_failure="validator exit $validator_status is inconsistent with detail result $detail_result and failedCount $detail_failed_count"
+    validation_status=1
+  fi
+fi
+if [[ "$detail_valid" -eq 1 && -z "$detail_consistency_failure" ]]; then
+  printf 'Validation detail receipt\t0\tpassed\t\n' >>"$phase_file"
+else
+  validation_status=1
+  printf 'Validation detail receipt\t0\tfailed\t%s\n' \
+    "${detail_consistency_failure:-$detail_parse_failure}" >>"$phase_file"
+fi
+{
+  printf 'Suite\t%s\n' "$suite"
+  printf 'Validation detail\t%s\n' "$detail_result"
+  printf 'Check results\t%s\n' "$detail_counts"
+  printf 'Validator status\t%s\n' "$validator_status"
+  if [[ -n "$detail_consistency_failure" ]]; then
+    printf 'Receipt consistency failure\t%s\n' "$detail_consistency_failure"
+  elif [[ "$detail_valid" -ne 1 ]]; then
+    printf 'Receipt parse failure\t%s\n' "$detail_parse_failure"
+  fi
+  printf 'Cask integrity\t%s\n' "$cask_result"
+  if [[ -n "$validation_deadline_seconds" ]]; then
+    printf 'Validator hard deadline\t%ss plus bounded cleanup\n' "$validation_deadline_seconds"
+  fi
+} >"$fact_file"
+
+result=passed
+[[ "$validation_status" -eq 0 ]] || result=failed
+writer_arguments=(
+  --output "$job_output"
+  --summary "$summary"
+  --receipt-kind ci-job
+  --title "$title"
+  --result "$result"
+  --scope "$scope"
+  --platform-os "$([[ "$(uname -s)" == Darwin ]] && printf macos || printf linux)"
+  --platform-image "${ImageOS:-local}"
+  --platform-arch "${RUNNER_ARCH:-$(uname -m)}"
+  --job-budget-seconds "$job_budget_seconds"
+  --workflow-safety-timeout-seconds "$workflow_safety_timeout_seconds"
+  --started-epoch "$job_started_epoch"
+  --phase-file "$phase_file"
+  --fact-file "$fact_file"
+  --proof-type "$proof_type"
+  --cache-state unavailable
+  --local-equivalent "scripts/validate-groundwork --suite $suite --report <path>${validation_deadline_seconds:+ --deadline-seconds $validation_deadline_seconds}"
+)
+if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
+  writer_arguments+=(--inspect "gh run view $GITHUB_RUN_ID")
+fi
+if [[ "$detail_valid" -eq 1 ]]; then
+  writer_arguments+=(--detail-file "$detail_output")
+fi
+scripts/write-ci-receipt "${writer_arguments[@]}"
+exit "$validation_status"

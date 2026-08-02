@@ -1,0 +1,794 @@
+#!/usr/bin/env python3
+"""Focused hostile-input and atomicity tests for Groundwork receipt plumbing."""
+
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import tempfile
+import time
+
+import ci_receipt
+from ci_receipt import ReceiptError, common_envelope, tree_snapshot, validate_receipt
+
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+WRITER = REPO / "scripts" / "write-ci-receipt"
+
+
+def run(arguments: list[str], *, workspace: pathlib.Path) -> subprocess.CompletedProcess[str]:
+    environment = {**os.environ, "GITHUB_WORKSPACE": str(workspace)}
+    return subprocess.run(
+        [str(WRITER), *arguments],
+        cwd=REPO,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def base_arguments(output: pathlib.Path, phase: pathlib.Path, facts: pathlib.Path) -> list[str]:
+    return [
+        "--output",
+        str(output),
+        "--title",
+        "Docker | `image`",
+        "--result",
+        "passed",
+        "--scope",
+        "container build and smoke",
+        "--platform-os",
+        "linux",
+        "--platform-image",
+        "ubuntu-24.04",
+        "--platform-arch",
+        "X64",
+        "--job-budget-seconds",
+        "30",
+        "--workflow-safety-timeout-seconds",
+        "60",
+        "--started-epoch",
+        "100",
+        "--finished-epoch",
+        "112",
+        "--phase-file",
+        str(phase),
+        "--fact-file",
+        str(facts),
+        "--proof-type",
+        "fixture proof",
+        "--cache-state",
+        "unavailable",
+        "--local-equivalent",
+        "scripts/verify-docker-image | tee output",
+    ]
+
+
+def replace_argument(arguments: list[str], option: str, value: str) -> list[str]:
+    updated = list(arguments)
+    index = updated.index(option)
+    updated[index + 1] = value
+    return updated
+
+
+def initialize_repo(path: pathlib.Path) -> None:
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.name", "CI"], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "ci@example.com"], check=True)
+    (path / "tracked.txt").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "tracked.txt"], check=True)
+    subprocess.run(["git", "-C", str(path), "commit", "-qm", "fixture"], check=True)
+
+
+def assert_rejected(arguments: list[str], output: pathlib.Path, workspace: pathlib.Path) -> None:
+    try:
+        output.unlink()
+    except FileNotFoundError:
+        pass
+    completed = run(arguments, workspace=workspace)
+    assert completed.returncode != 0, completed
+    assert not output.exists(), f"invalid invocation mutated {output}"
+
+
+def assert_malformed_detail_still_writes_job_receipt(temporary: pathlib.Path) -> None:
+    workspace = temporary / "malformed-detail-workspace"
+    scripts = workspace / "scripts"
+    scripts.mkdir(parents=True)
+    for name in ("run-validation-job", "write-ci-receipt", "ci_receipt.py"):
+        shutil.copy2(REPO / "scripts" / name, scripts / name)
+    (scripts / "validate-groundwork").write_text(
+        """#!/usr/bin/env bash
+report=''
+while (($#)); do
+  case "$1" in
+    --report) report="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '{not json}\\n' >"$report"
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (scripts / "validate-groundwork").chmod(0o755)
+    initialize_repo(workspace)
+    subprocess.run(["git", "-C", str(workspace), "add", "scripts"], check=True)
+    subprocess.run(["git", "-C", str(workspace), "commit", "-qm", "add fixture scripts"], check=True)
+
+    outputs = temporary / "malformed-detail-outputs"
+    outputs.mkdir()
+    detail = outputs / "detail.json"
+    job = outputs / "job.json"
+    summary = outputs / "summary.md"
+    environment = {
+        **os.environ,
+        "GITHUB_WORKSPACE": str(workspace),
+        "GITHUB_WORKFLOW": "fixture workflow",
+        "GITHUB_JOB": "fixture_job",
+    }
+    completed = subprocess.run(
+        [
+            str(scripts / "run-validation-job"),
+            "--suite",
+            "static",
+            "--detail-output",
+            str(detail),
+            "--job-output",
+            str(job),
+            "--summary",
+            str(summary),
+            "--job-budget-seconds",
+            "30",
+            "--workflow-safety-timeout-seconds",
+            "60",
+            "--job-started-epoch",
+            str(int(time.time()) - 1),
+        ],
+        cwd=workspace,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert completed.returncode == 1, completed.stderr
+    receipt = validate_receipt(json.loads(job.read_text(encoding="utf-8")), expected_kind="ci-job")
+    assert receipt["result"] == "failed"
+    assert receipt["body"]["validationDetails"] == []
+    assert receipt["body"]["facts"]["Validation detail"] == "unreadable"
+    assert receipt["body"]["facts"]["Validator status"] == "0"
+    assert receipt["body"]["facts"]["Receipt parse failure"]
+    assert any(
+        phase["name"] == "Validation detail receipt" and phase["result"] == "failed"
+        for phase in receipt["body"]["phases"]
+    )
+
+
+def assert_validator_detail_mismatches_fail_closed(temporary: pathlib.Path) -> None:
+    workspace = temporary / "detail-mismatch-workspace"
+    scripts = workspace / "scripts"
+    scripts.mkdir(parents=True)
+    for name in ("run-validation-job", "write-ci-receipt", "ci_receipt.py"):
+        shutil.copy2(REPO / "scripts" / name, scripts / name)
+    (scripts / "validate-groundwork").write_text(
+        """#!/usr/bin/env bash
+report=''
+while (($#)); do
+  case "$1" in
+    --report) report="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+cp "$GROUNDWORK_TEST_DETAIL_SOURCE" "$report"
+exit "$GROUNDWORK_TEST_VALIDATOR_STATUS"
+""",
+        encoding="utf-8",
+    )
+    (scripts / "validate-groundwork").chmod(0o755)
+    initialize_repo(workspace)
+    subprocess.run(["git", "-C", str(workspace), "add", "scripts"], check=True)
+    subprocess.run(["git", "-C", str(workspace), "commit", "-qm", "add fixture scripts"], check=True)
+    snapshot = tree_snapshot(workspace)
+    base_environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("GITHUB_") and key != "GROUNDWORK_HEAD_SHA"
+    }
+    environment = {
+        **base_environment,
+        "GITHUB_WORKSPACE": str(workspace),
+        "GITHUB_WORKFLOW": "fixture workflow",
+        "GITHUB_JOB": "fixture_job",
+    }
+    platform_os = "macos" if os.uname().sysname == "Darwin" else "linux"
+    platform_arch = environment.get("RUNNER_ARCH", os.uname().machine)
+
+    def detail(result: str) -> dict:
+        failed = result == "failed"
+        payload = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result=result,
+            started_epoch=100,
+            finished_epoch=101,
+            platform_os=platform_os,
+            platform_image="local",
+            platform_arch=platform_arch,
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+        payload.update({
+            "workflow": "fixture workflow",
+            "job": "fixture_job",
+            "runId": None,
+            "runAttempt": None,
+            "event": None,
+            "ref": None,
+            "testedSha": snapshot["baseHead"],
+            "headSha": None,
+        })
+        payload["body"] = {
+            "suite": "static",
+            "scope": "fixture",
+            "proofType": "fixture",
+            "cacheState": "unavailable",
+            "suiteDurationSeconds": 1,
+            "suiteBudgetSeconds": 30,
+            "suiteBudgetState": "within",
+            "hardDeadlineSeconds": 540,
+            "checkCount": 1,
+            "passedCount": 0 if failed else 1,
+            "skippedCount": 0,
+            "failedCount": 1 if failed else 0,
+            "checks": [{
+                "name": "fixture check",
+                "durationSeconds": 1,
+                "result": "failed" if failed else "passed",
+            }],
+            "commands": {"localEquivalent": "fixture"},
+        }
+        return validate_receipt(payload, expected_kind="validation-suite")
+
+    for name, validator_status, detail_result in (
+        ("zero-with-failed-detail", 0, "failed"),
+        ("nonzero-with-passed-detail", 7, "passed"),
+    ):
+        outputs = temporary / name
+        outputs.mkdir()
+        detail_source = outputs / "source-detail.json"
+        detail_source.write_text(f"{json.dumps(detail(detail_result))}\n", encoding="utf-8")
+        detail_output = outputs / "detail.json"
+        job_output = outputs / "job.json"
+        summary = outputs / "summary.md"
+        completed = subprocess.run(
+            [
+                str(scripts / "run-validation-job"),
+                "--suite", "static",
+                "--detail-output", str(detail_output),
+                "--job-output", str(job_output),
+                "--summary", str(summary),
+                "--job-budget-seconds", "30",
+                "--workflow-safety-timeout-seconds", "60",
+                "--job-started-epoch", str(int(time.time()) - 1),
+            ],
+            cwd=workspace,
+            env={
+                **environment,
+                "GROUNDWORK_TEST_DETAIL_SOURCE": str(detail_source),
+                "GROUNDWORK_TEST_VALIDATOR_STATUS": str(validator_status),
+            },
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert completed.returncode == 1, (name, completed.stderr)
+        receipt = validate_receipt(
+            json.loads(job_output.read_text(encoding="utf-8")),
+            expected_kind="ci-job",
+        )
+        assert receipt["result"] == "failed"
+        assert receipt["body"]["facts"]["Receipt consistency failure"]
+        assert any(
+            phase["name"] == "Validation detail receipt" and phase["result"] == "failed"
+            for phase in receipt["body"]["phases"]
+        )
+
+
+def assert_validation_source_transactions(temporary: pathlib.Path) -> None:
+    for mode in ("mutated", "unavailable-final"):
+        workspace = temporary / f"source-transaction-{mode}"
+        scripts = workspace / "scripts"
+        scripts.mkdir(parents=True)
+        for name in ("run-validation-job", "write-ci-receipt", "ci_receipt.py"):
+            shutil.copy2(REPO / "scripts" / name, scripts / name)
+        (scripts / "validate-groundwork").write_text(
+            """#!/usr/bin/env python3
+import argparse
+import pathlib
+import sys
+
+sys.path.insert(0, "scripts")
+from ci_receipt import atomic_write_json, common_envelope, tree_snapshot
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--suite")
+parser.add_argument("--report", required=True)
+parser.add_argument("--deadline-seconds")
+arguments = parser.parse_args()
+repo = pathlib.Path.cwd()
+before = tree_snapshot(repo)
+mode = pathlib.Path("fixture-mode").read_text(encoding="utf-8").strip()
+after = None
+complete = mode == "mutated"
+if complete:
+    pathlib.Path("tracked.txt").write_text("changed by validator\\n", encoding="utf-8")
+    after = tree_snapshot(repo)
+payload = common_envelope(
+    repo=repo,
+    receipt_kind="validation-suite",
+    result="failed",
+    started_epoch=100,
+    finished_epoch=101,
+    platform_os="macos" if sys.platform == "darwin" else "linux",
+    platform_image="local",
+    platform_arch="fixture",
+    source_before=before,
+    source_after=after,
+    tree_observation_complete=complete,
+)
+payload["body"] = {
+    "suite": arguments.suite,
+    "scope": "source transaction fixture",
+    "proofType": "real validation job fixture",
+    "cacheState": "unavailable",
+    "suiteDurationSeconds": 1,
+    "suiteBudgetSeconds": 30,
+    "suiteBudgetState": "within",
+    "hardDeadlineSeconds": int(arguments.deadline_seconds or 540),
+    "checkCount": 1,
+    "passedCount": 0,
+    "skippedCount": 0,
+    "failedCount": 1,
+    "checks": [{"name": "fixture failure", "durationSeconds": 1, "result": "failed"}],
+    "commands": {"localEquivalent": "fixture"},
+}
+atomic_write_json(pathlib.Path(arguments.report), payload)
+raise SystemExit(1)
+""",
+            encoding="utf-8",
+        )
+        (scripts / "validate-groundwork").chmod(0o755)
+        initialize_repo(workspace)
+        (workspace / "fixture-mode").write_text(f"{mode}\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(workspace), "add", "scripts", "fixture-mode"], check=True)
+        subprocess.run(["git", "-C", str(workspace), "commit", "-qm", "add validator fixture"], check=True)
+
+        outputs = temporary / f"source-transaction-{mode}-outputs"
+        outputs.mkdir()
+        detail_path = outputs / "detail.json"
+        job_path = outputs / "job.json"
+        completed = subprocess.run(
+            [
+                str(scripts / "run-validation-job"),
+                "--suite", "static",
+                "--detail-output", str(detail_path),
+                "--job-output", str(job_path),
+                "--summary", str(outputs / "summary.md"),
+                "--job-budget-seconds", "30",
+                "--workflow-safety-timeout-seconds", "600",
+                "--validation-deadline-seconds", "540",
+                "--job-started-epoch", str(int(time.time()) - 1),
+            ],
+            cwd=workspace,
+            env={
+                **os.environ,
+                "GITHUB_WORKSPACE": str(workspace),
+                "GITHUB_WORKFLOW": "fixture workflow",
+                "GITHUB_JOB": "fixture_job",
+            },
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert completed.returncode == 1, (mode, completed.stderr)
+        detail = validate_receipt(
+            json.loads(detail_path.read_text(encoding="utf-8")),
+            expected_kind="validation-suite",
+        )
+        job = validate_receipt(
+            json.loads(job_path.read_text(encoding="utf-8")),
+            expected_kind="ci-job",
+        )
+        assert job["result"] == "failed"
+        assert job["source"]["treeFingerprint"] == detail["source"]["treeFingerprint"]
+        embedded = job["body"]["validationDetails"][0]
+        if mode == "mutated":
+            assert detail["source"]["treeFingerprintAfter"] != detail["source"]["treeFingerprint"]
+            assert job["source"]["treeFingerprintAfter"] == detail["source"]["treeFingerprintAfter"]
+            assert job["source"]["treeChangedDuringValidation"] is True
+        else:
+            assert embedded["source"]["treeFingerprintAfter"] is None
+            assert embedded["source"]["treeChangedDuringValidation"] is None
+            assert job["source"]["treeFingerprintAfter"] is not None
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="groundwork-receipt-test.") as temporary_name:
+        temporary = pathlib.Path(temporary_name)
+        workspace = temporary / "repo"
+        workspace.mkdir()
+        initialize_repo(workspace)
+        phase = temporary / "phases.tsv"
+        facts = temporary / "facts.tsv"
+        output = temporary / "receipt.json"
+        summary = temporary / "summary.md"
+        phase.write_text("build\t7\tpassed\t\nsmoke\t3\tpassed\t\n", encoding="utf-8")
+        facts.write_text("Cache\thit\nDigest\tsha256:abc | `quoted`\n", encoding="utf-8")
+
+        arguments = base_arguments(output, phase, facts) + ["--summary", str(summary)]
+        completed = run(arguments, workspace=workspace)
+        assert completed.returncode == 0, completed.stderr
+        receipt = validate_receipt(json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-job")
+        assert receipt["schema"] == "groundwork.ci-receipt"
+        assert receipt["body"]["cacheState"] == "unavailable"
+        assert receipt["body"]["jobDurationSeconds"] == 12
+        assert receipt["body"]["jobBudgetState"] == "within"
+        assert receipt["body"]["workflowSafetyTimeoutSeconds"] == 60
+        forged_zero_timeout = json.loads(json.dumps(receipt))
+        forged_zero_timeout["body"]["workflowSafetyTimeoutSeconds"] = 0
+        try:
+            validate_receipt(forged_zero_timeout, expected_kind="ci-job")
+        except ReceiptError:
+            pass
+        else:
+            raise AssertionError("the receipt schema accepted a zero workflow safety timeout")
+        assert receipt["body"]["phases"][0] == {
+            "name": "build",
+            "durationSeconds": 7,
+            "result": "passed",
+        }
+        assert receipt["body"]["facts"]["Cache"] == "hit"
+        rendered = summary.read_text(encoding="utf-8")
+        assert "## Docker | `image` · Passed" in rendered
+        assert "| build | 7s | passed |" in rendered
+        assert "sha256:abc \\| `quoted`" in rendered
+
+        output.write_text('{"stale":true}\n', encoding="utf-8")
+        completed = run(base_arguments(output, phase, facts), workspace=workspace)
+        assert completed.returncode == 0
+        assert "stale" not in json.loads(output.read_text(encoding="utf-8"))
+        assert not list(temporary.glob(f".{output.name}.tmp.*"))
+
+        summary_directory = temporary / "summary-is-directory"
+        summary_directory.mkdir()
+        completed = run(
+            base_arguments(output, phase, facts) + ["--summary", str(summary_directory)],
+            workspace=workspace,
+        )
+        assert completed.returncode == 0
+        assert "summary rendering failed" in completed.stderr
+        validate_receipt(json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-job")
+
+        invalid_cases: list[list[str]] = [
+            ["--output", str(output)],
+            replace_argument(base_arguments(output, phase, facts), "--result", "invalid"),
+            replace_argument(base_arguments(output, phase, facts), "--cache-state", "guess"),
+            replace_argument(base_arguments(output, phase, facts), "--job-budget-seconds", "-1"),
+            replace_argument(
+                base_arguments(output, phase, facts),
+                "--workflow-safety-timeout-seconds",
+                "0",
+            ),
+            replace_argument(
+                replace_argument(base_arguments(output, phase, facts), "--started-epoch", "200"),
+                "--finished-epoch",
+                "100",
+            ),
+            ["--unknown"],
+            ["unexpected"],
+        ]
+        for case in invalid_cases:
+            assert_rejected(case, output, workspace)
+
+        future_arguments = base_arguments(output, phase, facts)
+        finished_index = future_arguments.index("--finished-epoch")
+        del future_arguments[finished_index : finished_index + 2]
+        future_arguments = replace_argument(
+            future_arguments,
+            "--started-epoch",
+            str(int(time.time()) + 3600),
+        )
+        assert_rejected(future_arguments, output, workspace)
+
+        missing_parent = temporary / "missing" / "receipt.json"
+        assert_rejected(base_arguments(missing_parent, phase, facts), missing_parent, workspace)
+
+        malformed_phase = temporary / "bad-phase.tsv"
+        malformed_phase.write_text("bad\t-1\tpassed\t\n", encoding="utf-8")
+        assert_rejected(base_arguments(output, malformed_phase, facts), output, workspace)
+        malformed_phase.write_text("skipped\t0\tskipped\t\n", encoding="utf-8")
+        assert_rejected(base_arguments(output, malformed_phase, facts), output, workspace)
+        malformed_phase.write_text("one\t1\tpassed\nforged\n", encoding="utf-8")
+        assert_rejected(base_arguments(output, malformed_phase, facts), output, workspace)
+
+        bad_facts = temporary / "bad-facts.tsv"
+        bad_facts.write_text("Duplicate\tone\nDuplicate\ttwo\n", encoding="utf-8")
+        assert_rejected(base_arguments(output, phase, bad_facts), output, workspace)
+        bad_facts.write_bytes(b"Escape\tvalue\x1b[31m\n")
+        assert_rejected(base_arguments(output, phase, bad_facts), output, workspace)
+        bad_facts.write_text("Multiline\tfirst\nsecond\n", encoding="utf-8")
+        assert_rejected(base_arguments(output, phase, bad_facts), output, workspace)
+
+        output_directory = temporary / "output-is-directory"
+        output_directory.mkdir()
+        completed = run(base_arguments(output_directory, phase, facts), workspace=workspace)
+        assert completed.returncode != 0
+        assert not list(temporary.glob(f".{output_directory.name}.tmp.*"))
+
+        clean = tree_snapshot(workspace)
+        (workspace / "tracked.txt").write_text("staged\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(workspace), "add", "tracked.txt"], check=True)
+        staged = tree_snapshot(workspace)
+        assert staged["workingTree"]["staged"] is True
+        assert staged["treeFingerprint"] != clean["treeFingerprint"]
+        (workspace / "tracked.txt").write_text("unstaged\n", encoding="utf-8")
+        (workspace / "untracked.txt").write_text("untracked\n", encoding="utf-8")
+        dirty = tree_snapshot(workspace)
+        assert dirty["workingTree"]["unstaged"] is True
+        assert dirty["workingTree"]["untrackedPathCount"] == 1
+        assert dirty["treeFingerprint"] not in {clean["treeFingerprint"], staged["treeFingerprint"]}
+
+        identity_repo = temporary / "identity-repo"
+        identity_repo.mkdir()
+        initialize_repo(identity_repo)
+        identity_clean = tree_snapshot(identity_repo)
+        (identity_repo / "link").symlink_to("tracked.txt")
+        assert tree_snapshot(identity_repo)["treeFingerprint"] != identity_clean["treeFingerprint"]
+        (identity_repo / "link").unlink()
+        (identity_repo / "binary.bin").write_bytes(b"\x00\xffstaged\x00")
+        subprocess.run(["git", "-C", str(identity_repo), "add", "binary.bin"], check=True)
+        staged_binary = tree_snapshot(identity_repo)
+        assert staged_binary["treeFingerprint"] != identity_clean["treeFingerprint"]
+        (identity_repo / "tracked.txt").unlink()
+        deleted = tree_snapshot(identity_repo)
+        assert deleted["treeFingerprint"] != staged_binary["treeFingerprint"]
+        (identity_repo / "nested").mkdir()
+        (identity_repo / "nested" / "untracked.txt").write_text("nested\n", encoding="utf-8")
+        assert tree_snapshot(identity_repo)["workingTree"]["untrackedPathCount"] == 1
+
+        sparse = identity_repo / "large-sparse.bin"
+        with sparse.open("wb") as output_file:
+            output_file.truncate(4096)
+        try:
+            tree_snapshot(identity_repo, content_byte_limit=1024)
+        except ReceiptError as error:
+            assert "content exceeded" in str(error)
+        else:
+            raise AssertionError("an excessive sparse fingerprint input was accepted")
+        sparse.unlink()
+
+        (identity_repo / "second-untracked.txt").write_text("second\n", encoding="utf-8")
+        try:
+            tree_snapshot(identity_repo, path_limit=1)
+        except ReceiptError as error:
+            assert "path budget" in str(error)
+        else:
+            raise AssertionError("an excessive fingerprint path count was accepted")
+
+        try:
+            tree_snapshot(identity_repo, git_output_byte_limit=1)
+        except ReceiptError as error:
+            assert "Git fingerprint output exceeded" in str(error)
+        else:
+            raise AssertionError("an excessive Git-output fingerprint input was accepted")
+
+        fake_bin = temporary / "fake-git-bin"
+        fake_bin.mkdir()
+        fake_git = fake_bin / "git"
+        fake_git.write_text(
+            """#!/usr/bin/env bash
+case " $* " in
+  *" rev-parse --verify HEAD^{commit} "*) exec "$GROUNDWORK_TEST_REAL_GIT" "$@" ;;
+  *) exec sleep 5 ;;
+esac
+""",
+            encoding="utf-8",
+        )
+        fake_git.chmod(0o755)
+        previous_path = os.environ.get("PATH", "")
+        previous_real_git = os.environ.get("GROUNDWORK_TEST_REAL_GIT")
+        previous_git_timeout = ci_receipt.GIT_COMMAND_TIMEOUT_SECONDS
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{previous_path}"
+        os.environ["GROUNDWORK_TEST_REAL_GIT"] = shutil.which("git", path=previous_path) or "git"
+        ci_receipt.GIT_COMMAND_TIMEOUT_SECONDS = 0.1
+        try:
+            tree_snapshot(identity_repo)
+        except ReceiptError as error:
+            assert "timed out" in str(error)
+        else:
+            raise AssertionError("a stalled Git fingerprint subprocess was not time-bounded")
+        finally:
+            ci_receipt.GIT_COMMAND_TIMEOUT_SECONDS = previous_git_timeout
+            os.environ["PATH"] = previous_path
+            if previous_real_git is None:
+                os.environ.pop("GROUNDWORK_TEST_REAL_GIT", None)
+            else:
+                os.environ["GROUNDWORK_TEST_REAL_GIT"] = previous_real_git
+
+        (identity_repo / "node_modules").mkdir()
+        try:
+            tree_snapshot(identity_repo)
+        except ReceiptError as error:
+            assert "forbidden verification artifacts" in str(error)
+        else:
+            raise AssertionError("a forbidden dependency artifact was accepted")
+        (identity_repo / "node_modules").rmdir()
+        (identity_repo / ".pnpm-store").mkdir()
+        try:
+            tree_snapshot(identity_repo)
+        except ReceiptError as error:
+            assert ".pnpm-store" in str(error)
+        else:
+            raise AssertionError("a forbidden pnpm store artifact was accepted")
+
+        unborn_repo = temporary / "unborn-repo"
+        unborn_repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(unborn_repo)], check=True)
+        try:
+            tree_snapshot(unborn_repo)
+        except ReceiptError as error:
+            assert "resolve HEAD" in str(error)
+        else:
+            raise AssertionError("an unresolved HEAD was accepted as exact source identity")
+
+        envelope = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="failed",
+            started_epoch=100,
+            finished_epoch=101,
+            platform_os="linux",
+            platform_image="fixture",
+            platform_arch="x64",
+            source_before=staged,
+            source_after=dirty,
+        )
+        envelope["body"] = {
+            "suite": "static",
+            "scope": "fixture",
+            "proofType": "fixture",
+            "cacheState": "unavailable",
+            "suiteDurationSeconds": 1,
+            "suiteBudgetSeconds": 2,
+            "suiteBudgetState": "within",
+            "hardDeadlineSeconds": 540,
+            "checkCount": 1,
+            "passedCount": 0,
+            "skippedCount": 0,
+            "failedCount": 1,
+            "checks": [{"name": "tree stability", "durationSeconds": 1, "result": "failed"}],
+            "commands": {"localEquivalent": "fixture"},
+        }
+        validated = validate_receipt(envelope, expected_kind="validation-suite")
+        assert validated["source"]["treeChangedDuringValidation"] is True
+
+        unavailable_observation = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="failed",
+            started_epoch=100,
+            finished_epoch=101,
+            platform_os="linux",
+            platform_image="fixture",
+            platform_arch="x64",
+            source_before=dirty,
+            source_after=None,
+            tree_observation_complete=False,
+        )
+        unavailable_observation["body"] = dict(envelope["body"])
+        validated_unavailable = validate_receipt(
+            unavailable_observation,
+            expected_kind="validation-suite",
+        )
+        assert validated_unavailable["source"]["treeFingerprintAfter"] is None
+        assert validated_unavailable["source"]["treeChangedDuringValidation"] is None
+
+        skipped_envelope = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="passed",
+            started_epoch=100,
+            finished_epoch=102,
+            platform_os="linux",
+            platform_image="fixture",
+            platform_arch="x64",
+            source_before=dirty,
+            source_after=dirty,
+        )
+        skipped_envelope["body"] = {
+            "suite": "full",
+            "scope": "fixture",
+            "proofType": "fixture",
+            "cacheState": "unavailable",
+            "suiteDurationSeconds": 2,
+            "suiteBudgetSeconds": 3,
+            "suiteBudgetState": "within",
+            "hardDeadlineSeconds": 300,
+            "checkCount": 2,
+            "passedCount": 1,
+            "skippedCount": 1,
+            "failedCount": 0,
+            "checks": [
+                {"name": "portable check", "durationSeconds": 1, "result": "passed"},
+                {
+                    "name": "native check",
+                    "durationSeconds": 1,
+                    "result": "skipped",
+                    "skipCode": "requires-macos-native-host",
+                    "reason": "macOS native proof requires macOS",
+                },
+            ],
+            "commands": {"localEquivalent": "fixture"},
+        }
+        validated_skips = validate_receipt(skipped_envelope, expected_kind="validation-suite")
+        assert validated_skips["body"]["skippedCount"] == 1
+        missing_deadline = json.loads(json.dumps(skipped_envelope))
+        del missing_deadline["body"]["hardDeadlineSeconds"]
+        try:
+            validate_receipt(missing_deadline, expected_kind="validation-suite")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a validation receipt without its hard deadline was accepted")
+        missing_reason = json.loads(json.dumps(skipped_envelope))
+        del missing_reason["body"]["checks"][1]["reason"]
+        try:
+            validate_receipt(missing_reason, expected_kind="validation-suite")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a skipped check without a reason was accepted")
+        missing_skip_code = json.loads(json.dumps(skipped_envelope))
+        del missing_skip_code["body"]["checks"][1]["skipCode"]
+        try:
+            validate_receipt(missing_skip_code, expected_kind="validation-suite")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a skipped check without a structured skip code was accepted")
+        unexpected_skip_code = json.loads(json.dumps(skipped_envelope))
+        unexpected_skip_code["body"]["checks"][0]["skipCode"] = "requires-macos-native-host"
+        try:
+            validate_receipt(unexpected_skip_code, expected_kind="validation-suite")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a passed check with a skip code was accepted")
+
+        cancelled_check = json.loads(json.dumps(skipped_envelope))
+        cancelled_check["body"]["checks"][1] = {
+            "name": "native check",
+            "durationSeconds": 1,
+            "result": "cancelled",
+        }
+        cancelled_check["body"]["skippedCount"] = 0
+        try:
+            validate_receipt(cancelled_check, expected_kind="validation-suite")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a cancelled validation check was accepted")
+
+        assert_malformed_detail_still_writes_job_receipt(temporary)
+        assert_validator_detail_mismatches_fail_closed(temporary)
+        assert_validation_source_transactions(temporary)
+
+    print("test-ci-receipts: passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

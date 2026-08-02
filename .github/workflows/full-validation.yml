@@ -1,0 +1,176 @@
+name: Full validation
+
+run-name: >-
+  ${{ github.event_name == 'schedule'
+      && format('Full validation · nightly · tested {0}', github.sha)
+      || format('Full validation · {0} · tested {1}', github.ref_name, github.sha) }}
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A scheduled run must never cancel an owner-dispatched release proof.
+concurrency:
+  group: full-validation-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  GROUNDWORK_HEAD_SHA: ${{ github.sha }}
+
+jobs:
+  full_linux:
+    name: full-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Record job start
+        id: job-start
+        run: echo "epoch=$(date +%s)" >>"$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+
+      - name: Register shellcheck problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/shellcheck-gcc.json"
+
+      - name: Run complete Linux validation and publish final job receipt
+        env:
+          GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+        run: >-
+          scripts/run-validation-job --suite full
+          --detail-output "$RUNNER_TEMP/groundwork-detail-full-linux.json"
+          --job-output "$RUNNER_TEMP/groundwork-job-full-linux.json"
+          --summary "$GITHUB_STEP_SUMMARY"
+          --job-budget-seconds 2100
+          --workflow-safety-timeout-seconds 2700
+          --validation-deadline-seconds 2400
+          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+
+      - name: Upload Linux receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: groundwork-job-full-linux-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/groundwork-job-full-linux.json
+            ${{ runner.temp }}/groundwork-detail-full-linux.json
+          if-no-files-found: error
+          retention-days: 30
+
+  full_macos:
+    name: full-macos
+    runs-on: macos-26
+    timeout-minutes: 50
+    steps:
+      - name: Record job start
+        id: job-start
+        run: echo "epoch=$(date +%s)" >>"$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install validation tools
+        run: |
+          if brew tap | grep -qxF aws/tap; then
+            brew untap --force aws/tap
+          fi
+          brew install tmux chezmoi ripgrep jq
+
+      - name: Verify tmux feature floor
+        run: home/dot_local/bin/executable_tmux-copy-last --check-tmux-version
+
+      - name: Run complete macOS and cask validation, then publish final job receipt
+        env:
+          GROUNDWORK_REQUIRE_TMUX: "1"
+          GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+        run: >-
+          scripts/run-validation-job --suite full
+          --detail-output "$RUNNER_TEMP/groundwork-detail-full-macos.json"
+          --job-output "$RUNNER_TEMP/groundwork-job-full-macos.json"
+          --summary "$GITHUB_STEP_SUMMARY"
+          --job-budget-seconds 2100
+          --workflow-safety-timeout-seconds 3000
+          --validation-deadline-seconds 2400
+          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --with-cask-audit
+
+      - name: Upload macOS receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: groundwork-job-full-macos-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/groundwork-job-full-macos.json
+            ${{ runner.temp }}/groundwork-detail-full-macos.json
+          if-no-files-found: error
+          retention-days: 30
+
+  full_gate:
+    name: full-gate
+    if: ${{ always() }}
+    needs:
+      - full_linux
+      - full_macos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Record gate start
+        id: gate-start
+        run: echo "epoch=$(date +%s)" >>"$GITHUB_OUTPUT"
+
+      - name: Checkout receipt validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download full-validation job receipts
+        id: receipts
+        continue-on-error: true
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          pattern: groundwork-job-full-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/groundwork-full-receipts
+          merge-multiple: true
+
+      - name: Publish full-validation receipt
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RECEIPT_DOWNLOAD_OUTCOME: ${{ steps.receipts.outcome }}
+        run: >-
+          scripts/aggregate-ci-receipts --mode full
+          --needs-json "$NEEDS_JSON"
+          --download-outcome "$RECEIPT_DOWNLOAD_OUTCOME"
+          --receipt-directory "$RUNNER_TEMP/groundwork-full-receipts"
+          --output "$RUNNER_TEMP/groundwork-receipt-full-gate.json"
+          --summary "$GITHUB_STEP_SUMMARY"
+          --budget-seconds 2400
+          --started-epoch "${{ steps.gate-start.outputs.epoch }}"
+          --lane "full_linux|Full Linux|complete isolated suite composition|full|allow-platform"
+          --lane "full_macos|Full macOS|complete isolated suite composition and cask integrity|full|forbid"
+
+      - name: Upload aggregate full-validation receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: groundwork-receipt-full-gate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/groundwork-receipt-full-gate.json
+          if-no-files-found: error
+          retention-days: 30

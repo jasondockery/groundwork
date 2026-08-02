@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""Validate exact-run CI job receipts and publish one aggregate gate receipt."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import glob
+import json
+import os
+import pathlib
+import platform as host_platform
+import sys
+import time
+
+from ci_receipt import (
+    ReceiptError,
+    append_summary,
+    atomic_write_json,
+    common_envelope,
+    escape_table,
+    seconds_label,
+    tree_snapshot,
+    validate_receipt,
+    validate_text,
+)
+
+GITHUB_RESULTS = {
+    "success": "passed",
+    "failure": "failed",
+    "cancelled": "cancelled",
+    "skipped": "skipped",
+}
+
+ALLOWED_PLATFORM_SKIPS = {
+    "tmux-copy-last helper": {
+        "requires-tmux-3.6",
+        "requires-two-tmux-clients",
+    },
+    "macOS representative rendered apply smoke": {"requires-macos-native-host"},
+    "macOS native process and filesystem primitives": {"requires-macos-native-host"},
+}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        print(f"aggregate-ci-receipts: {message}", file=sys.stderr)
+        raise SystemExit(64)
+
+
+def parse_lane(raw: str) -> dict[str, str]:
+    fields = raw.split("|")
+    if len(fields) != 5:
+        raise ReceiptError("--lane must be job|label|proof|detail-suite|skip-policy")
+    job, label, proof, detail_suite, skip_policy = fields
+    for name, value in (("job", job), ("label", label), ("proof", proof)):
+        validate_text(value, f"lane {name}")
+    if skip_policy not in {"forbid", "allow-platform", "none"}:
+        raise ReceiptError(f"invalid skip policy for {job}: {skip_policy}")
+    if detail_suite == "-" and skip_policy != "none":
+        raise ReceiptError(f"{job} cannot apply a validation skip policy without a detail suite")
+    return {
+        "job": job,
+        "label": label,
+        "proof": proof,
+        "detailSuite": detail_suite,
+        "skipPolicy": skip_policy,
+    }
+
+
+def build_parser() -> Parser:
+    parser = Parser(allow_abbrev=False)
+    parser.add_argument("--mode", choices=("ci", "full"), required=True)
+    parser.add_argument("--needs-json", required=True)
+    parser.add_argument("--download-outcome", required=True)
+    parser.add_argument("--receipt-directory", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--summary")
+    parser.add_argument("--budget-seconds", type=int, required=True)
+    parser.add_argument("--started-epoch", type=int, required=True)
+    parser.add_argument("--lane", action="append", default=[], required=True)
+    return parser
+
+
+def main() -> int:
+    arguments = build_parser().parse_args()
+    try:
+        if arguments.budget_seconds <= 0 or arguments.started_epoch <= 0:
+            raise ReceiptError("budget and start epoch must be positive integers")
+        lanes = [parse_lane(raw) for raw in arguments.lane]
+        expected = {lane["job"]: lane for lane in lanes}
+        if len(expected) != len(lanes):
+            raise ReceiptError("duplicate expected lane")
+        try:
+            needs = json.loads(arguments.needs_json)
+        except json.JSONDecodeError as error:
+            raise ReceiptError(f"invalid needs JSON: {error}") from error
+        if not isinstance(needs, dict):
+            raise ReceiptError("needs JSON must be an object")
+
+        errors: list[str] = []
+        if arguments.download_outcome != "success":
+            errors.append("receipt download did not succeed")
+        receipt_directory = pathlib.Path(arguments.receipt_directory)
+        receipts: dict[str, dict] = {}
+        for name in glob.glob(str(receipt_directory / "groundwork-job-*.json")):
+            path = pathlib.Path(name)
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                receipt = validate_receipt(raw, expected_kind="ci-job")
+            except (OSError, json.JSONDecodeError, ReceiptError) as error:
+                errors.append(f"invalid receipt {path.name}: {error}")
+                continue
+            job = receipt["job"]
+            if job not in expected:
+                errors.append(f"unexpected receipt job: {job}")
+            elif job in receipts:
+                errors.append(f"duplicate receipt for {job}")
+            else:
+                receipts[job] = receipt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        starts: list[dt.datetime] = []
+        finishes: list[dt.datetime] = []
+        rows: list[dict] = []
+        full_details: dict[str, dict] = {}
+        expected_run_id = int(os.environ["GITHUB_RUN_ID"])
+        expected_attempt = int(os.environ["GITHUB_RUN_ATTEMPT"])
+        expected_head = os.environ.get("GROUNDWORK_HEAD_SHA") or os.environ["GITHUB_SHA"]
+        for job, lane in expected.items():
+            github_result = needs.get(job, {}).get("result", "missing")
+            lane_result = GITHUB_RESULTS.get(github_result)
+            if lane_result is None:
+                errors.append(f"{job} returned unknown GitHub result {github_result!r}")
+                lane_result = "failed"
+            elif github_result != "success":
+                errors.append(f"{job} ended as {github_result}")
+            receipt = receipts.get(job)
+            if receipt is None:
+                errors.append(f"{job} produced no final ci-job receipt")
+                rows.append({
+                    **lane,
+                    "result": lane_result,
+                    "durationSeconds": None,
+                    "budgetSeconds": None,
+                    "workflowSafetyTimeoutSeconds": None,
+                    "suiteDurationSeconds": None,
+                    "suiteTargetSeconds": None,
+                    "suiteBudgetState": None,
+                })
+                continue
+            provenance = {
+                "repository": os.environ["GITHUB_REPOSITORY"],
+                "workflow": os.environ["GITHUB_WORKFLOW"],
+                "runId": expected_run_id,
+                "runAttempt": expected_attempt,
+                "event": os.environ["GITHUB_EVENT_NAME"],
+                "ref": os.environ["GITHUB_REF"],
+                "testedSha": os.environ["GITHUB_SHA"],
+                "headSha": expected_head,
+                "job": job,
+            }
+            for field, expected_value in provenance.items():
+                if receipt.get(field) != expected_value:
+                    errors.append(f"{job} receipt {field} does not match this run")
+            if receipt["result"] != "passed":
+                errors.append(f"{job} receipt result is {receipt['result']}")
+            if receipt["source"]["treeChangedDuringValidation"]:
+                errors.append(f"{job} source tree changed while its receipt was produced")
+            working_tree = receipt["source"]["workingTree"]
+            if (
+                working_tree["staged"]
+                or working_tree["unstaged"]
+                or working_tree["untrackedPathCount"]
+            ):
+                errors.append(f"{job} receipt was produced from a dirty CI checkout")
+            started = dt.datetime.fromisoformat(receipt["startedAt"].replace("Z", "+00:00"))
+            finished = dt.datetime.fromisoformat(receipt["finishedAt"].replace("Z", "+00:00"))
+            starts.append(started)
+            finishes.append(finished)
+            phases = receipt["body"]["phases"]
+            if receipt["result"] == "passed" and any(phase["result"] != "passed" for phase in phases):
+                errors.append(f"{job} passed while an authoritative phase did not pass")
+
+            details = receipt["body"]["validationDetails"]
+            detail_suite = lane["detailSuite"]
+            suite_duration = None
+            suite_target = None
+            suite_budget_state = None
+            if detail_suite == "-":
+                if details:
+                    errors.append(f"{job} unexpectedly embedded validation detail")
+            elif len(details) != 1:
+                errors.append(f"{job} must embed exactly one validation-suite detail")
+            else:
+                detail = details[0]
+                body = detail["body"]
+                suite_duration = body["suiteDurationSeconds"]
+                suite_target = body["suiteBudgetSeconds"]
+                suite_budget_state = body["suiteBudgetState"]
+                if body["suite"] != detail_suite:
+                    errors.append(f"{job} embedded suite {body['suite']!r}, expected {detail_suite!r}")
+                if receipt["result"] == "passed" and (
+                    detail["result"] != "passed" or body["failedCount"] != 0
+                ):
+                    errors.append(
+                        f"{job} passed while its validation detail did not prove a passing suite"
+                    )
+                for field in (
+                    "repository",
+                    "workflow",
+                    "job",
+                    "runId",
+                    "runAttempt",
+                    "event",
+                    "ref",
+                    "testedSha",
+                    "headSha",
+                ):
+                    if detail.get(field) != receipt.get(field):
+                        errors.append(f"{job} validation detail {field} does not match its parent receipt")
+                if detail.get("platform") != receipt.get("platform"):
+                    errors.append(f"{job} validation detail platform does not match its parent receipt")
+                source_match_fields = (
+                    "baseHead",
+                    "identityScope",
+                    "ignoredArtifactState",
+                    "fingerprintInput",
+                    "workingTree",
+                    "treeFingerprint",
+                    "treeFingerprintAfter",
+                )
+                if any(
+                    detail["source"].get(field) != receipt["source"].get(field)
+                    for field in source_match_fields
+                ):
+                    errors.append(
+                        f"{job} validation detail source identity does not match its parent receipt"
+                    )
+                if detail["source"]["treeChangedDuringValidation"]:
+                    errors.append(f"{job} validation source changed during execution")
+                detail_tree = detail["source"]["workingTree"]
+                if detail_tree["staged"] or detail_tree["unstaged"] or detail_tree["untrackedPathCount"]:
+                    errors.append(f"{job} validation detail started from a dirty CI checkout")
+                skipped = [check for check in body["checks"] if check["result"] == "skipped"]
+                if lane["skipPolicy"] == "forbid" and skipped:
+                    errors.append(f"{job} skipped required checks: {', '.join(check['name'] for check in skipped)}")
+                if lane["skipPolicy"] == "allow-platform":
+                    for check in skipped:
+                        allowed_codes = ALLOWED_PLATFORM_SKIPS.get(check["name"], set())
+                        if check.get("skipCode") not in allowed_codes:
+                            errors.append(
+                                f"{job} used unapproved platform skip {check.get('skipCode')!r} "
+                                f"for {check['name']!r}"
+                            )
+                if arguments.mode == "full":
+                    full_details[job] = detail
+
+            if job in {"platform_macos", "full_macos"}:
+                cask = [phase for phase in phases if phase["name"] == "Homebrew cask integrity"]
+                if len(cask) != 1 or cask[0]["result"] != "passed":
+                    errors.append(f"{job} did not prove Homebrew cask integrity")
+            rows.append(
+                {
+                    **lane,
+                    "result": lane_result,
+                    "durationSeconds": receipt["body"]["jobDurationSeconds"],
+                    "budgetSeconds": receipt["body"]["jobBudgetSeconds"],
+                    "workflowSafetyTimeoutSeconds": receipt["body"].get(
+                        "workflowSafetyTimeoutSeconds"
+                    ),
+                    "suiteDurationSeconds": suite_duration,
+                    "suiteTargetSeconds": suite_target,
+                    "suiteBudgetState": suite_budget_state,
+                }
+            )
+
+        if arguments.mode == "full" and {"full_linux", "full_macos"}.issubset(full_details):
+            linux_checks = {item["name"]: item for item in full_details["full_linux"]["body"]["checks"]}
+            mac_checks = {item["name"]: item for item in full_details["full_macos"]["body"]["checks"]}
+            if linux_checks.keys() != mac_checks.keys():
+                errors.append("full Linux and macOS receipts do not contain the same canonical checks")
+            for name in sorted(linux_checks.keys() | mac_checks.keys()):
+                linux_result = linux_checks.get(name, {}).get("result")
+                mac_result = mac_checks.get(name, {}).get("result")
+                if mac_result == "skipped":
+                    errors.append(f"full macOS skipped required check: {name}")
+                if "passed" not in {linux_result, mac_result}:
+                    errors.append(f"no required platform passed canonical check: {name}")
+
+        required_lane_span = int((max(finishes) - min(starts)).total_seconds()) if starts and finishes else None
+        observed_workflow_span = int((now - min(starts)).total_seconds()) if starts else None
+        budget_state = "unknown" if observed_workflow_span is None else (
+            "within" if observed_workflow_span <= arguments.budget_seconds else "exceeded"
+        )
+        result = "failed" if errors else "passed"
+        repo = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+        source = tree_snapshot(repo)
+        envelope = common_envelope(
+            repo=repo,
+            receipt_kind="ci-gate",
+            result=result,
+            started_epoch=arguments.started_epoch,
+            finished_epoch=int(time.time()),
+            platform_os="linux",
+            platform_image=os.environ.get("ImageOS", "ubuntu-24.04"),
+            platform_arch=os.environ.get("RUNNER_ARCH", host_platform.machine()),
+            source_before=source,
+            source_after=source,
+            tree_observation_complete=False,
+        )
+        envelope["body"] = {
+            "scope": "every required Groundwork CI lane" if arguments.mode == "ci" else "complete Groundwork validation on Linux and macOS",
+            "proofType": "aggregate exact-run CI proof" if arguments.mode == "ci" else "aggregate exact-run cross-platform proof",
+            "cacheState": "mixed",
+            "requiredLaneSpanSeconds": required_lane_span,
+            "observedWorkflowSpanAfterFirstLaneStartedSeconds": observed_workflow_span,
+            "workflowBudgetSeconds": arguments.budget_seconds,
+            "workflowBudgetState": budget_state,
+            "lanes": rows,
+            "errors": errors,
+            "commands": {"inspect": f"gh run view {os.environ['GITHUB_RUN_ID']}"},
+        }
+        atomic_write_json(pathlib.Path(arguments.output), envelope)
+    except (ReceiptError, OSError, KeyError) as error:
+        print(f"aggregate-ci-receipts: {error}", file=sys.stderr)
+        return 64 if isinstance(error, ReceiptError) else 1
+
+    title = "CI gate" if arguments.mode == "ci" else "Full validation"
+    lines = [
+        f"## {title} · {result.capitalize()}",
+        "",
+        f"Tested SHA: `{os.environ['GITHUB_SHA']}` · PR head: `{expected_head}`",
+        "",
+        "| Lane | Result | Suite duration | Suite target | Complete job | GitHub workflow safety timeout | Key proof |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- |",
+    ]
+    for row in rows:
+        suite_target = seconds_label(row["suiteTargetSeconds"])
+        if row["suiteBudgetState"]:
+            suite_target += f" ({row['suiteBudgetState']})"
+        lines.append(
+            f"| {escape_table(row['label'])} | {row['result']} | "
+            f"{seconds_label(row['suiteDurationSeconds'])} | "
+            f"{suite_target} | "
+            f"{seconds_label(row['durationSeconds'])} | "
+            f"{seconds_label(row['workflowSafetyTimeoutSeconds'])} | {escape_table(row['proof'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"Required-lane execution span: **{seconds_label(required_lane_span)}**",
+            (
+                "Observed workflow span after first required lane started: "
+                f"**{seconds_label(observed_workflow_span)}**"
+            ),
+            f"Advisory workflow budget: **{seconds_label(arguments.budget_seconds)}** · {budget_state}",
+            "",
+            "The observed workflow span includes later queueing, gate startup, and receipt download.",
+        ]
+    )
+    if errors:
+        lines.extend(["", "### Repair", ""])
+        lines.extend(f"- {error}" for error in errors)
+    lines.extend(["", f"Inspect this exact run: `gh run view {os.environ['GITHUB_RUN_ID']}`", ""])
+    append_summary(pathlib.Path(arguments.summary) if arguments.summary else None, "\n".join(lines))
+    if errors:
+        print(f"{title} failed: " + "; ".join(errors), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

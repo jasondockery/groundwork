@@ -1,0 +1,677 @@
+#!/usr/bin/env python3
+"""Run one validator session under a hard wall-clock deadline."""
+
+from __future__ import annotations
+
+import os
+import pathlib
+import signal
+import subprocess
+import sys
+import time
+from collections.abc import Callable
+
+
+USAGE = (
+    "Usage: scripts/run-validation-deadline --seconds <seconds> "
+    "--grace-seconds <seconds> -- <command> [arguments...]"
+)
+PROCESS_LEAK_STATUS = 70
+CLEANUP_UNCONFIRMED_STATUS = 125
+RELEASE_SIGNAL = signal.SIGUSR1
+HANDLED_SIGNALS = (signal.SIGHUP, signal.SIGINT, signal.SIGTERM)
+
+
+def parse_positive(raw: str, label: str) -> int:
+    if not raw.isdigit() or int(raw) <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+    return int(raw)
+
+
+def parse_arguments(arguments: list[str]) -> tuple[int, int, list[str]]:
+    if arguments in (["--help"], ["-h"]):
+        print(USAGE)
+        raise SystemExit(0)
+    values: dict[str, str] = {}
+    index = 0
+    while index < len(arguments) and arguments[index] != "--":
+        option = arguments[index]
+        if option not in {"--seconds", "--grace-seconds"}:
+            raise ValueError(f"unexpected argument: {option}")
+        if option in values:
+            raise ValueError(f"{option} may be provided only once")
+        if index + 1 >= len(arguments) or arguments[index + 1] == "--":
+            raise ValueError(f"{option} requires a value")
+        values[option] = arguments[index + 1]
+        index += 2
+    if index >= len(arguments) or arguments[index] != "--":
+        raise ValueError("a -- separator is required before the command")
+    command = arguments[index + 1 :]
+    if not command:
+        raise ValueError("a command is required")
+    for required in ("--seconds", "--grace-seconds"):
+        if required not in values:
+            raise ValueError(f"{required} is required")
+    return (
+        parse_positive(values["--seconds"], "--seconds"),
+        parse_positive(values["--grace-seconds"], "--grace-seconds"),
+        command,
+    )
+
+
+def shell_status(returncode: int) -> int:
+    return returncode if returncode >= 0 else 128 - returncode
+
+
+def _reset_command_signals() -> None:
+    for signum in (*HANDLED_SIGNALS, RELEASE_SIGNAL):
+        signal.signal(signum, signal.SIG_DFL)
+
+
+def _write_status(descriptor: int, status: int) -> None:
+    try:
+        os.write(descriptor, f"{status}\n".encode())
+    finally:
+        os.close(descriptor)
+
+
+def _owner_is_alive(descriptor: int) -> bool:
+    try:
+        return os.read(descriptor, 1) != b""
+    except BlockingIOError:
+        return True
+
+
+def _terminate_owned_group_after_owner_death(grace_seconds: int) -> None:
+    """Terminate this complete session when the outer deadline owner disappears."""
+
+    print(
+        "run-validation-deadline: outer owner disappeared; "
+        "cancelling validator process group",
+        file=sys.stderr,
+        flush=True,
+    )
+    process_group = os.getpid()
+    try:
+        os.killpg(process_group, signal.SIGTERM)
+    except ProcessLookupError:
+        os._exit(CLEANUP_UNCONFIRMED_STATUS)
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        time.sleep(0.05)
+    try:
+        os.killpg(process_group, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    os._exit(CLEANUP_UNCONFIRMED_STATUS)
+
+
+def supervise(
+    status_descriptor: int,
+    owner_descriptor: int,
+    grace_seconds: int,
+    command: list[str],
+) -> int:
+    """Stay alive as the process-group leader until the outer owner releases us."""
+
+    released = False
+    requested_signal: int | None = None
+    child: subprocess.Popen[bytes] | None = None
+
+    def request_release(_signum: int, _frame: object) -> None:
+        nonlocal released
+        released = True
+
+    def request_termination(signum: int, _frame: object) -> None:
+        nonlocal requested_signal
+        if requested_signal is None:
+            requested_signal = signum
+        if child is not None and child.poll() is None:
+            try:
+                child.send_signal(signum)
+            except ProcessLookupError:
+                pass
+
+    signal.signal(RELEASE_SIGNAL, request_release)
+    for signum in HANDLED_SIGNALS:
+        signal.signal(signum, request_termination)
+    os.set_blocking(owner_descriptor, False)
+
+    def require_owner() -> None:
+        if not _owner_is_alive(owner_descriptor):
+            _terminate_owned_group_after_owner_death(grace_seconds)
+
+    def publish_status(status: int) -> None:
+        try:
+            _write_status(status_descriptor, status)
+        except BrokenPipeError:
+            _terminate_owned_group_after_owner_death(grace_seconds)
+
+    try:
+        launch_delay_raw = os.environ.get(
+            "GROUNDWORK_TEST_VALIDATION_LAUNCH_DELAY_SECONDS", ""
+        )
+        if launch_delay_raw:
+            try:
+                launch_delay = float(launch_delay_raw)
+            except ValueError:
+                launch_delay = -1
+            if not 0 < launch_delay <= 30:
+                publish_status(64)
+                while not released:
+                    require_owner()
+                    time.sleep(0.05)
+                return 0
+            launch_deadline = time.monotonic() + launch_delay
+            while time.monotonic() < launch_deadline:
+                require_owner()
+                time.sleep(max(0, min(0.05, launch_deadline - time.monotonic())))
+
+        require_owner()
+        if requested_signal is not None:
+            publish_status(128 + requested_signal)
+        else:
+            try:
+                child = subprocess.Popen(
+                    command,
+                    env={
+                        **os.environ,
+                        "GROUNDWORK_VALIDATION_DEADLINE_PARENT": str(os.getpid()),
+                        "GROUNDWORK_VALIDATION_PROCESS_GROUP": str(os.getpid()),
+                        "GROUNDWORK_VALIDATION_OUTER_PID": str(os.getppid()),
+                    },
+                    preexec_fn=_reset_command_signals,
+                )
+            except OSError as error:
+                print(
+                    f"run-validation-deadline: could not start validator command: {error}",
+                    file=sys.stderr,
+                )
+                publish_status(127)
+            else:
+                if requested_signal is not None and child.poll() is None:
+                    try:
+                        child.send_signal(requested_signal)
+                    except ProcessLookupError:
+                        pass
+                while child.poll() is None:
+                    require_owner()
+                    time.sleep(0.05)
+                publish_status(shell_status(child.returncode))
+
+        while not released:
+            require_owner()
+            time.sleep(0.05)
+        return 0
+    finally:
+        os.close(owner_descriptor)
+
+
+class StatusChannel:
+    def __init__(self, descriptor: int) -> None:
+        self.descriptor = descriptor
+        self.buffer = b""
+        self.status: int | None = None
+        self.closed = False
+        os.set_blocking(descriptor, False)
+
+    def poll(self) -> int | None:
+        if self.closed or self.status is not None:
+            return self.status
+        while True:
+            try:
+                chunk = os.read(self.descriptor, 64)
+            except BlockingIOError:
+                break
+            if not chunk:
+                self.closed = True
+                break
+            self.buffer += chunk
+            if len(self.buffer) > 16:
+                raise RuntimeError("validator supervisor returned an oversized status")
+        if b"\n" in self.buffer:
+            raw, remainder = self.buffer.split(b"\n", 1)
+            if remainder or not raw.isdigit() or not 0 <= int(raw) <= 255:
+                raise RuntimeError("validator supervisor returned an invalid status")
+            self.status = int(raw)
+        return self.status
+
+    def close(self) -> None:
+        if self.descriptor >= 0:
+            os.close(self.descriptor)
+            self.descriptor = -1
+        self.closed = True
+
+
+def group_running(process_group: int) -> bool:
+    members = other_group_members(process_group, -1)
+    if members is not None:
+        return bool(members)
+    try:
+        os.killpg(process_group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def other_group_members(process_group: int, supervisor_pid: int) -> set[int] | None:
+    try:
+        completed = subprocess.run(
+            ["ps", "-eo", "pid=,pgid=,stat="],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=1,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    members: set[int] = set()
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 3 or not all(field.isdigit() for field in fields[:2]):
+            continue
+        pid, pgid = map(int, fields[:2])
+        state = fields[2]
+        if pgid == process_group and pid != supervisor_pid and not state.startswith("Z"):
+            members.add(pid)
+    return members
+
+
+def release_supervisor(process: subprocess.Popen[bytes]) -> tuple[bool, bool]:
+    """Release last, returning (clean release, group absence confirmed)."""
+
+    if not supervisor_exited_unreaped(process):
+        try:
+            os.kill(process.pid, RELEASE_SIGNAL)
+        except ProcessLookupError:
+            pass
+    deadline = time.monotonic() + 1
+    while not supervisor_exited_unreaped(process):
+        if time.monotonic() >= deadline:
+            return False, False
+        time.sleep(0.05)
+    members = other_group_members(process.pid, process.pid)
+    if members is None or members:
+        return False, False
+    return process.wait() == 0, True
+
+
+def wait_for_group_absence(
+    process: subprocess.Popen[bytes],
+    process_group: int,
+    seconds: int,
+) -> bool:
+    deadline = time.monotonic() + seconds
+    while True:
+        if not group_running(process_group):
+            if supervisor_exited_unreaped(process):
+                process.wait()
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+
+
+def wait_for_cooperative_shutdown(
+    process: subprocess.Popen[bytes],
+    process_group: int,
+    status_channel: StatusChannel,
+    seconds: int,
+) -> bool:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            status = status_channel.poll()
+        except RuntimeError:
+            return False
+        members = other_group_members(process_group, process.pid)
+        if status is not None and members == set():
+            _released_cleanly, closure_confirmed = release_supervisor(process)
+            return closure_confirmed
+        if supervisor_exited_unreaped(process):
+            closure_confirmed = not group_running(process_group)
+            if closure_confirmed:
+                process.wait()
+            return closure_confirmed
+        time.sleep(0.05)
+    return False
+
+
+def stop_group(
+    process: subprocess.Popen[bytes],
+    process_group: int,
+    status_channel: StatusChannel,
+    grace_seconds: int,
+) -> bool:
+    try:
+        os.killpg(process_group, signal.SIGTERM)
+    except ProcessLookupError:
+        if supervisor_exited_unreaped(process):
+            process.wait()
+        return True
+    if wait_for_cooperative_shutdown(
+        process,
+        process_group,
+        status_channel,
+        grace_seconds,
+    ):
+        return True
+    try:
+        os.killpg(process_group, signal.SIGKILL)
+    except ProcessLookupError:
+        if supervisor_exited_unreaped(process):
+            process.wait()
+        return True
+    return wait_for_group_absence(process, process_group, grace_seconds)
+
+
+def force_stop_group(
+    process: subprocess.Popen[bytes],
+    process_group: int,
+    grace_seconds: int,
+) -> bool:
+    """Bound cleanup when the status channel never became usable."""
+
+    try:
+        os.killpg(process_group, signal.SIGTERM)
+    except ProcessLookupError:
+        if supervisor_exited_unreaped(process):
+            process.wait()
+        return True
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        if not group_running(process_group):
+            if supervisor_exited_unreaped(process):
+                process.wait()
+            return True
+        time.sleep(0.05)
+    try:
+        os.killpg(process_group, signal.SIGKILL)
+    except ProcessLookupError:
+        if supervisor_exited_unreaped(process):
+            process.wait()
+        return True
+    return wait_for_group_absence(process, process_group, grace_seconds)
+
+
+StopGroup = Callable[[subprocess.Popen[bytes], int, StatusChannel, int], bool]
+ReleaseSupervisor = Callable[[subprocess.Popen[bytes]], tuple[bool, bool]]
+
+
+def supervisor_exited_unreaped(process: subprocess.Popen[bytes]) -> bool:
+    """Observe an unexpected supervisor exit without releasing its PID/PGID."""
+
+    try:
+        result = os.waitid(
+            os.P_PID,
+            process.pid,
+            os.WEXITED | os.WNOHANG | os.WNOWAIT,
+        )
+    except AttributeError:
+        return process.poll() is not None
+    except OSError:
+        return False
+    except ChildProcessError:
+        return True
+    return result is not None
+
+
+def _report_unconfirmed(original_status: int | None) -> None:
+    status_text = "unavailable" if original_status is None else str(original_status)
+    print(
+        "run-validation-deadline: process-group closure could not be confirmed; "
+        f"original child status: {status_text}",
+        file=sys.stderr,
+    )
+
+
+def run(
+    seconds: int,
+    grace_seconds: int,
+    command: list[str],
+    *,
+    stop_group_fn: StopGroup = stop_group,
+    release_supervisor_fn: ReleaseSupervisor = release_supervisor,
+) -> int:
+    requested_signal: int | None = None
+
+    def request_stop(signum: int, _frame: object) -> None:
+        nonlocal requested_signal
+        if requested_signal is None:
+            requested_signal = signum
+
+    previous = {signum: signal.signal(signum, request_stop) for signum in HANDLED_SIGNALS}
+    process: subprocess.Popen[bytes] | None = None
+    status_channel: StatusChannel | None = None
+    read_descriptor: int | None = None
+    write_descriptor: int | None = None
+    owner_read_descriptor: int | None = None
+    owner_write_descriptor: int | None = None
+    try:
+        if requested_signal is not None:
+            return 128 + requested_signal
+        read_descriptor, write_descriptor = os.pipe()
+        owner_read_descriptor, owner_write_descriptor = os.pipe()
+        supervisor_command = [
+            sys.executable,
+            str(pathlib.Path(__file__).resolve()),
+            "--supervise-status-fd",
+            str(write_descriptor),
+            "--owner-fd",
+            str(owner_read_descriptor),
+            "--grace-seconds",
+            str(grace_seconds),
+            "--",
+            *command,
+        ]
+        process = subprocess.Popen(
+            supervisor_command,
+            start_new_session=True,
+            pass_fds=(write_descriptor, owner_read_descriptor),
+        )
+        os.close(write_descriptor)
+        write_descriptor = None
+        os.close(owner_read_descriptor)
+        owner_read_descriptor = None
+        status_channel = StatusChannel(read_descriptor)
+        read_descriptor = None
+        process_group = process.pid
+        started = time.monotonic()
+        while True:
+            try:
+                original_status = status_channel.poll()
+            except RuntimeError as error:
+                print(f"run-validation-deadline: {error}", file=sys.stderr)
+                stopped = stop_group_fn(
+                    process,
+                    process_group,
+                    status_channel,
+                    grace_seconds,
+                )
+                if not stopped:
+                    _report_unconfirmed(None)
+                return CLEANUP_UNCONFIRMED_STATUS
+            if requested_signal is not None:
+                stopped = stop_group_fn(
+                    process,
+                    process_group,
+                    status_channel,
+                    grace_seconds,
+                )
+                if not stopped:
+                    _report_unconfirmed(original_status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                return 128 + requested_signal
+            if original_status is not None:
+                members = other_group_members(process_group, process.pid)
+                if members is None:
+                    stopped = stop_group_fn(
+                        process,
+                        process_group,
+                        status_channel,
+                        grace_seconds,
+                    )
+                    if not stopped:
+                        _report_unconfirmed(original_status)
+                        return CLEANUP_UNCONFIRMED_STATUS
+                    _report_unconfirmed(original_status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                if members == set():
+                    released_cleanly, closure_confirmed = release_supervisor_fn(process)
+                    if closure_confirmed:
+                        if released_cleanly:
+                            return original_status
+                        _report_unconfirmed(original_status)
+                        return CLEANUP_UNCONFIRMED_STATUS
+                    stopped = stop_group_fn(
+                        process,
+                        process_group,
+                        status_channel,
+                        grace_seconds,
+                    )
+                    if not stopped:
+                        _report_unconfirmed(original_status)
+                        return CLEANUP_UNCONFIRMED_STATUS
+                    _report_unconfirmed(original_status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                stopped = stop_group_fn(
+                    process,
+                    process_group,
+                    status_channel,
+                    grace_seconds,
+                )
+                if not stopped:
+                    _report_unconfirmed(original_status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                if original_status != 0:
+                    print(
+                        "run-validation-deadline: child failed and its leaked process group was cleaned; "
+                        f"preserving original child status {original_status}",
+                        file=sys.stderr,
+                    )
+                    return original_status
+                print(
+                    "run-validation-deadline: successful child left a process-group member; "
+                    f"cleaned leak and returning {PROCESS_LEAK_STATUS}",
+                    file=sys.stderr,
+                )
+                return PROCESS_LEAK_STATUS
+            if time.monotonic() - started >= seconds:
+                print(
+                    f"run-validation-deadline: {seconds}s hard deadline reached; "
+                    "cancelling validator process group",
+                    file=sys.stderr,
+                )
+                if not stop_group_fn(
+                    process,
+                    process_group,
+                    status_channel,
+                    grace_seconds,
+                ):
+                    _report_unconfirmed(status_channel.status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                return 124
+            if supervisor_exited_unreaped(process):
+                stopped = stop_group_fn(
+                    process,
+                    process_group,
+                    status_channel,
+                    grace_seconds,
+                )
+                if not stopped:
+                    _report_unconfirmed(original_status)
+                    return CLEANUP_UNCONFIRMED_STATUS
+                _report_unconfirmed(original_status)
+                return CLEANUP_UNCONFIRMED_STATUS
+            time.sleep(0.05)
+    except OSError as error:
+        print(f"run-validation-deadline: could not start validator: {error}", file=sys.stderr)
+        if process is not None:
+            stopped = (
+                stop_group_fn(process, process.pid, status_channel, grace_seconds)
+                if status_channel is not None
+                else force_stop_group(process, process.pid, grace_seconds)
+            )
+            if not stopped:
+                _report_unconfirmed(status_channel.status if status_channel is not None else None)
+                return CLEANUP_UNCONFIRMED_STATUS
+            return CLEANUP_UNCONFIRMED_STATUS
+        return 1
+    except Exception as error:
+        print(f"run-validation-deadline: supervisor failure: {error}", file=sys.stderr)
+        if process is not None:
+            stopped = (
+                stop_group_fn(process, process.pid, status_channel, grace_seconds)
+                if status_channel is not None
+                else force_stop_group(process, process.pid, grace_seconds)
+            )
+            if not stopped:
+                _report_unconfirmed(status_channel.status if status_channel is not None else None)
+                return CLEANUP_UNCONFIRMED_STATUS
+            return CLEANUP_UNCONFIRMED_STATUS
+        return 1
+    finally:
+        if write_descriptor is not None:
+            os.close(write_descriptor)
+        if read_descriptor is not None:
+            os.close(read_descriptor)
+        if owner_read_descriptor is not None:
+            os.close(owner_read_descriptor)
+        if owner_write_descriptor is not None:
+            os.close(owner_write_descriptor)
+        if status_channel is not None:
+            status_channel.close()
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+
+def parse_supervisor_arguments(
+    arguments: list[str],
+) -> tuple[int, int, int, list[str]]:
+    if (
+        len(arguments) < 8
+        or arguments[0] != "--supervise-status-fd"
+        or arguments[2] != "--owner-fd"
+        or arguments[4] != "--grace-seconds"
+    ):
+        raise ValueError("invalid internal supervisor invocation")
+    if (
+        not arguments[1].isdigit()
+        or not arguments[3].isdigit()
+        or not arguments[5].isdigit()
+        or int(arguments[5]) <= 0
+        or arguments[6] != "--"
+        or not arguments[7:]
+    ):
+        raise ValueError("invalid internal supervisor invocation")
+    return (
+        int(arguments[1]),
+        int(arguments[3]),
+        int(arguments[5]),
+        arguments[7:],
+    )
+
+
+def main() -> int:
+    if sys.argv[1:2] == ["--supervise-status-fd"]:
+        try:
+            descriptor, owner_descriptor, grace_seconds, command = (
+                parse_supervisor_arguments(sys.argv[1:])
+            )
+        except ValueError as error:
+            print(f"run-validation-deadline: {error}", file=sys.stderr)
+            return 64
+        return supervise(descriptor, owner_descriptor, grace_seconds, command)
+    try:
+        seconds, grace_seconds, command = parse_arguments(sys.argv[1:])
+    except ValueError as error:
+        print(f"run-validation-deadline: {error}", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        return 64
+    return run(seconds, grace_seconds, command)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

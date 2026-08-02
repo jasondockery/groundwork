@@ -25,9 +25,20 @@ A new opt-in prompt that defaults safely and additive tools are **minor**, not m
 
 ## Preconditions (all must hold)
 
-1. **`main` is green.** The tag must point at a `main` SHA with passing CI. Check: `gh run list --branch main --workflow CI --limit 1`. If red, fix CI first — a red main means nothing can ship.
+1. **The exact release SHA is green.** Resolve the proposed tag target first,
+   then find a passing `CI` run whose `headSha` is exactly that SHA and inspect
+   its `ci-gate` receipt. A latest-branch run is discovery only; it is not proof
+   unless its SHA matches. Record the run ID and attempt. If no exact match
+   exists, push/fix CI first.
 2. **Local tree matches origin.** `git status -sb` shows no divergence; `git fetch` then confirm `main` == `origin/main`.
-3. **Validation passes locally.** `scripts/validate-groundwork`.
+3. **Complete validation passes locally and remotely.** Run
+   `scripts/validate-groundwork --suite full --report <path>` after the final
+   relevant edit. Every release also requires one non-cancelled `Full
+   validation` run at the exact release SHA; its `full-gate` must contain both
+   Linux and macOS final receipts for the same run ID, attempt, and SHA. Dispatch
+   the workflow from the branch or tag that currently resolves to that SHA, then
+   verify the resulting `headSha`; do not assume a workflow accepts an arbitrary
+   raw SHA as `--ref`, and do not substitute a nightly run from another commit.
 
 ## Cut it
 
@@ -48,4 +59,5 @@ Gather the changelog input from `git log --oneline <prev-tag>..HEAD`, but group 
 
 - `gh release view vX.Y.Z` shows the release with the intended notes.
 - `git tag --sort=-v:refname | head -1` is the new tag.
-- The tag's SHA has green CI.
+- The tag's SHA matches the recorded green `ci-gate` and `full-gate` run IDs and
+  attempts.

@@ -1,5 +1,7 @@
 name: Pages
 
+run-name: Pages · ${{ github.ref_name }} · tested ${{ github.sha }}
+
 on:
   push:
     branches: ["main"]
@@ -7,6 +9,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  GROUNDWORK_HEAD_SHA: ${{ github.sha }}
 
 concurrency:
   group: "pages"
@@ -22,9 +27,13 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      - name: Record job start
+        id: job-start
+        run: echo "epoch=$(date +%s)" >>"$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,25 +48,33 @@ jobs:
       # only the published build carries a version claim. Versions are never
       # hand-edited in HTML.
       - name: Stamp docs version from latest tag
+        id: version
         run: |
           VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           if [ -n "$VERSION" ]; then
             find docs -name '*.html' -exec sed -i "s|class=\"gw-version\"\([^>]*\)>dev<|class=\"gw-version\"\1>${VERSION}<|g" {} +
             echo "Stamped ${VERSION}"
           else
+            VERSION=dev
             echo "No tag found; leaving 'dev'"
           fi
+          echo "value=$VERSION" >>"$GITHUB_OUTPUT"
 
       - name: Configure Pages
+        id: configure
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
         with:
           enablement: true
 
       - name: Upload static docs
+        id: upload
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: docs
+
+      - name: Begin deployment timing
+        run: date +%s >"$RUNNER_TEMP/pages-deploy-start"
 
       # Pages' backend intermittently rejects deployments with a generic "try again
       # later" (four times in the first week of July 2026 alone); one retry after a
@@ -80,19 +97,71 @@ jobs:
         with:
           artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # Surface the deployed URL in the run summary so a green run links
-      # straight to the live site. PAGE_URL comes in through env, never
-      # interpolated into the script body (zizmor template-injection audit),
-      # and the append is fail-open (|| true) so reporting can never fail
-      # a deploy that already succeeded.
-      - name: Add deployed URL to run summary
+      - name: Publish Pages deployment receipt
+        if: ${{ always() }}
         env:
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
+          VERSION: ${{ steps.version.outputs.value }}
+          VERSION_OUTCOME: ${{ steps.version.outcome }}
+          CONFIGURE_OUTCOME: ${{ steps.configure.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          RETRY_OUTCOME: ${{ steps.deployment-retry.outcome }}
           PAGE_URL: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
         run: |
-          if [ -n "$PAGE_URL" ]; then
-            {
-              echo "## Pages deploy"
-              echo
-              echo "Deployed: $PAGE_URL"
-            } >>"$GITHUB_STEP_SUMMARY" || true
+          result=passed
+          for outcome in "$VERSION_OUTCOME" "$CONFIGURE_OUTCOME" "$UPLOAD_OUTCOME"; do
+            [ "$outcome" = success ] || result=failed
+          done
+          deploy_path=failed
+          if [ "$DEPLOY_OUTCOME" = success ]; then
+            deploy_path=first-attempt
+          elif [ "$RETRY_OUTCOME" = success ]; then
+            deploy_path=retry
+          else
+            result=failed
           fi
+          phase_result=failed
+          [ "$deploy_path" != failed ] && phase_result=passed
+          if [ -f "$RUNNER_TEMP/pages-deploy-start" ]; then
+            started="$(cat "$RUNNER_TEMP/pages-deploy-start")"
+            printf 'Pages deployment\t%s\t%s\t\n' "$(( $(date +%s) - started ))" "$phase_result" \
+              >"$RUNNER_TEMP/pages-phases.tsv"
+          else
+            printf 'Pages deployment\t0\tskipped\tdeployment prerequisites did not pass\n' \
+              >"$RUNNER_TEMP/pages-phases.tsv"
+          fi
+          {
+            printf 'Published version\t`%s`\n' "${VERSION:-unresolved}"
+            printf 'URL\t%s\n' "${PAGE_URL:-unavailable}"
+            printf 'Deployment path\t%s\n' "$deploy_path"
+            printf 'Recovery\trerun this exact Pages workflow run and compare testedSha\n'
+          } >"$RUNNER_TEMP/pages-facts.tsv"
+          scripts/write-ci-receipt \
+            --output "$RUNNER_TEMP/groundwork-receipt-pages.json" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --receipt-kind deployment \
+            --title "Pages deployment" \
+            --result "$result" \
+            --scope "stamp, package, deploy, and link the Groundwork documentation" \
+            --platform-os linux \
+            --platform-image "${ImageOS:-ubuntu-24.04}" \
+            --platform-arch "$RUNNER_ARCH" \
+            --job-budget-seconds 300 \
+            --started-epoch "$JOB_STARTED_EPOCH" \
+            --phase-file "$RUNNER_TEMP/pages-phases.tsv" \
+            --fact-file "$RUNNER_TEMP/pages-facts.tsv" \
+            --proof-type "production documentation deployment receipt" \
+            --cache-state not-applicable \
+            --rerun "gh run rerun $GITHUB_RUN_ID" \
+            --inspect "gh run view $GITHUB_RUN_ID"
+          [ "$result" = passed ]
+
+      - name: Upload Pages deployment receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: groundwork-receipt-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/groundwork-receipt-pages.json
+          if-no-files-found: error
+          retention-days: 30

@@ -7,27 +7,36 @@ after the work is verified, never aspirationally.
 
 ## Current execution order
 
-Reconciled 2026-08-01 against `origin/main` at `0c76d39`; `v1.9.0` is the
+Reconciled 2026-08-02 against `origin/main` at `d7cb618`; `v1.10.0` is the
 current release tag. Detailed acceptance criteria live in the specs; this list
 is only sequence.
 
-1. **Ship safe automatic package-manager maintenance as `v1.10.0`.** The
-   single-writer transaction, exact trusted pnpm selection, bounded
-   process-tree cancellation, independent failure state, read-only report,
-   troubleshooting loop, and validator proof live in
-   `specs/storage-hygiene.md`. Land the final recovery-guidance correction,
-   then cut only after the exact final `main` SHA is green. This is
-   release-affecting minor functionality.
-2. **Immutable, verified bootstrap releases.** Close the inspect-one-fetch /
+1. **Immutable, verified bootstrap releases.** Close the inspect-one-fetch /
    execute-another trust gap with tag-pinned bootstrap assets and published
    SHA-256 verification; keep a clearly separate rolling-`main` contributor
    path.
-3. **Machine-readable command receipts.** Add a versioned JSON schema and
+2. **Machine-readable installed-command receipts.** Add a versioned JSON schema and
    explicit exit-code contract across `update-all`, `groundwork-cleanup`, and
-   `groundwork-doctor`, beginning with the structured update receipt below.
-4. **Focused validator entry points.** Add `scripts/validate-groundwork --list`
-   and `--only <check>` before physically splitting the zero-dependency Bash
-   harness. Keep the unchanged full command as the release gate.
+   `groundwork-doctor`, beginning with the structured update receipt below. CI
+   validation receipts now establish the operational pattern but are not the
+   user-command schema.
+3. **Field-prove validator test economics.** Candidate selection, cadence,
+   pending-state, wording, status, package-store, and Docker lifecycle matrices
+   now use validator-only direct runners and clocks. Every policy invocation has
+   a 20-second process-group watchdog; focused suites have whole-suite deadlines
+   below their CI safety timeouts; and routine `full` has a 300-second hard
+   deadline with bounded TERM/KILL cleanup. Real time and processes
+   remain only for deadlines, signals, escalation, lock contention, descendant
+   drain, and process-group disappearance; there is no production timing
+   bypass. Keep this open until five representative final-tree receipts establish
+   `static` ≤55s, `update` ≤90s, `docker` ≤75s, `platform-macos` ≤15s, and
+   `full` ≤270s, or create measured follow-up work for any honest miss.
+4. **Fail-closed CI change classification.** Only after suite and receipt
+   contracts stabilize: keep every required job visible, widen unknown/shared
+   runner/validator/workflow/template changes to all suites, and permit an
+   explained no-op only when the classifier explicitly proves a lane irrelevant.
+   Then use timing evidence to decide whether PR Docker cache export should move
+   to authoritative `main`/nightly seeding.
 5. **`groundwork-doctor --performance`** — the bounded one-time snapshot only
    (see "Terminal observability"); not the watcher, status-line, or pane-border
    work yet.
@@ -37,10 +46,11 @@ is only sequence.
 Owner action (a human enables this when ready, not code work):
 
 - [ ] Apply + verify branch protection on `main` with **zero** approving reviews
-      (see PLAYBOOK → Main Branch Protection), AFTER the renamed CI checks
-      (`macos-validation` and the rest) have reported green on `main` at least
-      once so the required contexts can be selected. Direct-to-main with green CI
-      is the sanctioned solo workflow until then — see PLAYBOOK → Working On `main`.
+      (see PLAYBOOK → Main Branch Protection), AFTER `ci-gate` has reported
+      green on `main` at least once so that single aggregate required context can
+      be selected. Individual jobs remain visible for diagnosis. Direct-to-main
+      with green CI is the sanctioned solo workflow until then — see PLAYBOOK →
+      Working On `main`.
 
 ## Review-derived product backlog (2026-07-31)
 
@@ -76,10 +86,36 @@ done nor lost in review prose.
       `groundwork-doctor`, then the consolidated `update-all` runner; add
       hostile control-character fixtures so untrusted repository text cannot
       corrupt JSON or terminal receipts.
-- [ ] Introduce named validator check boundaries plus `--list` /
-      `--only <check>`, retaining `scripts/validate-groundwork` as the exact
-      full gate. Split physical files only after shared fixture ownership is
-      explicit and the full run proves identical coverage.
+- [ ] Land and field-prove named validator suites and typed CI receipts:
+      `static`, `update`, `docker`, and `platform-macos` own one canonical check
+      registry; `full` composes their public CLIs in isolated subprocesses;
+      receipts distinguish pass, skip, and fail and bind local proof to an exact
+      content fingerprint. Focused CI, native macOS cask proof, exact-ID Docker
+      disposal, the aggregate gate, and the nightly/manual Linux-plus-macOS
+      matrix are implemented locally. Complete only after one pushed exact-SHA
+      CI run and one non-cancelled exact-SHA full run prove the final contract.
+- [ ] After Groundwork's receipt schema is field-proven, extract only the
+      neutral receipt/fingerprint primitives into a small public shared utility
+      repository. Specify compatibility and migration first; keep Groundwork,
+      Roost, and renovate-config policies local, do not make renovate-config a
+      general tooling package, and do not replace Roost's richer `CiReport`.
+- [ ] After one final-tree receipt and one concurrency stress proof establish
+      the validator-only clock/runner isolation, add a thin neutral
+      multi-repository orchestrator outside these three repositories. It invokes
+      Groundwork `full`, Roost `pnpm roo verify`, and
+      renovate-config `pnpm verify` concurrently; preserves separate logs and
+      statuses; cancels child process groups; aggregates exact-tree or exact-SHA
+      identities; and reports wall-clock critical path separately from aggregate
+      compute. Target no routine repo proof over five minutes and all three under
+      five minutes wall time; treat the first five representative orchestrated
+      runs as advisory baseline evidence. Do not use concurrency to conceal
+      timing flakiness.
+- [ ] Add exact-identity local proof reuse only after the shared contract covers
+      repository, content-addressed index and working tree, command arguments,
+      relevant configuration, toolchain or lock state, suite version, and
+      platform. Keep any future pre-commit path staged-only under 10 seconds and
+      pre-push affected-only under 2 minutes; never hide full, Docker, or network
+      proof inside a hook.
 
 ### Maintenance repair UX
 
@@ -340,7 +376,7 @@ done nor lost in review prose.
       part of this task, not a separate cleanup.
 - [ ] Portable `tmux-behavior` Linux lane. The tmux copy suite is portable —
       tmux is Groundwork's cross-platform workspace layer — but it currently runs
-      only inside `macos-validation` because that runner supplies a current tmux
+      only inside `platform-macos` because that runner supplies a current tmux
       via Homebrew (the current Ubuntu runner's packaged tmux is below the feature
       floor the runtime contract asserts; the lane should inspect the installed
       version and decide, not rely on that staying true). Add a pinned Linux
@@ -350,7 +386,7 @@ done nor lost in review prose.
       current tmux — that catches an accidental floor increase and a forward-compat
       regression, and both invoke the helper's own `--check-tmux-version` guard so
       the floor stays single-sourced. Keep the Homebrew cask-integrity audit where
-      it is, inside `macos-validation`: a separate `homebrew-cask-integrity` check
+      it is, inside `platform-macos`: a separate `homebrew-cask-integrity` check
       would mean a second macOS job (another runner) purely for a more granular
       green, which is not worth the cost — cask integrity legitimately belongs to
       macOS validation. `docker-build` can add a headless no-system-clipboard
@@ -485,14 +521,17 @@ Roost.
       the `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
 - [x] `workflow-lint` CI job added: zizmor (pedantic) audits the workflows,
       mirroring roost's job; existing findings fixed in the same change
-      (2026-07-04). CI now has five checks (`workflow-lint`, `render-lint`,
-      `macos-validation`, `secret-scan`, `docker-build`; `PLAYBOOK.md`, CI
-      Checks); making them *required* is the pending branch-protection owner
+      (2026-07-04). That original five-check layout was superseded on 2026-08-02
+      by focused `static-linux`, `update-contract-linux`,
+      `docker-contract-linux`, and `platform-macos` lanes plus the existing
+      security/image lanes and final `ci-gate` (`PLAYBOOK.md`, CI Checks).
+      Making only `ci-gate` required is the pending branch-protection owner
       action (`PLAYBOOK.md`, Main Branch Protection).
 - [x] Shell-quality gate unified and pinned (2026-07-25): `scripts/lint-shell`
       runs `bash -n` + pinned shfmt + pinned ShellCheck over every tracked or
-      non-ignored untracked Bash file; `validate-groundwork` and both CI jobs
-      delegate to it. Tools are resolved by `scripts/ensure-shell-tools`
+      non-ignored untracked Bash file; the validator's `static`/`full` suites and
+      their CI lanes delegate to it. Tools are resolved by
+      `scripts/ensure-shell-tools`
       (checksum-verified, cached, Intel/Arm × Linux/macOS), pinned in
       `tools/shell-tools.env`, and bumped by `scripts/update-shell-tool-pins`
       (deliberately not Renovate-auto-managed). See `PLAYBOOK.md`, Shell quality
@@ -790,7 +829,14 @@ richer; tmux sets `tmux-256color` inside), and lowered `history-limit` 100000 �
       threads/uptime for the terminal + tmux server + each agent tree, macOS
       memory pressure + compressed + swap, top-20 by RSS and by CPU, tmux
       history/panes, and any agent process no longer attached to a live pane.
-      Redact command arguments that may hold secrets.
+      Redact command arguments that may hold secrets. Add a bounded Docker
+      subsection only when a backend is installed: identify the active Docker
+      Desktop or Colima backend, whether its VM is running, configured CPU and
+      memory, observed VM/swap pressure, and daemon disk summary. For work
+      profiles, name `colima stop` when the VM is idle; for personal profiles,
+      document Docker Desktop resource-limit review. Never rewrite backend VM
+      settings until a stable vendor-supported configuration surface exists,
+      and measure before changing `mountInotify`, tmux history, or VM defaults.
 - [ ] `groundwork-watch --performance --duration <t> --interval <t>`: an explicit
       temporary recorder to bounded JSONL that stops on its own and prints a peak/
       growth summary (peak pressure, swap delta, largest RSS growth by process,

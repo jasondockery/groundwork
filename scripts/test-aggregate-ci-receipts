@@ -1,0 +1,445 @@
+#!/usr/bin/env python3
+"""Focused aggregate-gate tests for missing, duplicate, stale, and skipped proof."""
+
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import subprocess
+import tempfile
+import time
+
+from ci_receipt import atomic_write_json, common_envelope, tree_snapshot, validate_receipt
+
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+AGGREGATOR = REPO / "scripts" / "aggregate-ci-receipts"
+
+
+def initialize_repo(path: pathlib.Path) -> str:
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.name", "CI"], check=True)
+    subprocess.run(["git", "-C", str(path), "config", "user.email", "ci@example.com"], check=True)
+    (path / "tracked.txt").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "tracked.txt"], check=True)
+    subprocess.run(["git", "-C", str(path), "commit", "-qm", "fixture"], check=True)
+    return subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+    ).stdout.strip()
+
+
+def environment(workspace: pathlib.Path, sha: str, job: str) -> dict[str, str]:
+    return {
+        **os.environ,
+        "GITHUB_WORKSPACE": str(workspace),
+        "GITHUB_REPOSITORY": "example/groundwork",
+        "GITHUB_WORKFLOW": "CI",
+        "GITHUB_JOB": job,
+        "GITHUB_RUN_ID": "4242",
+        "GITHUB_RUN_ATTEMPT": "2",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "GITHUB_REF": "refs/pull/7/merge",
+        "GITHUB_SHA": sha,
+        "GROUNDWORK_HEAD_SHA": "a" * 40,
+        "ImageOS": "ubuntu24",
+        "RUNNER_ARCH": "X64",
+    }
+
+
+def with_environment(values: dict[str, str]):
+    class Context:
+        def __enter__(self):
+            self.previous = {key: os.environ.get(key) for key in values}
+            os.environ.update(values)
+
+        def __exit__(self, *_):
+            for key, value in self.previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    return Context()
+
+
+def detail_receipt(
+    workspace: pathlib.Path,
+    env: dict[str, str],
+    *,
+    skipped: bool = False,
+    skip_name: str = "required check",
+    skip_code: str = "fixture-dependency-unavailable",
+) -> dict:
+    snapshot = tree_snapshot(workspace)
+    now = int(time.time())
+    with with_environment(env):
+        receipt = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="passed",
+            started_epoch=now - 20,
+            finished_epoch=now - 10,
+            platform_os="linux",
+            platform_image="ubuntu24",
+            platform_arch="X64",
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+    checks = [{"name": "source check", "durationSeconds": 10, "result": "passed"}]
+    if skipped:
+        checks = [
+            {
+                "name": skip_name,
+                "durationSeconds": 10,
+                "result": "skipped",
+                "skipCode": skip_code,
+                "reason": "fixture dependency unavailable",
+            }
+        ]
+    receipt["body"] = {
+        "suite": "static",
+        "scope": "fixture",
+        "proofType": "fixture",
+        "cacheState": "unavailable",
+        "suiteDurationSeconds": 10,
+        "suiteBudgetSeconds": 30,
+        "suiteBudgetState": "within",
+        "hardDeadlineSeconds": 540,
+        "checkCount": 1,
+        "passedCount": 0 if skipped else 1,
+        "skippedCount": 1 if skipped else 0,
+        "failedCount": 0,
+        "checks": checks,
+        "commands": {"localEquivalent": "fixture"},
+    }
+    return validate_receipt(receipt, expected_kind="validation-suite")
+
+
+def job_receipt(
+    workspace: pathlib.Path,
+    env: dict[str, str],
+    *,
+    skipped: bool = False,
+    skip_name: str = "required check",
+    skip_code: str = "fixture-dependency-unavailable",
+) -> dict:
+    snapshot = tree_snapshot(workspace)
+    now = int(time.time())
+    with with_environment(env):
+        receipt = common_envelope(
+            repo=workspace,
+            receipt_kind="ci-job",
+            result="passed",
+            started_epoch=now - 25,
+            finished_epoch=now - 5,
+            platform_os="linux",
+            platform_image="ubuntu24",
+            platform_arch="X64",
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+    receipt["body"] = {
+        "title": "Static validation",
+        "scope": "fixture",
+        "proofType": "fixture",
+        "cacheState": "unavailable",
+        "jobDurationSeconds": 20,
+        "jobBudgetSeconds": 30,
+        "jobBudgetState": "within",
+        "workflowSafetyTimeoutSeconds": 60,
+        "phases": [{"name": "validator", "durationSeconds": 10, "result": "passed"}],
+        "facts": {"Fixture": "true"},
+        "commands": {"localEquivalent": "fixture"},
+        "validationDetails": [
+            detail_receipt(
+                workspace,
+                env,
+                skipped=skipped,
+                skip_name=skip_name,
+                skip_code=skip_code,
+            )
+        ],
+    }
+    return validate_receipt(receipt, expected_kind="ci-job")
+
+
+def invoke(
+    artifact_directory: pathlib.Path,
+    workspace: pathlib.Path,
+    env: dict[str, str],
+    output: pathlib.Path,
+    need_result: str = "success",
+    lane: str = "static_linux|Static Linux|fixture|static|forbid",
+) -> subprocess.CompletedProcess[str]:
+    summary = output.with_suffix(".md")
+    gate_env = {**env, "GITHUB_JOB": "ci_gate"}
+    lane_job = lane.split("|", 1)[0]
+    return subprocess.run(
+        [
+            str(AGGREGATOR),
+            "--mode",
+            "ci",
+            "--needs-json",
+            json.dumps({lane_job: {"result": need_result}}),
+            "--download-outcome",
+            "success",
+            "--receipt-directory",
+            str(artifact_directory),
+            "--output",
+            str(output),
+            "--summary",
+            str(summary),
+            "--budget-seconds",
+            "60",
+            "--started-epoch",
+            str(int(time.time()) - 4),
+            "--lane",
+            lane,
+        ],
+        cwd=REPO,
+        env=gate_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def write_job(directory: pathlib.Path, payload: dict, name: str = "groundwork-job-static.json") -> None:
+    atomic_write_json(directory / name, payload)
+
+
+def assert_failed_receipt(completed: subprocess.CompletedProcess[str], output: pathlib.Path) -> None:
+    assert completed.returncode == 1, completed.stderr
+    receipt = validate_receipt(json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate")
+    assert receipt["result"] == "failed"
+    assert receipt["body"]["errors"]
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="groundwork-gate-test.") as temporary_name:
+        temporary = pathlib.Path(temporary_name)
+        workspace = temporary / "repo"
+        workspace.mkdir()
+        sha = initialize_repo(workspace)
+        lane_env = environment(workspace, sha, "static_linux")
+        valid = job_receipt(workspace, lane_env)
+
+        valid_dir = temporary / "valid"
+        valid_dir.mkdir()
+        write_job(valid_dir, valid)
+        valid_output = temporary / "valid-gate.json"
+        completed = invoke(valid_dir, workspace, lane_env, valid_output)
+        assert completed.returncode == 0, completed.stderr
+        gate = validate_receipt(json.loads(valid_output.read_text(encoding="utf-8")), expected_kind="ci-gate")
+        assert gate["result"] == "passed"
+        assert gate["body"]["lanes"][0]["result"] == "passed"
+        assert gate["body"]["lanes"][0]["suiteDurationSeconds"] == 10
+        assert gate["body"]["lanes"][0]["suiteTargetSeconds"] == 30
+        assert gate["body"]["lanes"][0]["suiteBudgetState"] == "within"
+        assert gate["body"]["lanes"][0]["workflowSafetyTimeoutSeconds"] == 60
+        summary = valid_output.with_suffix(".md").read_text(encoding="utf-8")
+        assert "| Static Linux | passed | 10s | 30s (within) | 20s | 1m 00s |" in summary
+
+        for github_result, receipt_result in (
+            ("failure", "failed"),
+            ("cancelled", "cancelled"),
+            ("skipped", "skipped"),
+        ):
+            mapped_output = temporary / f"mapped-{github_result}-gate.json"
+            completed = invoke(valid_dir, workspace, lane_env, mapped_output, github_result)
+            assert_failed_receipt(completed, mapped_output)
+            mapped = validate_receipt(
+                json.loads(mapped_output.read_text(encoding="utf-8")),
+                expected_kind="ci-gate",
+            )
+            assert mapped["body"]["lanes"][0]["result"] == receipt_result
+
+        unknown_output = temporary / "unknown-result-gate.json"
+        completed = invoke(valid_dir, workspace, lane_env, unknown_output, "unexpected")
+        assert_failed_receipt(completed, unknown_output)
+        unknown = validate_receipt(
+            json.loads(unknown_output.read_text(encoding="utf-8")),
+            expected_kind="ci-gate",
+        )
+        assert unknown["body"]["lanes"][0]["result"] == "failed"
+        assert any("unknown GitHub result" in error for error in unknown["body"]["errors"])
+
+        duplicate_dir = temporary / "duplicate"
+        duplicate_dir.mkdir()
+        write_job(duplicate_dir, valid, "groundwork-job-one.json")
+        write_job(duplicate_dir, valid, "groundwork-job-two.json")
+        duplicate_output = temporary / "duplicate-gate.json"
+        assert_failed_receipt(invoke(duplicate_dir, workspace, lane_env, duplicate_output), duplicate_output)
+
+        stale_dir = temporary / "stale"
+        stale_dir.mkdir()
+        stale = json.loads(json.dumps(valid))
+        stale["testedSha"] = "b" * 40
+        write_job(stale_dir, stale)
+        stale_output = temporary / "stale-gate.json"
+        assert_failed_receipt(invoke(stale_dir, workspace, lane_env, stale_output), stale_output)
+
+        inconsistent_detail_dir = temporary / "inconsistent-detail"
+        inconsistent_detail_dir.mkdir()
+        inconsistent_detail = json.loads(json.dumps(valid))
+        embedded = inconsistent_detail["body"]["validationDetails"][0]
+        embedded["result"] = "failed"
+        embedded["body"]["passedCount"] = 0
+        embedded["body"]["failedCount"] = 1
+        embedded["body"]["checks"][0]["result"] = "failed"
+        (inconsistent_detail_dir / "groundwork-job-static.json").write_text(
+            f"{json.dumps(inconsistent_detail)}\n",
+            encoding="utf-8",
+        )
+        inconsistent_detail_output = temporary / "inconsistent-detail-gate.json"
+        assert_failed_receipt(
+            invoke(
+                inconsistent_detail_dir,
+                workspace,
+                lane_env,
+                inconsistent_detail_output,
+            ),
+            inconsistent_detail_output,
+        )
+
+        source_metadata_dir = temporary / "source-metadata"
+        source_metadata_dir.mkdir()
+        wrong_source_metadata = json.loads(json.dumps(valid))
+        wrong_source_metadata["body"]["validationDetails"][0]["source"]["fingerprintInput"][
+            "pathLimit"
+        ] += 1
+        (source_metadata_dir / "groundwork-job-static.json").write_text(
+            f"{json.dumps(wrong_source_metadata)}\n",
+            encoding="utf-8",
+        )
+        source_metadata_output = temporary / "source-metadata-gate.json"
+        assert_failed_receipt(
+            invoke(source_metadata_dir, workspace, lane_env, source_metadata_output),
+            source_metadata_output,
+        )
+
+        dirty_dir = temporary / "dirty"
+        dirty_dir.mkdir()
+        dirty = json.loads(json.dumps(valid))
+        dirty["source"]["workingTree"]["untrackedPathCount"] = 1
+        write_job(dirty_dir, dirty)
+        dirty_output = temporary / "dirty-gate.json"
+        assert_failed_receipt(invoke(dirty_dir, workspace, lane_env, dirty_output), dirty_output)
+
+        skipped_dir = temporary / "skipped"
+        skipped_dir.mkdir()
+        write_job(skipped_dir, job_receipt(workspace, lane_env, skipped=True))
+        skipped_output = temporary / "skipped-gate.json"
+        assert_failed_receipt(invoke(skipped_dir, workspace, lane_env, skipped_output), skipped_output)
+
+        allowed_skip_dir = temporary / "allowed-platform-skip"
+        allowed_skip_dir.mkdir()
+        allowed_skip = job_receipt(
+            workspace,
+            lane_env,
+            skipped=True,
+            skip_name="macOS representative rendered apply smoke",
+            skip_code="requires-macos-native-host",
+        )
+        write_job(allowed_skip_dir, allowed_skip)
+        allowed_skip_output = temporary / "allowed-platform-skip-gate.json"
+        completed = invoke(
+            allowed_skip_dir,
+            workspace,
+            lane_env,
+            allowed_skip_output,
+            lane="static_linux|Static Linux|fixture|static|allow-platform",
+        )
+        assert completed.returncode == 0, completed.stderr
+
+        mismatched_skip_dir = temporary / "mismatched-platform-skip"
+        mismatched_skip_dir.mkdir()
+        mismatched_skip = job_receipt(
+            workspace,
+            lane_env,
+            skipped=True,
+            skip_name="Node/pnpm launcher: parent and nested child resolve one toolchain",
+            skip_code="requires-macos-native-host",
+        )
+        write_job(mismatched_skip_dir, mismatched_skip)
+        mismatched_skip_output = temporary / "mismatched-platform-skip-gate.json"
+        assert_failed_receipt(
+            invoke(
+                mismatched_skip_dir,
+                workspace,
+                lane_env,
+                mismatched_skip_output,
+                lane="static_linux|Static Linux|fixture|static|allow-platform",
+            ),
+            mismatched_skip_output,
+        )
+
+        unknown_skip_dir = temporary / "unknown-platform-skip"
+        unknown_skip_dir.mkdir()
+        unknown_skip = job_receipt(
+            workspace,
+            lane_env,
+            skipped=True,
+            skip_name="macOS representative rendered apply smoke",
+            skip_code="requires-unknown-host",
+        )
+        write_job(unknown_skip_dir, unknown_skip)
+        unknown_skip_output = temporary / "unknown-platform-skip-gate.json"
+        assert_failed_receipt(
+            invoke(
+                unknown_skip_dir,
+                workspace,
+                lane_env,
+                unknown_skip_output,
+                lane="static_linux|Static Linux|fixture|static|allow-platform",
+            ),
+            unknown_skip_output,
+        )
+
+        detail_provenance_dir = temporary / "detail-provenance"
+        detail_provenance_dir.mkdir()
+        wrong_detail = json.loads(json.dumps(valid))
+        wrong_detail["body"]["validationDetails"][0]["workflow"] = "another workflow"
+        write_job(detail_provenance_dir, wrong_detail)
+        detail_provenance_output = temporary / "detail-provenance-gate.json"
+        assert_failed_receipt(
+            invoke(detail_provenance_dir, workspace, lane_env, detail_provenance_output),
+            detail_provenance_output,
+        )
+
+        attempt_dir = temporary / "attempt"
+        attempt_dir.mkdir()
+        wrong_attempt = json.loads(json.dumps(valid))
+        wrong_attempt["runAttempt"] = 1
+        write_job(attempt_dir, wrong_attempt)
+        attempt_output = temporary / "attempt-gate.json"
+        assert_failed_receipt(invoke(attempt_dir, workspace, lane_env, attempt_output), attempt_output)
+
+        malformed_dir = temporary / "malformed"
+        malformed_dir.mkdir()
+        (malformed_dir / "groundwork-job-malformed.json").write_text("{not json}\n", encoding="utf-8")
+        malformed_output = temporary / "malformed-gate.json"
+        assert_failed_receipt(invoke(malformed_dir, workspace, lane_env, malformed_output), malformed_output)
+
+        wrong_kind_dir = temporary / "wrong-kind"
+        wrong_kind_dir.mkdir()
+        wrong_kind = detail_receipt(workspace, lane_env)
+        atomic_write_json(wrong_kind_dir / "groundwork-job-detail.json", wrong_kind)
+        wrong_kind_output = temporary / "wrong-kind-gate.json"
+        assert_failed_receipt(invoke(wrong_kind_dir, workspace, lane_env, wrong_kind_output), wrong_kind_output)
+
+        missing_dir = temporary / "missing"
+        missing_dir.mkdir()
+        missing_output = temporary / "missing-gate.json"
+        assert_failed_receipt(invoke(missing_dir, workspace, lane_env, missing_output), missing_output)
+
+    print("test-aggregate-ci-receipts: passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

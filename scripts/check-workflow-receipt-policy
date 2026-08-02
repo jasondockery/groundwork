@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Structurally enforce Groundwork workflow receipt and aggregation policy."""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+POLICIES = {
+    ".github/workflows/ci.yml": {
+        "gate": "ci_gate",
+        "validation": {
+            "static_linux": ("static", 600, 540),
+            "update_contract_linux": ("update", 900, 840),
+            "docker_contract_linux": ("docker", 600, 540),
+            "platform_macos": ("platform-macos", 900, 840),
+        },
+        "receipt_timeouts": {
+            "workflow-lint": 600,
+            "secret-scan": 600,
+            "docker-build": 1800,
+        },
+    },
+    ".github/workflows/full-validation.yml": {
+        "gate": "full_gate",
+        "validation": {
+            "full_linux": ("full", 2700, 2400),
+            "full_macos": ("full", 3000, 2400),
+        },
+        "receipt_timeouts": {},
+    },
+}
+
+
+class PolicyError(ValueError):
+    pass
+
+
+def scalar(block: str, pattern: str, label: str) -> int:
+    matches = re.findall(pattern, block, flags=re.MULTILINE)
+    if len(matches) != 1:
+        raise PolicyError(f"{label} must occur exactly once")
+    return int(matches[0])
+
+
+def parse_workflow(path: pathlib.Path) -> tuple[dict[str, str], dict[str, str]]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    permissions: dict[str, str] = {}
+    jobs: dict[str, list[str]] = {}
+    section = "root"
+    current_job: str | None = None
+    for line in lines:
+        if line == "permissions:":
+            section = "permissions"
+            current_job = None
+            continue
+        if line == "jobs:":
+            section = "jobs"
+            current_job = None
+            continue
+        if re.match(r"^[^ #]", line):
+            section = "root"
+            current_job = None
+        if section == "permissions":
+            match = re.fullmatch(r"  ([A-Za-z-]+):\s*([^#]+?)(?:\s+#.*)?", line)
+            if match:
+                permissions[match.group(1)] = match.group(2).strip()
+            elif line and not line.startswith(("  ", "#")):
+                section = "root"
+        elif section == "jobs":
+            match = re.fullmatch(r"  ([A-Za-z_][A-Za-z0-9_-]*):\s*(?:#.*)?", line)
+            if match:
+                current_job = match.group(1)
+                if current_job in jobs:
+                    raise PolicyError(f"{path}: duplicate job {current_job}")
+                jobs[current_job] = []
+            elif current_job is not None:
+                jobs[current_job].append(line)
+    return permissions, {job: "\n".join(block) for job, block in jobs.items()}
+
+
+def needs(block: str) -> list[str]:
+    values: list[str] = []
+    active = False
+    for line in block.splitlines():
+        if line == "    needs:":
+            active = True
+            continue
+        if active:
+            match = re.fullmatch(r"      - ([A-Za-z_][A-Za-z0-9_-]*)", line)
+            if match:
+                values.append(match.group(1))
+                continue
+            if line.startswith("    ") and not line.startswith("      "):
+                break
+    return values
+
+
+def lanes(block: str) -> list[str]:
+    return re.findall(r'^\s*--lane "([^|\"]+)\|', block, flags=re.MULTILINE)
+
+
+def check(path_name: str, policy: dict[str, object]) -> None:
+    path = ROOT / path_name
+    permissions, jobs = parse_workflow(path)
+    if permissions != {"contents": "read"}:
+        raise PolicyError(f"{path_name}: root permissions must be exactly contents: read")
+    gate = str(policy["gate"])
+    if gate not in jobs:
+        raise PolicyError(f"{path_name}: missing aggregate job {gate}")
+    required_jobs = set(jobs) - {gate}
+    gate_needs = needs(jobs[gate])
+    gate_lanes = lanes(jobs[gate])
+    if len(gate_needs) != len(set(gate_needs)) or set(gate_needs) != required_jobs:
+        raise PolicyError(f"{path_name}: {gate} needs must name every non-gate job exactly once")
+    if len(gate_lanes) != len(set(gate_lanes)) or gate_lanes != gate_needs:
+        raise PolicyError(f"{path_name}: aggregate lanes must exactly match needs in the same order")
+
+    validation = policy["validation"]
+    assert isinstance(validation, dict)
+    for job, expected in validation.items():
+        suite, workflow_seconds, deadline_seconds = expected
+        block = jobs[job]
+        timeout_minutes = scalar(block, r"^    timeout-minutes:\s*([0-9]+)", f"{path_name}:{job} timeout")
+        if timeout_minutes * 60 != workflow_seconds:
+            raise PolicyError(f"{path_name}:{job} timeout does not match receipt workflow metadata")
+        found_suite = re.findall(r"scripts/run-validation-job --suite ([a-z-]+)", block)
+        if found_suite != [suite]:
+            raise PolicyError(f"{path_name}:{job} must own exactly the {suite} suite")
+        recorded_workflow = scalar(
+            block,
+            r"--workflow-safety-timeout-seconds\s+([0-9]+)",
+            f"{path_name}:{job} workflow receipt timeout",
+        )
+        recorded_deadline = scalar(
+            block,
+            r"--validation-deadline-seconds\s+([0-9]+)",
+            f"{path_name}:{job} validation deadline",
+        )
+        if recorded_workflow != workflow_seconds or recorded_deadline != deadline_seconds:
+            raise PolicyError(f"{path_name}:{job} timeout metadata does not match policy")
+        if recorded_deadline >= recorded_workflow:
+            raise PolicyError(f"{path_name}:{job} local deadline must precede workflow timeout")
+
+    receipt_timeouts = policy["receipt_timeouts"]
+    assert isinstance(receipt_timeouts, dict)
+    for job, expected_seconds in receipt_timeouts.items():
+        block = jobs[job]
+        timeout_minutes = scalar(block, r"^    timeout-minutes:\s*([0-9]+)", f"{path_name}:{job} timeout")
+        recorded = scalar(
+            block,
+            r"--workflow-safety-timeout-seconds\s+([0-9]+)",
+            f"{path_name}:{job} receipt timeout",
+        )
+        if timeout_minutes * 60 != expected_seconds or recorded != expected_seconds:
+            raise PolicyError(f"{path_name}:{job} receipt timeout metadata does not match its job")
+
+
+def main() -> int:
+    try:
+        for path_name, policy in POLICIES.items():
+            check(path_name, policy)
+    except (OSError, PolicyError, KeyError) as error:
+        print(f"check-workflow-receipt-policy: {error}", file=sys.stderr)
+        return 1
+    print("ok: workflow receipt policy is structurally consistent")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -34,6 +34,20 @@ bounded_tree_running() {
   fi
 }
 
+bounded_live_tree() {
+  local child="$1" pgid="$2" snapshot
+  if bounded_child_running "$child"; then
+    return 0
+  fi
+  if ! snapshot="$(LC_ALL=C ps -eo pgid=,stat= 2>/dev/null)"; then
+    bounded_tree_running "$child" "$pgid"
+    return
+  fi
+  awk -v wanted="$pgid" \
+    '$1 == wanted && $2 !~ /^Z/ { found = 1 } END { exit !found }' \
+    <<<"$snapshot"
+}
+
 bounded_describe_tree() {
   local pgid="$1" members
   members="$(LC_ALL=C ps -eo pid=,pgid=,comm= 2>/dev/null \
@@ -57,29 +71,47 @@ bounded_restore_traps() {
   if [[ -n "$saved_term" ]]; then eval "$saved_term"; else trap - TERM; fi
 }
 
+bounded_collect_child_status() {
+  local child="$1" status=0
+  wait "$child" || status=$?
+  bounded_child_status="$status"
+  bounded_child_status_available=1
+}
+
+bounded_report_unconfirmed() {
+  local status_text=unavailable
+  if [[ "$bounded_child_status_available" -eq 1 ]]; then
+    status_text="$bounded_child_status"
+  fi
+  echo "  Groundwork: cleanup could not be confirmed; original child status: $status_text" >&2
+}
+
 bounded_shutdown() {
-  local child="$1" pgid="$2" stopped_at now
+  local child="$1" pgid="$2" leader_exited="$3" stopped_at now
   bounded_kill "$child" "$pgid" TERM
   stopped_at="$(date +%s)"
-  while bounded_tree_running "$child" "$pgid"; do
+  while bounded_live_tree "$child" "$pgid"; do
     now="$(date +%s)"
     [[ "$now" -lt $((stopped_at + cancel_grace)) ]] || break
     sleep "$poll_seconds"
   done
-  if bounded_tree_running "$child" "$pgid"; then
+  if bounded_live_tree "$child" "$pgid"; then
     bounded_kill "$child" "$pgid" KILL
   fi
   stopped_at="$(date +%s)"
-  while bounded_tree_running "$child" "$pgid"; do
+  while bounded_live_tree "$child" "$pgid"; do
     now="$(date +%s)"
     [[ "$now" -lt $((stopped_at + cancel_grace)) ]] || break
     sleep "$poll_seconds"
   done
-  if bounded_tree_running "$child" "$pgid"; then
+  if bounded_live_tree "$child" "$pgid"; then
+    if [[ "$leader_exited" -eq 1 ]]; then
+      bounded_collect_child_status "$child"
+    fi
     echo "  Groundwork: the maintenance process tree could not be fully stopped." >&2
     return 1
   fi
-  wait "$child" 2>/dev/null || true
+  bounded_collect_child_status "$child"
   return 0
 }
 
@@ -87,7 +119,8 @@ run_bounded_internal() {
   local label="$1" seconds="$2" output="$3"
   shift 3
   local started now next_heartbeat child="" pgid="" status=0 interrupted=0
-  local child_reaped=0 leader_exited_at=0 monitor_was_on=0
+  local leader_exited=0 leader_exited_at=0 monitor_was_on=0
+  local bounded_child_status=0 bounded_child_status_available=0
   local saved_hup saved_int saved_term
   saved_hup="$(trap -p HUP || true)"
   saved_int="$(trap -p INT || true)"
@@ -118,15 +151,15 @@ run_bounded_internal() {
   else
     set +m
   fi
-  while bounded_tree_running "$child" "$pgid"; do
-    if [[ "$child_reaped" -eq 0 ]] && ! bounded_child_running "$child"; then
-      wait "$child" || status=$?
-      child_reaped=1
+  while bounded_live_tree "$child" "$pgid"; do
+    if [[ "$leader_exited" -eq 0 ]] && ! bounded_child_running "$child"; then
+      leader_exited=1
       leader_exited_at="$(date +%s)"
     fi
     if [[ "$interrupted" -ne 0 ]]; then
       trap '' HUP INT TERM
-      if ! bounded_shutdown "$child" "$pgid"; then
+      if ! bounded_shutdown "$child" "$pgid" "$leader_exited"; then
+        bounded_report_unconfirmed
         bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
         return 125
       fi
@@ -136,28 +169,42 @@ run_bounded_internal() {
     now="$(date +%s)"
     if [[ "$now" -ge $((started + seconds)) ]]; then
       echo "  Groundwork: $label exceeded its ${seconds}s hard deadline; cancelling its process tree." >&2
-      if [[ "$child_reaped" -eq 1 ]]; then
+      if [[ "$leader_exited" -eq 1 ]]; then
         bounded_describe_tree "$pgid"
       fi
       trap '' HUP INT TERM
-      if ! bounded_shutdown "$child" "$pgid"; then
+      if ! bounded_shutdown "$child" "$pgid" "$leader_exited"; then
+        bounded_report_unconfirmed
         bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
         return 125
       fi
       bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
+      if [[ "$leader_exited" -eq 1 ]]; then
+        if [[ "$bounded_child_status" -ne 0 ]]; then
+          echo "  Groundwork: $label failed before leaking a process; preserving original child status $bounded_child_status." >&2
+          return "$bounded_child_status"
+        fi
+        echo "  Groundwork: the command succeeded but leaked a process; returning 70." >&2
+        return 70
+      fi
       return 124
     fi
-    if [[ "$child_reaped" -eq 1 && "$now" -ge $((leader_exited_at + orphan_grace)) ]]; then
+    if [[ "$leader_exited" -eq 1 && "$now" -ge $((leader_exited_at + orphan_grace)) ]]; then
       echo "  Groundwork: $label left a background process in its maintenance group after the ${orphan_grace}s drain grace; cancelling it." >&2
       bounded_describe_tree "$pgid"
       trap '' HUP INT TERM
-      if ! bounded_shutdown "$child" "$pgid"; then
+      if ! bounded_shutdown "$child" "$pgid" "$leader_exited"; then
+        bounded_report_unconfirmed
         bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
         return 125
       fi
       bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
-      [[ "$status" -ne 0 ]] && return "$status"
-      return 1
+      if [[ "$bounded_child_status" -ne 0 ]]; then
+        echo "  Groundwork: $label failed before leaking a process; preserving original child status $bounded_child_status." >&2
+        return "$bounded_child_status"
+      fi
+      echo "  Groundwork: the command succeeded but leaked a process; returning 70." >&2
+      return 70
     fi
     if [[ "$now" -ge "$next_heartbeat" ]]; then
       echo "  Still running: $label ($((now - started))s elapsed)" >&2
@@ -167,16 +214,16 @@ run_bounded_internal() {
   done
   if [[ "$interrupted" -ne 0 ]]; then
     trap '' HUP INT TERM
-    if ! bounded_shutdown "$child" "$pgid"; then
+    if ! bounded_shutdown "$child" "$pgid" "$leader_exited"; then
+      bounded_report_unconfirmed
       bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
       return 125
     fi
     bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
     return "$interrupted"
   fi
-  if [[ "$child_reaped" -eq 0 ]]; then
-    wait "$child" || status=$?
-  fi
+  bounded_collect_child_status "$child"
+  status="$bounded_child_status"
   if [[ "$interrupted" -ne 0 ]]; then
     bounded_restore_traps "$saved_hup" "$saved_int" "$saved_term"
     return "$interrupted"
