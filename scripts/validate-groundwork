@@ -7523,7 +7523,7 @@ SH
       HOME="$docker_home" DOCKER_STATE="$state" PATH="$path_env" \
       /bin/bash home/dot_local/bin/executable_groundwork-docker-tidy --automatic "$@"
   }
-  docker_now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  docker_now="$("$docker_stub_bin/date" -u +%Y-%m-%dT%H:%M:%SZ)"
 
   check "groundwork-doctor helper"
   test -x home/dot_local/bin/executable_groundwork-doctor
