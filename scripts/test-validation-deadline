@@ -143,8 +143,10 @@ fi
 printf 'body\n' >>"$GROUNDWORK_TEST_INTEGRATION_EVENTS"
 printf '%s\n' "$GROUNDWORK_VALIDATION_DEADLINE_PARENT" >"$GROUNDWORK_TEST_INTEGRATION_PARENT"
 printf '%s\n' "$GROUNDWORK_VALIDATION_PROCESS_GROUP" >"$GROUNDWORK_TEST_INTEGRATION_GROUP"
-printf '%s\n' "${original_arguments[@]+"${original_arguments[@]}"}" \
-  >"$GROUNDWORK_TEST_INTEGRATION_ARGUMENTS"
+: >"$GROUNDWORK_TEST_INTEGRATION_ARGUMENTS"
+if [[ "${#original_arguments[@]}" -gt 0 ]]; then
+  printf '%s\n' "${original_arguments[@]}" >"$GROUNDWORK_TEST_INTEGRATION_ARGUMENTS"
+fi
 SH
 chmod +x "$fixture/integration-validator"
 grep -qF 'GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$"' \
