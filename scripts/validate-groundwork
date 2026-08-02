@@ -661,10 +661,13 @@ PY
       echo
       echo '| Check | Seconds | Result | Skip code | Reason |'
       echo '| --- | ---: | --- | --- | --- |'
+      sort -t $'\t' -k2,2nr "$timing_rows" >"$out_dir/validation-timings-sorted.tsv"
+      head -n 5 "$out_dir/validation-timings-sorted.tsv" \
+        >"$out_dir/validation-timings-slowest.tsv"
       while IFS=$'\t' read -r timing_name timing_seconds timing_result timing_skip_code timing_reason; do
         printf '| %s | %s | %s | %s | %s |\n' "${timing_name//|/\\|}" "$timing_seconds" \
           "$timing_result" "$timing_skip_code" "${timing_reason//|/\\|}"
-      done < <(sort -t $'\t' -k2,2nr "$timing_rows" | head -n 5)
+      done <"$out_dir/validation-timings-slowest.tsv"
       echo
       printf "Local equivalent: \`scripts/validate-groundwork --suite %s --report '<path>'\`\n" "$suite"
     } >>"$GITHUB_STEP_SUMMARY" || true

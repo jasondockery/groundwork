@@ -50,6 +50,7 @@ jobs:
       - name: Run complete Linux validation and publish final job receipt
         env:
           GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite full
           --detail-output "$RUNNER_TEMP/groundwork-detail-full-linux.json"
@@ -58,7 +59,7 @@ jobs:
           --job-budget-seconds 2100
           --workflow-safety-timeout-seconds 2700
           --validation-deadline-seconds 2400
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
 
       - name: Upload Linux receipts
         if: ${{ always() }}
@@ -101,6 +102,7 @@ jobs:
         env:
           GROUNDWORK_REQUIRE_TMUX: "1"
           GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite full
           --detail-output "$RUNNER_TEMP/groundwork-detail-full-macos.json"
@@ -109,7 +111,7 @@ jobs:
           --job-budget-seconds 2100
           --workflow-safety-timeout-seconds 3000
           --validation-deadline-seconds 2400
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
           --with-cask-audit
 
       - name: Upload macOS receipts
@@ -152,6 +154,7 @@ jobs:
 
       - name: Publish full-validation receipt
         env:
+          GATE_STARTED_EPOCH: ${{ steps.gate-start.outputs.epoch }}
           NEEDS_JSON: ${{ toJSON(needs) }}
           RECEIPT_DOWNLOAD_OUTCOME: ${{ steps.receipts.outcome }}
         run: >-
@@ -162,7 +165,7 @@ jobs:
           --output "$RUNNER_TEMP/groundwork-receipt-full-gate.json"
           --summary "$GITHUB_STEP_SUMMARY"
           --budget-seconds 2400
-          --started-epoch "${{ steps.gate-start.outputs.epoch }}"
+          --started-epoch "$GATE_STARTED_EPOCH"
           --lane "full_linux|Full Linux|complete isolated suite composition|full|allow-platform"
           --lane "full_macos|Full macOS|complete isolated suite composition and cask integrity|full|forbid"
 

@@ -169,6 +169,7 @@ jobs:
       - name: Validate static contracts and publish final job receipt
         env:
           GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite static
           --detail-output "$RUNNER_TEMP/groundwork-detail-static.json"
@@ -177,7 +178,7 @@ jobs:
           --job-budget-seconds 300
           --workflow-safety-timeout-seconds 600
           --validation-deadline-seconds 540
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
 
       - name: Upload static receipts
         if: ${{ always() }}
@@ -213,6 +214,8 @@ jobs:
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
 
       - name: Validate update contracts and publish final job receipt
+        env:
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite update
           --detail-output "$RUNNER_TEMP/groundwork-detail-update.json"
@@ -221,7 +224,7 @@ jobs:
           --job-budget-seconds 480
           --workflow-safety-timeout-seconds 900
           --validation-deadline-seconds 840
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
 
       - name: Upload update receipts
         if: ${{ always() }}
@@ -255,6 +258,8 @@ jobs:
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
 
       - name: Validate Docker contracts and publish final job receipt
+        env:
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite docker
           --detail-output "$RUNNER_TEMP/groundwork-detail-docker.json"
@@ -263,7 +268,7 @@ jobs:
           --job-budget-seconds 420
           --workflow-safety-timeout-seconds 600
           --validation-deadline-seconds 540
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
 
       - name: Upload Docker-contract receipts
         if: ${{ always() }}
@@ -304,6 +309,7 @@ jobs:
         env:
           GROUNDWORK_REQUIRE_TMUX: "1"
           GROUNDWORK_REQUIRE_NODE_TOOLCHAIN: "1"
+          JOB_STARTED_EPOCH: ${{ steps.job-start.outputs.epoch }}
         run: >-
           scripts/run-validation-job --suite platform-macos
           --detail-output "$RUNNER_TEMP/groundwork-detail-platform-macos.json"
@@ -312,7 +318,7 @@ jobs:
           --job-budget-seconds 600
           --workflow-safety-timeout-seconds 900
           --validation-deadline-seconds 840
-          --job-started-epoch "${{ steps.job-start.outputs.epoch }}"
+          --job-started-epoch "$JOB_STARTED_EPOCH"
           --with-cask-audit
 
       - name: Upload macOS receipts
@@ -615,6 +621,7 @@ jobs:
 
       - name: Publish aggregate CI receipt
         env:
+          GATE_STARTED_EPOCH: ${{ steps.gate-start.outputs.epoch }}
           NEEDS_JSON: ${{ toJSON(needs) }}
           RECEIPT_DOWNLOAD_OUTCOME: ${{ steps.receipts.outcome }}
         run: >-
@@ -625,7 +632,7 @@ jobs:
           --output "$RUNNER_TEMP/groundwork-receipt-ci-gate.json"
           --summary "$GITHUB_STEP_SUMMARY"
           --budget-seconds 300
-          --started-epoch "${{ steps.gate-start.outputs.epoch }}"
+          --started-epoch "$GATE_STARTED_EPOCH"
           --lane "static_linux|Static Linux|lint, docs, profiles|static|forbid"
           --lane "update_contract_linux|Update contract|locks, signals, package maintenance|update|forbid"
           --lane "docker_contract_linux|Docker contract|exact-resource lifecycle|docker|forbid"
