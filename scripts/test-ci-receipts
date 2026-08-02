@@ -202,6 +202,7 @@ exit "$GROUNDWORK_TEST_VALIDATOR_STATUS"
         "GITHUB_WORKSPACE": str(workspace),
         "GITHUB_WORKFLOW": "fixture workflow",
         "GITHUB_JOB": "fixture_job",
+        "PYTHONDONTWRITEBYTECODE": "1",
     }
     platform_os = "macos" if os.uname().sysname == "Darwin" else "linux"
     platform_arch = environment.get("RUNNER_ARCH", os.uname().machine)
