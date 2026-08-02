@@ -218,6 +218,7 @@ fi
 out_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-rendered.XXXXXX")"
 timing_rows="$out_dir/validation-timings.tsv"
 : >"$timing_rows"
+copylast_control_pids=()
 validation_started_epoch="$(date +%s)"
 source_before="$out_dir/source-before.json"
 source_after="$out_dir/source-after.json"
@@ -452,6 +453,17 @@ annotation_escape_title() {
   printf '%s' "$s"
 }
 
+stop_copylast_control_clients() {
+  local control_pid
+  for control_pid in ${copylast_control_pids[@]+"${copylast_control_pids[@]}"}; do
+    kill -TERM "$control_pid" 2>/dev/null || true
+  done
+  for control_pid in ${copylast_control_pids[@]+"${copylast_control_pids[@]}"}; do
+    wait "$control_pid" 2>/dev/null || true
+  done
+  copylast_control_pids=()
+}
+
 report_and_cleanup() {
   local status="${1:-0}" failed_line="${2:-unknown}" failed_command="${3:-unknown}"
   local reason title validation_finished_epoch total_duration platform_name
@@ -466,6 +478,7 @@ report_and_cleanup() {
   else
     finish_current_check_timing failed
   fi
+  stop_copylast_control_clients
   if [[ -n "${copylast_socket:-}" ]]; then
     tmux -L "$copylast_socket" kill-server 2>/dev/null || true
   fi
@@ -7051,10 +7064,16 @@ SPY
     # detached server is not a client, and targeting the only client would pass
     # even if the code ignored the argument. Control-mode clients (-C) attach
     # without a pty, which is what makes this receipt runnable on a CI runner
-    # instead of quietly skipping there. `sleep | ...` keeps stdin open so the
-    # client stays attached.
-    for _ in 1 2; do
-      (sleep 120 | "$real_tmux" -L "$copylast_socket" -C attach -t 0 >/dev/null 2>&1 &) || true
+    # instead of quietly skipping there. A tracked FIFO writer keeps each stdin
+    # open; both sides are stopped and reaped after the targeting proof.
+    for control_index in 1 2; do
+      control_fifo="$copylast_dir/control-client-$control_index.fifo"
+      mkfifo "$control_fifo"
+      sleep 120 >"$control_fifo" &
+      copylast_control_pids+=("$!")
+      "$real_tmux" -L "$copylast_socket" -C attach -t 0 \
+        <"$control_fifo" >/dev/null 2>&1 &
+      copylast_control_pids+=("$!")
     done
     for _ in $(seq 1 30); do
       copylast_client_count="$(tmux -L "$copylast_socket" list-clients -F '#{client_name}' 2>/dev/null | wc -l | tr -d ' ')"
@@ -7083,6 +7102,7 @@ SPY
       assert_not_contains "\-t $copylast_other" "$copylast_client_log" \
         "the final load-buffer targeted the WRONG client"
     fi
+    stop_copylast_control_clients
 
     # Fault injection: once copy-mode is entered and a scratch dir exists, EVERY
     # later tmux call can fail. Each failure must leave copy-mode and remove the
