@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Exec one full-composition child with usable signal dispositions."""
+
+from __future__ import annotations
+
+import os
+import signal
+import sys
+
+
+USAGE = "Usage: scripts/run-validation-child -- <command> [arguments...]"
+
+
+def main(arguments: list[str]) -> int:
+    if arguments in (["--help"], ["-h"]):
+        print(USAGE)
+        return 0
+    if len(arguments) < 2 or arguments[0] != "--":
+        print(USAGE, file=sys.stderr)
+        return 64
+
+    for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM):
+        signal.signal(signum, signal.SIG_DFL)
+
+    command = arguments[1:]
+    try:
+        os.execvpe(command[0], command, os.environ)
+    except OSError as error:
+        print(f"run-validation-child: could not start command: {error}", file=sys.stderr)
+        return 127
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

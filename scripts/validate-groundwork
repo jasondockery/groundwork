@@ -1078,6 +1078,29 @@ validate_static_foundation() {
     scripts/validate-groundwork \
     || fail "the full suite must compose focused CLI entry points in isolated subprocesses"
 
+  validation_child="$validator_cli_fixture/signal-child"
+  validation_child_ready="$validator_cli_fixture/signal-child.ready"
+  cat >"$validation_child" <<'SH'
+#!/usr/bin/env bash
+trap 'exit 130' INT
+: >"$1"
+while :; do sleep 1; done
+SH
+  chmod +x "$validation_child"
+  scripts/run-validation-child -- "$validation_child" "$validation_child_ready" &
+  validation_child_pid=$!
+  for _ in {1..50}; do
+    [[ -f "$validation_child_ready" ]] && break
+    sleep 0.1
+  done
+  test -f "$validation_child_ready" \
+    || fail "the full-composition signal child never became ready"
+  kill -INT "$validation_child_pid"
+  validation_child_status=0
+  wait "$validation_child_pid" || validation_child_status=$?
+  [[ "$validation_child_status" -eq 130 ]] \
+    || fail "the full-composition child inherited ignored INT (exit $validation_child_status)"
+
   check "whole-suite hard deadlines and process-group cleanup"
   scripts/test-validation-deadline
 
@@ -11015,8 +11038,9 @@ validate_full() {
     child_reports+=("$child_report")
     GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$" \
       GROUNDWORK_FULL_COMPOSITION=1 GROUNDWORK_SUPPRESS_SUMMARY=1 \
-      "$repo/scripts/validate-groundwork" --suite "$focused_suite" \
-      --report "$child_report" &
+      "$repo/scripts/run-validation-child" -- \
+        "$repo/scripts/validate-groundwork" --suite "$focused_suite" \
+        --report "$child_report" &
     child_pids+=("$!")
   done
 
