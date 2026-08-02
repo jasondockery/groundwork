@@ -10173,7 +10173,7 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     || fail "secret scanning must use an immutable official Gitleaks image"
   grep -qF 'args: git --redact --verbose --log-opts=--all .' .github/workflows/ci.yml \
     || fail "secret scanning must exercise the complete Git history without writing into the checkout"
-  grep -qF -- '--source-before "$RUNNER_TEMP/secret-scan-source-before.json"' .github/workflows/ci.yml \
+  grep -qF -- "--source-before \"\$RUNNER_TEMP/secret-scan-source-before.json\"" .github/workflows/ci.yml \
     || fail "secret scanning must bind its receipt to a pre-scan checkout identity"
   grep -qF -- '--require-clean-source' .github/workflows/ci.yml \
     || fail "secret scanning must fail when the checkout starts dirty or changes"
