@@ -11039,8 +11039,8 @@ validate_full() {
     GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$" \
       GROUNDWORK_FULL_COMPOSITION=1 GROUNDWORK_SUPPRESS_SUMMARY=1 \
       "$repo/scripts/run-validation-child" -- \
-        "$repo/scripts/validate-groundwork" --suite "$focused_suite" \
-        --report "$child_report" &
+      "$repo/scripts/validate-groundwork" --suite "$focused_suite" \
+      --report "$child_report" &
     child_pids+=("$!")
   done
 
