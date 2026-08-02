@@ -326,6 +326,9 @@ def main() -> int:
         dirty_dir.mkdir()
         dirty = json.loads(json.dumps(valid))
         dirty["source"]["workingTree"]["untrackedPathCount"] = 1
+        dirty["body"]["validationDetails"][0]["source"]["workingTree"][
+            "untrackedPathCount"
+        ] = 1
         write_job(dirty_dir, dirty)
         dirty_output = temporary / "dirty-gate.json"
         assert_failed_receipt(invoke(dirty_dir, workspace, lane_env, dirty_output), dirty_output)
