@@ -10173,6 +10173,12 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     || fail "secret scanning must use an immutable official Gitleaks image"
   grep -qF 'args: git --redact --verbose --log-opts=--all .' .github/workflows/ci.yml \
     || fail "secret scanning must exercise the complete Git history without writing into the checkout"
+  grep -qF 'GIT_CONFIG_KEY_0: safe.directory' .github/workflows/ci.yml \
+    || fail "the containerized secret scan must trust the mounted checkout without writing Git config"
+  grep -qF 'GIT_CONFIG_VALUE_0: /github/workspace' .github/workflows/ci.yml \
+    || fail "the containerized secret scan must scope its in-memory trust to the mounted checkout"
+  assert_no_matches "secret scanning must not persist a safe.directory exception" \
+    rg -n 'git config .*safe\.directory' .github/workflows/ci.yml
   grep -qF -- "--source-before \"\$RUNNER_TEMP/secret-scan-source-before.json\"" .github/workflows/ci.yml \
     || fail "secret scanning must bind its receipt to a pre-scan checkout identity"
   grep -qF -- '--require-clean-source' .github/workflows/ci.yml \
