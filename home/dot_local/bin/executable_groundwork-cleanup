@@ -885,10 +885,17 @@ fi
 
 echo "Package-manager maintenance"
 maintenance_failed=0
-maintenance_exit_status=1
+maintenance_exit_status=0
 brew_status=0
 npm_status=0
 pnpm_status=0
+
+record_maintenance_failure_status() {
+  local status="$1"
+  if [[ "$status" -ne 0 && "$maintenance_exit_status" -eq 0 ]]; then
+    maintenance_exit_status="$status"
+  fi
+}
 
 brew_before=""
 [[ -z "$brew_cache" ]] || capture_dir_bytes brew_before "$brew_cache" || true
@@ -929,9 +936,7 @@ if [[ "$brew_present" -eq 1 ]]; then
   else
     brew_status="$cleanup_status"
     maintenance_failed=1
-    if [[ "$brew_status" -eq 70 || "$cleanup_command_status" -eq 70 ]]; then
-      maintenance_exit_status=70
-    fi
+    record_maintenance_failure_status "$brew_status"
     if [[ "$cleanup_command_status" -ne 0 ]]; then
       homebrew_failure="brew cleanup --prune=all was incomplete (exit $cleanup_command_status): some cached files may have been removed and others left behind"
     else
@@ -996,7 +1001,7 @@ if [[ -n "$npm_provider" ]]; then
     echo "  Cache verified"
   else
     maintenance_failed=1
-    [[ "$npm_status" -ne 70 ]] || maintenance_exit_status=70
+    record_maintenance_failure_status "$npm_status"
     mark_pending "npm" "npm cache verification failed (exit $npm_status)"
     echo "  Cache verification incomplete (exit $npm_status)" >&2
   fi
@@ -1068,7 +1073,7 @@ else
     else
       pnpm_status="$one_status"
       maintenance_failed=1
-      [[ "$one_status" -ne 70 ]] || maintenance_exit_status=70
+      record_maintenance_failure_status "$one_status"
     fi
   done 3<"$store_candidates"
   pnpm_after=0
@@ -1121,6 +1126,7 @@ To retry maintenance without repeating upgrades:
 See `groundwork-cleanup --help` for exceptional overrides.
 EOF
   fi
+  [[ "$maintenance_exit_status" -ne 0 ]] || maintenance_exit_status=1
   exit "$maintenance_exit_status"
 fi
 
