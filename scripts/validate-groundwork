@@ -8609,7 +8609,7 @@ EOF
   docker_state_init "$cache_state"
   cat >"$cache_state/delay.conf" <<'EOF'
 DELAY_SUBSTR='prune --force'
-DELAY_SECONDS=0.8
+DELAY_SECONDS=1.2
 EOF
   set +e
   GROUNDWORK_DOCKER_CACHE_TIDY_OPERATION_DEADLINE_SECONDS=5 \
