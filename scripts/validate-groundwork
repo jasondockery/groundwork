@@ -6750,7 +6750,7 @@ validate_platform_tmux() {
     if [[ "${GROUNDWORK_REQUIRE_TMUX:-0}" == "1" ]]; then
       fail "the tmux-copy-last behavior suite requires tmux 3.6+ (found: ${tmux_suite_version:-none}). A skipped clipboard/buffer suite must not pass as green."
     fi
-    skip_current_check requires-tmux-3.6 \
+    skip_current_check requires-tmux-3-6 \
       "tmux 3.6+ is unavailable; the required macOS lane owns this behavior proof"
   else
     copylast_socket="groundwork-validate-$$"

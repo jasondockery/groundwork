@@ -34,7 +34,7 @@ GITHUB_RESULTS = {
 
 ALLOWED_PLATFORM_SKIPS = {
     "tmux-copy-last helper": {
-        "requires-tmux-3.6",
+        "requires-tmux-3-6",
         "requires-two-tmux-clients",
     },
     "macOS representative rendered apply smoke": {"requires-macos-native-host"},
