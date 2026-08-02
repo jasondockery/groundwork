@@ -880,6 +880,7 @@ policy_report_unconfirmed() {
 run_bounded_internal() {
   local label="$1" seconds="$2" output="$3" status=0
   local child="" pgid="" interrupted=0 ticks=0 deadline_ticks monitor_was_on=0
+  local ready_file="" ready_ticks=0
   local leader_exited=0 policy_child_status=0 policy_child_status_available=0
   local saved_hup saved_int saved_term
   shift 3
@@ -911,6 +912,14 @@ run_bounded_internal() {
     set -m
   else
     set +m
+  fi
+  ready_file="${GROUNDWORK_TEST_POLICY_READY_FILE:-}"
+  if [[ -n "$ready_file" ]]; then
+    while [[ ! -s "$ready_file" ]] && policy_live_group_members "$pgid" &&
+      [[ "$ready_ticks" -lt 100 ]]; do
+      sleep 0.05
+      ready_ticks=$((ready_ticks + 1))
+    done
   fi
   while policy_live_group_members "$pgid"; do
     if [[ "$leader_exited" -eq 0 ]] && ! policy_child_running "$child"; then
@@ -2644,25 +2653,31 @@ SH
   [[ "$cleanup_status" -eq 1 ]] \
     || fail "the fixture policy watchdog changed command status 1 to $cleanup_status"
 
+  rm -f -- "$policy_pid_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     "$policy_harness" "$policy_runner" "hanging command" "$policy_hostile" \
     >"$cleanup_fixture/policy-timeout" 2>&1
   cleanup_status=$?
   set -e
   [[ "$cleanup_status" -eq 124 ]] \
     || fail "the fixture policy watchdog returned $cleanup_status instead of timeout 124"
+  test -s "$policy_pid_file" \
+    || fail "the hostile fixture did not publish its process-group receipt"
   policy_pgid="$(<"$policy_pid_file")"
   ! kill -0 -- "-$policy_pgid" 2>/dev/null \
     || fail "a TERM-resistant fixture survived the policy watchdog"
 
   policy_descendant_file="$cleanup_fixture/policy-descendant.pid"
+  rm -f -- "$policy_pid_file" "$policy_descendant_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     GROUNDWORK_POLICY_DESCENDANT_FILE="$policy_descendant_file" \
     "$policy_harness" "$policy_runner" "surviving grandchild" "$policy_grandchild" \
     >"$cleanup_fixture/policy-grandchild-timeout" 2>&1
@@ -2670,16 +2685,20 @@ SH
   set -e
   [[ "$cleanup_status" -eq 70 ]] \
     || fail "a successful fixture that leaked a grandchild returned $cleanup_status instead of 70"
+  test -s "$policy_pid_file" \
+    || fail "the grandchild fixture did not publish its process-group receipt"
   policy_pgid="$(<"$policy_pid_file")"
   test -s "$policy_descendant_file" \
     || fail "the fixture watchdog did not reach the grandchild case"
   ! kill -0 -- "-$policy_pgid" 2>/dev/null \
     || fail "a fixture grandchild survived process-group cancellation"
 
+  rm -f -- "$policy_pid_file" "$policy_descendant_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     GROUNDWORK_POLICY_DESCENDANT_FILE="$policy_descendant_file" \
     "$policy_harness" "$policy_runner" "failed leader with grandchild" \
     "$policy_failed_grandchild" >"$cleanup_fixture/policy-failed-grandchild-output" 2>&1
@@ -2690,35 +2709,45 @@ SH
   grep -qF 'preserving original child status 3' \
     "$cleanup_fixture/policy-failed-grandchild-output" \
     || fail "the fixture watchdog did not report its preserved child status"
+  test -s "$policy_pid_file" \
+    || fail "the failed grandchild fixture did not publish its process-group receipt"
   policy_pgid="$(<"$policy_pid_file")"
   ! kill -0 -- "-$policy_pgid" 2>/dev/null \
     || fail "a failed fixture leader left its grandchild after cleanup"
 
+  rm -f -- "$policy_pid_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=20 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     "$policy_harness" "$policy_runner" "launch interruption" \
     "$policy_launch_interrupt" >"$cleanup_fixture/policy-launch-interrupt-output" 2>&1
   cleanup_status=$?
   set -e
   [[ "$cleanup_status" -eq 143 ]] \
     || fail "an interruption during fixture launch returned $cleanup_status instead of 143"
+  test -s "$policy_pid_file" \
+    || fail "the launch-interruption fixture did not publish its process-group receipt"
   policy_pgid="$(<"$policy_pid_file")"
   ! kill -0 -- "-$policy_pgid" 2>/dev/null \
     || fail "an interrupted fixture launch left its process group running"
 
+  rm -f -- "$policy_pid_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_TEST_POLICY_SHUTDOWN_UNCONFIRMED=1 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     "$policy_harness" "$policy_runner" "unconfirmed fixture cleanup" "$policy_hostile" \
     >"$cleanup_fixture/policy-cleanup-unconfirmed" 2>&1
   cleanup_status=$?
   set -e
   [[ "$cleanup_status" -eq 125 ]] \
     || fail "an unconfirmed fixture cleanup returned $cleanup_status instead of 125"
+  test -s "$policy_pid_file" \
+    || fail "the unconfirmed-cleanup fixture did not publish its process-group receipt"
   policy_pgid="$(<"$policy_pid_file")"
   kill -KILL -- "-$policy_pgid" 2>/dev/null || true
   for _ in {1..20}; do
@@ -2728,11 +2757,13 @@ SH
   ! kill -0 -- "-$policy_pgid" 2>/dev/null \
     || fail "the validator could not clean up its deliberately surviving fixture group"
 
+  rm -f -- "$policy_pid_file" "$policy_descendant_file"
   set +e
   GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
     GROUNDWORK_POLICY_CANCEL_GRACE_TICKS=2 \
     GROUNDWORK_TEST_POLICY_SHUTDOWN_UNCONFIRMED=1 \
     GROUNDWORK_POLICY_PID_FILE="$policy_pid_file" \
+    GROUNDWORK_TEST_POLICY_READY_FILE="$policy_pid_file" \
     GROUNDWORK_POLICY_DESCENDANT_FILE="$policy_descendant_file" \
     "$policy_harness" "$policy_runner" "unconfirmed failed fixture cleanup" \
     "$policy_failed_grandchild" >"$cleanup_fixture/policy-failed-unconfirmed" 2>&1
@@ -2742,6 +2773,8 @@ SH
     || fail "an unconfirmed failed-fixture cleanup returned $cleanup_status instead of 125"
   grep -qF 'original child status: 3' "$cleanup_fixture/policy-failed-unconfirmed" \
     || fail "unconfirmed fixture cleanup lost original child status 3"
+  test -s "$policy_descendant_file" \
+    || fail "the failed unconfirmed-cleanup fixture did not publish its descendant receipt"
   policy_descendant="$(<"$policy_descendant_file")"
   kill -KILL "$policy_descendant" 2>/dev/null || true
   for _ in {1..20}; do
