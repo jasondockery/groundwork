@@ -352,10 +352,14 @@ def tree_snapshot(
         )
     try:
         base_head = _git(repo, "rev-parse", "--verify", "HEAD^{commit}").decode().strip()
+    except subprocess.TimeoutExpired as error:
+        raise ReceiptError(
+            f"Git operation timed out after {GIT_COMMAND_TIMEOUT_SECONDS}s "
+            "while resolving HEAD for exact source identity"
+        ) from error
     except (
         OSError,
         subprocess.CalledProcessError,
-        subprocess.TimeoutExpired,
         UnicodeDecodeError,
     ) as error:
         raise ReceiptError("could not resolve HEAD for exact source identity") from error
