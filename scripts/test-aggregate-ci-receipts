@@ -605,7 +605,19 @@ def main() -> int:
         missing_dir = temporary / "missing"
         missing_dir.mkdir()
         missing_output = temporary / "missing-gate.json"
-        assert_failed_receipt(invoke(missing_dir, workspace, lane_env, missing_output), missing_output)
+        missing = invoke(missing_dir, workspace, lane_env, missing_output)
+        assert_failed_receipt(missing, missing_output)
+        missing_receipt = validate_receipt(
+            json.loads(missing_output.read_text(encoding="utf-8")),
+            expected_kind="ci-gate",
+        )
+        retry_guidance = [
+            error for error in missing_receipt["body"]["errors"]
+            if "Re-run all jobs" in error
+        ]
+        assert len(retry_guidance) == 1
+        assert "Re-run failed jobs cannot reproduce attempt-bound receipts" in retry_guidance[0]
+        assert "Re-run all jobs" in missing_output.with_suffix(".md").read_text(encoding="utf-8")
 
     print("test-aggregate-ci-receipts: passed")
     return 0

@@ -100,6 +100,7 @@ def main() -> int:
             raise ReceiptError("needs JSON must be an object")
 
         errors: list[str] = []
+        incomplete_current_attempt = False
         if arguments.download_outcome != "success":
             errors.append("receipt download did not succeed")
         receipt_directory = pathlib.Path(arguments.receipt_directory)
@@ -139,6 +140,8 @@ def main() -> int:
             receipt = receipts.get(job)
             if receipt is None:
                 errors.append(f"{job} produced no final ci-job receipt")
+                if github_result == "success":
+                    incomplete_current_attempt = True
                 rows.append({
                     **lane,
                     "result": lane_result,
@@ -164,6 +167,8 @@ def main() -> int:
             for field, expected_value in provenance.items():
                 if receipt.get(field) != expected_value:
                     errors.append(f"{job} receipt {field} does not match this run")
+                    if field == "runAttempt" and github_result == "success":
+                        incomplete_current_attempt = True
             if receipt["result"] != "passed":
                 errors.append(f"{job} receipt result is {receipt['result']}")
             if receipt["source"]["treeChangedDuringValidation"]:
@@ -274,6 +279,13 @@ def main() -> int:
                     "suiteTargetSeconds": suite_target,
                     "suiteBudgetState": suite_budget_state,
                 }
+            )
+
+        if expected_attempt > 1 and incomplete_current_attempt:
+            errors.append(
+                "This rerun is missing complete current-attempt receipts. "
+                "Use GitHub Actions Re-run all jobs; Re-run failed jobs cannot "
+                "reproduce attempt-bound receipts."
             )
 
         if arguments.mode == "full" and {"full_linux", "full_macos"}.issubset(full_details):

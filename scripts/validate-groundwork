@@ -6856,7 +6856,7 @@ printf '\033]133;A\033\\'; printf '\n'
 printf '~/demo $ seq 1 6000\n'
 seq 1 6000
 printf 'READY-E\n'
-printf '\033]133;A\033\\'; printf '\n~/demo $ '
+printf '\033]133;A\033\\'; printf '\n~/demo $ READY-E-IDLE\n'
 sleep 300
 SH
     chmod +x "$copylast_dir"/scenario-*.sh
@@ -6922,7 +6922,10 @@ EOF
     grep -qF 'copy-mode' "$copylast_dir/msg-d"
     # Oversized output is truncated visibly, never silently.
     huge_pane="$(copylast_window scenario-huge.sh)"
-    copylast_wait "$huge_pane" 'READY-E'
+    # Wait for evidence after the closing prompt mark, not merely for the
+    # final output line that precedes it. tmux-copy-last must never race the
+    # shell integration sequence that closes the command block.
+    copylast_wait "$huge_pane" 'READY-E-IDLE'
     run_copylast "$huge_pane" >"$copylast_dir/msg-e" 2>&1 \
       || fail "tmux-copy-last failed on oversized output"
     tmux -L "$copylast_socket" save-buffer -b groundwork-copy-last - >"$copylast_dir/buffer-e"
