@@ -347,8 +347,8 @@ expand_pnpm_global_bin() {
   value="${value%\'}"
   value="${value#\'}"
   case "$value" in
-    '~/'*) printf '%s/%s\n' "$HOME" "${value#\~/}" ;;
-    '\$HOME/'*) printf '%s/%s\n' "$HOME" "${value#\$HOME/}" ;;
+    \~/*) printf '%s/%s\n' "$HOME" "${value#\~/}" ;;
+    \$HOME/*) printf '%s/%s\n' "$HOME" "${value#\$HOME/}" ;;
     /*) printf '%s\n' "$value" ;;
     *) return 1 ;;
   esac

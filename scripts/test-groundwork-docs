@@ -37,7 +37,10 @@ log="$fixture/commands.log"
 
 : >"$log"
 TEST_COMMAND_LOG="$log" PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" --help >"$fixture/help"
-test ! -s "$log" || { echo 'groundwork-docs --help invoked an external command' >&2; exit 1; }
+test ! -s "$log" || {
+  echo 'groundwork-docs --help invoked an external command' >&2
+  exit 1
+}
 grep -qF 'groundwork-docs' "$fixture/help"
 
 : >"$log"
@@ -45,8 +48,14 @@ set +e
 TEST_COMMAND_LOG="$log" PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" --bogus >"$fixture/bogus.out" 2>"$fixture/bogus.err"
 status=$?
 set -e
-test "$status" -eq 64 || { echo "groundwork-docs --bogus exited $status, expected 64" >&2; exit 1; }
-test ! -s "$log" || { echo 'groundwork-docs invalid input invoked an external command' >&2; exit 1; }
+test "$status" -eq 64 || {
+  echo "groundwork-docs --bogus exited $status, expected 64" >&2
+  exit 1
+}
+test ! -s "$log" || {
+  echo 'groundwork-docs invalid input invoked an external command' >&2
+  exit 1
+}
 
 : >"$log"
 TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$visible/home" TEST_PLATFORM=Darwin \
@@ -71,7 +80,10 @@ TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$missing" TEST_PLATFORM=Linux \
   PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/missing.out" 2>"$fixture/missing.err"
 status=$?
 set -e
-test "$status" -ne 0 || { echo 'groundwork-docs accepted a source with no docs' >&2; exit 1; }
+test "$status" -ne 0 || {
+  echo 'groundwork-docs accepted a source with no docs' >&2
+  exit 1
+}
 grep -qF 'Run update-all' "$fixture/missing.err"
 
 escape="$fixture/escape"
@@ -83,6 +95,9 @@ TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$escape" TEST_PLATFORM=Linux \
   PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/escape.out" 2>"$fixture/escape.err"
 status=$?
 set -e
-test "$status" -ne 0 || { echo 'groundwork-docs followed a docs symlink outside the source' >&2; exit 1; }
+test "$status" -ne 0 || {
+  echo 'groundwork-docs followed a docs symlink outside the source' >&2
+  exit 1
+}
 
 echo 'ok: groundwork-docs resolves visible and default chezmoi sources without stale paths'
