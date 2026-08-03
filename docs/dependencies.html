@@ -150,11 +150,16 @@
       <p>The tool used across these repos is <a href="https://docs.renovatebot.com" target="_blank" rel="noopener">Renovate</a>. Treat it exactly like the coding agents on the <a href="agents.html">AI agents &amp; rules</a> page: it is tireless and consistent, it does exactly what its instructions say, and it has no judgment about what its changes <em>mean</em>. The instructions file is the contract; the PRs and dashboard are how you supervise.</p>
 
       <h2><span class="hash">#</span>What the bot actually does to a repo</h2>
+      <div class="callout note">
+        <span class="label">Current, proposed, target</span>
+        <p><strong>Current:</strong> the shared runner checks daily and the frozen preset supplies the weekly routine window. Its top-level five-day declaration is weakened for npm by an inherited three-day rule, so the target effective strict five-day npm policy is not active. The accepted security block requests immediate creation and automerge, but does not contain the proposal&apos;s explicit schedule, age, and rate-limit bypass.</p>
+        <p><strong>Approved in principle:</strong> renovate-config holds an isolated proposal that corrects those fields. <strong>Target after activation:</strong> the five-day normal-update and explicit security-bypass behavior described below becomes the operating contract only after the owner activates and releases that preset.</p>
+      </div>
       <p>Concretely, on this repo (Groundwork) and its siblings, Renovate:</p>
       <ul>
         <li>Opens <strong>weekly, grouped PRs</strong> labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
         <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is waiting on schedule, what is held by the cooldown. Ticking a checkbox forces a PR ahead of schedule.</li>
-        <li>Opens <strong>security PRs immediately</strong>, bypassing the weekly schedule, and merges them itself once CI is green. A known-vulnerable version should not wait for Monday.</li>
+        <li><strong>Target:</strong> opens security PRs on the next daily runner pass, explicitly bypassing the weekly schedule and age floor, and merges them itself once CI is green. The accepted frozen preset already requests immediate creation and automerge; the explicit bypass fields remain proposed.</li>
         <li>Updates things that are not npm packages at all: <strong>GitHub Actions pinned to commit SHAs</strong> (it moves the pin and the human-readable version comment together) and <strong>Docker base-image digests</strong>.</li>
         <li>Embeds each package's <strong>release notes in the PR body</strong>, so the review starts with what changed, not with hunting for a changelog.</li>
       </ul>
@@ -163,17 +168,18 @@
       </div>
 
       <h2><span class="hash">#</span>The cooldown: patience as a security control</h2>
-      <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: never propose a release younger than N days. These repos use five days. You give up a little freshness and buy a real defense: by the time a version reaches a PR, the world has had a week to notice if it was poisoned.</p>
+      <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: do not propose a supported timestamped release younger than N days. The approved target for these repos is five days for normal major, minor, and patch updates; activation is still pending. You give up a little freshness and buy a real defense: by the time a supported version reaches a PR, the world has had time to notice if it was poisoned.</p>
       <p>Package managers are adopting the same idea at install time (pnpm's <code>minimumReleaseAge</code> refuses too-young versions during resolution), so the floor holds even when a human runs the install by hand. Security fixes get an explicit escape hatch, because for a known vulnerability the risk calculus reverses.</p>
 
       <div class="callout note">
         <span class="label">Where the cooldown stops — and where it doesn't yet reach</span>
-        <p>Be precise about what the floor covers, because it is not one floor — it is one <em>per tool</em>, and they do not automatically agree. Renovate applies the five-day cooldown to a <em>repository's</em> dependencies (packages, GitHub Action SHAs, container digests). pnpm applies its own <code>minimumReleaseAge</code> at install time. And on the machine, <strong>mise applies the same five-day floor to runtime upgrades</strong> — Groundwork's <code>update-all</code> runs <code>mise upgrade --minimum-release-age 5d</code>, which filters floating versions like <code>lts</code> and <code>latest</code> while leaving an explicitly pinned version exempt (that exemption is the escape hatch for a security fix that must land now).</p>
+        <p>Be precise about what the floor covers, because it is not one floor — it is one <em>per tool</em>, and they do not automatically agree. Renovate applies the five-day cooldown only when a datasource supplies a release timestamp and the update type supports it. Normal npm versions and timestamped tag releases can qualify; pin, digest, replacement, and lockfile-maintenance updates do not inherit a universal guarantee. pnpm applies its own <code>minimumReleaseAge</code> during resolution. On the machine, <strong>mise applies Groundwork's separate five-day floor to runtime upgrades</strong> — <code>update-all</code> runs <code>mise upgrade --minimum-release-age 5d</code>, filtering floating versions like <code>lts</code> and <code>latest</code> while leaving an explicitly pinned version exempt.</p>
         <p>Homebrew is the honest gap: it has no <code>minimumReleaseAge</code> equivalent, so a formula or cask upgrade takes whatever is published. What it <em>does</em> offer is <code>--require-sha</code>, which refuses to upgrade a cask that ships no checksum, and Groundwork's <code>update-all</code> uses it. Two different controls, and it pays to keep them straight: an <strong>age floor</strong> asks "has the world had time to notice this release is poisoned?", while a <strong>checksum</strong> asks "is this the artifact the formula author signed off on?" Neither substitutes for the other.</p>
         <p>This is also a good lesson in checking a claim before acting on it. It is widely repeated that "the fast-channel AI CLIs have no checksum," because Homebrew's <code>version :latest</code> casks are indeed required to declare <code>sha256 :no_check</code>. But that is not what these casks are: <code>claude-code@latest</code> is a faster release <em>channel</em> — an ordinary versioned, checksummed cask — not a <code>:latest</code> cask. Verifying that with <code>brew info --json=v2 --cask</code> took one command and changed the design; assuming it would have added a whole subsystem to guard a risk that was not there.</p>
         <p>So the accurate picture, and the transferable habit — know which of your paths are gated by what, and never assume a floor you have not configured:</p>
         <table class="keytable">
-          <tr><td><strong>Repo dependencies</strong> (Renovate)</td><td>5-day age floor; integrity via the registry/ecosystem</td></tr>
+          <tr><td><strong>Normal timestamped repo versions</strong> (Renovate)</td><td>5-day age floor with strict internal checks; integrity via the registry/ecosystem</td></tr>
+          <tr><td><strong>Action SHA pins, image digests, lockfile maintenance</strong></td><td>No universal Renovate age guarantee; immutable pins, package-manager policy, required CI, and owner review are the compensating controls</td></tr>
           <tr><td><strong>mise runtimes</strong></td><td>5-day age floor (<code>--minimum-release-age 5d</code>); pinned versions exempt, which is the security escape hatch. If a mise is too old to enforce the floor, Groundwork stops the run there — printing the fix, <code>brew upgrade mise</code> — rather than upgrading without it</td></tr>
           <tr><td><strong>Homebrew casks</strong></td><td>Checksum required (<code>--require-sha</code>, at install <em>and</em> upgrade); <em>no</em> age floor</td></tr>
           <tr><td><strong>Homebrew formulae</strong></td><td>Homebrew's own formula/bottle integrity; <em>no</em> age floor. <code>--require-sha</code> is cask-specific — it does not speak to formulae</td></tr>
@@ -195,6 +201,7 @@
         <li><strong>A self-hosted runner</strong>: a small GitHub Actions workflow in an automation repo that runs Renovate on a schedule with a token you control. You gain what hosted hides: every run is a log you can open, grep, and re-dispatch with debug logging. These repos moved to self-hosted after three separate "why is the bot ignoring me?" mysteries whose answers all lived in logs only the hosted portal could see.</li>
       </ul>
       <p>The trade is the same one this site keeps pointing at: convenience versus observability. Start hosted if you're new; move to self-hosted the first time you can't answer "what is the bot doing?" from where you sit. The config file is identical either way, so switching is an executor swap, not a migration.</p>
+      <p>Keep the executor clock separate from the routine update window. These repositories run the self-hosted process daily so vulnerable updates are noticed promptly, while <code>schedule:weekly</code> lets normal updates and branches advance in the early-Monday window. Reducing the runner itself to weekly can add almost another week after a release has already completed its cooldown.</p>
 
       <h2><span class="hash">#</span>Supervising the bot</h2>
       <p>The human stays the senior partner. In practice that means the config encodes different trust levels for different blast radii:</p>
@@ -215,7 +222,22 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:best-practices", "schedule:weekly"],
   "minimumReleaseAge": "5 days",
-  "labels": ["dependencies"]
+  "internalChecksFilter": "strict",
+  "packageRules": [{
+    "matchDatasources": ["npm"],
+    "matchUpdateTypes": ["major", "minor", "patch"],
+    "minimumReleaseAge": "5 days",
+    "internalChecksFilter": "strict"
+  }],
+  "labels": ["dependencies"],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "prHourlyLimit": 0,
+    "prConcurrentLimit": 0,
+    "prCreation": "immediate"
+  }
 }</code></pre>
       <ol start="3">
         <li>Make sure CI runs on pull requests, so bot PRs get the same verification as yours. If there is no CI yet, that is the first thing to fix; a dependency bot without tests is just automated risk.</li>

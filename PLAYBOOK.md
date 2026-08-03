@@ -9,7 +9,7 @@ shared preset, cooldown rationale, setup on a new project):
 [docs/dependencies.html](docs/dependencies.html).
 
 Groundwork's dependency updates run through the self-hosted Renovate
-runner in `jasondockery/renovate-config` (cron 4x daily + manual
+runner in `jasondockery/renovate-config` (daily at 01:17 UTC + manual
 dispatch; run logs live in that repo's Actions). Shared owner policy
 comes from the same repo's preset via `extends`; groundwork-specific
 rules live in the local `renovate.json`. The hosted Mend app was retired
@@ -21,18 +21,42 @@ What Renovate manages here:
 
 - GitHub Actions SHA pins in `.github/workflows/` (it updates the pin and the
   version comment together).
-- The Dockerfile base image digest.
+- The Dockerfile frontend and base image tag/digest.
+- The Gitleaks workflow container's version tag and immutable digest.
+
+`dependency-coverage.json` also records the intentional manual lanes: Homebrew
+packages, checksum-coupled ShellCheck/shfmt assets, the Corepack compatibility
+pin, Aider's Python compatibility choice, the tmux theme release, and headless
+install-time release discovery, and the managed mise runtimes applied by
+`update-all`. Those are not silently assumed to be Renovate coverage.
 
 Operating notes:
 
-- Updates arrive weekly as grouped PRs labeled `dependencies`. The Dependency
+- **Current:** the runner executes daily and the frozen shared preset supplies
+  the weekly routine window. That preset declares five days at the top level,
+  but an inherited npm rule means the target effective strict five-day npm
+  policy is not active. Its accepted security block guarantees immediate
+  creation and automerge, not explicit schedule, age, and rate-limit bypass.
+- **Approved in principle:** the isolated renovate-config proposal corrects the
+  effective npm rule and adds explicit security bypass fields. **Target after
+  activation:** the next two bullets describe the production contract only
+  after the owner-approved preset release and consumer update land.
+
+- **Target:** the runner inspects all three repositories daily. Routine updates and branches
+  advance in the separate early-Monday weekly window and are grouped into PRs
+  labeled `dependencies`. Normal timestamped major, minor, and patch releases
+  must also complete the strict five-day age floor. Action SHA pins, Docker
+  digests, lockfile maintenance, and other unsupported update types use the
+  repository-specific controls recorded in `dependency-coverage.json`. The Dependency
   Dashboard issue lists pending updates; checking a box there forces a PR
   ahead of the schedule (the runner acts on it at its next cron/dispatch
   run, not instantly).
-- Security PRs are immediate, labeled `security`, and automerge once CI is
+- **Target:** security PRs bypass the normal age and weekly schedule, appear on the next
+  daily run, are labeled `security`, and automerge once CI is
   green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
-  what a human check would, and a vulnerable Action or base image should not
-  wait on a manual merge. "Allow auto-merge" is enabled (2026-07-09). If the
+  what a human check would, and a known-vulnerable package should not wait on a
+  manual merge. Action and image updates retain their separately inventoried
+  pin/digest controls. "Allow auto-merge" is enabled (2026-07-09). If the
   branch-protection baseline (Main Branch Protection below) is applied, the
   required checks are the gate; until then Renovate merges on its own next run
   once checks pass. Either way, green CI — not a human — is what releases a
@@ -42,10 +66,23 @@ Operating notes:
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
   enabled as a data source.
-- Policy is defined once for all owner repos: `extends` points at
-  `github>jasondockery/renovate-config` (switched 2026-07-08). Preset
-  changes propagate on the next run with no PR in this repo — policy
-  review happens in the preset repo.
+- Policy is defined once for all owner repos: `extends` currently points at the
+  unversioned `github>jasondockery/renovate-config` reference (switched
+  2026-07-08). Renovate cannot update that reference until versioned
+  distribution is owner-approved; the preset repository freezes behavior until
+  consumers pin a release. Any approved exception propagates on the next run,
+  so it must be reviewed in the preset repository first.
+- The canonical end-to-end outcome, proof levels, canary, and post-run audit
+  live in `renovate-config/specs/renovate-system-acceptance.md`. Groundwork owns
+  `dependency-coverage.json` and must keep every external dependency surface
+  classified as built-in, custom-managed, derived, or intentionally manual,
+  with its age policy and compensating control. The shared file-aware scanner
+  is a bounded discovery guard, not a mathematical completeness proof: docs and
+  fixtures are excluded unless explicitly selected, reasoned suppressions must
+  have live evidence, and actual extraction remains a separate compatibility
+  proof. A
+  green shared runner receipt is not a substitute for a green eligible
+  Groundwork PR.
 
 ## Discoverability (search + AI tools)
 

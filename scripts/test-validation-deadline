@@ -163,7 +163,8 @@ for integration_case in no-arguments explicit-deadline; do
     GROUNDWORK_TEST_INTEGRATION_PARENT="$fixture/integration-parent" \
     GROUNDWORK_TEST_INTEGRATION_GROUP="$fixture/integration-group" \
     GROUNDWORK_TEST_INTEGRATION_ARGUMENTS="$fixture/integration-arguments" \
-    "$fixture/integration-validator" "${integration_arguments[@]}"
+    "$fixture/integration-validator" \
+    ${integration_arguments[@]+"${integration_arguments[@]}"}
   [[ "$(grep -c '^wrapper$' "$fixture/integration-events")" -eq 1 ]]
   [[ "$(grep -c '^body$' "$fixture/integration-events")" -eq 1 ]]
   [[ "$(<"$fixture/integration-parent")" == "$(<"$fixture/integration-group")" ]]

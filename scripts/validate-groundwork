@@ -9326,6 +9326,151 @@ EOF
 }
 
 validate_static_repository() {
+  check "dependency coverage inventory"
+  python3 - "$repo/dependency-coverage.json" "$repo" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+inventory_path = pathlib.Path(sys.argv[1])
+root = pathlib.Path(sys.argv[2]).resolve()
+with inventory_path.open(encoding="utf-8") as source:
+    inventory = json.load(source)
+
+if inventory.get("schemaVersion") != 2:
+    raise SystemExit("dependency coverage schemaVersion must be 2")
+if inventory.get("repository") != "jasondockery/groundwork":
+    raise SystemExit("dependency coverage inventory names the wrong repository")
+
+allowed = {"built-in", "custom-manager", "derived", "intentional-manual"}
+scan_patterns = {
+    "digest",
+    "version-assignment",
+    "release-download",
+    "container-reference",
+    "workflow-reference",
+    "runtime-literal",
+    "plugin-reference",
+}
+required_ids = {
+    "container-images",
+    "github-actions-runners-and-containers",
+    "shared-preset-reference",
+    "shell-quality-tools",
+    "homebrew-packages",
+    "mise-runtime-channels",
+    "corepack-runtime",
+    "aider-python-compatibility",
+    "tmux-plugin-release",
+    "workflow-policy-fixtures",
+    "headless-release-assets",
+}
+seen = set()
+for surface in inventory.get("surfaces", []):
+    surface_id = surface.get("id")
+    if not isinstance(surface_id, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", surface_id):
+        raise SystemExit(f"invalid dependency coverage id: {surface_id!r}")
+    if surface_id in seen:
+        raise SystemExit(f"duplicate dependency coverage id: {surface_id}")
+    seen.add(surface_id)
+    if surface.get("classification") not in allowed:
+        raise SystemExit(f"{surface_id}: unsupported or missing coverage classification")
+    for field in ("manager", "canonical", "compensatingControl", "note"):
+        if not isinstance(surface.get(field), str) or not surface[field].strip():
+            raise SystemExit(f"{surface_id}: {field} must be non-empty")
+    if surface.get("agePolicy") not in {
+        "renovate-minimum-release-age",
+        "unsupported-by-renovate",
+        "external-tool-policy",
+        "not-applicable",
+    }:
+        raise SystemExit(f"{surface_id}: agePolicy is invalid")
+    extraction_matchers = surface.get("extractionMatchers", [])
+    if not isinstance(extraction_matchers, list):
+        raise SystemExit(f"{surface_id}: extractionMatchers must be an array")
+    if surface.get("classification") in {"built-in", "custom-manager"} and not extraction_matchers:
+        raise SystemExit(f"{surface_id}: automated surfaces require extraction matchers")
+    for index, matcher in enumerate(extraction_matchers):
+        label = f"{surface_id}.extractionMatchers[{index}]"
+        if not isinstance(matcher, dict):
+            raise SystemExit(f"{label}: matcher must be an object")
+        if not isinstance(matcher.get("manager"), str) or not matcher["manager"].strip():
+            raise SystemExit(f"{label}: manager must be non-empty")
+        for field in ("packageFilePattern", "depNamePattern"):
+            if not isinstance(matcher.get(field), str) or not matcher[field]:
+                raise SystemExit(f"{label}: {field} must be non-empty")
+            try:
+                re.compile(matcher[field])
+            except re.error as error:
+                raise SystemExit(f"{label}: {field} is invalid: {error}") from error
+    scan_matchers = surface.get("scanMatchers", [])
+    if not isinstance(scan_matchers, list):
+        raise SystemExit(f"{surface_id}: scanMatchers must be an array")
+    for index, matcher in enumerate(scan_matchers):
+        label = f"{surface_id}.scanMatchers[{index}]"
+        if not isinstance(matcher, dict):
+            raise SystemExit(f"{label}: matcher must be an object")
+        if matcher.get("pattern") not in scan_patterns:
+            raise SystemExit(f"{label}: pattern is invalid")
+        if not isinstance(matcher.get("pathPattern"), str) or not matcher["pathPattern"]:
+            raise SystemExit(f"{label}: pathPattern must be non-empty")
+        if "linePattern" in matcher and (not isinstance(matcher["linePattern"], str) or not matcher["linePattern"]):
+            raise SystemExit(f"{label}: linePattern must be non-empty when present")
+        for field in ("pathPattern", "linePattern"):
+            if field in matcher:
+                try:
+                    re.compile(matcher[field])
+                except (re.error, TypeError) as error:
+                    raise SystemExit(f"{label}: {field} is invalid: {error}") from error
+        if "optional" in matcher and not isinstance(matcher["optional"], bool):
+            raise SystemExit(f"{label}: optional must be boolean")
+    paths = surface.get("paths")
+    if not isinstance(paths, list) or not paths:
+        raise SystemExit(f"{surface_id}: paths must be non-empty")
+    for relative in paths:
+        candidate = pathlib.PurePosixPath(relative)
+        if candidate.is_absolute() or ".." in candidate.parts or not (root / candidate).exists():
+            raise SystemExit(f"{surface_id}: unsafe or missing path {relative!r}")
+
+for index, suppression in enumerate(inventory.get("scanSuppressions", [])):
+    label = f"scanSuppressions[{index}]"
+    if not isinstance(suppression, dict):
+        raise SystemExit(f"{label}: suppression must be an object")
+    if suppression.get("pattern") not in scan_patterns:
+        raise SystemExit(f"{label}: pattern is invalid")
+    if not isinstance(suppression.get("reason"), str) or not suppression["reason"].strip():
+        raise SystemExit(f"{label}: reason must be non-empty")
+    if not isinstance(suppression.get("linePattern"), str) or not suppression["linePattern"]:
+        raise SystemExit(f"{label}: linePattern must be non-empty")
+    if not isinstance(suppression.get("pathPattern"), str) or not suppression["pathPattern"]:
+        raise SystemExit(f"{label}: pathPattern must be non-empty")
+    if not isinstance(suppression.get("expectedMatches"), int) or suppression["expectedMatches"] < 1:
+        raise SystemExit(f"{label}: expectedMatches must be a positive integer")
+    for field in ("pathPattern", "linePattern"):
+        try:
+            re.compile(suppression[field])
+        except (re.error, TypeError) as error:
+            raise SystemExit(f"{label}: {field} is invalid: {error}") from error
+
+missing = sorted(required_ids - seen)
+if missing:
+    raise SystemExit(f"dependency coverage inventory is missing required surfaces: {', '.join(missing)}")
+manager_by_id = {surface["id"]: surface["manager"] for surface in inventory["surfaces"]}
+if manager_by_id["container-images"] != "dockerfile":
+    raise SystemExit("container images must remain assigned to Renovate's dockerfile manager")
+if manager_by_id["github-actions-runners-and-containers"] != "github-actions":
+    raise SystemExit("workflow dependencies must remain assigned to Renovate's github-actions manager")
+if manager_by_id["mise-runtime-channels"] != "update-all-mise":
+    raise SystemExit("declared mise runtimes must remain assigned to update-all")
+shared = next(surface for surface in inventory["surfaces"] if surface["id"] == "shared-preset-reference")
+if shared.get("classification") != "intentional-manual" or shared.get("manager") != "versioned-distribution-owner-gate":
+    raise SystemExit("the unversioned shared preset must remain owner-gated/manual")
+renovate_config = json.loads((root / "renovate.json").read_text(encoding="utf-8"))
+if renovate_config.get("ignorePaths") != ["home/dot_config/mise/config.toml"]:
+    raise SystemExit("Renovate must exclude the mise config owned by update-all")
+PY
+
   check "groundwork-repos helper"
   test -x home/dot_local/bin/executable_groundwork-repos
   # file_mtime must emit ONLY a number under any stat variant. On GNU stat,
@@ -10173,8 +10318,8 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     rg -n -- "$deprecated_timeout_metadata" scripts .github/workflows
   scripts/check-workflow-receipt-policy >/dev/null \
     || fail "workflow receipt policy is not structurally consistent"
-  grep -qF 'uses: docker://ghcr.io/gitleaks/gitleaks@sha256:' .github/workflows/ci.yml \
-    || fail "secret scanning must use an immutable official Gitleaks image"
+  grep -Eq 'uses: docker://ghcr\.io/gitleaks/gitleaks:v[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}$' .github/workflows/ci.yml \
+    || fail "secret scanning must use a Renovate-visible version tag plus immutable official Gitleaks digest"
   grep -qF 'args: git --redact --verbose --log-opts=--all .' .github/workflows/ci.yml \
     || fail "secret scanning must exercise the complete Git history without writing into the checkout"
   grep -qF 'GIT_CONFIG_KEY_0: safe.directory' .github/workflows/ci.yml \

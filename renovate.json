@@ -1,10 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Groundwork dependency updates via the self-hosted Renovate runner in jasondockery/renovate-config (executor decision: roost tools/github/README.md → Self-hosted Renovate migration). The surfaces here are GitHub Actions SHA pins and the Dockerfile base image digest. Operational notes live in PLAYBOOK.md.",
-    "Shared owner policy (weekly schedule, 5-day cooldown, PR limits, rebase behavior, labels, immediate automerged security PRs) comes from the github>jasondockery/renovate-config preset — defined once, consumed here. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because this repo's surfaces are SHA pins, not semver ranges."
+    "Groundwork dependency updates use the daily self-hosted runner in jasondockery/renovate-config. The frozen shared preset currently owns the weekly routine update/branch window but has a known effective npm-age discrepancy; the corrected strict five-day normal-update and explicit security-bypass policy is approved in principle, not active. Pins, digests, and manual surfaces use the controls in dependency-coverage.json. The canonical end-to-end acceptance contract lives at renovate-config/specs/renovate-system-acceptance.md.",
+    "Groundwork's managed surfaces are GitHub Actions SHA pins, Dockerfile image tags/digests, the tagged-and-digested Gitleaks workflow container, and declared Python versions in the managed mise configuration. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because several surfaces are immutable pins, not semver ranges. A green runner scan is not Groundwork compatibility proof — an eligible PR must pass Groundwork CI."
   ],
   "extends": ["github>jasondockery/renovate-config"],
+  "ignorePaths": ["home/dot_config/mise/config.toml"],
   "packageRules": [
     {
       "groupName": "non-major dependencies",

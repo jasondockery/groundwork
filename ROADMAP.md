@@ -511,6 +511,15 @@ Roost.
       self-hosted runner + shared preset in `renovate-config` (hosted app
       retired; dashboard is now issue #6, where the ubuntu 26.04 bump is
       queued under the cooldown).
+- [ ] Complete the shared Renovate system acceptance contract: keep this
+      repository's dependency-surface inventory machine-checked, accept the
+      daily runner, weekly routine update/branch window, and effective five-day
+      behavior on supported timestamped update surfaces from retained evidence;
+      keep pins, digests, and manual lanes bound to their inventory controls; and
+      require one eligible Groundwork PR with current artifacts and green CI.
+      The canonical matrix and owner-gated canary live in
+      `renovate-config/specs/renovate-system-acceptance.md`; a green runner scan
+      is execution evidence only.
 - [x] Dependabot version updates removed (`dependabot.yml` deleted, its PR
       closed) and Dependabot security-update PRs disabled; alerts stay on
       as Renovate's data source (2026-07-03).
@@ -549,7 +558,9 @@ Roost.
 - [x] Cut the first tagged release with user-facing notes — shipped as
       v1.0.0 (the bootstrap + update path had already survived all three
       user surfaces, so v0.x was skipped).
-- [ ] First Renovate PR reviewed and merged.
+- [ ] First eligible self-hosted Renovate PR reviewed, green in Groundwork CI,
+      and merged; record it as consumer-compatibility evidence rather than
+      inferring success from the shared runner receipt.
 - [x] Repo is public; the release checklist became recurring hygiene
       (`PLAYBOOK.md`, Public Repo Hygiene).
 

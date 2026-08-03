@@ -1,0 +1,170 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jasondockery/renovate-config/main/specs/dependency-coverage.schema.json",
+  "schemaVersion": 2,
+  "repository": "jasondockery/groundwork",
+  "scanSuppressions": [
+    {
+      "pathPattern": "^scripts/validate-groundwork$",
+      "pattern": "digest",
+      "linePattern": "sha256:(?:a{64}|b{64}|c{64}|e{64}|f{64})\\b",
+      "expectedMatches": 38,
+      "reason": "Synthetic sha256 values in validator fixtures exercise Docker cleanup identity; they are not upstream dependency pins."
+    },
+    {
+      "pathPattern": "^scripts/ci_receipt\\.py$",
+      "pattern": "version-assignment",
+      "linePattern": "^SCHEMA_VERSION = 1$",
+      "expectedMatches": 1,
+      "reason": "SCHEMA_VERSION versions Groundwork's internal CI receipt format, not an external dependency."
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "container-images",
+      "classification": "built-in",
+      "manager": "dockerfile",
+      "paths": ["Dockerfile"],
+      "canonical": "Dockerfile",
+      "agePolicy": "unsupported-by-renovate",
+      "compensatingControl": "The base image is tag-and-digest pinned; the disposable Docker proof, required CI, and owner review gate digest updates.",
+      "extractionMatchers": [
+        { "manager": "dockerfile", "packageFilePattern": "^Dockerfile$", "depNamePattern": ".+" }
+      ],
+      "scanMatchers": [
+        { "pathPattern": "^Dockerfile$", "pattern": "container-reference" },
+        { "pathPattern": "^Dockerfile$", "pattern": "digest" }
+      ],
+      "note": "Renovate owns the Dockerfile frontend and Ubuntu base image, but digest updates do not receive a universal release-age guarantee."
+    },
+    {
+      "id": "github-actions-runners-and-containers",
+      "classification": "built-in",
+      "manager": "github-actions",
+      "paths": [".github/workflows"],
+      "canonical": ".github/workflows",
+      "agePolicy": "unsupported-by-renovate",
+      "compensatingControl": "Immutable SHAs and digests, Zizmor, exact-SHA CI, consumer validation, and owner review govern these updates.",
+      "extractionMatchers": [
+        { "manager": "github-actions", "packageFilePattern": "^\\.github/workflows/", "depNamePattern": ".+" }
+      ],
+      "scanMatchers": [
+        { "pathPattern": "^\\.github/workflows/", "pattern": "workflow-reference" },
+        { "pathPattern": "^\\.github/workflows/", "pattern": "container-reference" },
+        { "pathPattern": "^\\.github/workflows/", "pattern": "digest" }
+      ],
+      "note": "Renovate extracts action SHAs, version comments, runner labels, and workflow containers; pin and digest update types are outside the five-day guarantee."
+    },
+    {
+      "id": "shared-preset-reference",
+      "classification": "intentional-manual",
+      "manager": "versioned-distribution-owner-gate",
+      "paths": ["renovate.json"],
+      "canonical": "renovate.json#extends",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "The preset freeze remains authoritative until the owner approves a released tag and updates this consumer explicitly.",
+      "extractionMatchers": [
+        { "manager": "renovate-config", "packageFilePattern": "^renovate.json$", "depNamePattern": "^jasondockery/renovate-config$" }
+      ],
+      "note": "The unversioned reference is owner-gated/manual because Renovate cannot update it until it is version-pinned."
+    },
+    {
+      "id": "shell-quality-tools",
+      "classification": "intentional-manual",
+      "manager": "scripts/update-shell-tool-pins",
+      "paths": ["tools/shell-tools.env", "scripts/update-shell-tool-pins", "scripts/ensure-shell-tools"],
+      "canonical": "tools/shell-tools.env",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "The updater refreshes four platform checksums atomically and the validator rejects a version/checksum mismatch.",
+      "scanMatchers": [
+        { "pathPattern": "^(?:tools/shell-tools\\.env|scripts/(?:update-shell-tool-pins|ensure-shell-tools))$", "pattern": "version-assignment" },
+        { "pathPattern": "^scripts/(?:update-shell-tool-pins|ensure-shell-tools)$", "pattern": "release-download" }
+      ],
+      "note": "ShellCheck and shfmt require one bounded repository command rather than an unsafe version-only edit."
+    },
+    {
+      "id": "homebrew-packages",
+      "classification": "intentional-manual",
+      "manager": "update-all",
+      "paths": ["home/dot_config/homebrew/Brewfile.tmpl", "home/dot_local/bin/executable_groundwork-update-run.tmpl"],
+      "canonical": "home/dot_config/homebrew/Brewfile.tmpl",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "Homebrew channel provenance, Groundwork's update transaction, and managed cask checksum policy govern installed releases.",
+      "note": "Homebrew owns installed formula and cask versions; Renovate does not edit the Brewfile."
+    },
+    {
+      "id": "mise-runtime-channels",
+      "classification": "intentional-manual",
+      "manager": "update-all-mise",
+      "paths": ["home/dot_config/mise/config.toml", "home/dot_local/bin/executable_groundwork-update-run.tmpl"],
+      "canonical": "home/dot_config/mise/config.toml",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "update-all applies Groundwork's separate five-day mise release-age policy before changing a machine runtime.",
+      "scanMatchers": [
+        { "pathPattern": "^home/dot_config/mise/config\\.toml$", "pattern": "version-assignment" }
+      ],
+      "note": "Renovate can extract this well-known mise path, so renovate.json explicitly excludes it and leaves update-all as the sole mutation owner."
+    },
+    {
+      "id": "corepack-runtime",
+      "classification": "intentional-manual",
+      "manager": "repository-review",
+      "paths": ["home/dot_local/share/groundwork/node-toolchain.env", "home/run_after_15-pnpm-corepack.sh"],
+      "canonical": "home/dot_local/share/groundwork/node-toolchain.env",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "The installer and validator enforce the Node/Corepack compatibility boundary before applying the fallback pin.",
+      "scanMatchers": [
+        { "pathPattern": "^(?:home/dot_local/share/groundwork/node-toolchain\\.env|home/run_after_15-pnpm-corepack\\.sh)$", "pattern": "version-assignment" }
+      ],
+      "note": "Corepack compatibility is reviewed deliberately rather than updated as an isolated version token."
+    },
+    {
+      "id": "aider-python-compatibility",
+      "classification": "intentional-manual",
+      "manager": "compatibility-review",
+      "paths": ["home/run_after_20-tools.sh.tmpl", "home/dot_config/mise/config.toml"],
+      "canonical": "home/run_after_20-tools.sh.tmpl#aider_python",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "The validator requires the intentional Python 3.12 compatibility pin to remain explicit and compatible.",
+      "scanMatchers": [
+        { "pathPattern": "^home/run_after_20-tools\\.sh\\.tmpl$", "pattern": "version-assignment", "linePattern": "aider_python=" }
+      ],
+      "note": "Aider's compatibility runtime is a deliberate exception to the general Python channel."
+    },
+    {
+      "id": "tmux-plugin-release",
+      "classification": "intentional-manual",
+      "manager": "configuration-review",
+      "paths": ["home/dot_config/tmux/tmux.conf.tmpl"],
+      "canonical": "home/dot_config/tmux/tmux.conf.tmpl",
+      "agePolicy": "unsupported-by-renovate",
+      "compensatingControl": "Terminal-interaction review and live tmux verification are required for a plugin release change.",
+      "scanMatchers": [
+        { "pathPattern": "^home/dot_config/tmux/tmux\\.conf\\.tmpl$", "pattern": "plugin-reference" }
+      ],
+      "note": "The Catppuccin tmux release changes only with the surrounding user-interaction contract."
+    },
+    {
+      "id": "workflow-policy-fixtures",
+      "classification": "derived",
+      "manager": "validator-fixture",
+      "paths": ["tests/fixtures/workflow-timeouts"],
+      "canonical": "scripts/check-workflow-receipt-policy",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "These deliberately valid and invalid workflow snippets exercise policy rejection; they are never executed as repository workflows.",
+      "scanMatchers": [
+        { "pathPattern": "^tests/fixtures/workflow-timeouts/", "pattern": "workflow-reference" }
+      ],
+      "note": "Workflow syntax fixtures may contain intentionally unpinned references that are test input rather than live dependencies."
+    },
+    {
+      "id": "headless-release-assets",
+      "classification": "intentional-manual",
+      "manager": "install-time-release-discovery",
+      "paths": ["Dockerfile", "scripts"],
+      "canonical": "Dockerfile and headless installer scripts",
+      "agePolicy": "unsupported-by-renovate",
+      "compensatingControl": "Installers use bounded official release discovery, published checksum verification where available, and disposable image proof.",
+      "note": "Headless release assets are not static Renovate edit targets."
+    }
+  ]
+}

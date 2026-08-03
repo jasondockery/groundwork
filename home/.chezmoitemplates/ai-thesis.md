@@ -19,6 +19,22 @@ Four things stay true in every posture:
 - **Project pins win.** A workstation with a newer runtime available still runs the version a repository pins. Release posture governs available tools, never repository contracts.
 - **The operating system is the user's call.** Groundwork records and diagnoses the system channel so a deliberate OS beta is not reported as accidental drift, but it never enrolls a machine in one or downloads it.
 
+Groundwork is a consumer of the shared dependency-automation system, not proof
+that the system works. Its dependency lane succeeds only when an eligible
+update produces a reviewable Groundwork pull request whose action pins,
+container digest, and other managed artifacts are current and whose required CI
+passes. A green shared Renovate scan proves runner execution; it does not prove
+Groundwork compatibility.
+
+The target shared five-day delay is intentionally per surface, not universal.
+After owner activation, normal timestamped versions use Renovate's strict age
+check. Today the accepted shared preset remains frozen with a known effective
+npm-age discrepancy; the corrected five-day and explicit security-bypass
+policy is approved in principle only. Action SHAs, image digests, lockfile
+operations, machine runtimes, and checksum-coupled tools use the explicit
+package-manager, integrity, CI, or owner-review control recorded in
+Groundwork's dependency inventory.
+
 ## Who Groundwork is for
 
 Groundwork is for anyone who wants to build seriously, wherever they are starting from: brand new to development or deep into a career, new to the terminal or fluent in it, new to AI-native work or already practicing it. It does not define personas or gatekeep by background; the only assumption is a willingness to put in real hours. For every user it sets up a machine, image, or container quickly with everything needed to work — tools, shell, shortcuts, and agent instructions in place — and the docs meet each reader at their own starting point. Wherever that is, the destination is the same: a deeply skilled, technical agentic engineer — someone who understands the system, works the terminal confidently, and directs AI agents without depending on them. That is a long climb, not a weekend project, and every page should let any reader take what they need and move.
