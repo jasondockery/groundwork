@@ -707,7 +707,10 @@ which returns only the first match.
       `groundwork-doctor --node-toolchain`; and a validator fixture proving a
       nested package script resolves the same pnpm and Node as its parent (and
       that a competing pnpm it builds itself still shadows, so the fixture
-      cannot pass while the model is broken).
+      cannot pass while the model is broken). The doctor also reports a
+      configured pnpm global-tool directory outside PATH and routes project
+      tools to devDependencies while personal cross-project CLIs use mise's
+      `npm:` backend through an unmanaged `conf.d` file.
       Still required before this closes: the live migration on a managed
       machine, plus receipts for `groundwork-doctor --node-toolchain`, the full
       validator, bare `pnpm roo verify`, `lefthook run pre-commit`, and

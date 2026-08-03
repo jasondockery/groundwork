@@ -57,7 +57,7 @@ The tracks are branches on one shared spine: shell, Git, project instructions, v
 
 Groundwork is an on-ramp, not the whole road. It will not turn someone into an agentic engineer by itself; it gives the big picture, the working environment, and the first serious reps so learners know what they are aiming toward.
 
-New here? Read the public docs at <https://jasondockery.github.io/groundwork/> or open `docs/index.html` locally from a checkout.
+New here? Read the public docs at <https://jasondockery.github.io/groundwork/> or run `groundwork-docs` after setup to open the site from the checkout chezmoi is actually using.
 
 ## Supported Platforms
 
@@ -206,6 +206,7 @@ One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 ```bash
 groundwork-help                     # show Groundwork commands, aliases, keys, and helper scripts
 groundwork-help update              # filter the command catalog
+groundwork-docs                     # open the docs from the active Groundwork source checkout
 largest ~                           # find large files/folders, then show cleanup guidance
 groundwork-doctor                   # read-only health report, including legacy Docker proof tags
 groundwork-docker-tidy              # dry-run tidy of ephemeral-labeled Docker scratch images, by enumeration (--yes to act)
@@ -243,7 +244,8 @@ Capturing what you install over time:
 ```bash
 brew bundle dump --file=~/.config/homebrew/Brewfile --describe   # snapshot brew
 code --list-extensions > ~/vscode-extensions.txt                 # snapshot VS Code, then: chezmoi add ~/vscode-extensions.txt
-# global node CLIs: add  "npm:<pkg>" = "latest"  to ~/.config/mise/config.toml
+mkdir -p ~/.config/mise/conf.d
+mise use --minimum-release-age 5d --path ~/.config/mise/conf.d/90-personal-tools.toml npm:<pkg>@latest  # personal cross-project Node CLI
 ```
 
 ## What's where
@@ -278,6 +280,7 @@ home/
     homebrew/Brewfile.tmpl             # everything Homebrew installs
   dot_local/bin/executable_new-project # per-repo AGENTS.md + .agents/ scaffolder
   dot_local/bin/executable_groundwork-help # installed command catalog helper
+  dot_local/bin/executable_groundwork-docs # opens docs from the active chezmoi source checkout
   dot_local/bin/executable_update-all  # stable launcher: sync Groundwork, exec fresh runner
   dot_local/bin/executable_groundwork-update-run.tmpl # post-sync update stages (brew, mise, AI tools)
   dot_local/bin/executable_groundwork-cleanup # package-manager report, cadence, cleanup receipts, pending state

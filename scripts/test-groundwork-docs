@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-docs-test.XXXXXX")"
+fixture="$(cd -P -- "$fixture" && pwd -P)"
+cleanup() {
+  rm -rf -- "$fixture"
+}
+trap cleanup EXIT HUP INT TERM
+
+bin="$fixture/bin"
+visible="$fixture/visible-groundwork"
+legacy="$fixture/legacy-source"
+mkdir -p "$bin" "$visible/home" "$visible/docs" "$legacy/docs"
+printf 'home\n' >"$visible/.chezmoiroot"
+printf '<!doctype html>\n' >"$visible/docs/index.html"
+printf '<!doctype html>\n' >"$legacy/docs/index.html"
+
+cat >"$bin/chezmoi" <<'SH'
+#!/bin/sh
+printf 'chezmoi %s\n' "$*" >>"$TEST_COMMAND_LOG"
+[ "$1" = source-path ] || exit 64
+printf '%s\n' "$TEST_SOURCE_PATH"
+SH
+cat >"$bin/uname" <<'SH'
+#!/bin/sh
+printf '%s\n' "$TEST_PLATFORM"
+SH
+cat >"$bin/open" <<'SH'
+#!/bin/sh
+printf 'open %s\n' "$1" >>"$TEST_COMMAND_LOG"
+SH
+chmod +x "$bin/chezmoi" "$bin/uname" "$bin/open"
+
+command_path="$PWD/home/dot_local/bin/executable_groundwork-docs"
+log="$fixture/commands.log"
+
+: >"$log"
+TEST_COMMAND_LOG="$log" PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" --help >"$fixture/help"
+test ! -s "$log" || { echo 'groundwork-docs --help invoked an external command' >&2; exit 1; }
+grep -qF 'groundwork-docs' "$fixture/help"
+
+: >"$log"
+set +e
+TEST_COMMAND_LOG="$log" PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" --bogus >"$fixture/bogus.out" 2>"$fixture/bogus.err"
+status=$?
+set -e
+test "$status" -eq 64 || { echo "groundwork-docs --bogus exited $status, expected 64" >&2; exit 1; }
+test ! -s "$log" || { echo 'groundwork-docs invalid input invoked an external command' >&2; exit 1; }
+
+: >"$log"
+TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$visible/home" TEST_PLATFORM=Darwin \
+  PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/visible.out"
+grep -qF "Source checkout: $visible" "$fixture/visible.out"
+grep -qF "open $visible/docs/index.html" "$log"
+
+: >"$log"
+TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$legacy" TEST_PLATFORM=Linux \
+  PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/legacy.out"
+grep -qF "Groundwork docs: $legacy/docs/index.html" "$fixture/legacy.out"
+if grep -q '^open ' "$log"; then
+  echo 'groundwork-docs tried to open a browser on a headless platform' >&2
+  exit 1
+fi
+
+missing="$fixture/missing"
+mkdir -p "$missing"
+: >"$log"
+set +e
+TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$missing" TEST_PLATFORM=Linux \
+  PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/missing.out" 2>"$fixture/missing.err"
+status=$?
+set -e
+test "$status" -ne 0 || { echo 'groundwork-docs accepted a source with no docs' >&2; exit 1; }
+grep -qF 'Run update-all' "$fixture/missing.err"
+
+escape="$fixture/escape"
+mkdir -p "$escape" "$fixture/outside-docs"
+printf '<!doctype html>\n' >"$fixture/outside-docs/index.html"
+ln -s "$fixture/outside-docs" "$escape/docs"
+set +e
+TEST_COMMAND_LOG="$log" TEST_SOURCE_PATH="$escape" TEST_PLATFORM=Linux \
+  PATH="$bin:/usr/bin:/bin" /bin/bash "$command_path" >"$fixture/escape.out" 2>"$fixture/escape.err"
+status=$?
+set -e
+test "$status" -ne 0 || { echo 'groundwork-docs followed a docs symlink outside the source' >&2; exit 1; }
+
+echo 'ok: groundwork-docs resolves visible and default chezmoi sources without stale paths'

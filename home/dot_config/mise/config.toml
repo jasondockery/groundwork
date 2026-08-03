@@ -20,13 +20,14 @@ node = "lts"
 # runtimes such as Aider, whose dependency path still imports audioop.
 python = ["3.13", "3.12"]
 
-# Global Node CLIs — reproducible replacement for `npm i -g` / `pnpm add -g`.
-# Capture what you already have, then list each here as an npm: entry:
+# Global Node CLIs: mise's npm backend replaces `npm i -g` / `pnpm add -g`.
+# Keep personal additions outside this chezmoi-managed file:
+#   mkdir -p ~/.config/mise/conf.d
+#   mise use --minimum-release-age 5d --path ~/.config/mise/conf.d/90-personal-tools.toml npm:typescript@latest
+# Capture what you already have, then add each personal tool through that file:
 #   npm ls -g --depth=0
 #   pnpm ls -g
-# Example:
-# "npm:typescript" = "latest"
-# "npm:prettier" = "latest"
+# The TypeScript package installs the `tsc` executable, not `typescript`.
 
 [settings]
 # Install Corepack shims after installing each Node version, so pnpm exists

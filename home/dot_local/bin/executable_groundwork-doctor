@@ -27,6 +27,10 @@ Sections (all run by default):
                 floor update-all enforces. A cooldown filters what you acquire;
                 it never rolls back what is already installed, so a version taken
                 before the floor existed stays until something says so.
+  Node toolchain
+                whether mise owns Node, Corepack owns repository-pinned pnpm,
+                and a pnpm global-tool directory is bypassing Groundwork's
+                project-local or mise-managed CLI lanes.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftovers: containers, dangling
                 images, volumes, and the labeled-ephemeral scratch images —
@@ -336,6 +340,72 @@ nearest_manifest() {
   return 0
 }
 
+expand_pnpm_global_bin() {
+  local value="$1"
+  value="${value%\"}"
+  value="${value#\"}"
+  value="${value%\'}"
+  value="${value#\'}"
+  case "$value" in
+    '~/'*) printf '%s/%s\n' "$HOME" "${value#\~/}" ;;
+    '\$HOME/'*) printf '%s/%s\n' "$HOME" "${value#\$HOME/}" ;;
+    /*) printf '%s\n' "$value" ;;
+    *) return 1 ;;
+  esac
+}
+
+configured_pnpm_global_bin() {
+  if [[ -n "${PNPM_HOME:-}" ]]; then
+    expand_pnpm_global_bin "$PNPM_HOME"
+    return
+  fi
+
+  local config value
+  for config in \
+    "$HOME/.npmrc" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm/rc" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/pnpm/config.yaml"; do
+    [[ -r "$config" ]] || continue
+    value="$(awk '
+      /^[[:space:]]*global-bin-dir[[:space:]]*[:=]/ {
+        sub(/^[^:=]*[:=][[:space:]]*/, "")
+        sub(/[[:space:]]+$/, "")
+        print
+        exit
+      }
+    ' "$config")"
+    if [[ -n "$value" ]]; then
+      expand_pnpm_global_bin "$value"
+      return
+    fi
+  done
+
+  case "$(uname -s 2>/dev/null || true)" in
+    Darwin)
+      [[ -d "$HOME/Library/pnpm" ]] && printf '%s\n' "$HOME/Library/pnpm/bin"
+      ;;
+    Linux)
+      local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+      [[ -d "$data_home/pnpm" ]] && printf '%s\n' "$data_home/pnpm"
+      ;;
+  esac
+}
+
+path_contains_directory() {
+  local wanted="$1" entry wanted_real entry_real
+  case ":${PATH:-}:" in
+    *":$wanted:"*) return 0 ;;
+  esac
+  [[ -d "$wanted" ]] || return 1
+  wanted_real="$(cd -P -- "$wanted" 2>/dev/null && pwd -P)" || return 1
+  while IFS= read -r entry; do
+    [[ -n "$entry" && -d "$entry" ]] || continue
+    entry_real="$(cd -P -- "$entry" 2>/dev/null && pwd -P)" || continue
+    [[ "$entry_real" == "$wanted_real" ]] && return 0
+  done < <(printf '%s' "${PATH:-}" | tr ':' '\n')
+  return 1
+}
+
 node_toolchain_section() {
   heading "Node toolchain (mise owns Node; Corepack owns pnpm)"
 
@@ -448,6 +518,20 @@ node_toolchain_section() {
       [ -n "$owner" ] && note "  $owner"
     done
   fi
+
+  local pnpm_global_bin
+  pnpm_global_bin="$(configured_pnpm_global_bin || true)"
+  if [[ -n "$pnpm_global_bin" ]]; then
+    if path_contains_directory "$pnpm_global_bin"; then
+      warn "pnpm's global executable directory is on PATH: $pnpm_global_bin — those tools bypass Groundwork's mise inventory."
+    else
+      warn "pnpm's global executable directory is outside PATH: $pnpm_global_bin"
+    fi
+    note "Do not run 'pnpm setup'; it edits shell configuration that Groundwork owns."
+  fi
+  note "Node CLI ownership: add project tools with 'pnpm add -D <package>' and run them with 'pnpm exec <command>'."
+  note "For a personal cross-project CLI: mise use --minimum-release-age 5d --path \"$HOME/.config/mise/conf.d/90-personal-tools.toml\" npm:<package>@latest"
+  note "TypeScript's package is 'typescript'; its compiler command is 'tsc'."
 
   local manifest pinned node_pin node_pin_kind node_pin_value
   manifest="$(nearest_manifest pin)"

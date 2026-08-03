@@ -155,7 +155,7 @@
         <tr><td><code>groundwork-doctor --shell</code></td><td>Check that Groundwork&apos;s Homebrew zsh is installed, registered, selected as the login shell, and actually running in this process.</td></tr>
         <tr><td><code>groundwork-doctor --runtimes</code></td><td>Flag a mise-managed runtime adopted inside the five-day release floor. It reports existing state; it never rolls a version back.</td></tr>
         <tr><td><code>groundwork-doctor --docker</code></td><td>Check Docker daemon reachability, engine policy, disk use, owner-scoped leftover counts, and legacy validation tags for manual review.</td></tr>
-        <tr><td><code>groundwork-doctor --node-toolchain</code></td><td>Report who owns Node and pnpm: the active Node, whether pnpm comes from Corepack or a competing install, every distinct pnpm owner on <code>PATH</code>, this repository&apos;s pins, and whether nested processes agree with your shell.</td></tr>
+        <tr><td><code>groundwork-doctor --node-toolchain</code></td><td>Report who owns Node and pnpm: the active Node, Corepack or competing pnpm ownership, every distinct owner on <code>PATH</code>, this repository&apos;s pins, nested-process agreement, and a configured pnpm global-tool directory outside <code>PATH</code>.</td></tr>
         <tr><td><code>groundwork-doctor --storage</code></td><td>Size the known large developer-storage areas — Homebrew cache, pnpm store generations, npm cache, Xcode device support and simulators, a legacy <code>~/.nvm</code>, Parallels VMs — each classified (rebuildable, application-managed, user data) and paired with the command or app surface that owns cleaning it. It reports; it never deletes, and its pnpm query runs with Corepack networking disabled so a read-only check cannot download a package manager. Opt-in by design: <code>du</code> over VM bundles and simulator trees can take minutes, so the default doctor run skips it and prints a pointer instead. It is a curated report, not a full disk scan — use <code>largest ~</code> for discovery. The classification is the point: a 200&nbsp;GB virtual machine and a 200&nbsp;GB rebuildable cache are different problems.</td></tr>
       </table>
 
@@ -167,6 +167,15 @@
         <span class="label">After the migration</span>
         <p>Open a new shell or a new tmux pane; in a shell you want to keep, <code>hash -r</code> clears the cached command path. Then <code>groundwork-doctor --node-toolchain</code> confirms it. Keeping a separate global pnpm will re-create the conflict — the doctor names it if you do.</p>
       </div>
+      <h3>Project tools and personal Node CLIs</h3>
+      <p>Do not run <code>pnpm setup</code> with Groundwork. It edits shell configuration that chezmoi owns, and Groundwork intentionally leaves pnpm's separate global executable directory out of <code>PATH</code>. For a project, add the tool to that project's dev dependencies and run its executable through pnpm:</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">project-tool</span></div><pre><code><span class="prompt">$ </span>pnpm add -D typescript
+<span class="prompt">$ </span>pnpm exec tsc --version</code></pre></div>
+      <p>The package is named <code>typescript</code>; the compiler executable is <code>tsc</code>. A personal CLI that genuinely belongs across projects goes in mise's automatically loaded personal fragment, not Groundwork's managed main config:</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">personal-tool</span></div><pre><code><span class="prompt">$ </span>mkdir -p "$HOME/.config/mise/conf.d"
+<span class="prompt">$ </span>mise use --minimum-release-age 5d --path "$HOME/.config/mise/conf.d/90-personal-tools.toml" npm:typescript@latest
+<span class="prompt">$ </span>command -v tsc
+<span class="prompt">$ </span>tsc --version</code></pre></div>
 
       <h2><span class="hash">#</span>Headless containers</h2>
       <p>Docker is an environment option here, not a separate curriculum track. Use it when you want the Groundwork terminal layer in a reproducible agent workspace, CI job, or disposable shell: no GUI apps, no macOS defaults, no browser helpers, just the command-line foundation agents and humans can share.</p>

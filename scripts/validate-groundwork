@@ -7218,6 +7218,10 @@ FAULT
 }
 
 validate_static_helpers() {
+  check "Groundwork local docs resolver"
+  test -x home/dot_local/bin/executable_groundwork-docs
+  scripts/test-groundwork-docs
+
   check "largest helper"
   test -x home/dot_local/bin/executable_largest
   largest_fixture="$out_dir/largest-fixture"
@@ -10727,6 +10731,22 @@ SOURCED
   if grep -qF "is NOT mise's" "$out_dir/doctor-alias-out"; then
     fail "the doctor reported the managed Node as unmanaged when reached through a version alias"
   fi
+
+  PNPM_HOME="$alias_fixture/pnpm-global/bin" \
+    PATH="$alias_fixture/installs/node/lts/bin:$alias_fixture/stub:/usr/bin:/bin" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --node-toolchain \
+    >"$out_dir/doctor-global-bin-out" 2>&1 || true
+  grep -qF "pnpm's global executable directory is outside PATH: $alias_fixture/pnpm-global/bin" \
+    "$out_dir/doctor-global-bin-out" \
+    || fail "the doctor did not identify a configured pnpm global executable directory outside PATH"
+  grep -qF "Do not run 'pnpm setup'" "$out_dir/doctor-global-bin-out" \
+    || fail "the doctor did not protect Groundwork-owned shell configuration from pnpm setup"
+  grep -qF "pnpm add -D <package>" "$out_dir/doctor-global-bin-out" \
+    || fail "the doctor did not recommend project-local Node CLI ownership"
+  grep -qF 'mise use --minimum-release-age 5d --path' "$out_dir/doctor-global-bin-out" \
+    || fail "the doctor did not recommend mise's personal npm-tool lane"
+  grep -qF "compiler command is 'tsc'" "$out_dir/doctor-global-bin-out" \
+    || fail "the doctor did not distinguish TypeScript's package and executable names"
 
   check "Node/pnpm launcher: parent and nested child resolve one toolchain"
   # The defect this pins: a top-level pnpm can be correct while a nested process

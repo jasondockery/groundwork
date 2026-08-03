@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Open the documentation from the Groundwork checkout chezmoi is actually using.
+
+Usage:
+  groundwork-docs
+  groundwork-docs --help
+
+On macOS this opens the local site. On other platforms it prints the exact
+index path. The command never assumes whether the checkout lives under
+~/code/groundwork or ~/.local/share/chezmoi.
+EOF
+}
+
+case "$#" in
+  0) ;;
+  1)
+    case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        printf 'groundwork-docs: unknown option: %s\n' "$1" >&2
+        usage >&2
+        exit 64
+        ;;
+    esac
+    ;;
+  *)
+    echo 'groundwork-docs: unexpected arguments' >&2
+    usage >&2
+    exit 64
+    ;;
+esac
+
+if ! command -v chezmoi >/dev/null 2>&1; then
+  echo 'groundwork-docs: chezmoi is not on PATH; the active Groundwork source cannot be resolved.' >&2
+  exit 1
+fi
+
+source_path="$(chezmoi source-path 2>/dev/null || true)"
+if [[ -z "$source_path" || "$source_path" != /* || ! -d "$source_path" ]]; then
+  printf 'groundwork-docs: chezmoi returned an unusable source path: %s\n' "${source_path:-<empty>}" >&2
+  echo 'Run: chezmoi source-path' >&2
+  exit 1
+fi
+
+source_path="$(cd -P -- "$source_path" && pwd -P)"
+repo_root="$source_path"
+if [[ "${source_path##*/}" == "home" ]]; then
+  parent="${source_path%/*}"
+  if [[ -f "$parent/.chezmoiroot" ]] && [[ "$(tr -d '[:space:]' <"$parent/.chezmoiroot")" == "home" ]]; then
+    repo_root="$parent"
+  fi
+fi
+
+index_path="$repo_root/docs/index.html"
+if [[ ! -f "$index_path" || -L "$index_path" || -L "$repo_root/docs" ]]; then
+  printf 'groundwork-docs: docs/index.html is missing from the active Groundwork checkout.\n' >&2
+  printf '  chezmoi source: %s\n' "$source_path" >&2
+  printf '  checked:        %s\n' "$index_path" >&2
+  echo 'Run update-all and read its source-synchronization result, then retry.' >&2
+  exit 1
+fi
+
+repo_root="$(cd -P -- "$repo_root" && pwd -P)"
+resolved_index="$(cd -P -- "$repo_root/docs" && pwd -P)/index.html"
+if [[ "$resolved_index" != "$repo_root/docs/index.html" ]]; then
+  printf 'groundwork-docs: docs/index.html escapes the active Groundwork checkout: %s\n' "$resolved_index" >&2
+  exit 1
+fi
+
+branch="$(git -C "$repo_root" symbolic-ref --quiet --short HEAD 2>/dev/null || printf 'detached-or-unavailable')"
+revision="$(git -C "$repo_root" rev-parse --short=12 HEAD 2>/dev/null || printf 'unavailable')"
+printf 'Groundwork docs: %s\n' "$resolved_index"
+printf 'Source checkout: %s\n' "$repo_root"
+printf 'Source revision: %s (%s)\n' "$revision" "$branch"
+
+if [[ "$(uname -s 2>/dev/null || true)" == "Darwin" ]] && command -v open >/dev/null 2>&1; then
+  if ! open "$resolved_index"; then
+    echo 'groundwork-docs: macOS could not open the page; use the printed path.' >&2
+    exit 1
+  fi
+else
+  echo 'Open the printed index path in a browser.'
+fi

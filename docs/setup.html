@@ -198,6 +198,7 @@
       </div>
       <p>On a fresh Mac, run the bootstrap script. It installs the Apple/Homebrew/GitHub/chezmoi prerequisites, clones or updates <code>github.com/jasondockery/groundwork</code> at <code>${GROUNDWORK_DIR:-~/code/groundwork}</code>, then applies it with chezmoi. The script is the source of truth, so the docs do not duplicate every internal command. On Windows, first install WSL2/Ubuntu and run the Unix shell path inside WSL rather than trying to apply the macOS bootstrap in PowerShell.</p>
       <p>The repo is a visible project checkout; <code>.chezmoiroot</code> keeps only <code>home/</code> mapped into your actual home folder.</p>
+      <p>After setup, run <code>groundwork-docs</code> to open the complete local site from that active checkout. Do not bookmark a guessed <code>file://</code> location; older direct chezmoi installs and the current visible-checkout bootstrap use different source layouts.</p>
       <p>Use the one-liner:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">bootstrap.sh</span></div>

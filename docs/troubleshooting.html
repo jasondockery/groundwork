@@ -154,6 +154,19 @@
       </table>
 
       <h2><span class="hash">#</span>Install &amp; bootstrap</h2>
+      <h3>The local docs look older than the public site</h3>
+      <p>Every Groundwork setup has the complete site locally inside its active source checkout; a <code>file://</code> URL is not a separately installed copy. Run <code>groundwork-docs</code> instead of opening a remembered path. It resolves the checkout chezmoi is actually using, prints its revision, and opens the index on macOS.</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">local-docs</span></div><pre><code><span class="prompt">$ </span>source="$(chezmoi source-path)"
+<span class="prompt">$ </span>if [ "$(basename "$source")" = home ]; then repo="$(dirname "$source")"; else repo="$source"; fi
+<span class="prompt">$ </span>git -C "$repo" status --short --branch
+<span class="prompt">$ </span>git -C "$repo" log -1 --oneline
+<span class="prompt">$ </span>grep -n 'game-dev-learn' "$repo/docs/practice.html"
+<span class="prompt">$ </span>groundwork-docs</code></pre></div>
+      <p>A current checkout contains the <em>FPS · Learn dev</em> link. If <code>grep</code> finds it but the browser does not show it, use <kbd>⌘</kbd><kbd>Shift</kbd><kbd>R</kbd>. If it is absent, the active source did not reach current <code>main</code>; run <code>update-all</code> and read its synchronization error. Do not delete an older <code>~/.local/share/chezmoi</code> checkout until <code>chezmoi source-path</code> proves it is inactive.</p>
+
+      <h3><code>pnpm add -g</code> cannot find a global bin directory</h3>
+      <p>Groundwork intentionally does not use pnpm's global-tool lane. Mise owns Node and personal cross-project Node CLIs; Corepack owns pnpm per repository. Do not run <code>pnpm setup</code>, because it edits shell configuration that Groundwork manages.</p>
+      <p>Inside a project, prefer a reproducible dev dependency: <code>pnpm add -D typescript</code>, then <code>pnpm exec tsc --version</code>. The package is <code>typescript</code>, but the executable is <code>tsc</code>. For a genuine personal cross-project CLI, run <code>mkdir -p "$HOME/.config/mise/conf.d"</code>, then <code>mise use --minimum-release-age 5d --path "$HOME/.config/mise/conf.d/90-personal-tools.toml" npm:typescript@latest</code>. Diagnose ownership without changing it with <code>groundwork-doctor --node-toolchain</code>.</p>
       <h3>Homebrew says the Xcode license is not accepted</h3>
       <p>Fix the first error, then re-run <code>bootstrap-mac.sh</code>. If Homebrew stops at the Xcode license check, the later <code>gh: command not found</code> or <code>chezmoi: command not found</code> messages are just follow-on errors because those tools never installed.</p>
       <div class="terminal">

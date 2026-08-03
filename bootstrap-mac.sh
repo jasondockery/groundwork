@@ -259,7 +259,7 @@ cat <<EOF
 
 Next:
   1. Open the Groundwork docs:
-       open "$groundwork_dir/docs/index.html"
+       groundwork-docs
   2. Work through the README finish-up checklist.
   3. Re-run 'chezmoi apply' any time you want to repair managed config.
 EOF

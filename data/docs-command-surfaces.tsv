@@ -1,6 +1,7 @@
 # item	kind	origin	platforms	profiles	requires	canonical_page
 groundwork-help [query]	command	executable	all	all	-	commands.html
 groundwork-help --pick [query]	command	executable	all	all	fzf	commands.html
+groundwork-docs	command	executable	all	all	chezmoi	setup.html
 update-all	command	executable	all	all	-	setup.html
 update-all --skip-maintenance	command	executable	all	all	-	commands.html
 groundwork-cleanup	command	executable	all	all	-	commands.html
