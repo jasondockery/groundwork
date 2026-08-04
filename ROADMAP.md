@@ -413,11 +413,14 @@ done nor lost in review prose.
       release CHANNEL, not Homebrew's `version :latest` (which would force
       `sha256 :no_check`), so no unchecked "fast lane" exists and no
       `groundwork-ai-update` split is warranted. `--greedy-latest` was a no-op
-      justified by an incorrect comment and is gone. The one cask that genuinely
-      ships `sha256 :no_check` is google-chrome (Google's updater owns the
-      binary): it is OUT of the Brewfile, installed only by an explicit
-      setup-time consent prompt (default no), only after the checksummed bundle
-      succeeds, and its failure is a real failure so the next apply retries.
+      justified by an incorrect comment and is gone. The official Chrome stable
+      and Beta casks genuinely ship `sha256 :no_check` (Google's updater owns
+      the binaries): both stay OUT of the checksum-safe Brewfile. The profile
+      renders the exact selected set into `Brewfile.browser`, the bounded lane
+      installs it only after the checksummed bundle succeeds, and failure makes
+      the next apply retry. Current/work select stable; preview selects Beta and
+      retains stable as a fallback. The obsolete setup opt-in remains ignored
+      compatibility input rather than a rendering failure.
       `scripts/audit-brew-casks` enforces both invariants across every
       conditional profile (work, password manager, game-dev) and self-audits
       the exception — it is a required macOS CI job, not a manual habit.
@@ -642,8 +645,9 @@ more than the run proved.
 
 A first implementation attempt on 2026-07-20 was reverted before commit. It
 combined `--require-sha` with `--greedy-auto-updates`, and a real dry run
-showed the result planned to upgrade `google-chrome` — the one cask
-`scripts/audit-brew-casks` deliberately keeps out of every Brewfile. The safety
+showed the result planned to upgrade `google-chrome` — one of the browser casks
+`scripts/audit-brew-casks` deliberately keeps out of the checksum-safe
+Brewfile. The safety
 flag is a failure policy, not a candidate filter, so widening scope that way
 either aborts the run or drags an excluded cask back under Homebrew management.
 The lesson is recorded in `skills/system-update-orchestration`.
@@ -651,16 +655,14 @@ The lesson is recorded in `skills/system-update-orchestration`.
 Do this work under `skills/safe-mutating-cli` and
 `skills/system-update-orchestration`, red-proving every branch.
 
-- [ ] Decide the ownership model and make name, help, implementation, and
-      receipt agree: Groundwork-declared packages only, or every eligible
-      Homebrew-installed package. An unqualified `brew upgrade` is the latter,
-      while the help says the former.
-- [ ] Parse arguments before any mutation, in BOTH the launcher and the runner.
-      The runner currently has no parser and is documented as directly
-      invocable; a direct `--help` must not run `chezmoi apply`.
-- [ ] Reject unknown options AND unexpected positional arguments in both layers.
-      `update-all --greedy` currently runs an ordinary refresh and silently
-      ignores the flag.
+- [x] Homebrew ownership model (2026-08-04): Groundwork-declared packages only.
+      The runner parses the exact formula/cask set from the rendered checksum-
+      safe Brewfile before metadata refresh and reuses it for retry. Unmanaged
+      Homebrew software and the vendor-updated Chrome browser lane are excluded.
+- [x] Parse arguments before mutation in both launcher and directly invocable
+      runner; `--help` reaches no sync, apply, or update command.
+- [x] Reject unknown options and unexpected positional arguments in both layers;
+      an apparent scope flag can never fall through to an ordinary refresh.
 - [ ] Add `--include-self-updating-casks` (macOS only; explicit off-platform
       behavior, never a silent no-op). Build an explicit checksummed candidate
       token list; never pass a global greedy flag and expect `--require-sha` to

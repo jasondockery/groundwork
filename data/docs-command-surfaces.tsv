@@ -108,7 +108,6 @@ browser-extensions [--open]	command	executable	macos	desktop	-	apps.html
 raycast-extensions [--open]	command	executable	macos	desktop	raycast	apps.html
 betterdisplaycli	command	external-command	macos	desktop	betterdisplay	apps.html
 open -a <App>	command	external-command	macos	desktop	-	apps.html
-zen	alias	shell-alias	macos	desktop	zen	apps.html
 mise use <tool@version>	command	external-command	all	all	mise	shell.html
 mise upgrade	command	external-command	all	all	mise	shell.html
 pnpm	command	external-command	all	all	pnpm	shell.html

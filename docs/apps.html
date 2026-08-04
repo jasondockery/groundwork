@@ -136,8 +136,8 @@
       <h2 id="configuration-boundary"><span class="hash">#</span>What Groundwork can configure</h2>
       <p>Groundwork should only automate settings that live in stable files, templates, or documented macOS defaults. Many Mac apps keep their real state in app databases, account sync, Keychain, iCloud, or per-device stores; those should stay in the app that owns them.</p>
       <table class="keytable">
-        <tr><td><strong>Managed by Groundwork</strong></td><td>Shell, Git, tmux, Neovim, Ghostty, Karabiner merge config, selected macOS defaults, Zen <code>user.js</code>, Chrome password-manager policy, browser/Raycast extension checklists, and Obsidian vault/plugin seed files.</td></tr>
-        <tr><td><strong>Use app sync/export</strong></td><td>Raycast aliases, hotkeys, snippets, Quicklinks, and extensions belong in Raycast Cloud Sync if available on your plan, or Raycast export/import. Anybox links, profiles, Quick Links, and snippets sync through iCloud. Browser bookmarks/history use Firefox Sync or each browser's own profile sync.</td></tr>
+        <tr><td><strong>Managed by Groundwork</strong></td><td>Shell, Git, tmux, Neovim, Ghostty, Karabiner merge config, selected macOS defaults, the profile-selected Chrome channel, Chrome password-manager policy, browser/Raycast extension checklists, and Obsidian vault/plugin seed files.</td></tr>
+        <tr><td><strong>Use app sync/export</strong></td><td>Raycast aliases, hotkeys, snippets, Quicklinks, and extensions belong in Raycast Cloud Sync if available on your plan, or Raycast export/import. Anybox links, profiles, Quick Links, and snippets sync through iCloud. Chrome Sync is optional and owned by your Google account.</td></tr>
         <tr><td><strong>Manual by design</strong></td><td>App Store purchases, sign-in, password-manager unlock, API keys, SSH-agent approval, default-browser confirmation, macOS privacy prompts, display presets, and app-level hotkeys that depend on your hands, monitors, and existing shortcuts.</td></tr>
       </table>
       <div class="callout note">
@@ -147,32 +147,28 @@
 
       <h2><span class="hash">#</span>Browsers</h2>
       <table class="keytable">
-        <tr><td><strong>Zen</strong></td><td>The daily driver. Built on Firefox's engine, with a sidebar, vertical tabs, and workspaces. Private by default and pleasant to live in.</td></tr>
-        <tr><td><strong>Chrome</strong></td><td>The baseline everyone tests against. Keep it for the occasional site that only behaves in Chrome — not as your everyday browser.</td></tr>
+        <tr><td><strong>Chrome stable</strong></td><td>The managed default for Personal Current and Work Managed. Preview profiles retain it as a compatibility fallback.</td></tr>
+        <tr><td><strong>Chrome Beta</strong></td><td>The managed primary browser for Personal Preview and Disposable Experimental on a desktop Mac. It installs beside stable Chrome.</td></tr>
         <tr><td><strong>Dia</strong></td><td>An AI-first browser (from the makers of Arc), installed on personal machines. Experimental — worth a look, not yet a daily driver.</td></tr>
       </table>
       <div class="callout note">
-        <span class="label">Why two browsers</span>
-        <p>Living in a private browser and keeping a mainstream one for testing is normal for developers. Zen for everything; Chrome when a site demands it.</p>
+        <span class="label">Installed is not the same as default</span>
+        <p>Groundwork installs the Chrome channel selected by your release posture. It never changes the macOS default-browser association: that confirmation remains your decision. Organization and device policy outrank the profile on managed machines.</p>
       </div>
       <div class="callout note">
-        <span class="label">Syncing Zen across machines</span>
-        <p>Zen rides on <strong>Firefox Sync</strong>: Settings → Sync, sign in with a free Mozilla account, and your <strong>bookmarks, history, saved logins, and open tabs</strong> follow you to every Mac (end-to-end encrypted). The catch — <strong>Spaces (workspaces) don't sync</strong>. They're a Zen-only idea Firefox Sync doesn't understand, and a bookmark's Space assignment is lost in transit, so synced bookmarks land in <em>every</em> Space rather than the one you filed them in. So turn Sync on for the links and passwords, but expect to <strong>recreate your Space layout by hand on each machine</strong> (or use "Send to Device" for one-off tab handoffs). Cross-device Spaces are on Zen's roadmap, not shipped.</p>
-      </div>
-      <div class="callout tip">
-        <span class="label">Zen Space navigation</span>
-        <p>chezmoi writes <code>zen.workspaces.wrap-around-navigation=false</code> into each Zen profile's <code>user.js</code>. That makes Space navigation stop at the leftmost and rightmost Space instead of cycling around. Swipe navigation is left alone; restart Zen after applying Groundwork if the change does not show up immediately.</p>
+        <span class="label">Chrome Sync is optional</span>
+        <p>Use Chrome without signing in, or sign in if you want Google to sync bookmarks, history, saved passwords, settings, and open tabs. Groundwork does not sign in, enable sync, or put account data into dotfiles. Any browser Groundwork no longer manages remains installed with its data untouched until you decide what to do with it.</p>
       </div>
       <h3>Browser extensions</h3>
-      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links, or <code>browser-extensions --open</code> on macOS to open them in Zen, Chrome, or Dia. Chrome and Dia use Chrome Web Store links; Zen uses Firefox Add-ons.</p>
+      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links, or <code>browser-extensions --open</code> on macOS to open them in Chrome or Dia through the Chrome Web Store.</p>
       <table class="keytable">
-        <tr><td><strong>Core</strong></td><td>Password manager, uBlock Origin Lite / uBlock Origin, Anybox Browser Extension, and Obsidian Web Clipper.</td></tr>
+        <tr><td><strong>Core</strong></td><td>Password manager, uBlock Origin Lite, Anybox Browser Extension, and Obsidian Web Clipper.</td></tr>
         <tr><td><strong>Privacy</strong></td><td>Privacy.com is included as the official virtual-card service link. I could not verify a current official browser extension, so it is not treated as an extension install.</td></tr>
         <tr><td><strong>Optional privacy</strong></td><td>Privacy Badger is available, but keep the extension set small unless you need it; every extension is another trusted code path.</td></tr>
         <tr><td><strong>Frontend dev</strong></td><td>React Developer Tools, Redux DevTools, Vue.js devtools, Angular DevTools for Chromium, and axe DevTools for accessibility.</td></tr>
       </table>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">browser extension helper</span></div><pre><code><span class="prompt">$ </span>browser-extensions
-<span class="prompt">$ </span>browser-extensions --browser zen --tier core --open
+<span class="prompt">$ </span>browser-extensions --browser chrome --tier core --open
 <span class="prompt">$ </span>browser-extensions --browser chrome --tier dev --open</code></pre></div>
 
       <h3>Password manager and autofill</h3>
@@ -181,13 +177,12 @@
         <tr><td><strong>SSH agent</strong></td><td>Sign in to the desktop app, then enable its SSH agent. Bitwarden: Settings → enable SSH agent. 1Password: Settings → Developer → Use the SSH agent. If commits stop signing, unlock the app and retry. See <a href="git.html">Git</a> for the signing flow.</td></tr>
         <tr><td><strong>macOS + Safari</strong></td><td>System Settings → General → AutoFill &amp; Passwords: turn on Bitwarden and turn off Passwords/iCloud Keychain if Bitwarden is the source of truth.</td></tr>
         <tr><td><strong>Chrome / Dia</strong></td><td>Install the Bitwarden extension, sign in, and pin it. Groundwork disables Chrome's built-in password manager by policy; turn Dia's built-in manager off in its own settings.</td></tr>
-        <tr><td><strong>Zen</strong></td><td>Install the Firefox-family Bitwarden add-on, sign in, then Settings → Privacy &amp; Security → uncheck Ask to save logins and passwords.</td></tr>
         <tr><td><strong>iOS / iPadOS</strong></td><td>Install Bitwarden, sign in, then Settings → General → AutoFill &amp; Passwords: enable Bitwarden and disable Passwords if you want the same source of truth on mobile.</td></tr>
       </table>
 
       <h2><span class="hash">#</span>Raycast — the launcher</h2>
       <p>Raycast is the single biggest quality-of-life app here. One keystroke opens a search box that launches apps, does math, manages windows, remembers your clipboard, and runs little commands — so your hands stay off the mouse. It's meant to take over <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> from Spotlight.</p>
-      <p>From a shell, <code>open -a &lt;App&gt;</code> is the direct macOS path when the app name is already known. Groundwork&apos;s <code>zen</code> alias is the short form for <code>open -a Zen</code>; Raycast remains the better path when you want to search rather than remember the exact name.</p>
+      <p>From a shell, <code>open -a &lt;App&gt;</code> is the direct macOS path when the app name is already known. Raycast remains the better path when you want to search rather than remember the exact name.</p>
       <table class="keytable">
         <tr><td>Launch &amp; search</td><td>Hit the hotkey, type an app or file name, <kbd>Enter</kbd></td></tr>
         <tr><td>Clipboard history</td><td>Everything you've copied, searchable — no more losing what you copied two things ago</td></tr>
@@ -209,7 +204,7 @@
       </div>
       <div class="callout note">
         <span class="label">Raycast extensions are not browser add-ons</span>
-        <p>Browser add-ons live in Zen, Chrome, and Dia. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
+        <p>Browser add-ons live in Chrome and Dia. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
       </div>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">raycast extension helper</span></div><pre><code><span class="prompt">$ </span>raycast-extensions
 <span class="prompt">$ </span>raycast-extensions --open
@@ -228,10 +223,10 @@
 
       <h3>Bookmarks, tabs, and links in Raycast</h3>
       <table class="keytable">
-        <tr><td><strong>Browser Bookmarks</strong></td><td>Best baseline. It searches bookmarks from the browsers you enable inside the extension, including Firefox-family browsers such as Zen and Chromium-family browsers such as Chrome and Dia. No browser add-on is needed for bookmarks.</td></tr>
-        <tr><td><strong>Browser Tabs</strong></td><td>Use for live open tabs in browsers Raycast can read through macOS automation, especially Safari and Chromium-family browsers. Zen is Firefox-based, so do not rely on Browser Tabs as the universal live-tab layer.</td></tr>
+        <tr><td><strong>Browser Bookmarks</strong></td><td>Best baseline. It searches bookmarks from the browsers you enable inside the extension, including Chrome, Dia, and Safari. No browser add-on is needed for bookmarks.</td></tr>
+        <tr><td><strong>Browser Tabs</strong></td><td>Use for live open tabs in browsers Raycast can read through macOS automation, especially Safari and Chromium-family browsers.</td></tr>
         <tr><td><strong>Anybox</strong></td><td>The durable cross-browser layer. Save important tabs into Anybox, then search them from Raycast through the Anybox extension. This is more reliable for project/client/teaching links than hoping every browser exposes live tabs the same way.</td></tr>
-        <tr><td><strong>Browser add-ons</strong></td><td>Install the Anybox and Obsidian Web Clipper add-ons in Zen, Chrome, and Dia with <code>browser-extensions --tier core --open</code>. They are for capturing pages, not for making Raycast itself work.</td></tr>
+        <tr><td><strong>Browser add-ons</strong></td><td>Install the Anybox and Obsidian Web Clipper add-ons in Chrome and Dia with <code>browser-extensions --tier core --open</code>. They are for capturing pages, not for making Raycast itself work.</td></tr>
       </table>
 
       <h3>Asking Claude, GPT, or Grok from Raycast</h3>
@@ -349,8 +344,8 @@ font-family = JetBrainsMono Nerd Font</code></pre>
       <div class="drill">
         <div class="num">2</div>
         <div class="body">
-          <h3>Make Zen your default</h3>
-          <p>Open Zen and set it as the default browser when it asks, or run <code>defaultbrowser zen</code> and approve the macOS confirmation. Leave Chrome installed but unused except for testing.</p>
+          <h3>Confirm the managed Chrome channel</h3>
+          <p>Run <code>groundwork-profile show</code>. Current and Work Managed use Chrome stable; preview profiles use Chrome Beta and retain stable as a fallback. If you want to change the macOS default browser, run <code>defaultbrowser</code> and make that separate choice yourself.</p>
         </div>
       </div>
       <div class="drill">
@@ -377,7 +372,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
 
       <h2><span class="hash">#</span>Going deeper</h2>
       <ul>
-        <li><a href="https://zen-browser.app" target="_blank" rel="noopener">Zen</a> &middot; <a href="https://manual.raycast.com" target="_blank" rel="noopener">Raycast manual</a> &middot; <a href="macos.html">macOS desktop</a></li>
+        <li><a href="https://support.google.com/chrome/" target="_blank" rel="noopener">Chrome help</a> &middot; <a href="https://manual.raycast.com" target="_blank" rel="noopener">Raycast manual</a> &middot; <a href="macos.html">macOS desktop</a></li>
         <li><a href="https://anybox.app" target="_blank" rel="noopener">Anybox</a> &middot; <a href="https://betterdisplay.pro/" target="_blank" rel="noopener">BetterDisplay</a> &middot; <a href="https://help.obsidian.md" target="_blank" rel="noopener">Obsidian help</a></li>
         <li><a href="https://support.apple.com/en-us/102610" target="_blank" rel="noopener">Apple: uninstall apps</a> &middot; <a href="https://support.apple.com/guide/mac-help/optimize-storage-space-syspf5a64aa6/mac" target="_blank" rel="noopener">Apple: optimize storage</a> &middot; <a href="https://docs.brew.sh/Cask-Cookbook#stanza-zap" target="_blank" rel="noopener">Homebrew cask zap</a> &middot; <a href="https://freemacsoft.net/appcleaner/" target="_blank" rel="noopener">AppCleaner</a></li>
       </ul>

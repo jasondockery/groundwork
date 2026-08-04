@@ -1,0 +1,15 @@
+{{- /* One canonical browser selection used by the installed browser manifest,
+the installer, and rendered validation. Groundwork manages Chrome on desktop
+macOS only. Preview keeps stable installed as a compatibility fallback. */ -}}
+{{- $headless := false -}}
+{{- if hasKey . "headless" }}{{- $headless = .headless -}}{{- end -}}
+{{- $posture := "current" -}}
+{{- if and (hasKey . "release_posture") (eq (toString .release_posture) "preview") -}}
+{{- $posture = "preview" -}}
+{{- end -}}
+{{- if and (eq .chezmoi.os "darwin") (not $headless) }}
+cask "google-chrome"
+{{- if eq $posture "preview" }}
+cask "google-chrome@beta"
+{{- end }}
+{{- end }}

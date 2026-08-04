@@ -80,13 +80,10 @@ cask "bitwarden"
 {{- end }}
 cask "karabiner-elements"
 brew "defaultbrowser"
-# NOTE: google-chrome is deliberately NOT here. It is the one cask Groundwork
-# wants that ships `sha256 :no_check` (Google's own updater owns the binary), so
-# it would fail the `--require-sha` policy this Brewfile is installed under.
-# It is installed as an explicit, announced exception by
-# run_onchange_after_10-brew-bundle.sh — see that script. Keeping it out of here
-# is what lets every cask in this file be checksum-verified.
-cask "zen"                    # daily driver: Arc-like sidebar + vertical tabs (Gecko)
+# Chrome is selected by release posture in Brewfile.browser. Both official
+# Google casks ship `sha256 :no_check`, so the main Brewfile stays entirely
+# checksummed and the browser manifest is handled by the explicit exception
+# lane in run_onchange_after_10-brew-bundle.sh.
 cask "zoom"
 cask "slack"
 cask "raycast"                # keyboard-first launcher; Quicklinks jump to daily links

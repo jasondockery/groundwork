@@ -12,6 +12,7 @@ Options:
   --shell       run only the shell runtime section
   --runtimes    run only the runtime release-age section
   --node-toolchain  run only the Node/pnpm ownership section
+  --browser     run only the managed-browser section
   --docker      run only the Docker section
   --storage     run the storage report (opt-in: du over large trees can be
                 slow, so the default run skips it)
@@ -31,6 +32,9 @@ Sections (all run by default):
                 whether mise owns Node, Corepack owns repository-pinned pnpm,
                 and a pnpm global-tool directory is bypassing Groundwork's
                 project-local or mise-managed CLI lanes.
+  Browser       selected Chrome channel versus the installed official Homebrew
+                casks. Preview requires Chrome Beta and keeps stable Chrome as
+                a compatibility fallback; device policy remains authoritative.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftovers: containers, dangling
                 images, volumes, and the labeled-ephemeral scratch images —
@@ -62,6 +66,62 @@ heading() { printf '\n== %s ==\n' "$1"; }
 ok() { printf '  ok    %s\n' "$1"; }
 warn() { printf '  warn  %s\n' "$1"; }
 note() { printf '  note  %s\n' "$1"; }
+
+browser_section() {
+  heading "Managed browser"
+
+  if [[ "$(uname -s 2>/dev/null || true)" != "Darwin" ]]; then
+    note "Groundwork manages a GUI browser on macOS only; no Linux browser path is claimed."
+    return 0
+  fi
+  if ! command -v chezmoi >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    warn "chezmoi and jq are required to read the selected browser profile; status is unknown."
+    return 0
+  fi
+
+  local data headless posture role
+  if ! data="$(chezmoi data --format=json 2>/dev/null)" \
+    || ! printf '%s' "$data" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    warn "Groundwork could not read the chezmoi profile; browser status is unknown."
+    return 0
+  fi
+  headless="$(printf '%s' "$data" | jq -r '.headless // false')"
+  posture="$(printf '%s' "$data" | jq -r '.release_posture // "current"')"
+  role="$(printf '%s' "$data" | jq -r '.environment_role // (if .work then "managed" else "personal" end)')"
+
+  if [[ "$headless" == "true" ]]; then
+    ok "headless profile selects no GUI browser"
+    return 0
+  fi
+  if [[ "$posture" != "current" && "$posture" != "preview" ]]; then
+    warn "release_posture is '$posture'; no managed browser claim can be made."
+    return 0
+  fi
+  if ! command -v brew >/dev/null 2>&1; then
+    warn "Homebrew is not available, so the selected Chrome casks cannot be verified."
+    return 0
+  fi
+
+  if brew list --cask google-chrome >/dev/null 2>&1; then
+    ok "Google Chrome stable is installed"
+  else
+    warn "Google Chrome stable is selected but not installed; rerun update-all."
+  fi
+  if [[ "$posture" == "preview" ]]; then
+    if brew list --cask google-chrome@beta >/dev/null 2>&1; then
+      ok "Google Chrome Beta is installed as the primary preview browser"
+    else
+      warn "Google Chrome Beta is selected but not installed; rerun update-all."
+    fi
+    note "stable Chrome remains installed as the compatibility fallback"
+  elif brew list --cask google-chrome@beta >/dev/null 2>&1; then
+    note "Chrome Beta is still installed but is no longer Groundwork-managed; no app or browser data is removed automatically."
+  fi
+  if [[ "$role" == "managed" ]]; then
+    note "organization and device policy outrank this selection; Groundwork never bypasses them."
+  fi
+  note "Groundwork installs the selected channel but does not change the macOS default-browser association."
+}
 
 docker_section() {
   heading "Docker"
@@ -1038,6 +1098,7 @@ section=""
 
 while (($#)); do
   case "$1" in
+    --browser) section="browser" ;;
     --docker) section="docker" ;;
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
@@ -1066,12 +1127,14 @@ case "$section" in
     shell_section
     runtimes_section
     node_toolchain_section
+    browser_section
     docker_section
     printf '\nRun groundwork-doctor --storage for the (slower) curated disk-usage report.\n'
     ;;
   shell) shell_section ;;
   runtimes) runtimes_section ;;
   node-toolchain) node_toolchain_section ;;
+  browser) browser_section ;;
   docker) docker_section ;;
   storage) storage_section ;;
 esac

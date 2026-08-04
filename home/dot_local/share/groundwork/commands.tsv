@@ -2,7 +2,7 @@
 daily	groundwork-help [query]	command	Show this command catalog. Add a word to filter, like groundwork-help git or groundwork-help update.
 daily	groundwork-help --pick [query]	command	Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.
 daily	groundwork-docs	command	Open the complete local Groundwork site from the checkout chezmoi is actually using. Resolves visible ~/code and legacy ~/.local/share/chezmoi source layouts instead of trusting a copied file:// path; prints the exact path on headless platforms.
-daily	update-all	command	The one normal maintenance command: under one machine-wide lock, pull and apply Groundwork, resume in the freshly applied runner, complete required updates, then run supported package-manager maintenance and label-scoped Docker scratch cleanup. Exact repository pins may prune trusted pnpm stores on cadence; Docker removes only aged resources that explicitly opted in. Failures preserve completed work, record pending state, exit nonzero, and keep reminding until repaired.
+daily	update-all	command	The one normal maintenance command: under one machine-wide lock, pull and apply Groundwork, resume in the freshly applied runner, upgrade the exact Homebrew packages declared in the checksum-safe Brewfile plus other managed tools, then run supported package-manager maintenance and label-scoped Docker scratch cleanup. Unmanaged Homebrew software stays untouched; Chrome uses its profile-selected vendor-updated lane. Failures preserve completed work, record pending state, exit nonzero, and keep reminding until repaired.
 maintenance	update-all --skip-maintenance	command	Exceptional fast refresh: synchronize and upgrade tools but skip package-manager and Docker scratch maintenance. It never clears existing pending maintenance and exits nonzero if an earlier maintenance failure still needs repair.
 maintenance	groundwork-cleanup	command	Advanced read-only report: Homebrew/npm cache sizes; exact trusted pnpm candidates with store, size, pin, representative repository, and all selectors; machine-wide cadence; conflicts, custom stores, and unmatched generations for owner review. Changes no persistent state.
 maintenance	groundwork-cleanup --yes	command	Run supported Homebrew and npm maintenance now, plus exact-pinned trusted pnpm stores when the machine-wide cadence or pending repair says due.
@@ -103,12 +103,11 @@ shell	rgf [text]	function	Search with ripgrep, fuzzy-pick a result, preview it w
 shell	fd <name>	command	Find files by name quickly.
 shell	Ctrl+R	key	Search shell history with atuin/fzf.
 shell	atuin ai inline	command	Run Atuin's opt-in English-to-shell assistant after setup.
-mac	defaultbrowser	command	List or set the default browser. Run defaultbrowser zen after setup.
-mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia/Zen extension links.
+mac	defaultbrowser	command	List or set the macOS default browser; Groundwork never changes it automatically.
+mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia extension links.
 mac	raycast-extensions [--open]	command	List or open the recommended Raycast Store extension links.
 mac	betterdisplaycli	command	BetterDisplay command-line interface for display automation.
 mac	open -a <App>	command	Open a macOS app from the shell.
-mac	zen	alias	Open Zen Browser on macOS.
 dev	mise use <tool@version>	command	Pin a runtime/tool version in the current project.
 dev	mise upgrade	command	Upgrade globally managed mise tools, including floating baselines such as Node LTS. Takes effect at your next prompt, even in already-open terminals.
 dev	pnpm	command	Package manager installed through mise for JavaScript projects.

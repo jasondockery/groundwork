@@ -65,7 +65,7 @@ killall Finder 2>/dev/null || true
 killall Dock 2>/dev/null || true
 
 # Stop Chrome's built-in password manager from competing with your third-party
-# manager. Verify at chrome://policy. Zen, Safari, and iOS are toggled manually.
+# manager. Verify at chrome://policy. Safari and iOS are toggled manually.
 {{ if ne .password_manager "none" -}}
 defaults write com.google.Chrome PasswordManagerEnabled -bool false
 {{- end }}
@@ -73,7 +73,7 @@ defaults write com.google.Chrome PasswordManagerEnabled -bool false
 # Personal preference — uncomment if you want it:
 # defaults write com.apple.dock autohide -bool true
 
-# Default browser: macOS pops a confirmation dialog for http/https you must click.
-# Run manually post-bootstrap, not unattended:
-# defaultbrowser zen   # run 'defaultbrowser' with no args to see exact names
+# Groundwork installs Chrome but never changes the macOS default-browser
+# association. Run `defaultbrowser` yourself if you want to inspect or change it;
+# macOS requires a confirmation that automation must not bypass.
 {{- end }}

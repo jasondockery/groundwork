@@ -3,9 +3,9 @@
 # Groundwork a reproducible checklist and opens the right Store pages.
 # Verified 2026-06-27 where exact Store pages are listed.
 # tier	scope	name	url	notes
-core	all	Browser Bookmarks	https://www.raycast.com/raycast/browser-bookmarks	Search bookmarks from installed browsers in Raycast. Enable Zen, Chrome, Dia, Safari, or others inside the extension with Select Browsers.
+core	all	Browser Bookmarks	https://www.raycast.com/raycast/browser-bookmarks	Search bookmarks from installed browsers in Raycast. Enable Chrome, Dia, Safari, or others inside the extension with Select Browsers.
 core	all	Anybox	https://www.raycast.com/anybox/anybox	Search and save Anybox links from Raycast. Paste the Anybox API key into the Search Links command preferences.
-tabs	all	Browser Tabs	https://www.raycast.com/store?search=Browser%20Tabs	Search live tabs for AppleScript-friendly browsers such as Safari and Chromium-family browsers. Zen is Firefox-based, so treat Anybox and Browser Bookmarks as the reliable cross-browser layer.
+tabs	all	Browser Tabs	https://www.raycast.com/store?search=Browser%20Tabs	Search live tabs for AppleScript-friendly browsers such as Safari, Chrome, and Dia.
 core	all	GitHub	https://www.raycast.com/store?search=GitHub	Search repos, issues, pull requests, and actions from Raycast after GitHub login.
 core	all	Homebrew	https://www.raycast.com/store?search=Homebrew	Search and run Homebrew actions from Raycast.
 core	all	Visual Studio Code / Cursor Projects	https://www.raycast.com/store?search=Visual%20Studio%20Code	Open recent VS Code/Cursor-style projects from Raycast.

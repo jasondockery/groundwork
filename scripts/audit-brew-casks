@@ -12,12 +12,12 @@ set -euo pipefail
 #      would fail the bundle anyway, and admitting one would put an unverified
 #      artifact on every new machine.
 #
-#   2. Exception registry — google-chrome is the one cask Groundwork wants that
-#      cannot satisfy that policy (Google's own updater owns the binary, so the
-#      cask declares no_check). It must therefore be ABSENT from every rendered
-#      Brewfile and installed only by its own consent-gated installer. If Chrome
-#      ever gains a real checksum, this audit says so, and it should go back into
-#      the Brewfile rather than keep an unnecessary bypass alive.
+#   2. Browser exception registry — the official Chrome stable and Beta casks
+#      cannot satisfy that policy (Google's own updater owns their binaries, so
+#      the casks declare no_check). They must be absent from the checksum-safe
+#      Brewfile, selected only by the profile-rendered Brewfile.browser, and
+#      installed by the bounded exception lane. If either cask gains a checksum,
+#      this audit says so instead of preserving an unnecessary bypass.
 #
 # Needs macOS, Homebrew, chezmoi, jq, and network access, so this is a receipt
 # (and a required CI job), not part of the offline validator.
@@ -33,8 +33,8 @@ for tool in brew jq chezmoi; do
   }
 done
 
-# The cask that is allowed to be unchecked — and ONLY outside the Brewfile.
-exception_cask="google-chrome"
+# The only casks allowed to be unchecked — and ONLY outside the main Brewfile.
+exception_casks=(google-chrome google-chrome@beta)
 
 status=0
 declare -a all_casks=()
@@ -45,7 +45,7 @@ render_profile() {
   # answers, so auditing one profile would leave them unaudited.
   local work="$1" pw="$2" game="$3"
   chezmoi --source "$PWD" execute-template --init \
-    --promptBool "work=$work,headless=false,reset_existing_configs=false,game_dev=$game,xcode=false,install_chrome=true" \
+    --promptBool "work=$work,headless=false,reset_existing_configs=false,game_dev=$game,xcode=false" \
     --promptString 'name=x,email_personal=x@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name=' \
     --promptChoice "password_manager=$pw" \
     <home/dot_config/homebrew/Brewfile.tmpl \
@@ -70,18 +70,39 @@ for work in false true; do
       while IFS= read -r cask; do
         [[ -n "$cask" ]] || continue
         all_casks+=("$cask")
-        # Invariant 2: the exception must never be inside the Brewfile.
-        if [[ "$cask" == "$exception_cask" ]]; then
+        # Invariant 2: browser exceptions must never be inside the safe Brewfile.
+        if [[ "$cask" == "google-chrome" || "$cask" == "google-chrome@beta" ]]; then
           echo "VIOLATION $cask is in the Brewfile ($profile)." >&2
           echo "          It ships no checksum, so the --require-sha bundle would fail — and admitting" >&2
           echo "          it would hand every new machine an unverified artifact. It belongs in its" >&2
-          echo "          consent-gated installer (run_onchange_after_10-brew-bundle.sh)." >&2
+          echo "          bounded browser installer (run_onchange_after_10-brew-bundle.sh)." >&2
           status=1
         fi
       done <<<"$rendered"
     done
   done
 done
+
+render_browser_profile() {
+  local posture="$1"
+  chezmoi --source "$PWD" execute-template \
+    --override-data "{\"headless\":false,\"release_posture\":\"$posture\",\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\"}}" \
+    <home/dot_config/homebrew/Brewfile.browser.tmpl \
+    | sed -n 's/^cask "\([^"]*\)".*/\1/p'
+}
+
+current_browser="$(render_browser_profile current)" \
+  || { echo "FAIL: current browser profile did not render." >&2; exit 1; }
+preview_browser="$(render_browser_profile preview)" \
+  || { echo "FAIL: preview browser profile did not render." >&2; exit 1; }
+[[ "$current_browser" == "google-chrome" ]] || {
+  printf 'FAIL: current browser profile selected:\n%s\n' "$current_browser" >&2
+  exit 1
+}
+[[ "$preview_browser" == $'google-chrome\ngoogle-chrome@beta' ]] || {
+  printf 'FAIL: preview browser profile must retain stable then add Beta; selected:\n%s\n' "$preview_browser" >&2
+  exit 1
+}
 
 # Deduplicate before querying metadata (profiles overlap heavily).
 # NOT mapfile: macOS ships Bash 3.2, where mapfile does not exist — and it fails
@@ -136,43 +157,39 @@ for cask in "${unique_casks[@]}"; do
   fi
 done
 
-echo "== Exception registry: $exception_cask =="
-# The exception must justify itself on every run, in full — not just "it has no
-# sha". If any leg of the rationale stops being true, the bypass is no longer
-# earned and must be removed rather than quietly kept alive.
-json="$(brew info --json=v2 --cask "$exception_cask" 2>/dev/null || true)"
-if ! printf '%s' "$json" | jq -e --arg token "$exception_cask" '
-      (.casks | type) == "array" and (.casks | length) == 1
-      and (.casks[0].token == $token)
-      and (.casks[0].sha256 | type) == "string"
-      and ((.casks[0].variations // {}) | type) == "object"
-    ' >/dev/null 2>&1; then
-  echo "  UNKNOWN   $exception_cask — unsupported or malformed cask metadata" >&2
-  status=1
-else
+echo "== Browser exception registry =="
+# Every exception must justify itself on every run, in full — not just "it has
+# no sha". If any leg stops being true, the bypass is no longer earned.
+for exception_cask in "${exception_casks[@]}"; do
+  json="$(brew info --json=v2 --cask "$exception_cask" 2>/dev/null || true)"
+  if ! printf '%s' "$json" | jq -e --arg token "$exception_cask" '
+        (.casks | type) == "array" and (.casks | length) == 1
+        and (.casks[0].token == $token)
+        and (.casks[0].sha256 | type) == "string"
+        and ((.casks[0].variations // {}) | type) == "object"
+      ' >/dev/null 2>&1; then
+    echo "  UNKNOWN   $exception_cask — unsupported or malformed cask metadata" >&2
+    status=1
+    continue
+  fi
   version="$(printf '%s' "$json" | jq -r '.casks[0].version')"
   sha="$(printf '%s' "$json" | jq -r '.casks[0].sha256')"
   auto_updates="$(printf '%s' "$json" | jq -r '.casks[0].auto_updates // false')"
   if [[ "$sha" != "no_check" && "$version" != "latest" ]]; then
     echo "  STALE     $exception_cask now HAS a checksum (version=$version sha=$sha)." >&2
-    echo "            The exception is no longer justified: move it back into the Brewfile" >&2
-    echo "            and delete its separate installer — an unnecessary bypass is a hole." >&2
+    echo "            Move it into the checksum-safe Brewfile and remove its bypass." >&2
     status=1
   elif [[ "$auto_updates" != "true" ]]; then
-    # The whole reason the cask ships no checksum is that Google's own updater
-    # owns the binary. If that stops being true, the rationale has changed and a
-    # human must re-decide — not inherit an unexamined exception.
     echo "  STALE     $exception_cask no longer declares auto_updates:true (got '$auto_updates')." >&2
-    echo "            The stated rationale (Google's updater owns the binary) no longer holds." >&2
+    echo "            The stated vendor-update rationale no longer holds." >&2
     status=1
   else
     echo "  ok        $exception_cask ships no checksum and self-updates (version=$version sha=$sha, auto_updates=$auto_updates)"
-    echo "            The exception remains justified; it stays out of the Brewfile."
   fi
-fi
+done
 
 if ((status == 0)); then
-  echo "ok: ${#unique_casks[@]} unique casks across all profiles are versioned and checksummed; the one exception is justified and outside the Brewfile"
+  echo "ok: ${#unique_casks[@]} safe casks are versioned and checksummed; both profile-selected Chrome exceptions remain justified"
 else
   echo "FAIL: the cask inventory violates Groundwork's checksum policy" >&2
 fi

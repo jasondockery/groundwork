@@ -56,7 +56,6 @@ groundwork-twelve	Gate 09: explain request/response and a status code in plain w
 groundwork-twelve	Gate 10: run the full loop without skipping review; produce a red test an agent can work from; notice a polluted context before it costs you an hour.	competency	docs-competency	docs/groundwork-twelve.html	workflow.html	n/a	n/a	all
 groundwork-twelve	Gate 11: a fresh agent session follows your AGENTS.md without coaching; you catch a plan-reality divergence before merge; the SELECT-before-write and risk-naming habits fire without prompting.	competency	docs-competency	docs/groundwork-twelve.html	agents.html	n/a	n/a	all
 groundwork-twelve	Stage 12: Capstone build	competency	docs-competency	docs/groundwork-twelve.html	workflow.html	n/a	n/a	all
-mac	zen	alias	shell-alias	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop; requires zen
 mac	betterdisplaycli	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop; requires betterdisplay
 mac	browser-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
 mac	defaultbrowser	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop

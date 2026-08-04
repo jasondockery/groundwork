@@ -26,5 +26,4 @@ For web pages, install Obsidian Web Clipper in your browser and point clips at
 Browser extension links for the browsers installed by Groundwork:
 
 - [Chrome Web Store - Obsidian Web Clipper](https://chromewebstore.google.com/detail/obsidian-web-clipper/cnjifjpddelmedmihgijeibhnjfabmlf) for Chrome, Dia, and other Chromium browsers.
-- [Firefox Add-ons - Obsidian Web Clipper](https://addons.mozilla.org/en-US/firefox/addon/web-clipper-obsidian/) for Zen.
 - [Safari - Obsidian Web Clipper](https://apps.apple.com/us/app/obsidian-web-clipper/id6720708363) if you also use Safari on macOS, iOS, or iPadOS.

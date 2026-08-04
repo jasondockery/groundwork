@@ -119,7 +119,7 @@ GROUNDWORK_REPO_URL=git@github.com:jasondockery/groundwork.git bash /tmp/bootstr
 
 `chezmoi update` runs `git pull` from this repo and applies the result. If the repo changes an install hook, such as the Brewfile bundle, that hook can add newly declared tools; it still does not chase newer Homebrew or mise releases for tools already installed. The public repo does not require GitHub login for normal pulls.
 
-Run `update-all` as the one normal machine-maintenance command. Under one machine-wide lock, it synchronizes Groundwork, upgrades Homebrew packages/casks, mise-managed tools such as Node LTS, and Homebrew-managed AI tools such as Codex and OpenCode, then automatically runs supported package-manager maintenance and the label-scoped Docker scratch tidy. pnpm automation accepts only exact pins from canonically discovered Git repositories and standard or explicitly trusted store roots; conflicts and custom stores remain review-only. Docker automation accepts only aged images and exited containers that explicitly opted in through Groundwork's ephemeral labels and scratch-only tag contract. Cleanup failures preserve completed updates, exit nonzero, and keep the shell reminder active until repaired. Repository dependency installations such as `node_modules`, whole pnpm store generations, unlabeled or legacy tagged Docker images, daemon-wide Docker cache, Xcode data, and application or user data stay owner-confirmed; Homebrew may remove installed orphan formula dependencies while retaining requested formulae and casks. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence the stale/pending reminder.
+Run `update-all` as the one normal machine-maintenance command. Under one machine-wide lock, it synchronizes Groundwork, upgrades only the Homebrew formulae and checksum-safe casks declared by Groundwork, refreshes mise-managed tools such as Node LTS and Homebrew-managed AI tools such as Codex and OpenCode, then automatically runs supported package-manager maintenance and the label-scoped Docker scratch tidy. Chrome's official stable/Beta casks are the explicit no-checksum exception and update through Google's updater; unmanaged Homebrew software is never pulled into the upgrade scope. pnpm automation accepts only exact pins from canonically discovered Git repositories and standard or explicitly trusted store roots; conflicts and custom stores remain review-only. Docker automation accepts only aged images and exited containers that explicitly opted in through Groundwork's ephemeral labels and scratch-only tag contract. Cleanup failures preserve completed updates, exit nonzero, and keep the shell reminder active until repaired. Repository dependency installations such as `node_modules`, whole pnpm store generations, unlabeled or legacy tagged Docker images, daemon-wide Docker cache, Xcode data, and application or user data stay owner-confirmed; Homebrew may remove installed orphan formula dependencies while retaining requested formulae and casks. Claude Code stays on its vendor-supported latest channel. Upgraded tools take effect at your next shell prompt, even in already-open terminals; set `GROUNDWORK_UPDATE_REMINDER=0` in `~/.zshrc.local` to silence the stale/pending reminder.
 
 ## Customizing Without Forking
 
@@ -186,9 +186,9 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 - [ ] **Raycast AI** (optional) — leave it off unless you want Claude/GPT/Grok from Raycast. The launcher, clipboard, windows, Quicklinks, and Anybox search work without it. See `docs/apps.html`.
 - [ ] **BetterDisplay** — optional display preset and external-monitor control layer; open it once, keep the menu-bar icon on, favorite the resolutions you use, and test brightness/DDC controls. See `docs/macos.html`.
 - [ ] **Anybox** (Mac App Store) — paid link library; buy/Get it once per Apple Account, run it as a menu-bar app, add a few typed Quick Link keywords, and paste its API key into the Raycast extension. See `docs/apps.html`.
-- [ ] **Default browser** — run `defaultbrowser` to list installed browsers, then `defaultbrowser zen`, and approve the macOS confirmation; keep Chrome for testing. See `docs/apps.html`.
-- [ ] **Zen sync** — sign in with Firefox Sync for bookmarks/history/logins/open tabs; recreate Spaces per machine. See `docs/apps.html`.
-- [ ] **Browser extensions** — run `browser-extensions` to list the managed add-ons, or `browser-extensions --browser zen --tier core --open` to open the core Zen set. See `docs/apps.html`.
+- [ ] **Browser** — Groundwork installs Chrome stable on current/work profiles and Chrome Beta plus stable on preview profiles. It never changes your macOS default-browser association. See `docs/apps.html`.
+- [ ] **Chrome sync** — sign in only if you want Google to sync bookmarks, history, passwords, settings, and tabs; an account is not required to use the browser. See `docs/apps.html`.
+- [ ] **Browser extensions** — run `browser-extensions` to list the managed add-ons, or `browser-extensions --browser chrome --tier core --open` to open the core Chrome set. See `docs/apps.html`.
 - [ ] **Codex desktop app** — installed by the Brewfile alongside the CLI; open it (or run `codex app`) and sign in once. See `docs/codex.html`.
 - [ ] **Grok Build** (optional to use) — the CLI is installed by the Brewfile, but using it needs a SuperGrok / X Premium+ subscription; run `grok` in a project to sign in. See `docs/grok.html`.
 - [ ] **Learning tracks** — the browser/Three.js FPS track starts at `docs/game-dev.html` and needs no Unity install. If you enabled `game_dev`, open Unity Hub, install the latest Unity 6 LTS editor, add the WebGL module, then follow `docs/game-dev-unity.html`. The web, app, and image/video tracks live at `docs/web-dev.html`, `docs/app-dev.html`, and `docs/gen-media.html`.
@@ -198,7 +198,7 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 
 One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 
-- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop, and AppCleaner. (Chrome, Zen, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
+- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop, and AppCleaner. (Chrome, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
 - **On work:** Docker becomes Colima + the Docker CLI (license-free). Confirm your employer permits the AI tools before enabling them there.
 
 ## Daily use
@@ -216,7 +216,7 @@ groundwork-repos                    # table of every discovered repo: branch, di
 groundwork-repos pick               # fuzzy-pick a repo -> its lazygit tmux window (prefix+R in tmux)
 groundwork-repos changed            # lazygit window per dirty repo (prefix+G in tmux)
 scripts/validate-groundwork         # validate/lint the repo before commit/release
-browser-extensions --open       # open vetted browser add-ons for Zen/Chrome/Dia
+browser-extensions --open       # open vetted browser add-ons for Chrome/Dia
 raycast-extensions --open       # open recommended Raycast Store entries
 chezmoi diff                 # preview pending changes before applying
 chezmoi apply                # apply source -> home

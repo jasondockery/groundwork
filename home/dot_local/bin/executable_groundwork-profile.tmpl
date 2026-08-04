@@ -30,8 +30,9 @@ Usage:
 
 Postures:
   current   Latest stable release of each application. The default.
-  preview   Pre-release channel where an application has one (VS Code
-            Insiders, Zen Twilight, Chrome Beta). Expect occasional breakage.
+  preview   Pre-release channel where an application has one (for the managed
+            browser: Chrome Beta, with stable Chrome retained as a fallback).
+            Expect occasional breakage.
 
 Fixed in every profile, and not settable here:
   - AI tools are kept current with no intentional delay.
@@ -104,6 +105,14 @@ role={{ if hasKey . "environment_role" }}{{ .environment_role | quote }}{{ else 
 preset={{ if hasKey . "profile_preset" }}{{ .profile_preset | quote }}{{ else }}"legacy"{{ end }}
 posture={{ if hasKey . "release_posture" }}{{ .release_posture | quote }}{{ else }}"current"{{ end }}
 headless={{ if .headless }}true{{ else }}false{{ end }}
+browser="Google Chrome stable"
+browser_fallback="none"
+if [[ "$headless" == "true" ]]; then
+  browser="none (headless)"
+elif [[ "$posture" == "preview" ]]; then
+  browser="Google Chrome Beta"
+  browser_fallback="Google Chrome stable"
+fi
 
 # The system channel is DETECTED and reported, never set. A deliberate OS beta
 # should not look like accidental drift, and Groundwork must never enroll a
@@ -133,6 +142,8 @@ case "$command" in
     printf '  Role              %s\n' "$role"
     printf '  Release posture   %s\n' "$posture"
     printf '  Desktop apps      %s\n' "$([[ "$headless" == "true" ]] && echo "no (headless)" || echo yes)"
+    printf '  Managed browser   %s\n' "$browser"
+    [[ "$browser_fallback" == "none" ]] || printf '  Browser fallback  %s\n' "$browser_fallback"
     printf '  System channel    %s\n' "$(detect_system_channel)"
     echo
     echo "Always current, regardless of posture:"
@@ -165,10 +176,14 @@ case "$command" in
     echo
     printf '  Release posture   %s -> %s\n' "$posture" "$argument"
     echo
-    echo "  No application is installed, removed, or switched by this change."
-    echo "  Channel selection is not wired up yet, so this records the answer"
-    echo "  only. Switching an installed application will be its own reviewed"
-    echo "  plan, never a side effect of update-all."
+    echo "  This command is read-only: it does not install, remove, or switch an app."
+    if [[ "$argument" == "preview" ]]; then
+      echo "  After you record the posture and run update-all, Groundwork installs"
+      echo "  Chrome Beta and retains Chrome stable as a compatibility fallback."
+    else
+      echo "  After you record the posture and run update-all, Groundwork ensures"
+      echo "  Chrome stable is present. It never removes Chrome Beta or browser data."
+    fi
     echo
     # Posture is stored in its own right. The preset only chooses starting
     # values, so changing the preset to reach a posture would also move the
@@ -181,7 +196,8 @@ case "$command" in
     printf '  then set:  release_posture = "%s"\n' "$argument"
     echo
     echo "Then run update-all. Editing posture leaves environment_role untouched,"
-    echo "so a managed or disposable machine keeps its role."
+    echo "so a managed or disposable machine keeps its role. Device policy remains"
+    echo "authoritative and Groundwork never changes the macOS default browser."
     ;;
 
   edit)

@@ -14,7 +14,7 @@ Everything else is a choice about blast radius, made per surface rather than per
 
 Four things stay true in every posture:
 
-- **Previews never weaken integrity.** Choosing Insiders or Twilight does not relax checksum requirements, provenance checks, or update ownership.
+- **Previews never weaken integrity.** Choosing Insiders or Chrome Beta does not relax checksum requirements, provenance checks, or update ownership.
 - **Supply-chain floors are not stability settings.** The pnpm, Renovate, and mise release-age windows exist because an ecosystem allows anonymous instant publish into a deep transitive tree. They address a different risk than "how new do I want my editor," and a preview posture does not switch them off. Homebrew applications and AI CLIs carry no such floor: those packages are curated and hand-picked.
 - **Project pins win.** A workstation with a newer runtime available still runs the version a repository pins. Release posture governs available tools, never repository contracts.
 - **The operating system is the user's call.** Groundwork records and diagnoses the system channel so a deliberate OS beta is not reported as accidental drift, but it never enrolls a machine in one or downloads it.

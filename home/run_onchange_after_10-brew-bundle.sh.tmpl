@@ -4,6 +4,10 @@ set -euo pipefail
 {{- if stat $brewfile }}
 # Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.tmpl" . | sha256sum }}
 {{- end }}
+{{- $browserBrewfile := joinPath .chezmoi.sourceDir "dot_config/homebrew/Brewfile.browser.tmpl" }}
+{{- if stat $browserBrewfile }}
+# Browser Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.browser.tmpl" . | sha256sum }}
+{{- end }}
 
 for brew_bin in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
   [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
@@ -117,42 +121,62 @@ if [[ "$bundle_status" -ne 0 ]]; then
   echo "To retry just the packages now: brew bundle --file=\"\$HOME/.config/homebrew/Brewfile\""
   exit "$bundle_status"
 fi
-{{- if and (eq .chezmoi.os "darwin") (not .headless) (hasKey . "install_chrome") .install_chrome }}
+{{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 
-# ---- The one checksum exception, and ONLY after the safe lane succeeded ----
+# ---- Chrome checksum exceptions, and ONLY after the safe lane succeeded ----
 #
-# Chrome ships `sha256 :no_check` upstream (Google's own updater owns the
-# binary), so it cannot satisfy the --require-sha policy the Brewfile is
-# installed under — which is exactly why it is not IN the Brewfile. It is
-# installed here only because you said yes at setup, and only after every
-# checksum-verified package succeeded: a failed safe lane must never trigger an
-# unsafe exception lane.
+# Chrome stable and Beta ship `sha256 :no_check` upstream (Google's own updater
+# owns the binaries), so neither can satisfy the --require-sha policy the main
+# Brewfile is installed under. The selected casks live in Brewfile.browser and
+# are installed here only after every checksum-verified package succeeded: a
+# failed safe lane must never trigger an unchecked exception lane.
 #
-# Failure is a real failure. `run_onchange` would otherwise record this script
-# as done and never retry, leaving a machine that silently lacks something
-# Groundwork claims to install.
-if ! brew list --cask google-chrome >/dev/null 2>&1; then
-  echo "Groundwork: installing google-chrome WITHOUT a checksum — you approved this at setup."
-  echo "  Chrome declares 'sha256 :no_check' upstream; Google's own updater owns the binary."
-  echo "  Every other Groundwork cask is checksum-verified."
-  # Two policies now contradict each other: setup says install Chrome, the
-  # user's own HOMEBREW_CASK_OPTS says never install an unchecked cask.
-  # Groundwork will not strip their security choice, and will not quietly
-  # convert "install it" into "skipped, all good" either — that leaves a
-  # machine whose desired state was never reached and which may never retry.
-  # Fail, and make the person pick one.
-  if [[ "$user_cask_opts" == *--require-sha* ]]; then
-    cat >&2 <<'CONFLICT'
-Groundwork: Google Chrome was requested at setup, but your own
-HOMEBREW_CASK_OPTS requires checksummed casks — and Chrome ships none.
+# Failure is real: `run_onchange` must retry until the profile's browser set is
+# present. Validate the rendered manifest completely before the first install,
+# then act on that exact bounded token list. Posture changes never uninstall a
+# former channel or touch browser data.
+browser_manifest="$HOME/.config/homebrew/Brewfile.browser"
+[[ -f "$browser_manifest" ]] || {
+  echo "Groundwork: browser manifest is missing: $browser_manifest" >&2
+  exit 1
+}
+browser_casks=()
+while IFS= read -r browser_line; do
+  case "$browser_line" in
+    "" | \#*) ;;
+    'cask "google-chrome"') browser_casks+=(google-chrome) ;;
+    'cask "google-chrome@beta"') browser_casks+=(google-chrome@beta) ;;
+    *)
+      printf 'Groundwork: unsupported browser manifest entry: %s\n' "$browser_line" >&2
+      exit 1
+      ;;
+  esac
+done <"$browser_manifest"
+((${#browser_casks[@]} > 0)) || {
+  echo "Groundwork: desktop browser manifest selected no Chrome cask." >&2
+  exit 1
+}
 
-Chrome was NOT installed and this apply is incomplete. Pick one policy:
-  - keep your --require-sha and turn Chrome off:
-      chezmoi edit-config   (set install_chrome = false)
-  - or drop your own --require-sha and re-run chezmoi apply.
+if [[ "$user_cask_opts" == *--require-sha* ]]; then
+  cat >&2 <<'CONFLICT'
+Groundwork selected its managed Chrome channel, but your own HOMEBREW_CASK_OPTS
+requires checksummed casks and Google's official Chrome casks ship none.
+
+Chrome was NOT installed and this apply is incomplete. Keep your policy and
+manage the browser outside Groundwork, or remove your own --require-sha before
+rerunning chezmoi apply. Groundwork never weakens a user or organization policy.
 CONFLICT
-    exit 1
-  fi
-  HOMEBREW_CASK_OPTS="$user_cask_opts" brew install --cask google-chrome
+  exit 1
 fi
+
+for browser_cask in "${browser_casks[@]}"; do
+  if brew list --cask "$browser_cask" >/dev/null 2>&1; then
+    echo "Groundwork: managed browser present: $browser_cask"
+    continue
+  fi
+  echo "Groundwork: installing $browser_cask from Google's official Homebrew cask."
+  echo "  This cask declares 'sha256 :no_check'; Google's updater owns the binary."
+  echo "  The main Groundwork Brewfile remains entirely checksum-verified."
+  HOMEBREW_CASK_OPTS="$user_cask_opts" brew install --cask "$browser_cask"
+done
 {{- end }}

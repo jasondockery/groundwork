@@ -114,7 +114,7 @@ fields_kind=(preset bool pw keyrepeat string string string string bool bool stri
 fields_clear=(no no no no no no no yes no no yes yes)
 
 preset_values=(personal-current personal-preview work-managed disposable-experimental)
-preset_labels=("Personal current (recommended)" "Personal preview (pre-release apps)" "Work managed (respects device policy)" "Disposable experimental (rebuildable VM/container)")
+preset_labels=("Personal current (Chrome stable)" "Personal preview (Chrome Beta + stable fallback)" "Work managed (Chrome stable; respects device policy)" "Disposable experimental (Chrome Beta in a rebuildable VM)")
 pw_values=(bitwarden 1password none)
 keyrepeat_values=(fast standard aggressive)
 keyrepeat_labels=("Fast (recommended)" "Standard (slower repeat)" "Aggressive (starts sooner)")

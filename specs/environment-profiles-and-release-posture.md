@@ -1,19 +1,24 @@
 # Environment Profiles and Release Posture
 
-Status: partially implemented (2026-07-24, `origin/main`). Shipped:
+Status: partially implemented (2026-08-04, `origin/main`). Shipped:
 - profile/posture schema and storage, and the `groundwork-profile` reporting
   command (`f46e3a7`); note `groundwork-profile set` prints a planned migration,
   it does not itself persist the change;
 - the numbered-menu interview UX that writes `profile_preset` (`4bb48df`);
 - selective editing of the `profile_preset` seed via `groundwork-configure`
-  (`937ae11`).
+  (`937ae11`);
+- the browser vertical slice: current and managed profiles select Chrome
+  stable; preview profiles select Chrome Beta and retain stable as a fallback;
+  headless profiles select no GUI browser. The selected official casks are
+  rendered into `Brewfile.browser` and installed only after the checksummed
+  Brewfile succeeds.
 Open:
 - first-class, independent editing of `environment_role` and `release_posture`
   (they are stored separately from the preset precisely so they can diverge from
   the seed, but `groundwork-configure` today exposes only `profile_preset`);
-- the posture-DRIVEN behavior — `update-all` / the tool catalog selecting
-  application release channels by `release_posture` — plus migration and actual
-  channel switching.
+- the remaining posture-driven application families, machine-readable general
+  tool catalog, and first-class role/posture editing. Browser selection is live;
+  broader channel migration and explicit-candidate `update-all` remain open.
 
 `AI_THESIS.md` → "Release posture" owns the product stance; this specifies how it
 becomes configuration.
@@ -25,14 +30,15 @@ Implement under `skills/safe-mutating-cli` and
 
 `update-all` today has one behavior for every machine and reports it
 dishonestly: it prints skipped casks and then says `Groundwork tools
-refreshed.` A user who wants VS Code Insiders, Zen Twilight, or Chrome Beta has
-no way to say so, and works around Groundwork on every run.
+refreshed.` The browser slice now resolves Chrome stable or Beta from the stored
+posture, but editor and other application families still need the same model.
 
 The temptation is to keep adding flags — `--greedy`, `--include-vendor-casks`,
 `--beta`. That produces a command whose behavior nobody can predict and whose
 receipt nobody can trust. A reverted attempt on 2026-07-20 demonstrated the
 failure mode: `--require-sha --greedy-auto-updates` planned to upgrade
-`google-chrome`, the one cask `scripts/audit-brew-casks` deliberately excludes.
+`google-chrome`, one of the official Chrome casks that
+`scripts/audit-brew-casks` deliberately keeps in the bounded exception lane.
 
 The environment should declare its posture once, and `update-all` should read
 it.
@@ -63,8 +69,8 @@ These are not profile fields. No preset may change them.
 ## Dimensions
 
 Presets choose starting values. What is **persisted is the concrete choice**,
-not the abstract posture, because a posture cannot express "Zen Twilight as my
-primary browser and Chrome Beta as my compatibility browser."
+not the abstract posture, because future families may expose several concrete
+preview variants. The browser slice intentionally supports one family: Chrome.
 
 ```yaml
 schema_version: 1
@@ -78,11 +84,11 @@ tools:
     family: vscode
     variant: insiders
   primary_browser:
-    family: zen
-    variant: twilight
-  compatibility_browser:
     family: chrome
     variant: beta
+  compatibility_browser:
+    family: chrome
+    variant: stable
 
 system:
   declared_channel: developer-beta   # INTENT
@@ -92,7 +98,7 @@ system:
 Two vocabularies, deliberately separate:
 
 - **Posture** — `current` or `preview`. An attitude that seeds defaults.
-- **Variant** — `stable`, `insiders`, `twilight`, `beta`, `dev`, `canary`. A
+- **Variant** — `stable`, `insiders`, `beta`, `dev`, `canary`. A
   real upstream channel named by its vendor.
 
 Collapsing them loses intent: Chrome has Beta, Dev, and Canary, and calling all
@@ -147,9 +153,9 @@ Preview is a first-class, fully supported choice — it is simply not the defaul
 and it is never a workaround or an integrity bypass.
 
 Preview onboarding confirms **concrete products**, not an abstract switch: the
-user sees and approves VS Code Insiders, Zen Twilight, Chrome Beta, and their
-system-channel intent individually, because a posture cannot express which of
-Chrome's Beta, Dev, or Canary they meant.
+user sees the concrete products, including Chrome Beta with stable Chrome kept
+as a fallback. Groundwork never changes the operating system's default-browser
+association, and organization or device policy remains authoritative.
 
 There is no "production" profile. Groundwork configures development and
 automation environments; production belongs to Roost or the app's deployment
@@ -237,10 +243,12 @@ health verification command
 platform requirements
 ```
 
-Values verified 2026-07-20 against Homebrew 6.0.11 during design: `zen@twilight`
-installs `Twilight.app` — not "Zen Twilight" — and `zen-browser` still resolves
-as an alias to `zen`. Both facts argue for one machine-readable source rather
-than literals spread across templates.
+Values verified 2026-08-04 through Homebrew cask metadata: `google-chrome`
+installs `Google Chrome.app`, and `google-chrome@beta` installs `Google Chrome
+Beta.app`. Both declare `sha256 :no_check` and `auto_updates: true`, so the
+checksummed main Brewfile excludes them. `Brewfile.browser` records the exact
+profile-selected exceptions, and the cask audit fails if their integrity or
+update-owner assumptions change.
 
 Start with families that actually need a decision. Do not model software with
 one channel and no ambiguity.
@@ -344,10 +352,12 @@ PLAN-004  --plan does not write the last-update-all timestamp, so it never
 selected profile — not every package the user ever installed through
 Homebrew.**
 
-Today an unqualified `brew upgrade` touches hand-installed packages Groundwork
-knows nothing about, which is incompatible with channel-aware, owner-aware
-updates and with an honest receipt. Unmanaged packages are reported by
-`groundwork-doctor`, never silently mutated.
+The Homebrew lane now parses the exact formulae and checksum-safe casks from the
+rendered Groundwork Brewfile before refreshing metadata, then reuses that list
+for its retry. It no longer runs an unqualified `brew upgrade`, so software a
+user installed independently is not mutated merely because Homebrew knows it.
+The profile-selected Chrome casks remain outside that list because Google owns
+their updates. Broader catalog-backed plan and receipt work remains open.
 
 ## Execution model
 
@@ -396,11 +406,11 @@ bypassed.
 Never guess a profile silently. Detect installed channels, recommend the closest
 preset, show resulting changes, let the user accept or edit, then persist.
 
-Migration preserves installed applications and their settings. It does **not**
-preserve the legacy update scope: today's unqualified `brew upgrade` mutates
-software Groundwork never declared, which this specification has decided is
-wrong. Leaving existing users on that indefinitely to avoid a prompt would keep
-the defect alive forever.
+Migration preserves installed applications and their settings. The Homebrew
+upgrade scope now follows the rendered Groundwork Brewfile without a prompt:
+that narrows mutation to declared software and leaves independently installed
+applications and their data alone. A posture change may add a selected Chrome
+channel, but never removes a former channel or its profile data.
 
 ```text
 interactive, unmigrated     → show the recommended profile and plan; require a
@@ -445,9 +455,10 @@ Enforced by `scripts/validate-groundwork`:
    intent, with storage, argument safety, and rendering proven, plus the
    `groundwork-profile` reporting command (`f46e3a7`); the numbered-menu
    interview writes the fields (`4bb48df`). No channel depends on it yet.
-4. Machine-readable catalog for vscode, zen, chrome, and AI tools; then enable
-   concrete per-tool variant selection and onboarding choices. Render the
-   Brewfile from it. Test that channels never replace one another.
+4. **Browser slice done** — Chrome stable/Beta selection, stable preview
+   fallback, rendered browser manifest, bounded exception installer, and
+   preserved legacy input. A general machine-readable catalog for VS Code and
+   AI tools remains; test that channels never replace one another.
 5. Migration and profile-changing commands, built on catalog-backed plans —
    migration needs the catalog to map observed casks to known variants.
 6. Rebuild `update-all` on explicit candidates with `--plan` and an honest

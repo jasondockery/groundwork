@@ -147,6 +147,40 @@ command -v chezmoi >/dev/null 2>&1 || {
 chezmoi apply
 
 if command -v brew >/dev/null 2>&1; then
+  # Select the exact Groundwork-owned candidate set BEFORE updating metadata or
+  # packages. An unqualified `brew upgrade` also mutates user-installed apps
+  # that are no longer in Groundwork, which would make removal from the Brewfile
+  # meaningless. The same parsed arrays are reused for the retry.
+  managed_brewfile="$HOME/.config/homebrew/Brewfile"
+  [[ -f "$managed_brewfile" ]] || {
+    echo "Groundwork: managed Brewfile is missing: $managed_brewfile" >&2
+    exit 1
+  }
+  managed_formulae=()
+  managed_casks=()
+  brew_re='^brew[[:space:]]+"([A-Za-z0-9@+._-]+)"([[:space:]]|$)'
+  cask_re='^cask[[:space:]]+"([A-Za-z0-9@+._-]+)"([[:space:]]|$)'
+  mas_re='^mas[[:space:]]+"[^"]+",[[:space:]]+id:[[:space:]]+[0-9]+([[:space:]]|$)'
+  while IFS= read -r brewfile_line; do
+    case "$brewfile_line" in
+      "" | \#*) continue ;;
+    esac
+    if [[ "$brewfile_line" =~ $brew_re ]]; then
+      managed_formulae+=("${BASH_REMATCH[1]}")
+    elif [[ "$brewfile_line" =~ $cask_re ]]; then
+      managed_casks+=("${BASH_REMATCH[1]}")
+    elif [[ "$brewfile_line" =~ $mas_re ]]; then
+      continue
+    else
+      printf 'Groundwork: unsupported managed Brewfile entry: %s\n' "$brewfile_line" >&2
+      exit 1
+    fi
+  done <"$managed_brewfile"
+  ((${#managed_formulae[@]} > 0)) || {
+    echo "Groundwork: managed Brewfile selected no formulae; refusing an empty upgrade scope." >&2
+    exit 1
+  }
+
   # Curl-level retries for the transient failures curl itself classifies as
   # retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry
   # are handled after the fact by groundwork-brew-refetch below.
@@ -156,7 +190,7 @@ if command -v brew >/dev/null 2>&1; then
   # auto-update interval must not start a second, unwrapped update here.
   {{- if eq .chezmoi.os "darwin" }}
   # --require-sha: refuse to upgrade a cask that ships no checksum. Every cask
-  # Groundwork installs is versioned and checksummed today (the AI CLIs
+  # in the checksum-safe Brewfile is versioned and checksummed (the AI CLIs
   # included — `claude-code@latest` is a faster release CHANNEL, not Homebrew's
   # `version :latest`), so this costs nothing now and fails loudly if an
   # unverified artifact ever enters the upgrade set. A checksum failure must
@@ -176,8 +210,10 @@ if command -v brew >/dev/null 2>&1; then
   upgrade_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-upgrade.XXXXXX")"
   runner_temp="$upgrade_log"
   upgrade_status=0
+  echo "Groundwork: upgrading the exact packages declared in the managed Brewfile."
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-    brew upgrade --require-sha 2>&1 | tee "$upgrade_log" || upgrade_status=$?
+    brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
+      2>&1 | tee "$upgrade_log" || upgrade_status=$?
   repair_status=0
   "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
   retry_upgrade=0
@@ -199,14 +235,16 @@ if command -v brew >/dev/null 2>&1; then
   if [[ "$retry_upgrade" -eq 1 ]]; then
     upgrade_status=0
     HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-      brew upgrade --require-sha || upgrade_status=$?
+      brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
+        || upgrade_status=$?
   fi
   rm -f -- "$upgrade_log"
   runner_temp=""
   [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
   {{- else }}
-  # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades formulae only.
-  HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade
+  # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades the exact
+  # Groundwork-managed formula list.
+  HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade "${managed_formulae[@]}"
   {{- end }}
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true

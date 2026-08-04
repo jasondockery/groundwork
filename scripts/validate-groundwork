@@ -1283,7 +1283,13 @@ SH
   mkdir -p "$update_all_bin" "$update_all_home/.local/lib/groundwork" \
     "$update_all_home/.local/share/groundwork/lib" \
     "$update_all_home/.local/state/groundwork" \
-    "$update_all_home/.config/groundwork" "$update_all_home/code"
+    "$update_all_home/.config/groundwork" "$update_all_home/.config/homebrew" \
+    "$update_all_home/code"
+  cat >"$update_all_home/.config/homebrew/Brewfile" <<'EOF'
+brew "git"
+cask "ghostty"
+mas "Anybox", id: 1593408455
+EOF
   update_all_saved_xdg_config="${XDG_CONFIG_HOME-}"
   update_all_saved_xdg_cache="${XDG_CACHE_HOME-}"
   update_all_had_xdg_config="${XDG_CONFIG_HOME+x}"
@@ -1777,6 +1783,23 @@ EOF
   grep -qF 'wsl --list --verbose' "$update_all_fixture/unsupported-wsl-unknown" \
     || fail "the ambiguous-WSL refusal must point at wsl --list --verbose"
 
+  # Candidate selection is validated before metadata refresh or package
+  # mutation. Unknown Brewfile DSL cannot widen the update scope silently.
+  cp "$update_all_home/.config/homebrew/Brewfile" "$update_all_fixture/Brewfile.good"
+  printf 'tap "unreviewed/example"\n' >>"$update_all_home/.config/homebrew/Brewfile"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    "$update_all_fixture/rendered-runner" >"$update_all_fixture/unsupported-brewfile" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "update-all accepted an unsupported managed Brewfile entry"
+  diff -u <(printf 'chezmoi apply color=0\n') "$update_all_log" \
+    || fail "update-all mutated Homebrew before validating the managed candidate set"
+  grep -qF 'unsupported managed Brewfile entry' "$update_all_fixture/unsupported-brewfile"
+  mv "$update_all_fixture/Brewfile.good" "$update_all_home/.config/homebrew/Brewfile"
+
   # Failed metadata refresh stops before every package/runtime stage and does
   # not create the success timestamp.
   : >"$update_all_log"
@@ -1818,7 +1841,7 @@ EOF
   cat >"$update_all_fixture/expected-success" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade auto=1 casks=unset hb-color=unset
+brew upgrade git auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -1934,7 +1957,7 @@ EOF
     env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
       HOMEBREW_COLOR= $runner_color_env "$update_all_fixture/rendered-runner" >/dev/null 2>&1 \
       || fail "update-all runner failed under color settings: $runner_color_env"
-    grep -qxF "brew upgrade auto=1 casks=unset hb-color=$runner_color_expected" "$update_all_log" \
+    grep -qxF "brew upgrade git auto=1 casks=unset hb-color=$runner_color_expected" "$update_all_log" \
       || fail "brew must see HOMEBREW_COLOR=$runner_color_expected under: $runner_color_env"
   done
 
@@ -1950,7 +1973,7 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "update-all runner recorded success after mise upgrade failed"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\ndocker-tidy --automatic\n') \
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade git auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\ndocker-tidy --automatic\n') \
     "$update_all_log"
   grep -qxF 'previous-success' "$update_all_stamp"
 
@@ -2007,7 +2030,7 @@ SH
   cat >"$update_all_fixture/expected-darwin" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade --require-sha auto=1 casks=1 hb-color=unset
+brew upgrade --require-sha git ghostty auto=1 casks=1 hb-color=unset
 brew-repair
 apps-start
 mise upgrade --minimum-release-age 5d
@@ -2069,6 +2092,11 @@ EOF
     || fail "a retried upgrade that still fails must fail the run"
   [[ "$(grep -c '^brew upgrade --require-sha' "$update_all_log")" -eq 2 ]] \
     || fail "a successful re-fetch must retry the failed upgrade exactly once"
+  diff -u <(printf '%s\n%s\n' \
+    'brew upgrade --require-sha git ghostty auto=1 casks=1 hb-color=unset' \
+    'brew upgrade --require-sha git ghostty auto=1 casks=1 hb-color=unset') \
+    <(grep '^brew upgrade --require-sha' "$update_all_log") \
+    || fail "the Homebrew retry changed the selected managed candidate set"
   grep -qxF 'brew-refetch' "$update_all_log" \
     || fail "a failed upgrade must consult groundwork-brew-refetch"
   assert_not_contains 'brew cleanup' "$update_all_log" \
@@ -2159,7 +2187,7 @@ EOF
   cat >"$update_all_fixture/expected-cleanup-transaction" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade auto=1 casks=unset hb-color=unset
+brew upgrade git auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -4995,13 +5023,6 @@ SH
       || fail "every bool setup prompt must show the accepted answers (y/t ... n/f ...): $bool_prompt"
   done <<<"$bool_prompts"
 
-  # The Chrome question follows the agreed shape: the checksum consequence as
-  # plain prose first, then one short question that carries the affordance.
-  grep -qF 'Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)' home/.chezmoi.toml.tmpl \
-    || fail "the Chrome opt-in must end with the short affordance question: 'Install Google Chrome anyway (y/t installs, n/f skips; Enter keeps the default: no)'"
-  grep -qF "Google's Chrome cask ships without a checksum" home/.chezmoi.toml.tmpl \
-    || fail "the Chrome opt-in must lead with the checksum consequence as plain prose"
-
   # Regex over the template proves the source, not the UI. Drive a real
   # `chezmoi init` in a real terminal and assert the rendered prompt: chezmoi
   # appends its own "?" and its own "> bool, default false" hint, so a stray
@@ -5066,7 +5087,7 @@ SH
     chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
       --override-data "{\"profile_preset\":\"$1\",\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}" \
       execute-template --init \
-      --promptBool work=false,headless=false,reset_existing_configs=false,install_chrome=false,game_dev=false,xcode=false \
+      --promptBool work=false,headless=false,reset_existing_configs=false,game_dev=false,xcode=false \
       --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
       --promptChoice password_manager=none \
       <home/.chezmoi.toml.tmpl 2>&1
@@ -5103,7 +5124,7 @@ SH
     DISPLAY=:0 chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
       --override-data "{${1}\"chezmoi\":{\"os\":\"$2\",\"arch\":\"arm64\",\"osRelease\":{},\"kernel\":{\"osrelease\":\"$3\"}}}" \
       execute-template --init \
-      --promptBool work=false,headless=false,reset_existing_configs=false,install_chrome=false,game_dev=false,xcode=false \
+      --promptBool work=false,headless=false,reset_existing_configs=false,game_dev=false,xcode=false \
       --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
       --promptChoice password_manager=none \
       <home/.chezmoi.toml.tmpl 2>&1
@@ -6200,57 +6221,102 @@ EOF
 
   check "Homebrew cask policy (rendered installer behavior)"
   # The NETWORK audit (scripts/audit-brew-casks) owns upstream cask metadata.
-  # THIS owns Groundwork's own installer behavior, offline and deterministically —
-  # a substring grep for "install_chrome" would pass on a comment.
-  chrome_off="$out_dir/brew-bundle-chrome-off"
-  chrome_on="$out_dir/brew-bundle-chrome-on"
-  render_chrome() {
+  # THIS owns profile resolution and the bounded installer, offline and
+  # deterministically. Stable remains the preview compatibility fallback.
+  browser_current="$out_dir/browser-current"
+  browser_preview="$out_dir/browser-preview"
+  browser_managed="$out_dir/browser-managed"
+  browser_headless="$out_dir/browser-headless"
+  render darwin false arm64 home/dot_config/homebrew/Brewfile.browser.tmpl "$browser_current" \
+    false false false false bitwarden personal-current personal current
+  render darwin false arm64 home/dot_config/homebrew/Brewfile.browser.tmpl "$browser_preview" \
+    false false false false bitwarden personal-preview personal preview
+  render darwin false arm64 home/dot_config/homebrew/Brewfile.browser.tmpl "$browser_managed" \
+    true false false false 1password work-managed managed current
+  render darwin true arm64 home/dot_config/homebrew/Brewfile.browser.tmpl "$browser_headless" \
+    false false false false none personal-current personal current
+
+  grep -qxF 'cask "google-chrome"' "$browser_current" \
+    || fail "Personal Current must select Chrome stable"
+  assert_not_contains 'google-chrome@beta' "$browser_current" \
+    "Personal Current selected Chrome Beta"
+  diff -u <(printf 'cask "google-chrome"\ncask "google-chrome@beta"\n') \
+    <(grep '^cask ' "$browser_preview") \
+    || fail "Personal Preview must select Chrome Beta with stable retained first"
+  grep -qxF 'cask "google-chrome"' "$browser_managed" \
+    || fail "Work Managed must select Chrome stable"
+  assert_not_contains 'google-chrome@beta' "$browser_managed" \
+    "Work Managed selected a preview browser"
+  assert_not_contains '^cask ' "$browser_headless" \
+    "a headless Mac selected a GUI browser"
+
+  chrome_current="$out_dir/brew-bundle-chrome-current"
+  chrome_preview="$out_dir/brew-bundle-chrome-preview"
+  render darwin false arm64 home/run_onchange_after_10-brew-bundle.sh.tmpl "$chrome_current" \
+    false false false false bitwarden personal-current personal current
+  render darwin false arm64 home/run_onchange_after_10-brew-bundle.sh.tmpl "$chrome_preview" \
+    false false false false bitwarden personal-preview personal preview
+  /bin/bash -n "$chrome_current"
+  /bin/bash -n "$chrome_preview"
+
+  # A legacy install_chrome answer is tolerated and ignored. It cannot disable
+  # or widen the posture-selected browser set, and regeneration preserves it.
+  render_legacy_chrome() {
     chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
       --override-data "{${base_data},\"work\":false,\"headless\":false,\"xcode\":false,\"beta\":false,\"install_chrome\":$1,\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\"}}" \
       execute-template <home/run_onchange_after_10-brew-bundle.sh.tmpl >"$2"
   }
-  render_chrome false "$chrome_off"
-  render_chrome true "$chrome_on"
-  /bin/bash -n "$chrome_on"
-  # Consent: no approval, no unchecked install. Anywhere.
-  assert_not_contains 'brew install --cask google-chrome' "$chrome_off" \
-    "google-chrome is installed without the setup consent that gates it"
-  # Approved: exactly one install, and the safe lane's checksum policy is applied.
-  [[ "$(grep -c 'brew install --cask google-chrome' "$chrome_on")" -eq 1 ]] \
-    || fail "the approved Chrome path must contain exactly one install command"
-  grep -qF "HOMEBREW_CASK_OPTS=\"\$safe_cask_opts\"" "$chrome_on" \
+  render_legacy_chrome false "$out_dir/chrome-legacy-false"
+  render_legacy_chrome true "$out_dir/chrome-legacy-true"
+  cmp -s "$out_dir/chrome-legacy-false" "$out_dir/chrome-legacy-true" \
+    || fail "the obsolete install_chrome field still changes browser behavior"
+
+  grep -qF "HOMEBREW_CASK_OPTS=\"\$safe_cask_opts\"" "$chrome_current" \
     || fail "brew bundle must run under the --require-sha cask policy"
-  grep -qF -- '--require-sha' "$chrome_on"
+  grep -qF -- '--require-sha' "$chrome_current"
   # The tee to the bundle log makes brew see a pipe; color must key on the
   # run-wide GROUNDWORK_COLOR signal (with a TTY fallback for a direct apply)
   # and force Homebrew's documented HOMEBREW_COLOR when it is on.
-  grep -qF 'GROUNDWORK_COLOR' "$chrome_on" \
+  grep -qF 'GROUNDWORK_COLOR' "$chrome_current" \
     || fail "the brew bundle stage must key color on the run-wide GROUNDWORK_COLOR signal, not its own piped stdout"
-  grep -qF 'export HOMEBREW_COLOR=1' "$chrome_on" \
+  grep -qF 'export HOMEBREW_COLOR=1' "$chrome_current" \
     || fail "the brew bundle stage must force HOMEBREW_COLOR through the tee when the color signal is on"
   # The user's own cask options are preserved, never replaced.
-  grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_on" \
+  grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_current" \
     || fail "the user's HOMEBREW_CASK_OPTS must be preserved, not overwritten"
-  grep -qF "HOMEBREW_CASK_OPTS=\"\$user_cask_opts\" brew install --cask google-chrome" "$chrome_on" \
+  grep -qF 'HOMEBREW_CASK_OPTS="$user_cask_opts" brew install --cask "$browser_cask"' "$chrome_current" \
     || fail "the Chrome exception must run under the USER's cask options"
   # Ordering: a failed safe lane must never reach the unsafe exception lane.
-  chrome_exit_line="$(grep -n "exit \"\$bundle_status\"" "$chrome_on" | head -n 1 | cut -d: -f1)"
-  chrome_install_line="$(grep -n 'brew install --cask google-chrome' "$chrome_on" | head -n 1 | cut -d: -f1)"
+  chrome_exit_line="$(grep -n "exit \"\$bundle_status\"" "$chrome_current" | head -n 1 | cut -d: -f1)"
+  chrome_install_line="$(grep -n 'brew install --cask "\$browser_cask"' "$chrome_current" | head -n 1 | cut -d: -f1)"
   ((chrome_exit_line < chrome_install_line)) \
     || fail "google-chrome is installed BEFORE the bundle-failure exit — a failed safe lane must not trigger the unsafe lane"
   # A conflicting user policy is a real failure, not a silent skip that never retries.
-  grep -qF 'exit 1' "$chrome_on"
-  grep -qF 'this apply is incomplete' "$chrome_on" \
-    || fail "a user --require-sha policy vs install_chrome=true must fail explicitly, not disappear"
-  # Chrome must never be in the Brewfile itself: it would fail the --require-sha
-  # bundle, and admitting it would hand every new machine an unverified artifact.
+  grep -qF 'this apply is incomplete' "$chrome_current" \
+    || fail "a user --require-sha policy conflict must fail explicitly, not disappear"
+  grep -qF 'unsupported browser manifest entry' "$chrome_current" \
+    || fail "the browser installer must reject any manifest entry outside its exact allowlist"
+
+  # Chrome exceptions must never enter the checksum-safe Brewfile.
   for chrome_profile in 'false false' 'true false' 'false true'; do
     read -r chrome_work chrome_game <<<"$chrome_profile"
     render darwin false arm64 home/dot_config/homebrew/Brewfile.tmpl \
       "$out_dir/brewfile-chrome-$chrome_work-$chrome_game" "$chrome_work"
-    assert_not_contains '^cask "google-chrome"' "$out_dir/brewfile-chrome-$chrome_work-$chrome_game" \
-      "google-chrome is in the Brewfile (work=$chrome_work) — it ships no checksum and would fail the --require-sha bundle"
+    assert_not_contains '^cask "google-chrome(@beta)?"' "$out_dir/brewfile-chrome-$chrome_work-$chrome_game" \
+      "a Chrome exception is in the checksum-safe Brewfile (work=$chrome_work)"
   done
+
+  # The retired browser contract is repository-wide and red-proven against a
+  # hostile scratch tree. No application, profile, preference, documentation,
+  # migration, or deletion target may reclaim that ownership accidentally.
+  scripts/check-retired-browser >/dev/null
+  retired_fixture="$out_dir/retired-browser-hostile"
+  mkdir -p "$retired_fixture"
+  retired_name='ze''n'
+  printf 'cask "%s"\n' "$retired_name" >"$retired_fixture/Brewfile"
+  if scripts/check-retired-browser "$retired_fixture" >/dev/null 2>&1; then
+    fail "the retired-browser guard accepted a reintroduced cask"
+  fi
 
   check "runtime release-age reporting"
   # A cooldown filters what you ACQUIRE; it never rolls back what is already
@@ -10278,6 +10344,8 @@ EOF
     || fail "release_posture must stay derived from the preserved profile_preset"
   grep -qF 'key_repeat = "standard"' "$interview_out" \
     || fail "a stored key_repeat was discarded when the interview skipped its question"
+  grep -qF 'install_chrome = false' "$interview_out" \
+    || fail "the obsolete install_chrome field must survive regeneration as ignored compatibility input"
   # ...and a config that never answered still takes the documented default.
   interview_fresh_in="$out_dir/interview-fresh.toml"
   interview_fresh_out="$out_dir/interview-fresh-rendered.toml"
@@ -10821,8 +10889,20 @@ PY
 
     check "rendered Brewfile ($case_name)"
     render "$os" "$headless" "$arch" home/dot_config/homebrew/Brewfile.tmpl "$out_dir/$case_name/Brewfile" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    render "$os" "$headless" "$arch" home/dot_config/homebrew/Brewfile.browser.tmpl "$out_dir/$case_name/Brewfile.browser" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
     if [[ "$os" == "linux" || "$headless" == "true" ]]; then
       assert_not_contains '^(cask|mas) ' "$out_dir/$case_name/Brewfile" "cask/mas leaked into $case_name Brewfile"
+      assert_not_contains '^cask ' "$out_dir/$case_name/Brewfile.browser" "a GUI browser leaked into $case_name"
+    else
+      grep -qxF 'cask "google-chrome"' "$out_dir/$case_name/Brewfile.browser" \
+        || fail "$case_name must include Chrome stable"
+      if [[ "$release_posture" == "preview" ]]; then
+        grep -qxF 'cask "google-chrome@beta"' "$out_dir/$case_name/Brewfile.browser" \
+          || fail "$case_name preview posture must include Chrome Beta"
+      else
+        assert_not_contains 'google-chrome@beta' "$out_dir/$case_name/Brewfile.browser" \
+          "$case_name current posture selected Chrome Beta"
+      fi
     fi
     # The tap-trust troubleshooting docs state categorically that Groundwork
     # adds no third-party taps; keep that claim true. A tap line or a
@@ -10844,8 +10924,6 @@ PY
       assert_not_contains 'Obsidian|Library/Mobile Documents|obsidian.json' "$out_dir/$case_name/obsidian-vault.sh" "Obsidian vault body leaked into $case_name"
       render "$os" "$headless" "$arch" home/run_after_45-obsidian-plugins.sh.tmpl "$out_dir/$case_name/obsidian-plugins.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
       assert_not_contains 'obsidian-plugins|Library/Mobile Documents' "$out_dir/$case_name/obsidian-plugins.sh" "Obsidian plugins body leaked into $case_name"
-      render "$os" "$headless" "$arch" home/run_after_55-zen-bitwarden-biometrics.sh.tmpl "$out_dir/$case_name/zen-bitwarden.sh" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
-      assert_not_contains 'NativeMessagingHosts|zen' "$out_dir/$case_name/zen-bitwarden.sh" "Zen biometrics body leaked into $case_name"
       assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
     fi
   done <data/render-profiles.tsv
@@ -11004,11 +11082,9 @@ EOF
   check "every CI job declares a bounded timeout"
   scripts/check-workflow-timeouts >/dev/null
 
-  check "environment profile: storage, reporting, and hostile arguments"
-  # Phase 3 of specs/environment-profiles-and-release-posture.md: prove the
-  # profile is stored, reported, and argument-safe BEFORE any application channel
-  # depends on it. Per skills/safe-mutating-cli, help and invalid input must not
-  # reach chezmoi at all.
+  check "environment profile: browser resolution, reporting, and hostile arguments"
+  # The browser vertical slice consumes the stored posture while preserving the
+  # safe-mutating contract: show/set/help and invalid input do not change state.
   profile_dir="$out_dir/profile"
   mkdir -p "$profile_dir"
   render_profile() {
@@ -11051,9 +11127,15 @@ EOF
   profile_out "$profile_dir/headless" show | grep -Fq 'no desktop apps, so posture has no effect'
   profile_out "$profile_dir/personal-preview" show | grep -Fq 'AI tools (no intentional release delay)'
   profile_out "$profile_dir/personal-preview" show | grep -Fq 'release-age floors'
+  profile_out "$profile_dir/personal-current" show | grep -Fq 'Managed browser   Google Chrome stable'
+  profile_out "$profile_dir/personal-preview" show | grep -Fq 'Managed browser   Google Chrome Beta'
+  profile_out "$profile_dir/personal-preview" show | grep -Fq 'Browser fallback  Google Chrome stable'
+  profile_out "$profile_dir/managed" show | grep -Fq 'Managed browser   Google Chrome stable'
+  profile_out "$profile_dir/headless" show | grep -Fq 'Managed browser   none (headless)'
 
-  # Phase 3 stores only: `set` must not claim to move an application.
-  profile_out "$profile_dir/personal-current" set preview | grep -Fq 'No application is installed, removed, or switched'
+  # `set` is read-only but explains the concrete change update-all will apply.
+  profile_out "$profile_dir/personal-current" set preview | grep -Fq 'Chrome Beta'
+  profile_out "$profile_dir/personal-current" set preview | grep -Fq 'does not install, remove, or switch an app'
   # Idempotent: setting the active posture changes nothing.
   profile_out "$profile_dir/personal-preview" set preview | grep -Fq 'already preview'
 
@@ -11097,6 +11179,51 @@ STUB
       exit 1
     fi
   done
+
+  check "doctor: managed browser report follows profile and remains read-only"
+  browser_doctor="$profile_dir/browser-doctor"
+  mkdir -p "$browser_doctor/bin"
+  cat >"$browser_doctor/bin/uname" <<'SH'
+#!/usr/bin/env bash
+echo Darwin
+SH
+  cat >"$browser_doctor/bin/chezmoi" <<'SH'
+#!/usr/bin/env bash
+[[ "$*" == "data --format=json" ]] || exit 2
+printf '%s\n' "$DOCTOR_BROWSER_DATA"
+SH
+  cat >"$browser_doctor/bin/brew" <<'SH'
+#!/usr/bin/env bash
+[[ "${1:-} ${2:-}" == "list --cask" ]] || exit 2
+case " ${INSTALLED_CASKS:-} " in
+  *" ${3:-} "*) exit 0 ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$browser_doctor/bin/uname" "$browser_doctor/bin/chezmoi" "$browser_doctor/bin/brew"
+  run_browser_doctor() {
+    env PATH="$browser_doctor/bin:$PATH" DOCTOR_BROWSER_DATA="$1" INSTALLED_CASKS="$2" \
+      /bin/bash home/dot_local/bin/executable_groundwork-doctor --browser
+  }
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"current","environment_role":"personal"}' \
+    'google-chrome')"
+  grep -qF 'ok    Google Chrome stable is installed' <<<"$browser_doctor_out"
+  assert_not_contains 'Chrome Beta is installed' <(printf '%s\n' "$browser_doctor_out") \
+    "current browser doctor reported Beta as managed"
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"preview","environment_role":"personal"}' \
+    'google-chrome google-chrome@beta')"
+  grep -qF 'Chrome Beta is installed as the primary preview browser' <<<"$browser_doctor_out"
+  grep -qF 'stable Chrome remains installed as the compatibility fallback' <<<"$browser_doctor_out"
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"current","environment_role":"managed"}' \
+    'google-chrome')"
+  grep -qF 'device policy outrank this selection' <<<"$browser_doctor_out"
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":true,"release_posture":"preview","environment_role":"disposable"}' '')"
+  grep -qF 'headless profile selects no GUI browser' <<<"$browser_doctor_out"
+  grep -qF -- '--browser' < <(/bin/bash home/dot_local/bin/executable_groundwork-doctor --help)
 
   check "doctor: a version-alias symlink is one owner, not two"
   # Real-machine regression, 2026-07-27. mise exposes installs/node/lts as a
