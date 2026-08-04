@@ -259,7 +259,8 @@ AI_THESIS.md -> home/.chezmoitemplates/ai-thesis.md
 bootstrap-mac.sh                       # new-Mac bootstrap script
 AGENTS.md                              # operational agent instructions for this Groundwork repo
 .claude/skills -> ../skills            # project-skill discovery, canonical files stay in skills/
-.codex/skills -> ../skills             # same canonical skills tree for tools that support it
+.agents/skills -> ../skills            # Codex project-skill discovery, same canonical tree
+.codex/skills -> ../skills             # same canonical skills tree for tools using the older vendor path
 skel/llm-wiki/                         # the `new-wiki` knowledge-base scaffold
 docs/                                  # documentation source, published to the public site
 scripts/validate-groundwork                # local validation + ShellCheck linting mirrored by CI

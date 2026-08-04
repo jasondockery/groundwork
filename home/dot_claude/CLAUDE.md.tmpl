@@ -1,9 +1,28 @@
-{{ includeTemplate "ai-thesis.md" . }}
+# Machine defaults
+
+Personal, cross-project defaults for every repository on this machine.
+
+**Repository instructions always win.** When a repo has `AGENTS.md`, `CLAUDE.md`,
+or nested rules, that file is the authority for architecture, testing, Git, and
+delivery. Never carry one repository's policy into another by inference.
+
+## Working preferences
+
+- Prefer one recommended path over a menu of equivalent options.
+- Proceed on reasonable assumptions and state them. Ask only when a choice is
+  irreversible or genuinely ambiguous.
+- Lead with the change or the finding, not a preamble.
+- Confirm before destructive or irreversible actions.
+- Say what a green run actually exercised; never claim more than was run.
 
 ## Claude Code Notes
 
-The operational instructions for the Groundwork checkout live in `AGENTS.md` at the
-root of the Groundwork repo.
+The AI-Native Groundwork north star and the operational rules for the Groundwork
+checkout are NOT inlined here — they would load into every unrelated project.
+Read them on demand when the task is about Groundwork itself:
+
+- `AI_THESIS.md` — the north star
+- `AGENTS.md` — operational repository instructions
 
 On a managed machine, find that checkout with:
 
@@ -12,13 +31,14 @@ source="$(chezmoi source-path)"
 if [ "$(basename "$source")" = "home" ]; then dirname "$source"; else printf '%s\n' "$source"; fi
 ```
 
-Read the repo-root `AGENTS.md` first and follow it. Do not add shared policy
-here; update `AI_THESIS.md` for the north star or `AGENTS.md` for operational
-repo instructions so Codex, Claude Code, and other coding agents stay aligned.
-
 Claude-specific notes:
 - Use `@file` and `@directory` references when the user asks about specific local context.
 - Use path-scoped rule files under `.claude/rules/` only for Claude-specific behavior that should load for part of the tree.
 - Keep Claude memory/tool notes here only when they cannot apply to other agents.
 
-{{/* Tool-specific content only. The shared north star above lives in home/.chezmoitemplates/ai-thesis.md and is exposed at AI_THESIS.md in the repo root. */}}
+{{/* Deliberately does NOT include ai-thesis.md. This file loads into every Claude
+session in every project on this machine, so it carries durable personal
+preferences and a pointer, not Groundwork's product thesis. The north star lives
+in home/.chezmoitemplates/ai-thesis.md, exposed at AI_THESIS.md in the repo root,
+and is read on demand. scripts/validate-groundwork enforces a word budget on the
+rendered result and asserts the thesis body is absent. */}}

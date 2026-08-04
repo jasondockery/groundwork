@@ -151,7 +151,8 @@
         <tr><td><code>home/dot_codex/modify_private_config.toml</code></td><td>Preserves Codex's private, app-managed settings while enabling the user shell profile, so repository tool versions resolve normally in agent commands.</td></tr>
         <tr><td><code>skills/</code></td><td>The canonical repo-local procedures. Each skill is a folder with a <code>SKILL.md</code> entrypoint, used for work that is repeated and easy to get subtly wrong.</td></tr>
         <tr><td><code>.claude/skills</code></td><td>A symlink to <code>skills/</code> so Claude Code can discover project skills through its normal project-skill path.</td></tr>
-        <tr><td><code>.codex/skills</code></td><td>A symlink to <code>skills/</code> for tools that support a Codex-style skill directory. Keep the source in <code>skills/</code>, not copied per tool.</td></tr>
+        <tr><td><code>.agents/skills</code></td><td>A symlink to <code>skills/</code> so Codex can discover project skills through its normal project-skill path.</td></tr>
+        <tr><td><code>.codex/skills</code></td><td>A symlink to <code>skills/</code> for tools using the older vendor skill directory. Keep the source in <code>skills/</code>, not copied per tool.</td></tr>
         <tr><td><code>AI_RULES.md</code></td><td>Not needed here. Add it only in larger repos where durable policy grows too large for <code>AGENTS.md</code>.</td></tr>
       </table>
 

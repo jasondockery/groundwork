@@ -137,7 +137,7 @@
 <p>A <strong>playbook</strong> is the written form of "how we do this here" for a recurring operation: cutting a release, validating before publishing, changing a managed config, responding to a failing deploy. It differs from a rule — a rule says what must always hold; a playbook says what steps to take, in what order, with what checks. Teams have kept playbooks (runbooks) for decades; what&apos;s new in AI-native work is that a playbook can now be <em>executed</em> by an agent, not just read by a person — which raises the bar for how precisely it&apos;s written.</p>
 
 <h2><span class="hash">#</span>Skills: playbooks an agent can load</h2>
-<p>A <strong>skill</strong> is the executable packaging: a folder with a <code>SKILL.md</code> entrypoint that an agent loads on demand when the task matches. Keep the source in one place — Groundwork keeps repo skills in <code>skills/</code> with <code>.claude/skills</code> and <code>.codex/skills</code> as symlinks — so every tool runs the same procedure.</p>
+<p>A <strong>skill</strong> is the executable packaging: a folder with a <code>SKILL.md</code> entrypoint that an agent loads on demand when the task matches. Keep the source in one place — Groundwork keeps repo skills in <code>skills/</code> with <code>.claude/skills</code>, <code>.agents/skills</code>, and <code>.codex/skills</code> as symlinks — so every tool discovers the same procedure through its own native path.</p>
 
 <h2><span class="hash">#</span>When a skill is worth creating</h2>
 <p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong. It is not a second rulebook.</p>
