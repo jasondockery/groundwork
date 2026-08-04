@@ -499,6 +499,13 @@ cmd_changed() {
   require_lazygit
   local list annotated path flag name opened=0
   list="$(repo_list)"
+  # "every repository is clean" and "no repository was discovered" are different
+  # facts; reporting the first for the second hides a broken root configuration.
+  if [[ -z "$list" ]]; then
+    echo "groundwork-repos: no repositories found under: ${roots[*]}"
+    echo "Roots are configured in $config_file (add yours in repos.local.conf)."
+    return 0
+  fi
   annotated="$(annotate_names "$list")"
   assert_unique_names "$annotated"
   while IFS=$'\t' read -r path flag name; do

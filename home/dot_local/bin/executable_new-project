@@ -1,7 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-target="${1:-.}"
+usage() {
+  cat <<'EOF'
+Scaffold an AI-native project skeleton (AGENTS.md plus .agents/ rule tree).
+
+Usage:
+  new-project             scaffold in the current directory
+  new-project <path>      create <path> if needed and scaffold there
+  new-project -h|--help   show this help
+
+Existing files are never overwritten; each one is reported as skipped.
+EOF
+}
+
+# Parse the complete invocation before the platform gate or the first mkdir
+# (skills/safe-mutating-cli). Without this, an option reached `mkdir -p "$target"`
+# and produced a getopt error from mkdir instead of a usage message.
+target=""
+while (($#)); do
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "new-project: unknown option: $1" >&2
+      echo "Run 'new-project --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      if [[ -n "$target" ]]; then
+        echo "new-project: unexpected argument: $1 (expected at most one path)" >&2
+        exit 64
+      fi
+      target="$1"
+      ;;
+  esac
+  shift
+done
+[[ -n "$target" ]] || target="."
 
 # Platform gate, fail-closed: a missing, broken, or unsupported platform must
 # stop the scaffold BEFORE any directory is created, never fall through as if

@@ -85,8 +85,11 @@ promote() { # src destfinal — atomic install into the cache (stage on the same
 }
 
 checksum_for() { # KEYSUFFIX (e.g. SHELLCHECK_SHA256_LINUX_X86_64) -> value or fail
+  # Indirect expansion, not eval: the key is built from `uname` output mapped
+  # through a case statement, so it is already constrained — but an integrity
+  # path should not reach for eval when ${!name} does the same job.
   local key="$1" val
-  val="$(eval "printf '%s' \"\${$key:-}\"")"
+  val="${!key:-}"
   if [[ -z "$val" ]]; then
     echo "ensure-shell-tools: no checksum $key in tools/shell-tools.env" >&2
     return 1

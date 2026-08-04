@@ -1,7 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-backup="${1:-$HOME/.local/state/groundwork/backups/latest}"
+usage() {
+  cat <<'EOF'
+Restore the Groundwork first-run backup of managed files and macOS defaults.
+
+Usage:
+  groundwork-restore            restore the newest first-run backup
+  groundwork-restore <path>     restore a specific backup directory
+  groundwork-restore -h|--help  show this help
+
+The backup directory must contain the executable restore.sh that Groundwork
+wrote alongside it; that script asks for confirmation before changing anything.
+Restoring overwrites managed files and removes files that were absent before
+setup. It does not uninstall apps or undo Homebrew upgrades.
+
+Backups live under ~/.local/state/groundwork/backups/, newest linked as latest.
+EOF
+}
+
+# Validate the complete invocation before touching the filesystem or exec'ing
+# anything (skills/safe-mutating-cli): --help and a bad argument must not reach
+# the restore script.
+backup=""
+while (($#)); do
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "groundwork-restore: unknown option: $1" >&2
+      echo "Run 'groundwork-restore --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      if [[ -n "$backup" ]]; then
+        echo "groundwork-restore: unexpected argument: $1 (expected at most one backup path)" >&2
+        exit 64
+      fi
+      backup="$1"
+      ;;
+  esac
+  shift
+done
+[[ -n "$backup" ]] || backup="$HOME/.local/state/groundwork/backups/latest"
 
 if [[ ! -e "$backup" ]]; then
   echo "No Groundwork backup found at: $backup" >&2
