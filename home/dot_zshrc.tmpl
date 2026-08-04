@@ -111,8 +111,16 @@ fi
 # and reloads itself. Guard: background jobs would die on exec, so with jobs
 # present it prints a hint once instead. cwd and history survive exec zsh;
 # only the pushd stack resets.
+# The job guard reads $jobstates, NOT "$(jobs)": command substitution forks, and
+# the forked child has no job table, so `[[ -z "$(jobs)" ]]` is ALWAYS true — the
+# guard never fired and every reload exec'd straight through running background
+# jobs, which is the exact loss it exists to prevent. $jobstates is a special
+# parameter from zsh/parameter, so BOTH modules are required before the hook is
+# installed at all: an unavailable $jobstates would read as an empty association
+# ("no jobs") and fail in the unsafe direction.
 zmodload -F zsh/stat b:zstat 2>/dev/null
-if (( $+builtins[zstat] )); then
+zmodload -F zsh/parameter p:jobstates 2>/dev/null
+if (( $+builtins[zstat] )) && (( ${+jobstates} )); then
   _groundwork_zshrc_mtime() { zstat +mtime -- "${ZDOTDIR:-$HOME}/.zshrc" 2>/dev/null; }
   _groundwork_zshrc_loaded="$(_groundwork_zshrc_mtime)"
   _groundwork_config_refresh_precmd() {
