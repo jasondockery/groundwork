@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+# Superseded pull-request pushes are cancelled; main is not. A landed commit
+# must keep its own exact-SHA proof, and cancelling main would let two quick
+# pushes leave the first commit with no receipt at all — the thing the release
+# gate and the reusable-proof contract both depend on.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
