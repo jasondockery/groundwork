@@ -6284,11 +6284,11 @@ EOF
   # The user's own cask options are preserved, never replaced.
   grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_current" \
     || fail "the user's HOMEBREW_CASK_OPTS must be preserved, not overwritten"
-  grep -qF 'HOMEBREW_CASK_OPTS="$user_cask_opts" brew install --cask "$browser_cask"' "$chrome_current" \
+  grep -qF "HOMEBREW_CASK_OPTS=\"\$user_cask_opts\" brew install --cask \"\$browser_cask\"" "$chrome_current" \
     || fail "the Chrome exception must run under the USER's cask options"
   # Ordering: a failed safe lane must never reach the unsafe exception lane.
   chrome_exit_line="$(grep -n "exit \"\$bundle_status\"" "$chrome_current" | head -n 1 | cut -d: -f1)"
-  chrome_install_line="$(grep -n 'brew install --cask "\$browser_cask"' "$chrome_current" | head -n 1 | cut -d: -f1)"
+  chrome_install_line="$(grep -nF "brew install --cask \"\$browser_cask\"" "$chrome_current" | head -n 1 | cut -d: -f1)"
   ((chrome_exit_line < chrome_install_line)) \
     || fail "google-chrome is installed BEFORE the bundle-failure exit — a failed safe lane must not trigger the unsafe lane"
   # A conflicting user policy is a real failure, not a silent skip that never retries.
