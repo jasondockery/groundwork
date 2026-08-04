@@ -92,9 +92,15 @@ render_browser_profile() {
 }
 
 current_browser="$(render_browser_profile current)" \
-  || { echo "FAIL: current browser profile did not render." >&2; exit 1; }
+  || {
+    echo "FAIL: current browser profile did not render." >&2
+    exit 1
+  }
 preview_browser="$(render_browser_profile preview)" \
-  || { echo "FAIL: preview browser profile did not render." >&2; exit 1; }
+  || {
+    echo "FAIL: preview browser profile did not render." >&2
+    exit 1
+  }
 [[ "$current_browser" == "google-chrome" ]] || {
   printf 'FAIL: current browser profile selected:\n%s\n' "$current_browser" >&2
   exit 1
