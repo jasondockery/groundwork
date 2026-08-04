@@ -487,7 +487,7 @@ def common_envelope(
         validate_text(value, label)
 
     before = source_before or tree_snapshot(repo)
-    after = source_after if not tree_observation_complete else (source_after or before)
+    after = source_after
     tree_changed = (
         before["treeFingerprint"] != after["treeFingerprint"]
         if tree_observation_complete and after is not None

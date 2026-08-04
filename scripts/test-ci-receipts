@@ -676,6 +676,27 @@ esac
         validated = validate_receipt(envelope, expected_kind="validation-suite")
         assert validated["source"]["treeChangedDuringValidation"] is True
 
+        missing_final_snapshot = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="failed",
+            started_epoch=100,
+            finished_epoch=101,
+            platform_os="linux",
+            platform_image="fixture",
+            platform_arch="x64",
+            source_before=dirty,
+            source_after=None,
+            tree_observation_complete=True,
+        )
+        missing_final_snapshot["body"] = dict(envelope["body"])
+        validated_missing_final = validate_receipt(
+            missing_final_snapshot,
+            expected_kind="validation-suite",
+        )
+        assert validated_missing_final["source"]["treeFingerprintAfter"] is None
+        assert validated_missing_final["source"]["treeChangedDuringValidation"] is None
+
         unavailable_observation = common_envelope(
             repo=workspace,
             receipt_kind="validation-suite",
