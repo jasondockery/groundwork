@@ -26,6 +26,26 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 - Prefer the repository's existing style, structure, and tools over inventing new patterns.
 - Prefer the cheapest command or CI step that preserves correctness, and treat git history (clone depth, tags, ancestry, per-file dates) as a declared input, not ambient state. See the `command-efficiency` skill; guardrails such as `generate-discovery`'s shallow-clone check enforce it, but authoring it right the first time is the goal.
 
+## Agent-owned execution decisions
+
+Within an approved task, the agent owns:
+
+- commit-message wording that follows repository conventions;
+- commit boundaries and dependency-aware commit ordering;
+- focused verification selection;
+- push sequencing;
+- direct repair of test and CI failures caused by the approved work.
+
+Do not pause to offer equivalent commit-message or ordering choices.
+
+Choose the sequence that keeps each commit independently coherent and green.
+When one commit improves proof for later commits, land that proof-enabling commit
+first.
+
+Pause only when a choice changes release classification, public behavior,
+protected policy, destructive impact, secrets/permissions, or merge/release
+authority.
+
 ## Code and docs
 - Preserve behavior unrelated to the change.
 - Use precise names over comments. Comment only the non-obvious why, never the what.
@@ -43,7 +63,7 @@ The rule: Groundwork configures the developer; each repo configures itself. Use 
 ## Git
 - Use small, focused changes.
 - Use conventional commit prefixes when committing: `feat`, `fix`, `refactor`, `docs`, `chore`, or `test`.
-- When a commit is due, propose 2–3 message candidates as full commands the user can pick from or edit — e.g. `git commit -m "docs: clarify tmux pane workflow"`, `git commit -m "feat: add shell drill for pipes"`, `git commit -m "chore: bump mise pins"` — including a split-commit option when the diff spans concerns. The user picks.
+- Choose conventional commit wording and independently coherent boundaries without pausing for equivalent options. Ask only when the boundary changes an owner decision named above.
 - Commit scope must match staged scope. Read `git diff --cached --name-only` immediately before every commit and confirm the message covers every staged path. A pre-populated index is not authorization to commit what is already in it — `git commit` records the whole index, not the slice you just added.
 - Never commit secrets, keys, tokens, or `.env` contents.
 - Never revert user changes unless explicitly asked.
