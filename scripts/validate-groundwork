@@ -4638,6 +4638,71 @@ SH
   grep -qF -- '--storage for the (slower)' "$storage_fixture/default-output" \
     || fail "the default doctor must point at the opt-in storage report"
 
+  check "shell self-reload preserves background jobs"
+  # BEHAVIORAL, not a source grep. The guard used "$(jobs)", which forks — and a
+  # forked child has no job table, so the test was ALWAYS true and every reload
+  # exec'd straight through running background jobs. Source matching cannot
+  # catch that class of bug; only running the real hook with a real job can.
+  # The function under test is EXTRACTED FROM THE RENDERED TEMPLATE, so this
+  # exercises the shipped implementation rather than a copy of it.
+  if ! command -v zsh >/dev/null 2>&1; then
+    skip_current_check zsh-missing "zsh is required to run the self-reload hook"
+  else
+    reload_dir="$out_dir/shell-reload"
+    mkdir -p "$reload_dir"
+    render darwin false arm64 home/dot_zshrc.tmpl "$reload_dir/rendered-zshrc"
+    # The hook plus its module gate; nothing else from the rendered file runs.
+    sed -n '/^zmodload -F zsh\/stat b:zstat/,/^fi$/p' "$reload_dir/rendered-zshrc" \
+      >"$reload_dir/hook.zsh"
+    grep -qF '_groundwork_config_refresh_precmd' "$reload_dir/hook.zsh" \
+      || fail "could not extract the self-reload hook from the rendered .zshrc"
+    cat >"$reload_dir/drive.zsh" <<'ZSH'
+set -e
+ZDOTDIR="$1"; export ZDOTDIR
+: >"$ZDOTDIR/.zshrc"
+source "$2"
+sleep 30 &
+job_pid=$!
+print -r -- "$job_pid" >"$ZDOTDIR/job.pid"
+# Make the config look rewritten, exactly as `chezmoi apply` would.
+sleep 1
+: >"$ZDOTDIR/.zshrc"
+# If the guard is broken this exec's and the marker below is never written.
+_groundwork_config_refresh_precmd
+print -r -- held >"$ZDOTDIR/outcome"
+kill "$job_pid" 2>/dev/null || true
+ZSH
+    reload_home="$reload_dir/home"
+    mkdir -p "$reload_home"
+    rm -f "$reload_home/outcome" "$reload_home/job.pid"
+    zsh -f "$reload_dir/drive.zsh" "$reload_home" "$reload_dir/hook.zsh" \
+      </dev/null >"$reload_dir/drive.out" 2>&1 || true
+    [[ -f "$reload_home/outcome" ]] \
+      || fail "the self-reload hook exec'd while a background job was running, replacing the shell out from under it"
+    grep -qxF held "$reload_home/outcome" \
+      || fail "the self-reload hook did not hold off while a background job was running"
+    # ...and with no jobs it must still actually reload, or the guard is just off.
+    cat >"$reload_dir/drive-clean.zsh" <<'ZSH'
+set -e
+ZDOTDIR="$1"; export ZDOTDIR
+: >"$ZDOTDIR/.zshrc"
+source "$2"
+sleep 1
+: >"$ZDOTDIR/.zshrc"
+_groundwork_config_refresh_precmd
+print -r -- "did-not-reload" >"$ZDOTDIR/outcome"
+ZSH
+    reload_clean="$reload_dir/clean"
+    mkdir -p "$reload_clean"
+    SHELL="$(command -v zsh)" zsh -f "$reload_dir/drive-clean.zsh" \
+      "$reload_clean" "$reload_dir/hook.zsh" </dev/null >"$reload_dir/clean.out" 2>&1 || true
+    if [[ -f "$reload_clean/outcome" ]]; then
+      fail "the self-reload hook never reloads, so the job guard is masking a dead feature"
+    fi
+    grep -qF 'shell config updated' "$reload_dir/clean.out" \
+      || fail "the self-reload hook did not announce the reload it performed"
+  fi
+
   check "update-all migration notice"
   migration_home="$out_dir/update-all-migration-home"
   migration_flag="$migration_home/.local/state/groundwork/update-all-migration-pending"
@@ -10175,6 +10240,88 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     || fail "update-all must run the groundwork-source-preflight helper before syncing"
   grep -qF 'To review or change a setting: groundwork-configure' home/dot_local/bin/executable_update-all \
     || fail "update-all must nudge to groundwork-configure after config regeneration"
+  # A question the interview SKIPS on this platform must still carry its stored
+  # answer through regeneration. Both gated questions write their value on every
+  # platform, so without a stored-answer seed the config silently reverts to the
+  # default — and `update-all` regenerates on every refresh, so routine
+  # maintenance would discard a recorded answer. Prove it by rendering, not by
+  # reading the template: headless makes both gates false on any platform.
+  interview_in="$out_dir/interview-stored.toml"
+  interview_out="$out_dir/interview-rendered.toml"
+  cat >"$interview_in" <<EOF
+sourceDir = "$repo/home"
+[data]
+    beta = false
+    code_dir = "~/code"
+    email_personal = "t@example.com"
+    email_work = ""
+    game_dev = false
+    headless = true
+    install_chrome = false
+    key_repeat = "standard"
+    name = "Test"
+    obsidian_vault_name = "v"
+    password_manager = "none"
+    profile_preset = "personal-preview"
+    reset_existing_configs = false
+    signingkey = ""
+    work = false
+    xcode = false
+EOF
+  chezmoi --config "$interview_in" --source "$repo/home" \
+    --persistent-state "$out_dir/interview-state.boltdb" --cache "$out_dir/interview-cache" \
+    init --config-path "$interview_out" </dev/null \
+    || fail "the chezmoi interview could not regenerate a stored config"
+  grep -qF 'profile_preset = "personal-preview"' "$interview_out" \
+    || fail "a stored profile_preset was discarded when the interview skipped its question"
+  grep -qF 'release_posture = "preview"' "$interview_out" \
+    || fail "release_posture must stay derived from the preserved profile_preset"
+  grep -qF 'key_repeat = "standard"' "$interview_out" \
+    || fail "a stored key_repeat was discarded when the interview skipped its question"
+  # ...and a config that never answered still takes the documented default.
+  interview_fresh_in="$out_dir/interview-fresh.toml"
+  interview_fresh_out="$out_dir/interview-fresh-rendered.toml"
+  grep -vE 'profile_preset|key_repeat' "$interview_in" >"$interview_fresh_in"
+  chezmoi --config "$interview_fresh_in" --source "$repo/home" \
+    --persistent-state "$out_dir/interview-fresh-state.boltdb" --cache "$out_dir/interview-fresh-cache" \
+    init --config-path "$interview_fresh_out" </dev/null \
+    || fail "the chezmoi interview could not regenerate a config with no stored preset"
+  grep -qF 'profile_preset = "personal-current"' "$interview_fresh_out" \
+    || fail "an unanswered profile_preset must fall back to the documented default"
+  grep -qF 'key_repeat = "fast"' "$interview_fresh_out" \
+    || fail "an unanswered key_repeat must fall back to the documented default"
+  # groundwork-configure offers every field on every platform, which is only
+  # honest because the template preserves a stored answer where it does not ask.
+  # If that preservation is ever removed, the editor starts printing "Proposed
+  # changes" receipts for values that never move — so the two are asserted
+  # together, right here, rather than in separate places that can drift apart.
+  grep -qE '^fields_key=\(profile_preset .*\bkey_repeat\b' home/dot_local/bin/executable_groundwork-configure \
+    || fail "groundwork-configure must offer the gated interview fields, since the template preserves them"
+  # Role and posture are stored separately from the preset PRECISELY so they can
+  # diverge (specs/environment-profiles-and-release-posture.md): a managed
+  # machine may take preview posture without becoming personal. Deriving them on
+  # every render silently reverted a hand-edited posture, so prove independence.
+  interview_role_in="$out_dir/interview-role.toml"
+  interview_role_out="$out_dir/interview-role-rendered.toml"
+  sed 's/profile_preset = "personal-preview"/profile_preset = "work-managed"/' "$interview_in" >"$interview_role_in"
+  printf '    environment_role = "managed"\n    release_posture = "preview"\n' >>"$interview_role_in"
+  chezmoi --config "$interview_role_in" --source "$repo/home" \
+    --persistent-state "$out_dir/interview-role-state.boltdb" --cache "$out_dir/interview-role-cache" \
+    init --config-path "$interview_role_out" </dev/null \
+    || fail "the chezmoi interview could not regenerate a divergent role/posture config"
+  grep -qF 'environment_role = "managed"' "$interview_role_out" \
+    || fail "a stored environment_role must survive regeneration, not be re-derived from the preset"
+  grep -qF 'release_posture = "preview"' "$interview_role_out" \
+    || fail "a stored release_posture must survive regeneration so it can diverge from the preset"
+  # ...and with no stored role/posture the preset still seeds both.
+  grep -qF 'environment_role = "personal"' "$interview_out" \
+    || fail "an unstored environment_role must be seeded from the preset"
+  # groundwork-profile must not send a posture-only change through the preset:
+  # that would move environment_role too and turn a managed machine personal.
+  assert_no_matches "groundwork-profile must not route a posture change through profile_preset" \
+    rg -n 'Environment profile  ->|set profile_preset' home/dot_local/bin/executable_groundwork-profile.tmpl
+  assert_no_matches "groundwork-profile must not tell users to set release_posture through a promptChoice that does not exist" \
+    rg -n 'promptChoice release_posture' home/dot_local/bin/executable_groundwork-profile.tmpl
   assert_no_matches "update-all must never prompt or launch a settings interview" \
     rg -n 'change settings now|read -[a-z]* .*groundwork-configure|exec .*groundwork-configure' home/dot_local/bin/executable_update-all
   grep -qF "\"\$HOME/.local/bin/groundwork-brew-update\"" home/dot_local/bin/executable_groundwork-update-run.tmpl
@@ -10335,6 +10482,20 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
   grep -qF 'enable-atuin-ai' home/dot_zshrc.tmpl
   grep -qF -- '--disable-ai' home/dot_zshrc.tmpl
   grep -qF "files copied to \$dest, but git commit failed" home/dot_zshrc.tmpl
+  # The self-reload job guard must read $jobstates. "$(jobs)" forks, and the
+  # forked child has no job table, so the test is ALWAYS true and every reload
+  # exec's through running background jobs — a silent job kill that looks like a
+  # working guard. Both modules must gate the hook: an absent $jobstates reads as
+  # an empty association ("no jobs") and fails in the unsafe direction.
+  # Code only: the comment above the guard quotes the broken form on purpose, so
+  # anchoring past a leading '#' keeps the explanation from tripping its own rule.
+  assert_no_matches "the shell self-reload guard must not test \"\$(jobs)\" (a forked subshell never sees the job table)" \
+    rg -n '^[^#]*\$\(jobs\)' home/dot_zshrc.tmpl
+  grep -qF 'zmodload -F zsh/parameter p:jobstates' home/dot_zshrc.tmpl
+  # shellcheck disable=SC2016 # Literal zsh source text to match, not expansions.
+  grep -qF '(( ${#jobstates} == 0 ))' home/dot_zshrc.tmpl
+  # shellcheck disable=SC2016 # Literal zsh source text to match, not expansions.
+  grep -qF '(( ${+jobstates} ))' home/dot_zshrc.tmpl
   assert_no_matches "vendor curl installers belong in the Brewfile, not run_after scripts" rg -n 'install\.sh \| bash' home/run_after_20-tools.sh.tmpl
   grep -qF 'grok-build' home/dot_config/homebrew/Brewfile.tmpl
   grep -qF 'https://deb.gierens.de stable main' docker/install-headless-tools.sh
@@ -10376,6 +10537,28 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     rg -n -- "$deprecated_timeout_metadata" scripts .github/workflows
   scripts/check-workflow-receipt-policy >/dev/null \
     || fail "workflow receipt policy is not structurally consistent"
+  # Cancellation policy. A superseded PR push is worth cancelling; a landed main
+  # commit is not. Unconditional cancel-in-progress lets two quick pushes to main
+  # leave the FIRST commit with no receipt at all, and both the release gate and
+  # the reusable-proof contract depend on an exact-SHA receipt existing for the
+  # commit that landed. Any workflow triggered by a push to main must gate it.
+  for workflow_file in .github/workflows/*.yml; do
+    awk -v file="$workflow_file" '
+      /^on:/ { in_on = 1; next }
+      in_on && /^[^ \t#]/ { in_on = 0 }
+      in_on && /^[ \t]+push:/ { push_trigger = 1 }
+      /^[ \t]*cancel-in-progress:[ \t]*true[ \t]*$/ { unconditional = 1 }
+      END {
+        if (push_trigger && unconditional) {
+          printf "%s: cancel-in-progress must be conditional when the workflow runs on push (a landed commit needs its own receipt)\n", file
+          exit 1
+        }
+      }
+    ' "$workflow_file" || fail "workflow cancellation policy violated in $workflow_file"
+  done
+  unset workflow_file
+  grep -qF "cancel-in-progress: \${{ github.event_name == 'pull_request' }}" .github/workflows/ci.yml \
+    || fail "CI must cancel superseded pull-request runs only, never a landed main commit"
   grep -Eq 'uses: docker://ghcr\.io/gitleaks/gitleaks:v[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}$' .github/workflows/ci.yml \
     || fail "secret scanning must use a Renovate-visible version tag plus immutable official Gitleaks digest"
   grep -qF 'args: git --redact --verbose --log-opts=--all .' .github/workflows/ci.yml \
@@ -10563,10 +10746,16 @@ PY
   assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
 
   check "agent skill discovery"
+  # One canonical skills/ tree, reachable from every tool's NATIVE discovery
+  # path. Claude reads .claude/skills, Codex reads .agents/skills, and
+  # .codex/skills stays for tools using the older vendor directory. A tool whose
+  # native path is unwired can still be pointed at a skill by AGENTS.md, but it
+  # will not match or load one on its own — which is the whole point of a skill.
   assert_symlink_target .claude/skills ../skills
   assert_symlink_target .codex/skills ../skills
-  if [[ -e .agents/skills || -L .agents/skills ]]; then
-    echo ".agents/skills must not exist in this repo; keep canonical skills in skills/" >&2
+  assert_symlink_target .agents/skills ../skills
+  if [[ -e .agents/rules || -e .agents/commands || -e .agents/agents ]]; then
+    echo ".agents/ here is discovery only; canonical skills stay in skills/ and rules stay in AGENTS.md" >&2
     exit 1
   fi
   test -f skills/docker-lifecycle/SKILL.md
@@ -10727,6 +10916,28 @@ PY
   grep -q "AI-Native Groundwork" "$out_dir/AGENTS.md"
   grep -q "Claude Code Notes" "$out_dir/CLAUDE.md"
   grep -q "Codex Notes" "$out_dir/AGENTS.md"
+  # These render to ~/.claude/CLAUDE.md and ~/.codex/AGENTS.md, which load into
+  # EVERY session in EVERY project on the machine — including projects that have
+  # nothing to do with Groundwork. They carry durable personal preferences and a
+  # pointer; the product thesis is read on demand from the repo instead. Assert
+  # both halves: the thesis body must be absent, and the file must stay short.
+  for adapter in CLAUDE AGENTS; do
+    # Assert against several distinctive thesis sections, not one: a single
+    # heading rename would otherwise silently reopen the whole 1,500-word inline.
+    for thesis_marker in '## Release posture' '## Who Groundwork is for' \
+      '## How people learn here' '## Operating Principles' '# AI-Native Groundwork: North Star'; do
+      if grep -qF "$thesis_marker" "$out_dir/$adapter.md"; then
+        echo "$adapter.md inlines the AI thesis ($thesis_marker); machine-level files point at AI_THESIS.md, never embed it" >&2
+        exit 1
+      fi
+    done
+    adapter_words="$(wc -w <"$out_dir/$adapter.md" | tr -d ' ')"
+    if ((adapter_words > 400)); then
+      echo "$adapter.md renders $adapter_words words; the always-loaded machine file must stay under 400" >&2
+      exit 1
+    fi
+  done
+  unset adapter adapter_words thesis_marker
 
   check "Codex shell profile config merge"
   codex_config_fixture="$out_dir/codex-config.toml"

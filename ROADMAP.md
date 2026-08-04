@@ -555,6 +555,22 @@ Roost.
       GitHub artifact attestation (`gh attestation verify`) for upstreams
       that publish attestations (atuin documents this); needs `gh` in the
       build image, so weigh the image-size cost when picking it up.
+- [ ] Close the container lane's remaining unverified installs (reviewed
+      2026-08-04). Everything around them is pinned — base image by digest,
+      ShellCheck/shfmt by version plus per-arch sha256, casks under
+      `--require-sha` — so these are the weakest link in the one environment
+      `AI_THESIS.md` names as a first-class target:
+      - `docker/install-headless-tools.sh` installs starship, mise, and uv via
+        unpinned `curl … | sh`, and the `Dockerfile` fetches chezmoi the same
+        way. No version pin, no checksum.
+      - `install_antidote` clones `main` at `--depth 1`; `install_eza` fetches
+        its apt signing key from a `main` branch URL. Both are mutable refs.
+      - `download_release_asset` resolves `releases/latest`, so two builds of
+        the same Dockerfile and context can install different versions.
+      Needs a pin-plus-checksum store and a refresh command in the shape of
+      `tools/shell-tools.env` + `scripts/update-shell-tool-pins`; picking
+      versions by hand here would be inventing values, so it is tracked rather
+      than half-done.
 - [x] Cut the first tagged release with user-facing notes — shipped as
       v1.0.0 (the bootstrap + update path had already survived all three
       user surfaces, so v0.x was skipped).
