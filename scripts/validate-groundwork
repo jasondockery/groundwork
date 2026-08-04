@@ -10353,6 +10353,9 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
     rg -n 'image-cleanup|docker image rm "\$IMAGE_TAG"|Remove loaded proof image' .github/workflows/ci.yml
   grep -qF 'Smoke test and dispose exact image ID' .github/workflows/ci.yml
   grep -qF 'timeout-minutes: 15' .github/workflows/ci.yml
+  grep -qxF "  cancel-in-progress: \${{ github.event_name == 'pull_request' }}" \
+    .github/workflows/ci.yml \
+    || fail "routine CI must cancel superseded pull requests without cancelling landed main SHAs"
   grep -qF 'cancel-in-progress: false' .github/workflows/full-validation.yml
   grep -qF 'Homebrew cask integrity' scripts/run-validation-job
   grep -qF 'receiptKind' scripts/ci_receipt.py
