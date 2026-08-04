@@ -487,10 +487,16 @@ def common_envelope(
         validate_text(value, label)
 
     before = source_before or tree_snapshot(repo)
-    after = source_after
+    # A final snapshot was either taken or it was not. Substituting `before` for
+    # a missing one used to emit treeChangedDuringValidation: false — a claim
+    # that the tree was observed at the end and had not moved, when nothing was
+    # observed at all. An unobserved final tree is unknown (null), never
+    # "unchanged": the caller's completeness flag cannot manufacture evidence.
+    observation_complete = tree_observation_complete and source_after is not None
+    after = source_after if observation_complete else None
     tree_changed = (
         before["treeFingerprint"] != after["treeFingerprint"]
-        if tree_observation_complete and after is not None
+        if observation_complete
         else None
     )
     working_tree = before["workingTree"]
@@ -891,7 +897,24 @@ def escape_table(value: str) -> str:
 
 
 def inline_code(value: str) -> str:
-    return "`" + value.replace("`", "\\`") + "`"
+    # A backslash does NOT escape a backtick inside a Markdown code span, so
+    # "\\`" left the span open and the rest of the row rendered as prose. The
+    # spec's actual rule is that a span is delimited by a longer backtick run
+    # than any run it contains, with padding spaces when it starts or ends with
+    # one. validate_text already rejects control characters, so the value cannot
+    # also break the row with a newline.
+    longest = 0
+    run = 0
+    for character in value:
+        run = run + 1 if character == "`" else 0
+        longest = max(longest, run)
+    fence = "`" * (longest + 1)
+    # CommonMark strips one leading AND one trailing space when both are present,
+    # so a value that already carries its own edge whitespace needs padding too —
+    # otherwise the rendered value silently loses it.
+    edges = (value[:1], value[-1:])
+    padding = " " if any(edge in ("`", " ") for edge in edges) else ""
+    return f"{fence}{padding}{value}{padding}{fence}"
 
 
 def seconds_label(value: int | None) -> str:
