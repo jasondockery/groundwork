@@ -119,7 +119,7 @@ if (( $+builtins[zstat] )); then
     local now
     now="$(_groundwork_zshrc_mtime)" || return 0
     [[ -n "$now" && -n "$_groundwork_zshrc_loaded" && "$now" != "$_groundwork_zshrc_loaded" ]] || return 0
-    if [[ -z "$(jobs)" ]]; then
+    if (( ${#jobstates} == 0 )); then
       print -P '%F{cyan}↻ shell config updated — reloading this shell%f'
       exec zsh
     elif [[ "${_groundwork_config_notified:-}" != "$now" ]]; then

@@ -5728,6 +5728,61 @@ SH
 }
 
 validate_platform_terminal() {
+  check "shell self-refresh waits for active jobs"
+  shell_refresh_dir="$out_dir/shell-self-refresh"
+  shell_refresh_zdot="$shell_refresh_dir/zdot"
+  shell_refresh_bin="$shell_refresh_dir/bin"
+  shell_refresh_zsh="$(command -v zsh 2>/dev/null || true)"
+  [[ -n "$shell_refresh_zsh" ]] \
+    || fail "the shell self-refresh fixture requires zsh"
+  mkdir -p "$shell_refresh_zdot" "$shell_refresh_bin"
+  render darwin false arm64 home/dot_zshrc.tmpl "$shell_refresh_zdot/.zshrc"
+  cat >"$shell_refresh_bin/zsh" <<'SH'
+#!/usr/bin/env bash
+printf 'exec zsh\n' >>"$GROUNDWORK_REFRESH_EXEC_LOG"
+SH
+  chmod +x "$shell_refresh_bin/zsh"
+  cat >"$shell_refresh_dir/scenario.zsh" <<'ZSH'
+source "$ZDOTDIR/.zshrc"
+PATH="$GROUNDWORK_REFRESH_STUB_BIN:/usr/bin:/bin"
+/bin/sleep 30 &
+job_pid=$!
+print -r -- "$job_pid" >"$GROUNDWORK_REFRESH_JOB_PID_FILE"
+/usr/bin/touch -t 203001010101 "$ZDOTDIR/.zshrc"
+_groundwork_config_refresh_precmd
+_groundwork_config_refresh_precmd
+kill -0 "$job_pid" || exit 91
+print -r -- JOB_ALIVE
+kill "$job_pid"
+wait "$job_pid" 2>/dev/null
+_groundwork_config_refresh_precmd
+exit 92
+ZSH
+  shell_refresh_exec_log="$shell_refresh_dir/exec-log"
+  shell_refresh_job_pid_file="$shell_refresh_dir/job-pid"
+  set +e
+  PATH="$shell_refresh_bin:/usr/bin:/bin" \
+    HOME="$shell_refresh_dir/home" ZDOTDIR="$shell_refresh_zdot" \
+    GROUNDWORK_REFRESH_STUB_BIN="$shell_refresh_bin" \
+    GROUNDWORK_REFRESH_EXEC_LOG="$shell_refresh_exec_log" \
+    GROUNDWORK_REFRESH_JOB_PID_FILE="$shell_refresh_job_pid_file" \
+    "$shell_refresh_zsh" -f "$shell_refresh_dir/scenario.zsh" \
+    >"$shell_refresh_dir/out" 2>"$shell_refresh_dir/err"
+  shell_refresh_status=$?
+  set -e
+  if [[ -f "$shell_refresh_job_pid_file" ]]; then
+    shell_refresh_job_pid="$(<"$shell_refresh_job_pid_file")"
+    kill "$shell_refresh_job_pid" 2>/dev/null || true
+  fi
+  [[ "$shell_refresh_status" -eq 0 ]] \
+    || fail "the shell self-refresh fixture failed"
+  grep -qxF 'JOB_ALIVE' "$shell_refresh_dir/out" \
+    || fail "the refresh hook replaced a shell while its background job was alive"
+  [[ "$(grep -cF 'reloads when background jobs finish' "$shell_refresh_dir/out")" -eq 1 ]] \
+    || fail "the refresh hook must warn exactly once for one changed config mtime"
+  [[ -f "$shell_refresh_exec_log" && "$(wc -l <"$shell_refresh_exec_log" | tr -d ' ')" -eq 1 ]] \
+    || fail "the refresh hook must exec zsh once after the background job finishes"
+
   check "terminal copy model (effective tmux server + helper safety)"
   # Source greps accept a syntactically valid but wrong binding; assert the
   # EFFECTIVE behavior in a real isolated server, and prove the cwd helper cannot
