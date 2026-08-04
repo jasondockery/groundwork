@@ -8,6 +8,22 @@ if [[ ! -d "$profiles_dir" ]]; then
   exit 0
 fi
 
+# mktemp creates 0600, so a staged replacement must take the mode the real file
+# already had or a new file's sane default. GNU stat first, BSD second, matching
+# the idiom the rest of Groundwork uses for the same portability split.
+file_mode() {
+  local mode
+  if mode="$(stat -c %a "$1" 2>/dev/null)" && [[ "$mode" =~ ^[0-7]+$ ]]; then
+    printf '%s\n' "$mode"
+    return
+  fi
+  if mode="$(stat -f %Lp "$1" 2>/dev/null)" && [[ "$mode" =~ ^[0-7]+$ ]]; then
+    printf '%s\n' "$mode"
+    return
+  fi
+  printf '644\n'
+}
+
 begin="// BEGIN chezmoi: Zen preferences"
 end="// END chezmoi: Zen preferences"
 block="$begin
@@ -17,7 +33,11 @@ $end"
 find "$profiles_dir" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r profile; do
   user_js="$profile/user.js"
   tmp="$(mktemp)"
-  next="$(mktemp)"
+  # Stage the replacement in the DESTINATION directory. mktemp lands in $TMPDIR,
+  # which is a different filesystem from the profile, so `mv` there is
+  # copy-then-unlink — not atomic, and an interruption truncates the user's
+  # prefs. Same-directory staging makes the final mv a real rename.
+  next="$(mktemp "$profile/.user.js.groundwork.XXXXXX")"
 
   if [[ -f "$user_js" ]]; then
     awk -v begin="$begin" -v end="$end" '
@@ -42,7 +62,12 @@ find "$profiles_dir" -mindepth 1 -maxdepth 1 -type d | while IFS= read -r profil
     continue
   fi
 
-  mv "$next" "$user_js"
+  if [[ -f "$user_js" ]]; then
+    chmod "$(file_mode "$user_js")" "$next"
+  else
+    chmod 644 "$next"
+  fi
+  mv -f "$next" "$user_js"
   rm -f "$tmp"
   echo "zen preferences: wrote $user_js"
 done

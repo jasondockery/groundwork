@@ -13,13 +13,29 @@ vault="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/$vault_name"
 mkdir -p "$vault/.obsidian"
 
 app_json="$vault/.obsidian/app.json"
-tmp="$(mktemp)"
+# Stage in the DESTINATION directory: the vault can live on iCloud Drive, a
+# different filesystem from $TMPDIR, where `mv` is copy-then-unlink rather than
+# an atomic rename — an interruption would leave a truncated app.json. mktemp
+# creates 0600; an Obsidian config file takes the ordinary 0644.
+tmp="$(mktemp "$vault/.obsidian/.app.json.groundwork.XXXXXX")"
 if [[ -f "$app_json" ]] && jq empty "$app_json" >/dev/null 2>&1; then
   jq '.vimMode = true' "$app_json" > "$tmp"
 else
   printf '%s\n' '{"vimMode":true}' > "$tmp"
 fi
-mv "$tmp" "$app_json"
+# mktemp creates 0600; keep the mode the real file already had. GNU stat first,
+# BSD second, matching the idiom used elsewhere in Groundwork.
+app_json_mode=644
+if [[ -f "$app_json" ]]; then
+  for mode_probe in "$(stat -c %a "$app_json" 2>/dev/null || true)" "$(stat -f %Lp "$app_json" 2>/dev/null || true)"; do
+    if [[ "$mode_probe" =~ ^[0-7]+$ ]]; then
+      app_json_mode="$mode_probe"
+      break
+    fi
+  done
+fi
+chmod "$app_json_mode" "$tmp"
+mv -f "$tmp" "$app_json"
 
 cfg="$HOME/Library/Application Support/obsidian/obsidian.json"
 
