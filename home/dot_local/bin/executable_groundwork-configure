@@ -105,6 +105,9 @@ config_digest_open="$(cksum <"$config_path")"
 
 # --- field registry (parallel arrays: macOS ships Bash 3.2, no assoc arrays) ---
 # key                  label                 kind    clearable
+# Every field is offered on every platform. The interview gates two questions by
+# platform, but home/.chezmoi.toml.tmpl carries a stored answer through unchanged
+# where it does not ask, so a value changed here sticks everywhere.
 fields_key=(profile_preset work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
 fields_label=("Environment profile" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
 fields_kind=(preset bool pw keyrepeat string string string string bool bool string string)
@@ -391,6 +394,8 @@ apply_changes() {
   lock_dir="$config_dir/.$prog.lock"
   if ! mkdir "$lock_dir" 2>/dev/null; then
     echo "$prog: another $prog appears to be running (lock at $lock_dir)." >&2
+    echo "If none is running, an interrupted run left it behind; remove it with:" >&2
+    printf "  rmdir '%s'\n" "$lock_dir" >&2
     lock_dir=""
     return 1
   fi

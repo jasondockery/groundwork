@@ -21,7 +21,10 @@ groundwork-profile — show or change this environment's release profile.
 
 Usage:
   groundwork-profile show            Print the active profile and its sources.
-  groundwork-profile set <posture>   Record a new application release posture.
+  groundwork-profile set <posture>   Show exactly how to record a new release
+                                     posture. Posture is a stored answer of its
+                                     own; this reports the route and does not
+                                     write the config itself.
   groundwork-profile edit            Open the chezmoi config to edit answers.
   groundwork-profile --help
 
@@ -167,13 +170,18 @@ case "$command" in
     echo "  only. Switching an installed application will be its own reviewed"
     echo "  plan, never a side effect of update-all."
     echo
-    echo "Groundwork stores this answer in the chezmoi config. Apply it with:"
-    echo
-    printf '  chezmoi execute-template --init --promptChoice release_posture=%s\n' "$argument"
-    echo
-    echo "or edit the value directly:"
+    # Posture is stored in its own right. The preset only chooses starting
+    # values, so changing the preset to reach a posture would also move the
+    # environment role — a managed machine would silently become personal. Edit
+    # the stored posture directly; it is preserved across regeneration.
+    echo "Groundwork stores this answer in the chezmoi config. Set it with:"
     echo
     echo "  groundwork-profile edit"
+    echo
+    printf '  then set:  release_posture = "%s"\n' "$argument"
+    echo
+    echo "Then run update-all. Editing posture leaves environment_role untouched,"
+    echo "so a managed or disposable machine keeps its role."
     ;;
 
   edit)
@@ -181,7 +189,11 @@ case "$command" in
       echo "groundwork-profile: chezmoi is not on PATH." >&2
       exit 1
     }
-    echo "Opening the chezmoi config. Change release_posture, then run update-all."
+    # profile_preset seeds environment_role and release_posture the first time;
+    # after that all three are stored answers and each is preserved on its own,
+    # so posture and role can diverge from the preset by design.
+    echo "Opening the chezmoi config. Change release_posture or environment_role"
+    echo "on its own, or profile_preset to reset both, then run update-all."
     chezmoi edit-config
     ;;
 esac

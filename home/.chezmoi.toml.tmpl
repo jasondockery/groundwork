@@ -81,7 +81,16 @@ stored answer) never silently resets an existing choice. */ -}}
 {{- if and (hasKey . "profile_preset") (hasKey $numByPreset (toString .profile_preset)) -}}
 {{- $defaultNum = index $numByPreset (toString .profile_preset) -}}
 {{- end -}}
+{{- /* Seed from the STORED answer before the platform gate, not only inside it.
+The question is asked on desktop macOS alone, but the answer is written on every
+platform — so a machine that skips the prompt (Linux, WSL2, headless) must carry
+its stored preset forward. Without this seed the value silently reverts to the
+default on every regeneration, and `update-all` regenerates on every refresh:
+a recorded answer would be discarded by routine maintenance. */ -}}
 {{- $profilePreset := $defaultPreset -}}
+{{- if and (hasKey . "profile_preset") (hasKey $numByPreset (toString .profile_preset)) -}}
+{{- $profilePreset = toString .profile_preset -}}
+{{- end -}}
 {{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
 {{- $presetChoice := promptChoiceOnce . "profile_preset" (printf "Starting profile — type 1-4:\n  1. Personal current (recommended) — AI tools current on the latest stable apps\n  2. Personal preview — adds pre-release apps (VS Code Insiders, Zen Twilight, Chrome Beta); accepts occasional breakage\n  3. Work managed — never works around device policy\n  4. Disposable experimental — a rebuildable container or VM\nAI tools stay current in every profile (Enter keeps the default: %s)" $defaultNum) (list "1" "2" "3" "4") $defaultNum -}}
 {{- /* Dual return domain: a fresh or --prompt run yields a digit; an existing
@@ -107,6 +116,20 @@ without the other, and so a preset is only ever a starting value. */ -}}
 {{- $environmentRole = "disposable" -}}
 {{- $releasePosture = "preview" -}}
 {{- end -}}
+{{- /* A STORED role or posture wins over the preset-derived seed above. The
+preset only chooses starting values; what is persisted is the concrete choice,
+and specs/environment-profiles-and-release-posture.md requires role and posture
+to be independently editable so they can diverge from the preset (a managed
+machine may take preview posture without becoming personal). Deriving them on
+every render made that impossible and silently reverted a hand-edited posture on
+the next apply. groundwork-configure drops both keys when the user changes the
+preset, which is exactly what re-seeds them from the new starting value. */ -}}
+{{- if and (hasKey . "environment_role") (has (toString .environment_role) (list "personal" "managed" "disposable")) -}}
+{{- $environmentRole = toString .environment_role -}}
+{{- end -}}
+{{- if and (hasKey . "release_posture") (has (toString .release_posture) (list "current" "preview")) -}}
+{{- $releasePosture = toString .release_posture -}}
+{{- end -}}
 {{- /* Key repeat. Two independent knobs, both integers written to NSGlobalDomain:
 KeyRepeat is the interval BETWEEN repeats and InitialKeyRepeat is the delay
 BEFORE repeating starts; for both, a lower number is faster. They are described
@@ -131,7 +154,13 @@ invite a claim Groundwork cannot keep. */ -}}
 {{- if and (hasKey . "key_repeat") (hasKey $numByKeyRepeat (toString .key_repeat)) -}}
 {{- $keyRepeatDefaultNum = index $numByKeyRepeat (toString .key_repeat) -}}
 {{- end -}}
+{{- /* Same stored-answer seed as the profile preset above: the question is
+skipped on headless hosts and on WSL2, but the value is written everywhere, so
+without this a stored answer reverts to "fast" on every regeneration. */ -}}
 {{- $keyRepeat := "fast" -}}
+{{- if and (hasKey . "key_repeat") (hasKey $numByKeyRepeat (toString .key_repeat)) -}}
+{{- $keyRepeat = toString .key_repeat -}}
+{{- end -}}
 {{- /* WSL2 reaches here as a non-headless Linux desktop when WSLg sets a
 display, but the keyboard is Windows'. Detect it once, and do not ask. */ -}}
 {{- $wsl := false -}}
