@@ -11,7 +11,6 @@ Groundwork aimed at an AI-native Mac, Linux, and headless developer environment.
 - Human learning material: `docs/`.
 - Durable design decisions and the detail behind rules here: `specs/`.
 - Repeatable, task-specific procedures: `skills/`, loaded on demand.
-- Machine-readable form of the Execution authority section: `agent-policy.json`.
 - Do not create parallel `AI_RULES.md`, Cursor rules, or similar files unless the
   file is a thin adapter (root `CLAUDE.md` is one), a rendered template wrapper,
   or a tool-specific requirement that cannot live here.
@@ -93,8 +92,10 @@ failure, never a slow success. Detail: `specs/bounded-operations.md`.
 ## Execution authority
 Within an approved task, complete it through implementation, focused
 verification, commit, push, workflow dispatch, and direct repair of failures
-caused by that work. Approval survives context compaction, session restart, and
-directly caused CI failures — do not ask for the same approval twice.
+caused by that work. Approval survives context compaction, tool reconnects, and
+directly caused CI failures within the same active task. A separate session
+continues only when the current prompt, a committed playbook, an issue, or
+another durable owner-authored task record carries that authorization.
 
 The agent owns, without pausing to offer equivalent options:
 - commit-message wording that follows the conventions above;
@@ -123,6 +124,9 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
 - Never run two writing agents in one worktree. Concurrent agents need separate
   worktrees; a sequential handoff may reuse one after the first agent committed
   and stopped.
+- Lane writers push assigned branches, never `main`. Exactly one
+  owner-designated integration writer may update `main`; that writer reconciles
+  lane commits and owns the final exact-SHA proof.
 - An agent-to-agent handoff goes through a commit plus a written statement of
   what was verified — the next agent starts from what is on disk.
 - A reviewing agent reports; it does not also implement what it found, until the
