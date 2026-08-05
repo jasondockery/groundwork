@@ -151,15 +151,14 @@
 
       <h2><span class="hash">#</span>What the bot actually does to a repo</h2>
       <div class="callout note">
-        <span class="label">Current, proposed, target</span>
-        <p><strong>Current:</strong> the shared runner checks daily and the frozen preset supplies the weekly routine window. Its top-level five-day declaration is weakened for npm by an inherited three-day rule, so the target effective strict five-day npm policy is not active. The accepted security block requests immediate creation and automerge, but does not contain the proposal&apos;s explicit schedule, age, and rate-limit bypass.</p>
-        <p><strong>Approved in principle:</strong> renovate-config holds an isolated proposal that corrects those fields. <strong>Target after activation:</strong> the five-day normal-update and explicit security-bypass behavior described below becomes the operating contract only after the owner activates and releases that preset.</p>
+        <span class="label">Current operating contract</span>
+        <p>The shared runner checks daily and the preset supplies the weekly routine PR window. Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor. Vulnerability alerts explicitly bypass the routine schedule, age floor, and rate limits so the next daily run can create them immediately.</p>
       </div>
       <p>Concretely, on this repo (Groundwork) and its siblings, Renovate:</p>
       <ul>
         <li>Opens <strong>weekly, grouped PRs</strong> labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
         <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is waiting on schedule, what is held by the cooldown. Ticking a checkbox forces a PR ahead of schedule.</li>
-        <li><strong>Target:</strong> opens security PRs on the next daily runner pass, explicitly bypassing the weekly schedule and age floor, and merges them itself once CI is green. The accepted frozen preset already requests immediate creation and automerge; the explicit bypass fields remain proposed.</li>
+        <li>Opens security PRs on the next daily runner pass, explicitly bypassing the weekly schedule, age floor, and routine rate limits, and merges them itself once CI is green.</li>
         <li>Updates things that are not npm packages at all: <strong>GitHub Actions pinned to commit SHAs</strong> (it moves the pin and the human-readable version comment together) and <strong>Docker base-image digests</strong>.</li>
         <li>Embeds each package's <strong>release notes in the PR body</strong>, so the review starts with what changed, not with hunting for a changelog.</li>
       </ul>
@@ -168,7 +167,7 @@
       </div>
 
       <h2><span class="hash">#</span>The cooldown: patience as a security control</h2>
-      <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: do not propose a supported timestamped release younger than N days. The approved target for these repos is five days for normal major, minor, and patch updates; activation is still pending. You give up a little freshness and buy a real defense: by the time a supported version reaches a PR, the world has had time to notice if it was poisoned.</p>
+      <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: do not propose a supported timestamped release younger than N days. These repos use five days for supported normal timestamped major, minor, and patch updates. You give up a little freshness and buy a real defense: by the time a supported version reaches a PR, the world has had time to notice if it was poisoned.</p>
       <p>Package managers are adopting the same idea at install time (pnpm's <code>minimumReleaseAge</code> refuses too-young versions during resolution), so the floor holds even when a human runs the install by hand. Security fixes get an explicit escape hatch, because for a known vulnerability the risk calculus reverses.</p>
 
       <div class="callout note">

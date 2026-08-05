@@ -32,17 +32,7 @@ install-time release discovery, and the managed mise runtimes applied by
 
 Operating notes:
 
-- **Current:** the runner executes daily and the frozen shared preset supplies
-  the weekly routine window. That preset declares five days at the top level,
-  but an inherited npm rule means the target effective strict five-day npm
-  policy is not active. Its accepted security block guarantees immediate
-  creation and automerge, not explicit schedule, age, and rate-limit bypass.
-- **Approved in principle:** the isolated renovate-config proposal corrects the
-  effective npm rule and adds explicit security bypass fields. **Target after
-  activation:** the next two bullets describe the production contract only
-  after the owner-approved preset release and consumer update land.
-
-- **Target:** the runner inspects all three repositories daily. Routine updates and branches
+- The runner inspects all three repositories daily. Routine updates and branches
   advance in the separate early-Monday weekly window and are grouped into PRs
   labeled `dependencies`. Normal timestamped major, minor, and patch releases
   must also complete the strict five-day age floor. Action SHA pins, Docker
@@ -51,7 +41,8 @@ Operating notes:
   Dashboard issue lists pending updates; checking a box there forces a PR
   ahead of the schedule (the runner acts on it at its next cron/dispatch
   run, not instantly).
-- **Target:** security PRs bypass the normal age and weekly schedule, appear on the next
+- Security PRs bypass the normal age, weekly schedule, and routine rate limits,
+  appear on the next
   daily run, are labeled `security`, and automerge once CI is
   green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
   what a human check would, and a known-vulnerable package should not wait on a

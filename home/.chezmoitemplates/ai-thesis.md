@@ -26,14 +26,13 @@ container digest, and other managed artifacts are current and whose required CI
 passes. A green shared Renovate scan proves runner execution; it does not prove
 Groundwork compatibility.
 
-The target shared five-day delay is intentionally per surface, not universal.
-After owner activation, normal timestamped versions use Renovate's strict age
-check. Today the accepted shared preset remains frozen with a known effective
-npm-age discrepancy; the corrected five-day and explicit security-bypass
-policy is approved in principle only. Action SHAs, image digests, lockfile
-operations, machine runtimes, and checksum-coupled tools use the explicit
-package-manager, integrity, CI, or owner-review control recorded in
-Groundwork's dependency inventory.
+The shared five-day delay is intentionally per surface, not universal. Normal
+timestamped npm major, minor, and patch versions use Renovate's strict age
+check. Known vulnerability alerts explicitly bypass the routine schedule, age
+floor, and rate limits so the next daily run can deliver them immediately.
+Action SHAs, image digests, lockfile operations, machine runtimes, and
+checksum-coupled tools use the explicit package-manager, integrity, CI, or
+owner-review control recorded in Groundwork's dependency inventory.
 
 ## Who Groundwork is for
 

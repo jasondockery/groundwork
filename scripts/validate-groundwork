@@ -10828,6 +10828,13 @@ PY
   # Renovate owns dependency updates (renovate.json) through the shared preset; a
   # dependabot.yml would create duplicate PRs, so its absence is the guarded state.
   grep -q '"github>jasondockery/renovate-config"' renovate.json
+  grep -Fq 'enforces a strict five-day floor for supported normal timestamped npm updates' renovate.json
+  grep -Fq 'timestamped npm major, minor, and patch versions use Renovate' AI_THESIS.md
+  grep -Fq 'Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor.' docs/dependencies.html
+  grep -Fq 'Security PRs bypass the normal age, weekly schedule, and routine rate limits' PLAYBOOK.md
+  assert_no_matches "Groundwork must describe the active shared Renovate policy, not the retired proposal" \
+    rg -n 'approved in principle|known effective npm-age discrepancy|target effective strict five-day|activation is still pending|explicit bypass fields remain proposed|Target after activation' \
+    AI_THESIS.md PLAYBOOK.md renovate.json docs/dependencies.html
   if [[ -e .github/dependabot.yml ]]; then
     echo "remove .github/dependabot.yml: Renovate owns dependency updates (see PLAYBOOK.md)" >&2
     exit 1
