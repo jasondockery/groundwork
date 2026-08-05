@@ -102,6 +102,15 @@ class ExplicitSurfaceTests(unittest.TestCase):
 
 
 class CatalogAndReceiptTests(unittest.TestCase):
+    def test_internal_karabiner_postflight_stays_out_of_learner_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            bin_dir = root / "home/dot_local/bin"
+            bin_dir.mkdir(parents=True)
+            (bin_dir / "executable_groundwork-karabiner-postflight").touch()
+            profiles = [{"name": "darwin", "os": "darwin", "headless": False}]
+            audit.validate_source_catalog_parity([], {}, profiles, {}, root)
+
     def test_duplicate_catalog_item_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = pathlib.Path(temp) / "commands.tsv"

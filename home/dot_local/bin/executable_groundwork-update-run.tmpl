@@ -22,7 +22,8 @@ Usage:
 
 Run update-all for the normal full transaction. This runner is directly
 invocable for repair and testing, so it validates the same arguments before
-chezmoi apply or any update or maintenance operation.
+chezmoi apply or any update or maintenance operation. On macOS, a successful
+transaction ends with the same consent-gated Karabiner health postflight.
 EOF
 }
 
@@ -144,6 +145,23 @@ command -v chezmoi >/dev/null 2>&1 || {
   echo "Groundwork: chezmoi is not on PATH; cannot complete the synchronization." >&2
   exit 1
 }
+{{- if eq .chezmoi.os "darwin" }}
+# Capture the installed version before the full apply: a changed Brewfile hook
+# may replace Karabiner during `chezmoi apply`, before the explicit Homebrew
+# upgrade lane begins. The postflight describes this only as a version change
+# observed during update-all; it does not overclaim which updater caused it.
+karabiner_version_before=""
+karabiner_probe_before="$HOME/.local/share/groundwork/lib/karabiner.sh"
+if [[ -r "$karabiner_probe_before" ]]; then
+  # shellcheck source=/dev/null
+  . "$karabiner_probe_before"
+fi
+if declare -F gw_karabiner_version >/dev/null 2>&1 \
+  && candidate_version_before="$(gw_karabiner_version 2>/dev/null)" \
+  && [[ "$candidate_version_before" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
+  karabiner_version_before="$candidate_version_before"
+fi
+{{- end }}
 chezmoi apply
 
 if command -v brew >/dev/null 2>&1; then
@@ -457,6 +475,35 @@ EOF
   fi
   exit 1
 fi
+
+{{- if eq .chezmoi.os "darwin" }}
+# A successful update ends with an observable, consent-gated Karabiner health
+# check. The postflight is quiet when no repair is indicated, prints the exact
+# manual command without a terminal, and delegates any approved mutation to the
+# helper that requires the root Core Service PID to change.
+karabiner_postflight="$HOME/.local/bin/groundwork-karabiner-postflight"
+if [[ ! -x "$karabiner_postflight" ]]; then
+  echo "Groundwork: Karabiner postflight helper is missing: $karabiner_postflight" >&2
+  echo "The refresh is not recorded as successful; run chezmoi apply, then update-all again." >&2
+  exit 1
+fi
+karabiner_postflight_status=0
+if [[ -n "$karabiner_version_before" ]]; then
+  "$karabiner_postflight" --version-before "$karabiner_version_before" \
+    || karabiner_postflight_status=$?
+else
+  "$karabiner_postflight" || karabiner_postflight_status=$?
+fi
+case "$karabiner_postflight_status" in
+  0) ;;
+  129 | 130 | 143) exit "$karabiner_postflight_status" ;;
+  *)
+    echo "Groundwork: the Karabiner postflight did not complete (exit $karabiner_postflight_status)." >&2
+    echo "The refresh is not recorded as successful; review the output above, then run update-all again." >&2
+    exit "$karabiner_postflight_status"
+    ;;
+esac
+{{- end }}
 
 # The reminder timestamp represents the complete transaction. Write a real UTC
 # timestamp through an atomic rename so a failed or interrupted stage preserves

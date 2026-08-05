@@ -21,9 +21,13 @@ Usage:
 The normal command applies current Groundwork configuration, upgrades the safe
 managed-tool lane, runs Homebrew and npm maintenance, prunes resolved pnpm
 stores when due, and removes only aged Docker resources that explicitly opted
-in through Groundwork's labels and scratch-only tags. It never removes project
-caches, whole pnpm store generations, unlabeled or legacy tagged Docker images,
-daemon-wide Docker cache, volumes, Xcode data, or application/user data.
+in through Groundwork's labels and scratch-only tags. On macOS, its final
+health check offers a verified Karabiner restart when the Core Service has an
+unusually large footprint or its version changed during the update. The prompt
+defaults to no; without a terminal it prints the manual command and never
+restarts. It never removes project caches, whole pnpm store generations,
+unlabeled or legacy tagged Docker images, daemon-wide Docker cache, volumes,
+Xcode data, or application/user data.
 EOF
 }
 

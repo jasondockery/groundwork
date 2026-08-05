@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Internal update-all postflight. It owns detection and consent; the public
+# restart helper remains the only acting path and proves a changed root PID.
+
+usage() {
+  cat <<'EOF'
+Inspect Karabiner after update-all and offer the verified restart when needed.
+
+Usage:
+  groundwork-karabiner-postflight [--version-before <version>]
+  groundwork-karabiner-postflight -h|--help
+
+Without a usable terminal, this command never restarts Karabiner and prints the
+exact manual repair command. A declined or EOF prompt also leaves it unchanged.
+EOF
+}
+
+version_before=""
+while (($#)); do
+  case "$1" in
+    --version-before)
+      [[ "$#" -ge 2 ]] || {
+        echo "groundwork-karabiner-postflight: --version-before requires a version." >&2
+        exit 64
+      }
+      version_before="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "groundwork-karabiner-postflight: unknown option: $1" >&2
+      echo "Run 'groundwork-karabiner-postflight --help' for usage." >&2
+      exit 64
+      ;;
+    *)
+      echo "groundwork-karabiner-postflight: unexpected argument: $1" >&2
+      exit 64
+      ;;
+  esac
+done
+if [[ -n "$version_before" && ! "$version_before" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
+  echo "groundwork-karabiner-postflight: unreadable --version-before value: $version_before" >&2
+  exit 64
+fi
+
+karabiner_lib="$HOME/.local/share/groundwork/lib/karabiner.sh"
+if [[ ! -r "$karabiner_lib" ]]; then
+  echo "Groundwork postflight: Karabiner probe is missing; no restart was requested." >&2
+  echo "  chezmoi apply --exclude=scripts ~/.local/share/groundwork" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$karabiner_lib"
+
+[[ "$(gw_karabiner_platform 2>/dev/null || true)" == "Darwin" ]] || exit 0
+
+version_after=""
+if candidate_version="$(gw_karabiner_version 2>/dev/null)" \
+  && [[ "$candidate_version" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
+  version_after="$candidate_version"
+fi
+version_changed=0
+if [[ -n "$version_before" && -n "$version_after" && "$version_before" != "$version_after" ]]; then
+  version_changed=1
+fi
+
+if ! rows="$(gw_karabiner_root_core_rows 2>/dev/null)"; then
+  echo "Groundwork postflight: Karabiner process state is unavailable; no restart was requested." >&2
+  echo "Action recommended:" >&2
+  echo "  groundwork-doctor --karabiner" >&2
+  exit 0
+fi
+if [[ -z "$rows" ]]; then
+  if [[ -n "$version_after" ]]; then
+    echo "Groundwork postflight: Karabiner is installed, but its root Core Service is not running." >&2
+    echo "Open Karabiner-Elements and run groundwork-doctor --karabiner." >&2
+    exit 1
+  fi
+  if [[ -n "$version_before" ]]; then
+    echo "Groundwork postflight: Karabiner was installed before this update, but its root Core Service is not running and the installed version is now unavailable." >&2
+    echo "Open Karabiner-Elements and run groundwork-doctor --karabiner." >&2
+    exit 1
+  fi
+  exit 0
+fi
+count="$(printf '%s\n' "$rows" | /usr/bin/awk 'NF { count++ } END { print count + 0 }')"
+if [[ "$count" -ne 1 ]]; then
+  echo "Groundwork postflight: found $count root Core Service processes; no restart was requested." >&2
+  echo "Action recommended:" >&2
+  echo "  groundwork-doctor --karabiner" >&2
+  exit 0
+fi
+IFS=$'\t' read -r pid owner elapsed rss_kib <<<"$rows"
+if [[ "$owner" != "root" ]]; then
+  echo "Groundwork postflight: Core Service owner is '$owner', not root; no restart was requested." >&2
+  echo "Action recommended:" >&2
+  echo "  groundwork-doctor --karabiner" >&2
+  exit 0
+fi
+
+footprint="unknown"
+compressed="unknown"
+memory_recommended=0
+memory_unknown=0
+if top_row="$(gw_karabiner_top_snapshot "$pid" 2>/dev/null)" && [[ -n "$top_row" ]]; then
+  IFS=$'\t' read -r footprint compressed <<<"$top_row"
+  if gw_karabiner_memory_repair_recommended "$footprint" "$compressed"; then
+    memory_recommended=1
+  else
+    memory_status=$?
+    [[ "$memory_status" -eq 2 ]] && memory_unknown=1
+  fi
+else
+  memory_unknown=1
+fi
+
+if [[ "$memory_unknown" -eq 1 && "$version_changed" -eq 0 ]]; then
+  echo "Groundwork postflight: Karabiner memory could not be classified; no restart recommendation is inferred." >&2
+  echo "Action recommended:" >&2
+  echo "  groundwork-doctor --karabiner" >&2
+  exit 0
+fi
+
+if [[ "$memory_recommended" -eq 0 && "$version_changed" -eq 0 ]]; then
+  exit 0
+fi
+
+printf '\nGroundwork post-update health check:\n'
+if [[ "$memory_recommended" -eq 1 ]]; then
+  echo "Karabiner-Core-Service has an unusually large memory footprint."
+fi
+if [[ "$version_changed" -eq 1 ]]; then
+  echo "Karabiner-Elements changed from $version_before to $version_after during this update."
+fi
+printf '\n'
+printf 'PID:        %s\n' "$pid"
+printf 'Uptime:     %s\n' "$elapsed"
+printf 'Resident:   %s MiB\n' "$(gw_karabiner_rss_mib "$rss_kib")"
+printf 'Footprint:  %s\n' "$footprint"
+printf 'Compressed: %s\n' "$compressed"
+printf '\n'
+if [[ "$memory_recommended" -eq 1 ]]; then
+  echo "This resembles a reported sleep/wake accumulation pattern; one snapshot is not proof of that defect."
+  echo "Restarting Karabiner should release the retained footprint."
+else
+  echo "Restarting Karabiner ensures the running Core Service is replaced after the version change."
+fi
+
+restart="$HOME/.local/bin/groundwork-karabiner-restart"
+if [[ ! -x "$restart" ]]; then
+  echo "Groundwork postflight: verified restart helper is missing; no restart was requested." >&2
+  echo "Action recommended:" >&2
+  echo "  chezmoi apply --exclude=scripts ~/.local/bin/groundwork-karabiner-restart" >&2
+  exit 1
+fi
+
+recommend_manual() {
+  echo "Action recommended:"
+  echo "  groundwork-karabiner-restart"
+}
+
+prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+prompt_fd=0
+if [[ -t 0 ]]; then
+  prompt_fd=0
+elif { exec 3<"$prompt_tty"; } 2>/dev/null; then
+  prompt_fd=3
+else
+  echo
+  echo "Groundwork postflight: no interactive terminal; Karabiner was not restarted."
+  recommend_manual
+  exit 0
+fi
+
+while true; do
+  printf 'Restart Karabiner now? [y/N] ' >&2
+  if ! read -r -u "$prompt_fd" answer; then
+    [[ "$prompt_fd" -eq 0 ]] || exec 3<&-
+    echo >&2
+    echo "Groundwork postflight: input ended; Karabiner was not restarted."
+    recommend_manual
+    exit 0
+  fi
+  case "$answer" in
+    y | Y | [yY][eE][sS])
+      [[ "$prompt_fd" -eq 0 ]] || exec 3<&-
+      if "$restart"; then
+        exit 0
+      fi
+      echo "Groundwork postflight: the approved Karabiner restart failed; no success is claimed." >&2
+      exit 1
+      ;;
+    "" | n | N | [nN][oO])
+      [[ "$prompt_fd" -eq 0 ]] || exec 3<&-
+      echo "Groundwork postflight: Karabiner was not restarted."
+      recommend_manual
+      exit 0
+      ;;
+    *)
+      echo "Please answer yes or no." >&2
+      ;;
+  esac
+done

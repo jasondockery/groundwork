@@ -90,6 +90,7 @@ karabiner_section() {
   . "$karabiner_lib"
 
   local version version_status macos_version macos_status rows count=0
+  local top_row footprint compressed memory_status
   if version="$(gw_karabiner_version 2>/dev/null)" && [[ -n "$version" ]]; then
     if gw_karabiner_version_at_least "$version" "$GW_KARABINER_MINIMUM_VERSION"; then
       ok "Karabiner-Elements $version meets the $GW_KARABINER_MINIMUM_VERSION compatibility floor"
@@ -139,13 +140,23 @@ karabiner_section() {
       if top_row="$(gw_karabiner_top_snapshot "$pid" 2>/dev/null)" && [[ -n "$top_row" ]]; then
         IFS=$'\t' read -r footprint compressed <<<"$top_row"
         note "Activity Monitor footprint $footprint; compressed memory $compressed"
+        if [[ "$count" -eq 1 ]] && gw_karabiner_memory_repair_recommended "$footprint" "$compressed"; then
+          warn "Karabiner Core Service memory meets Groundwork's ${GW_KARABINER_MEMORY_RESTART_THRESHOLD_MIB} MiB review threshold."
+          note "Action recommended: groundwork-karabiner-restart"
+        else
+          memory_status=$?
+          if [[ "$count" -eq 1 && "$memory_status" -eq 2 ]]; then
+            note "The memory snapshot could not be classified; no repair recommendation is inferred."
+          fi
+        fi
       else
         note "Activity Monitor footprint and compressed memory unavailable; ps RSS above is the observation that succeeded."
       fi
     done <<<"$rows"
   fi
 
-  note "One snapshot cannot establish a growth rate; compare the same fields after repeated sleep/wake cycles."
+  note "One snapshot cannot establish a growth rate; the review threshold is an operational restart cue, not a diagnosis."
+  note "Compare the same fields after repeated sleep/wake cycles."
   note "Official support source: https://karabiner-elements.pqrs.org/"
   note "Long-run sleep/wake memory growth has been reported upstream; a matching snapshot is evidence to investigate, not proof of that defect: https://github.com/pqrs-org/Karabiner-Elements/issues/4432"
   note "Logs: /var/log/karabiner/core_service.log, /var/log/karabiner/virtual_hid_device_service.log, and ~/.local/share/karabiner/log/"

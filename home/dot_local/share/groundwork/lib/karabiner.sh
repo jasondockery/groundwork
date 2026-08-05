@@ -11,6 +11,11 @@ GW_KARABINER_MINIMUM_VERSION='16.1.0'
 # major stays unknown until Groundwork refreshes this evidence.
 GW_KARABINER_SUPPORTED_MACOS_MAJORS='13 14 15 26 27'
 GW_KARABINER_USER_AGENT='org.pqrs.service.agent.karabiner_console_user_server'
+# An operational review threshold, not a diagnosis or growth-rate claim. A
+# one-GiB footprint is high enough to avoid routine prompts for a healthy
+# service while catching the multi-gigabyte compressed state seen after long
+# sleep/wake runs. Both doctor and update-all use this one threshold.
+GW_KARABINER_MEMORY_RESTART_THRESHOLD_MIB='1024'
 
 gw_karabiner_platform() {
   /usr/bin/uname -s 2>/dev/null
@@ -81,6 +86,48 @@ gw_karabiner_rss_mib() {
   local kib="$1"
   [[ "$kib" =~ ^[0-9]+$ ]] || return 64
   /usr/bin/awk -v kib="$kib" 'BEGIN { printf "%.1f", kib / 1024 }'
+}
+
+# Normalize the compact byte units emitted by macOS top (for example 16M,
+# 2375M, or 2.3G) to MiB. A trailing + is top's truncation marker.
+gw_karabiner_memory_mib() {
+  local value="$1" number unit
+  if [[ "$value" =~ ^([0-9]+([.][0-9]+)?)([BKMGT])([+])?$ ]]; then
+    number="${BASH_REMATCH[1]}"
+    unit="${BASH_REMATCH[3]}"
+  else
+    return 64
+  fi
+  /usr/bin/awk -v number="$number" -v unit="$unit" 'BEGIN {
+    scale["B"] = 1 / 1048576
+    scale["K"] = 1 / 1024
+    scale["M"] = 1
+    scale["G"] = 1024
+    scale["T"] = 1048576
+    printf "%.1f\n", number * scale[unit]
+  }'
+}
+
+# Success means at least one observed Activity Monitor-style value meets the
+# shared review threshold. Return 2 when no observed value is high but at least
+# one cannot be interpreted, so partial evidence never becomes a false healthy
+# result. A known-high value remains actionable even if its companion is absent.
+gw_karabiner_memory_repair_recommended() {
+  local footprint="$1" compressed="$2" value value_mib unknown=0
+  for value in "$footprint" "$compressed"; do
+    if value_mib="$(gw_karabiner_memory_mib "$value")"; then
+      if /usr/bin/awk \
+        -v value="$value_mib" \
+        -v threshold="$GW_KARABINER_MEMORY_RESTART_THRESHOLD_MIB" \
+        'BEGIN { exit ! (value >= threshold) }'; then
+        return 0
+      fi
+    else
+      unknown=1
+    fi
+  done
+  [[ "$unknown" -eq 0 ]] || return 2
+  return 1
 }
 
 gw_karabiner_restart_user_agent() {

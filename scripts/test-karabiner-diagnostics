@@ -11,7 +11,7 @@ trap cleanup EXIT HUP INT TERM
 home="$fixture/home"
 lib_dir="$home/.local/share/groundwork/lib"
 bin="$fixture/bin"
-mkdir -p "$lib_dir" "$bin"
+mkdir -p "$lib_dir" "$home/.local/bin" "$bin"
 cp home/dot_local/share/groundwork/lib/karabiner.sh "$lib_dir/karabiner.sh"
 cat >"$bin/uname" <<'SH'
 #!/bin/sh
@@ -30,7 +30,7 @@ gw_karabiner_macos_version() {
   printf '%s\n' "${TEST_MACOS_VERSION:-27.0}"
 }
 gw_karabiner_version() {
-  printf '%s\n' "${TEST_KARABINER_VERSION:-16.1.0}"
+  printf '%s\n' "${TEST_KARABINER_VERSION-16.1.0}"
 }
 gw_karabiner_root_core_rows() {
   [[ "${TEST_PROCESS_AVAILABLE:-1}" == 1 ]] || return 1
@@ -39,7 +39,7 @@ gw_karabiner_root_core_rows() {
 }
 gw_karabiner_top_snapshot() {
   [[ "${TEST_TOP_AVAILABLE:-1}" == 1 ]] || return 1
-  printf '%s\t%s\n' '2375M' '2367M'
+  printf '%s\t%s\n' "${TEST_TOP_FOOTPRINT:-2375M}" "${TEST_TOP_COMPRESSED:-2367M}"
 }
 gw_karabiner_restart_user_agent() {
   printf '%s\n' 'launchctl kickstart -k gui/501/org.pqrs.service.agent.karabiner_console_user_server' >>"$TEST_COMMAND_LOG"
@@ -57,8 +57,11 @@ SH
 
 doctor="$PWD/home/dot_local/bin/executable_groundwork-doctor"
 restart="$PWD/home/dot_local/bin/executable_groundwork-karabiner-restart"
+postflight="$PWD/home/dot_local/bin/executable_groundwork-karabiner-postflight"
 state="$fixture/process.tsv"
 log="$fixture/commands.log"
+cp "$restart" "$home/.local/bin/groundwork-karabiner-restart"
+chmod +x "$home/.local/bin/groundwork-karabiner-restart"
 
 run_doctor() {
   env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
@@ -69,12 +72,35 @@ run_doctor() {
     /bin/bash "$doctor" --karabiner
 }
 
+run_doctor_default() {
+  env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
+    TEST_PLATFORM="${TEST_PLATFORM:-Darwin}" \
+    TEST_MACOS_VERSION="${TEST_MACOS_VERSION:-27.0}" \
+    TEST_KARABINER_VERSION="${TEST_KARABINER_VERSION:-16.1.0}" \
+    TEST_TOP_AVAILABLE="${TEST_TOP_AVAILABLE:-1}" \
+    TEST_TOP_FOOTPRINT="${TEST_TOP_FOOTPRINT:-2375M}" \
+    TEST_TOP_COMPRESSED="${TEST_TOP_COMPRESSED:-2367M}" \
+    PATH="$bin:/usr/bin:/bin" /bin/bash "$doctor"
+}
+
 run_restart() {
   env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
     TEST_PLATFORM="${TEST_PLATFORM:-Darwin}" \
     TEST_RESTART_MODE="${TEST_RESTART_MODE:-success}" \
     TEST_PROCESS_AVAILABLE="${TEST_PROCESS_AVAILABLE:-1}" \
     /bin/bash "$restart" "$@"
+}
+
+run_postflight() {
+  env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
+    TEST_PLATFORM="${TEST_PLATFORM:-Darwin}" \
+    TEST_KARABINER_VERSION="${TEST_KARABINER_VERSION-16.1.0}" \
+    TEST_TOP_AVAILABLE="${TEST_TOP_AVAILABLE:-1}" \
+    TEST_TOP_FOOTPRINT="${TEST_TOP_FOOTPRINT:-2375M}" \
+    TEST_TOP_COMPRESSED="${TEST_TOP_COMPRESSED:-2367M}" \
+    TEST_PROCESS_AVAILABLE="${TEST_PROCESS_AVAILABLE:-1}" \
+    TEST_RESTART_MODE="${TEST_RESTART_MODE:-success}" \
+    PATH="$bin:/usr/bin:/bin" /bin/bash "$postflight" "$@"
 }
 
 assert_no_restart() {
@@ -173,7 +199,9 @@ grep -qF 'Karabiner-Elements 15.9.0 is below the 16.1.0 compatibility floor' "$f
 grep -qF 'macOS 27.0 is in the supported set' "$fixture/doctor-old.out"
 grep -qF 'Root Core Service PID 858, owner root, elapsed 14-01:54:27, RSS 16.3 MiB' "$fixture/doctor-old.out"
 grep -qF 'Activity Monitor footprint 2375M; compressed memory 2367M' "$fixture/doctor-old.out"
-grep -qF 'One snapshot cannot establish a growth rate' "$fixture/doctor-old.out"
+grep -qF "memory meets Groundwork's 1024 MiB review threshold" "$fixture/doctor-old.out"
+grep -qF 'Action recommended: groundwork-karabiner-restart' "$fixture/doctor-old.out"
+grep -qF 'review threshold is an operational restart cue, not a diagnosis' "$fixture/doctor-old.out"
 grep -qF 'Official support source: https://karabiner-elements.pqrs.org/' "$fixture/doctor-old.out"
 if grep -qE '[0-9]+([.][0-9]+)?[[:space:]]*(MB|MiB)/day' "$fixture/doctor-old.out"; then
   echo 'doctor invented a daily memory-growth rate from one snapshot' >&2
@@ -186,6 +214,268 @@ grep -qF 'Karabiner-Elements 16.1.0 meets the 16.1.0 compatibility floor' "$fixt
 grep -qF 'macOS 28.0 is not in the currently documented supported set' "$fixture/doctor-future.out"
 grep -qF 'Activity Monitor footprint and compressed memory unavailable' "$fixture/doctor-future.out"
 
+# The default doctor includes Karabiner; --karabiner is only the focused form.
+TEST_TOP_FOOTPRINT=40M TEST_TOP_COMPRESSED=20M \
+  run_doctor_default >"$fixture/doctor-default.out"
+grep -qF '== Karabiner ==' "$fixture/doctor-default.out"
+if grep -qF 'Action recommended: groundwork-karabiner-restart' "$fixture/doctor-default.out"; then
+  echo 'doctor recommended a restart below the shared memory threshold' >&2
+  exit 1
+fi
+
+# One known-high memory field is enough to recommend repair even when the
+# companion field is unavailable; a low partial observation stays unknown.
+TEST_TOP_FOOTPRINT=2.3G TEST_TOP_COMPRESSED=unknown \
+  run_doctor_default >"$fixture/doctor-partial-high.out"
+grep -qF 'Action recommended: groundwork-karabiner-restart' \
+  "$fixture/doctor-partial-high.out"
+TEST_TOP_FOOTPRINT=40M TEST_TOP_COMPRESSED=unknown \
+  run_doctor_default >"$fixture/doctor-partial-unknown.out"
+grep -qF 'memory snapshot could not be classified' \
+  "$fixture/doctor-partial-unknown.out"
+if grep -qF 'Action recommended: groundwork-karabiner-restart' \
+  "$fixture/doctor-partial-unknown.out"; then
+  echo 'doctor converted a partial low observation into a repair recommendation' >&2
+  exit 1
+fi
+
+# Postflight argument validation is side-effect-free.
+: >"$log"
+run_postflight --help >"$fixture/postflight-help"
+grep -qF 'Without a usable terminal' "$fixture/postflight-help"
+assert_no_restart
+for invalid in --bogus unexpected; do
+  : >"$log"
+  set +e
+  run_postflight "$invalid" >"$fixture/postflight-invalid.out" 2>"$fixture/postflight-invalid.err"
+  status=$?
+  set -e
+  test "$status" -eq 64
+  assert_no_restart
+done
+set +e
+run_postflight --version-before invalid >"$fixture/postflight-invalid-version.out" \
+  2>"$fixture/postflight-invalid-version.err"
+status=$?
+set -e
+test "$status" -eq 64
+assert_no_restart
+set +e
+run_postflight --version-before >"$fixture/postflight-missing.out" 2>"$fixture/postflight-missing.err"
+status=$?
+set -e
+test "$status" -eq 64
+assert_no_restart
+
+# Unsupported systems and unavailable or ambiguous process observations never
+# prompt or invoke the acting helper.
+: >"$log"
+TEST_PLATFORM=Linux run_postflight >"$fixture/postflight-linux.out" 2>"$fixture/postflight-linux.err"
+assert_no_restart
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+TEST_PROCESS_AVAILABLE=0 run_postflight >"$fixture/postflight-process-unknown.out" \
+  2>"$fixture/postflight-process-unknown.err"
+grep -qF 'process state is unavailable; no restart was requested' \
+  "$fixture/postflight-process-unknown.err"
+grep -qF 'groundwork-doctor --karabiner' "$fixture/postflight-process-unknown.err"
+assert_no_restart
+
+# An absent process is healthy only when the app is also absent. An installed
+# app without its privileged Core Service fails the update postflight, including
+# when the version changed during the transaction.
+: >"$state"
+: >"$log"
+TEST_KARABINER_VERSION='' run_postflight >"$fixture/postflight-not-installed.out" \
+  2>"$fixture/postflight-not-installed.err"
+test ! -s "$fixture/postflight-not-installed.out"
+test ! -s "$fixture/postflight-not-installed.err"
+assert_no_restart
+set +e
+run_postflight >"$fixture/postflight-installed-not-running.out" \
+  2>"$fixture/postflight-installed-not-running.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'Karabiner is installed, but its root Core Service is not running' \
+  "$fixture/postflight-installed-not-running.err"
+grep -qF 'Open Karabiner-Elements and run groundwork-doctor --karabiner' \
+  "$fixture/postflight-installed-not-running.err"
+assert_no_restart
+set +e
+run_postflight --version-before 16.0.0 >"$fixture/postflight-changed-not-running.out" \
+  2>"$fixture/postflight-changed-not-running.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'Karabiner is installed, but its root Core Service is not running' \
+  "$fixture/postflight-changed-not-running.err"
+assert_no_restart
+
+printf '%s\n' \
+  $'858\troot\t14-01:54:27\t16688' \
+  $'859\troot\t00:01:02\t17000' >"$state"
+: >"$log"
+run_postflight >"$fixture/postflight-multiple.out" 2>"$fixture/postflight-multiple.err"
+grep -qF 'found 2 root Core Service processes; no restart was requested' \
+  "$fixture/postflight-multiple.err"
+assert_no_restart
+
+# Unknown memory stays unknown and points to the focused read-only diagnostic.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+TEST_TOP_AVAILABLE=0 run_postflight >"$fixture/postflight-memory-unknown.out" \
+  2>"$fixture/postflight-memory-unknown.err"
+grep -qF 'memory could not be classified; no restart recommendation is inferred' \
+  "$fixture/postflight-memory-unknown.err"
+grep -qF 'groundwork-doctor --karabiner' "$fixture/postflight-memory-unknown.err"
+assert_no_restart
+
+# A healthy unchanged service is a quiet no-op.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+TEST_TOP_FOOTPRINT=40M TEST_TOP_COMPRESSED=20M \
+  run_postflight >"$fixture/postflight-healthy.out" 2>"$fixture/postflight-healthy.err"
+test ! -s "$fixture/postflight-healthy.out"
+test ! -s "$fixture/postflight-healthy.err"
+assert_no_restart
+
+# With no terminal, a large footprint is reported with the exact manual action
+# and never restarts anything.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+printf '' | GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+  run_postflight >"$fixture/postflight-no-tty.out" 2>"$fixture/postflight-no-tty.err"
+grep -qF 'Karabiner-Core-Service has an unusually large memory footprint' "$fixture/postflight-no-tty.out"
+grep -qF 'PID:        858' "$fixture/postflight-no-tty.out"
+grep -qF 'Resident:   16.3 MiB' "$fixture/postflight-no-tty.out"
+grep -qF 'Footprint:  2375M' "$fixture/postflight-no-tty.out"
+grep -qF 'Compressed: 2367M' "$fixture/postflight-no-tty.out"
+grep -qF 'no interactive terminal; Karabiner was not restarted' "$fixture/postflight-no-tty.out"
+grep -qF '  groundwork-karabiner-restart' "$fixture/postflight-no-tty.out"
+assert_no_restart
+
+# A bare Enter and literal no spellings preserve the default N.
+for no_answer in '' n N no NO No nO; do
+  printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+  printf '%s\n' "$no_answer" >"$fixture/postflight-no-input"
+  : >"$log"
+  printf '' | GROUNDWORK_PROMPT_TTY="$fixture/postflight-no-input" \
+    run_postflight >"$fixture/postflight-no.out" 2>"$fixture/postflight-no.err"
+  grep -qF 'Karabiner was not restarted' "$fixture/postflight-no.out"
+  assert_no_restart
+done
+
+# Generic boolean spellings are deliberately invalid for this input-service
+# restart. They must produce visible feedback and re-prompt, never authorize or
+# silently decline the mutation.
+for invalid_answer in t T true TRUE 1 f F false FALSE 0; do
+  printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+  printf '%s\nno\n' "$invalid_answer" >"$fixture/postflight-invalid-input"
+  : >"$log"
+  printf '' | GROUNDWORK_PROMPT_TTY="$fixture/postflight-invalid-input" \
+    run_postflight >"$fixture/postflight-invalid-answer.out" \
+    2>"$fixture/postflight-invalid-answer.err"
+  grep -qF 'Please answer yes or no.' "$fixture/postflight-invalid-answer.err"
+  test "$(grep -cF 'Restart Karabiner now? [y/N]' \
+    "$fixture/postflight-invalid-answer.err")" -eq 2
+  grep -qF 'Karabiner was not restarted' "$fixture/postflight-invalid-answer.out"
+  assert_no_restart
+done
+
+# EOF on an otherwise usable prompt channel is not consent.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$fixture/postflight-eof-input"
+: >"$log"
+printf '' | GROUNDWORK_PROMPT_TTY="$fixture/postflight-eof-input" \
+  run_postflight >"$fixture/postflight-eof.out" 2>"$fixture/postflight-eof.err"
+grep -qF 'input ended; Karabiner was not restarted' "$fixture/postflight-eof.out"
+grep -qF '  groundwork-karabiner-restart' "$fixture/postflight-eof.out"
+assert_no_restart
+
+# Only literal y/yes spellings delegate once to the verified restart helper.
+for yes_answer in y Y yes YES Yes yEs; do
+  printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+  printf '%s\n' "$yes_answer" >"$fixture/postflight-yes-input"
+  : >"$log"
+  printf '' | GROUNDWORK_PROMPT_TTY="$fixture/postflight-yes-input" \
+    run_postflight >"$fixture/postflight-yes.out" 2>"$fixture/postflight-yes.err"
+  grep -qF 'verified: root Core Service PID changed from 858 to 202' "$fixture/postflight-yes.out"
+  test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+done
+
+# A version change recommends the restart even when memory stays below the
+# threshold, without claiming which updater changed the app.
+printf '%s\n' $'858\troot\t00:05:00\t16688' >"$state"
+: >"$log"
+printf '' | TEST_TOP_FOOTPRINT=40M TEST_TOP_COMPRESSED=20M \
+  GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+  run_postflight --version-before 16.0.0 >"$fixture/postflight-version.out" 2>&1
+grep -qF 'changed from 16.0.0 to 16.1.0 during this update' "$fixture/postflight-version.out"
+grep -qF '  groundwork-karabiner-restart' "$fixture/postflight-version.out"
+assert_no_restart
+
+# An approved failure is nonzero and never becomes a success claim.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+printf 'yes\n' >"$fixture/postflight-fail-input"
+: >"$log"
+set +e
+printf '' | TEST_RESTART_MODE=fail GROUNDWORK_PROMPT_TTY="$fixture/postflight-fail-input" \
+  run_postflight >"$fixture/postflight-fail.out" 2>"$fixture/postflight-fail.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'approved Karabiner restart failed; no success is claimed' "$fixture/postflight-fail.err"
+if grep -qF 'verified:' "$fixture/postflight-fail.out"; then
+  echo 'postflight claimed success after the verified helper failed' >&2
+  exit 1
+fi
+test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+
+# A real pseudo-TTY exercises visible invalid-input feedback and re-prompting.
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+python3 - "$postflight" "$home" "$state" "$log" "$bin" <<'PY'
+import os
+import pty
+import subprocess
+import sys
+
+postflight, home, state, log, fixture_bin = sys.argv[1:]
+master, slave = pty.openpty()
+env = {
+    **os.environ,
+    "HOME": home,
+    "PATH": f"{fixture_bin}:/usr/bin:/bin",
+    "TEST_STATE_FILE": state,
+    "TEST_COMMAND_LOG": log,
+    "TEST_PLATFORM": "Darwin",
+    "TEST_KARABINER_VERSION": "16.1.0",
+    "TEST_TOP_AVAILABLE": "1",
+    "TEST_TOP_FOOTPRINT": "2375M",
+    "TEST_TOP_COMPRESSED": "2367M",
+    "TEST_PROCESS_AVAILABLE": "1",
+    "TEST_RESTART_MODE": "success",
+}
+process = subprocess.Popen(
+    ["/bin/bash", postflight],
+    stdin=slave,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    env=env,
+    text=True,
+)
+os.close(slave)
+os.write(master, b"maybe\nyes\n")
+stdout, stderr = process.communicate(timeout=10)
+os.close(master)
+assert process.returncode == 0, (stdout, stderr)
+assert "Please answer yes or no." in stderr, stderr
+assert stderr.count("Restart Karabiner now? [y/N]") == 2, stderr
+assert "verified: root Core Service PID changed from 858 to 202" in stdout, stdout
+PY
+test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+
 grep -qF -- '--karabiner' < <(/bin/bash "$doctor" --help)
 grep -qF $'daily\tgroundwork-doctor --karabiner\tcommand\t' home/dot_local/share/groundwork/commands.tsv
 grep -qF $'maintenance\tgroundwork-karabiner-restart\tcommand\t' home/dot_local/share/groundwork/commands.tsv
@@ -194,6 +484,7 @@ grep -qF 'org.pqrs.service.agent.karabiner_console_user_server' home/dot_local/s
 # shellcheck disable=SC2016 # Match the literal awk owner predicate in the managed source.
 grep -qF '$2 == "root"' home/dot_local/share/groundwork/lib/karabiner.sh
 grep -qF 'gw_karabiner_restart_user_agent' home/dot_local/bin/executable_groundwork-apps-start
+grep -qF 'groundwork-karabiner-postflight' home/dot_local/bin/executable_groundwork-update-run.tmpl
 if rg -n 'launchctl kickstart.*karabiner_console_user_server' home/dot_local/bin; then
   echo 'a Karabiner restart path bypassed the shared managed library' >&2
   exit 1
@@ -210,4 +501,4 @@ if rg -n 'approve <strong>Input Monitoring</strong>.*<em>and</em>|approve \*\*In
   exit 1
 fi
 
-echo 'ok: Karabiner diagnostics stay read-only and restart success requires a changed root Core Service PID'
+echo 'ok: Karabiner diagnostics are default, update postflight is consent-gated, and restart success requires a changed root Core Service PID'

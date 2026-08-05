@@ -2020,7 +2020,32 @@ EOF
 printf 'apps-start\n' >>"$GROUNDWORK_TEST_LOG"
 exit "${APPS_START_STATUS:-0}"
 SH
-  chmod +x "$update_all_bin/groundwork-apps-start"
+  cat >"$update_all_bin/groundwork-karabiner-postflight" <<'SH'
+#!/usr/bin/env bash
+printf 'karabiner-postflight' >>"$GROUNDWORK_TEST_LOG"
+for arg in "$@"; do
+  printf ' arg=%s' "$arg" >>"$GROUNDWORK_TEST_LOG"
+done
+printf '\n' >>"$GROUNDWORK_TEST_LOG"
+if [[ "${KARABINER_ROOT_SERVICE_PRESENT:-1}" == 0 ]]; then
+  echo 'Groundwork postflight: Karabiner is installed, but its root Core Service is not running.' >&2
+  exit 9
+fi
+exit "${KARABINER_POSTFLIGHT_STATUS:-0}"
+SH
+  cat >"$update_all_home/.local/share/groundwork/lib/karabiner.sh" <<'SH'
+gw_karabiner_version() {
+  [[ -n "${KARABINER_VERSION_BEFORE:-}" ]] || return 1
+  printf '%s\n' "$KARABINER_VERSION_BEFORE"
+}
+SH
+  chmod +x "$update_all_bin/groundwork-apps-start" \
+    "$update_all_bin/groundwork-karabiner-postflight"
+  grep -qF "karabiner_postflight=\"\$HOME/.local/bin/groundwork-karabiner-postflight\"" \
+    "$update_all_fixture/darwin-runner" \
+    || fail "the macOS runner render omitted the Karabiner postflight"
+  test -x "$update_all_bin/groundwork-karabiner-postflight" \
+    || fail "the update fixture did not install an executable Karabiner postflight"
   rm -f "$update_all_stamp"
   : >"$update_all_log"
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -2037,9 +2062,41 @@ mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
 docker-tidy --automatic
+karabiner-postflight
 EOF
-  diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
+  diff -u "$update_all_fixture/expected-darwin" "$update_all_log" \
+    || fail "the successful macOS transaction omitted or reordered its Karabiner postflight"
   test -f "$update_all_stamp"
+
+  # The runner snapshots Karabiner before the full apply, because that apply can
+  # run a changed Brewfile hook before the explicit upgrade lane. The observed
+  # version is passed to the postflight without claiming which updater changed it.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin KARABINER_VERSION_BEFORE=16.0.0 \
+    "$update_all_fixture/darwin-runner" >"$update_all_fixture/darwin-version-before" 2>&1
+  grep -qxF 'karabiner-postflight arg=--version-before arg=16.0.0' "$update_all_log" \
+    || fail "update-all did not pass the pre-apply Karabiner version to its postflight"
+  test -f "$update_all_stamp"
+
+  # If a user-approved postflight repair fails, the runner must preserve the old
+  # success timestamp and propagate failure rather than calling the update done.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin KARABINER_POSTFLIGHT_STATUS=7 \
+    "$update_all_fixture/darwin-runner" >"$update_all_fixture/darwin-postflight-fail" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 7 ]] \
+    || fail "update-all changed Karabiner postflight failure 7 to $update_all_status"
+  grep -qF 'Karabiner postflight did not complete (exit 7)' \
+    "$update_all_fixture/darwin-postflight-fail"
+  grep -qxF 'previous-success' "$update_all_stamp"
 
   # An empty state directory is not pending work. The exceptional fast path
   # still succeeds and records the completed refresh while skipping maintenance.
@@ -2128,8 +2185,30 @@ EOF
     FAKE_PLATFORM=darwin APPS_START_STATUS=1 "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-apps-fail" 2>&1 \
     || fail "a failed app relaunch must not fail update-all (it is best-effort)"
-  diff -u "$update_all_fixture/expected-darwin" "$update_all_log"
+  diff -u "$update_all_fixture/expected-darwin" "$update_all_log" \
+    || fail "a best-effort app relaunch failure suppressed the Karabiner postflight"
   test -f "$update_all_stamp"
+
+  # The app relaunch remains best-effort, but the health postflight is not: an
+  # absent privileged Core Service must prevent a fresh success timestamp.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin APPS_START_STATUS=1 KARABINER_ROOT_SERVICE_PRESENT=0 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-apps-fail-core-absent" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 9 ]] \
+    || fail "an absent Karabiner Core Service exited $update_all_status instead of 9"
+  grep -qF 'Karabiner is installed, but its root Core Service is not running' \
+    "$update_all_fixture/darwin-apps-fail-core-absent"
+  grep -qxF 'previous-success' "$update_all_stamp"
+  grep -qxF 'apps-start' "$update_all_log"
+  grep -qxF 'karabiner-postflight' "$update_all_log"
+
   rm -f "$update_all_stamp"
   : >"$update_all_log"
   set +e
@@ -7413,6 +7492,7 @@ validate_static_helpers() {
 
   check "Karabiner diagnostics and verified restart"
   test -x home/dot_local/bin/executable_groundwork-karabiner-restart
+  test -x home/dot_local/bin/executable_groundwork-karabiner-postflight
   test -x scripts/test-karabiner-diagnostics
   scripts/test-karabiner-diagnostics
 

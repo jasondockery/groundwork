@@ -65,6 +65,7 @@ INTERNAL_EXECUTABLES = {
     "groundwork-brew-refetch",
     "groundwork-brew-repair",
     "groundwork-brew-update",
+    "groundwork-karabiner-postflight",
     "groundwork-source-preflight",
     "groundwork-update-run",
     "tmux-copy-cwd",
