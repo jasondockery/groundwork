@@ -10754,6 +10754,28 @@ EOF
       exit 1
     }
   done
+  check "browser, Raycast, and Anybox link workflow"
+  grep -qF 'Chrome is the working surface, Raycast is the launcher, and Anybox is the durable bookmark library.' docs/apps.html \
+    || fail "apps guide must give Chrome, Raycast, and Anybox distinct ownership"
+  grep -qF 'Open With → the Chrome channel selected by your Groundwork profile' docs/apps.html \
+    || fail "apps guide must route Raycast Quicklinks through the profile-selected Chrome channel"
+  grep -qF 'global <strong>Prefer Existing Tabs</strong> setting' docs/apps.html \
+    || fail "apps guide must describe Prefer Existing Tabs as one global Raycast setting"
+  grep -qF 'An Anybox Quick Link is detected when its keyword is typed anywhere outside Anybox.' docs/apps.html \
+    || fail "apps guide must describe Anybox Quick Links as system-wide text detection"
+  grep -qF 'The keyword must be at least two characters, and Anybox requires macOS Accessibility access' docs/apps.html \
+    || fail "apps guide must disclose Anybox Quick Link length and permission requirements"
+  grep -qF '<strong>Profiles belong to Anydock</strong>' docs/apps.html \
+    || fail "apps guide must not present Anydock profiles as bookmark-library organization"
+  grep -qF 'A compatibility bridge for bookmarks that remain in installed browsers' docs/resources.html \
+    || fail "resources guide must present browser bookmark search as a compatibility bridge"
+  grep -qF 'Keep its bookmarks bar as a small visual hot cache; Anybox owns the durable library.' README.md \
+    || fail "README finish-up checklist must preserve the link ownership model"
+  grep -qF 'open with the Chrome channel selected by your Groundwork profile' README.md \
+    || fail "README finish-up checklist must preserve profile-selected browser routing"
+  assert_no_matches "stale Anybox alias, profile, or Quick Link guidance found" \
+    rg -n 'Raycast or Anybox is already open|sort them into <strong>profiles</strong>|group links into profiles|Quick Link keywords are typed after opening Anybox|add a few typed Quick Link keywords|Open With → Google Chrome|Set them to open with Chrome' \
+    README.md docs
   # Every page carries its own copy of the sidebar; with the active marker
   # stripped they must be identical, or link order and grouping silently drift
   # page by page. The og:site_name marker is the same site-page rule as
