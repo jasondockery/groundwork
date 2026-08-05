@@ -13,6 +13,7 @@ Options:
   --runtimes    run only the runtime release-age section
   --node-toolchain  run only the Node/pnpm ownership section
   --browser     run only the managed-browser section
+  --karabiner   run only the Karabiner compatibility and process section
   --docker      run only the Docker section
   --storage     run the storage report (opt-in: du over large trees can be
                 slow, so the default run skips it)
@@ -35,6 +36,10 @@ Sections (all run by default):
   Browser       selected Chrome channel versus the installed official Homebrew
                 casks. Preview requires Chrome Beta and keeps stable Chrome as
                 a compatibility fallback; device policy remains authoritative.
+  Karabiner     installed version, macOS support, and root Core Service PID,
+                owner, elapsed time, RSS, memory footprint, and compressed
+                memory when macOS exposes them. One snapshot never becomes a
+                made-up growth rate.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftovers: containers, dangling
                 images, volumes, and the labeled-ephemeral scratch images —
@@ -66,6 +71,85 @@ heading() { printf '\n== %s ==\n' "$1"; }
 ok() { printf '  ok    %s\n' "$1"; }
 warn() { printf '  warn  %s\n' "$1"; }
 note() { printf '  note  %s\n' "$1"; }
+
+karabiner_section() {
+  heading "Karabiner"
+
+  if [[ "$(uname -s 2>/dev/null || true)" != "Darwin" ]]; then
+    note "Karabiner-Elements is macOS-only; no compatibility or process state is claimed here."
+    return 0
+  fi
+
+  local karabiner_lib="$HOME/.local/share/groundwork/lib/karabiner.sh"
+  if [[ ! -r "$karabiner_lib" ]]; then
+    warn "Groundwork's Karabiner probe is missing: $karabiner_lib"
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
+    return 0
+  fi
+  # shellcheck source=/dev/null
+  . "$karabiner_lib"
+
+  local version version_status macos_version macos_status rows count=0
+  if version="$(gw_karabiner_version 2>/dev/null)" && [[ -n "$version" ]]; then
+    if gw_karabiner_version_at_least "$version" "$GW_KARABINER_MINIMUM_VERSION"; then
+      ok "Karabiner-Elements $version meets the $GW_KARABINER_MINIMUM_VERSION compatibility floor"
+    else
+      version_status=$?
+      if [[ "$version_status" -eq 1 ]]; then
+        warn "Karabiner-Elements $version is below the $GW_KARABINER_MINIMUM_VERSION compatibility floor; run update-all or brew upgrade --cask karabiner-elements."
+      else
+        warn "Karabiner-Elements reported an unreadable version '$version'; compatibility is unknown."
+      fi
+    fi
+  else
+    note "Karabiner-Elements CLI not found; the app is not installed in its standard location."
+  fi
+
+  if macos_version="$(gw_karabiner_macos_version 2>/dev/null)" && [[ -n "$macos_version" ]]; then
+    if gw_karabiner_macos_supported "$macos_version"; then
+      ok "macOS $macos_version is in the supported set documented for current Karabiner-Elements"
+    else
+      macos_status=$?
+      if [[ "$macos_status" -eq 1 ]]; then
+        warn "macOS $macos_version is not in the currently documented supported set ($GW_KARABINER_SUPPORTED_MACOS_MAJORS); verify upstream support before relying on remapping."
+      else
+        warn "macOS reported an unreadable version '$macos_version'; Karabiner support is unknown."
+      fi
+    fi
+  else
+    warn "macOS version unavailable; Karabiner support is unknown."
+  fi
+
+  if ! rows="$(gw_karabiner_root_core_rows)"; then
+    warn "Root Core Service process list unavailable; PID, owner, elapsed time, and RSS are unknown."
+  elif [[ -z "$rows" ]]; then
+    warn "Karabiner root Core Service is not running."
+  else
+    count="$(printf '%s\n' "$rows" | /usr/bin/awk 'NF { count++ } END { print count + 0 }')"
+    if [[ "$count" -ne 1 ]]; then
+      warn "$count Karabiner root Core Service processes found; expected exactly one."
+    fi
+    while IFS=$'\t' read -r pid owner elapsed rss_kib; do
+      [[ -n "$pid" ]] || continue
+      if [[ "$owner" == "root" ]]; then
+        ok "Root Core Service PID $pid, owner $owner, elapsed $elapsed, RSS $(gw_karabiner_rss_mib "$rss_kib") MiB"
+      else
+        warn "Root Core Service PID $pid, owner $owner (expected root), elapsed $elapsed, RSS $(gw_karabiner_rss_mib "$rss_kib") MiB"
+      fi
+      if top_row="$(gw_karabiner_top_snapshot "$pid" 2>/dev/null)" && [[ -n "$top_row" ]]; then
+        IFS=$'\t' read -r footprint compressed <<<"$top_row"
+        note "Activity Monitor footprint $footprint; compressed memory $compressed"
+      else
+        note "Activity Monitor footprint and compressed memory unavailable; ps RSS above is the observation that succeeded."
+      fi
+    done <<<"$rows"
+  fi
+
+  note "One snapshot cannot establish a growth rate; compare the same fields after repeated sleep/wake cycles."
+  note "Official support source: https://karabiner-elements.pqrs.org/"
+  note "Long-run sleep/wake memory growth has been reported upstream; a matching snapshot is evidence to investigate, not proof of that defect: https://github.com/pqrs-org/Karabiner-Elements/issues/4432"
+  note "Logs: /var/log/karabiner/core_service.log, /var/log/karabiner/virtual_hid_device_service.log, and ~/.local/share/karabiner/log/"
+}
 
 browser_section() {
   heading "Managed browser"
@@ -1103,6 +1187,7 @@ while (($#)); do
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
     --node-toolchain) section="node-toolchain" ;;
+    --karabiner) section="karabiner" ;;
     --storage) section="storage" ;;
     -h | --help)
       usage
@@ -1128,6 +1213,7 @@ case "$section" in
     runtimes_section
     node_toolchain_section
     browser_section
+    karabiner_section
     docker_section
     printf '\nRun groundwork-doctor --storage for the (slower) curated disk-usage report.\n'
     ;;
@@ -1135,6 +1221,7 @@ case "$section" in
   runtimes) runtimes_section ;;
   node-toolchain) node_toolchain_section ;;
   browser) browser_section ;;
+  karabiner) karabiner_section ;;
   docker) docker_section ;;
   storage) storage_section ;;
 esac

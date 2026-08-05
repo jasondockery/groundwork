@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Restart Karabiner through its documented user-domain service and verify that
+the root Core Service process was replaced.
+
+Usage:
+  groundwork-karabiner-restart
+  groundwork-karabiner-restart --help
+
+The command captures PID, owner, elapsed time, and RSS before the request,
+waits up to 10 seconds for a different root Core Service PID, then prints the
+verified after-state. Ctrl-C cancels the wait. It never manipulates Karabiner's
+private root launch daemons.
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "groundwork-karabiner-restart: unknown argument: $1" >&2
+      echo "Run 'groundwork-karabiner-restart --help' for usage." >&2
+      exit 64
+      ;;
+  esac
+done
+
+karabiner_lib="$HOME/.local/share/groundwork/lib/karabiner.sh"
+if [[ ! -r "$karabiner_lib" ]]; then
+  echo "groundwork-karabiner-restart: managed Karabiner probe is missing: $karabiner_lib" >&2
+  echo "Run 'chezmoi apply' to restore it." >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$karabiner_lib"
+
+if [[ "$(gw_karabiner_platform 2>/dev/null || true)" != "Darwin" ]]; then
+  echo "groundwork-karabiner-restart: macOS only; no restart was requested." >&2
+  exit 64
+fi
+
+read_core_state() {
+  local rows count
+  if ! rows="$(gw_karabiner_root_core_rows 2>/dev/null)"; then
+    return 3
+  fi
+  if [[ -z "$rows" ]]; then
+    printf '\n'
+    return 0
+  fi
+  count="$(printf '%s\n' "$rows" | /usr/bin/awk 'NF { count++ } END { print count + 0 }')"
+  if [[ "$count" -ne 1 ]]; then
+    return 2
+  fi
+  printf '%s\n' "$rows"
+}
+
+describe_state() {
+  local label="$1" row="$2" pid owner elapsed rss_kib
+  if [[ -z "$row" ]]; then
+    printf '%s: Core Service not running\n' "$label"
+    return 0
+  fi
+  IFS=$'\t' read -r pid owner elapsed rss_kib <<<"$row"
+  printf '%s: PID %s, owner %s, elapsed %s, RSS %s MiB\n' \
+    "$label" "$pid" "$owner" "$elapsed" "$(gw_karabiner_rss_mib "$rss_kib")"
+}
+
+if before="$(read_core_state)"; then
+  :
+else
+  read_status=$?
+  if [[ "$read_status" -eq 2 ]]; then
+    echo "groundwork-karabiner-restart: multiple Core Service processes found; no restart was requested." >&2
+    echo "Run 'groundwork-doctor --karabiner' and resolve the ambiguous state first." >&2
+  else
+    echo "groundwork-karabiner-restart: Core Service process state is unavailable; no restart was requested." >&2
+  fi
+  exit 1
+fi
+before_pid=""
+before_owner=""
+if [[ -n "$before" ]]; then
+  IFS=$'\t' read -r before_pid before_owner _ _ <<<"$before"
+  if [[ "$before_owner" != "root" ]]; then
+    echo "groundwork-karabiner-restart: Core Service owner is '$before_owner', not root; no restart was requested." >&2
+    exit 1
+  fi
+fi
+describe_state "Before" "$before"
+
+echo "Requesting Karabiner's documented user-domain restart; waiting up to 10 seconds for a new root Core Service PID."
+if ! gw_karabiner_restart_user_agent >/dev/null 2>&1; then
+  echo "groundwork-karabiner-restart: restart request failed; no success is claimed." >&2
+  echo "Use Karabiner's menu bar or Settings > Misc > Restart Karabiner-Elements." >&2
+  exit 1
+fi
+
+after=""
+after_pid=""
+observation_problem=""
+for ((attempt = 1; attempt <= 20; attempt++)); do
+  gw_karabiner_wait_tick
+  if candidate="$(read_core_state)"; then
+    if [[ -n "$candidate" ]]; then
+      IFS=$'\t' read -r candidate_pid candidate_owner _ _ <<<"$candidate"
+      if [[ "$candidate_owner" == "root" && "$candidate_pid" != "$before_pid" ]]; then
+        after="$candidate"
+        after_pid="$candidate_pid"
+        break
+      fi
+    fi
+  else
+    candidate_status=$?
+    if [[ "$candidate_status" -eq 2 ]]; then
+      observation_problem="multiple Core Service processes appeared"
+    else
+      observation_problem="Core Service process state became unavailable"
+    fi
+  fi
+done
+
+if [[ -z "$after" ]]; then
+  if [[ -n "$observation_problem" ]]; then
+    echo "groundwork-karabiner-restart: $observation_problem; no success is claimed." >&2
+  elif [[ -n "$before_pid" ]]; then
+    echo "groundwork-karabiner-restart: PID $before_pid did not change within 10 seconds; no success is claimed." >&2
+  else
+    echo "groundwork-karabiner-restart: no root Core Service appeared within 10 seconds; no success is claimed." >&2
+  fi
+  echo "Use Karabiner's menu bar or Settings > Misc > Restart Karabiner-Elements, then rerun groundwork-doctor --karabiner." >&2
+  exit 1
+fi
+
+describe_state "After" "$after"
+if [[ -n "$before_pid" ]]; then
+  echo "groundwork-karabiner-restart verified: root Core Service PID changed from $before_pid to $after_pid."
+else
+  echo "groundwork-karabiner-restart verified: root Core Service started as PID $after_pid."
+fi

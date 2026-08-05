@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-karabiner-test.XXXXXX")"
+fixture="$(cd -P -- "$fixture" && pwd -P)"
+cleanup() {
+  rm -rf -- "$fixture"
+}
+trap cleanup EXIT HUP INT TERM
+
+home="$fixture/home"
+lib_dir="$home/.local/share/groundwork/lib"
+bin="$fixture/bin"
+mkdir -p "$lib_dir" "$bin"
+cp home/dot_local/share/groundwork/lib/karabiner.sh "$lib_dir/karabiner.sh"
+cat >"$bin/uname" <<'SH'
+#!/bin/sh
+printf '%s\n' "${TEST_PLATFORM:-Darwin}"
+SH
+chmod +x "$bin/uname"
+
+# A fixture-only tail overrides the library's native macOS probes. Production
+# keeps absolute system paths; the tests declare process state as TSV and log
+# the one supported restart request without introducing an acting env seam.
+cat >>"$lib_dir/karabiner.sh" <<'SH'
+gw_karabiner_platform() {
+  printf '%s\n' "${TEST_PLATFORM:-Darwin}"
+}
+gw_karabiner_macos_version() {
+  printf '%s\n' "${TEST_MACOS_VERSION:-27.0}"
+}
+gw_karabiner_version() {
+  printf '%s\n' "${TEST_KARABINER_VERSION:-16.1.0}"
+}
+gw_karabiner_root_core_rows() {
+  [[ "${TEST_PROCESS_AVAILABLE:-1}" == 1 ]] || return 1
+  [[ -r "$TEST_STATE_FILE" ]] && awk -F '\t' '$2 == "root"' "$TEST_STATE_FILE"
+  return 0
+}
+gw_karabiner_top_snapshot() {
+  [[ "${TEST_TOP_AVAILABLE:-1}" == 1 ]] || return 1
+  printf '%s\t%s\n' '2375M' '2367M'
+}
+gw_karabiner_restart_user_agent() {
+  printf '%s\n' 'launchctl kickstart -k gui/501/org.pqrs.service.agent.karabiner_console_user_server' >>"$TEST_COMMAND_LOG"
+  case "${TEST_RESTART_MODE:-success}" in
+    success) printf '%s\n' $'202\troot\t00:00:01\t18000' >"$TEST_STATE_FILE" ;;
+    unchanged) : ;;
+    fail) return 1 ;;
+    *) return 64 ;;
+  esac
+}
+gw_karabiner_wait_tick() {
+  :
+}
+SH
+
+doctor="$PWD/home/dot_local/bin/executable_groundwork-doctor"
+restart="$PWD/home/dot_local/bin/executable_groundwork-karabiner-restart"
+state="$fixture/process.tsv"
+log="$fixture/commands.log"
+
+run_doctor() {
+  env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
+    TEST_PLATFORM="${TEST_PLATFORM:-Darwin}" \
+    TEST_MACOS_VERSION="${TEST_MACOS_VERSION:-27.0}" \
+    TEST_KARABINER_VERSION="${TEST_KARABINER_VERSION:-16.1.0}" \
+    TEST_TOP_AVAILABLE="${TEST_TOP_AVAILABLE:-1}" PATH="$bin:/usr/bin:/bin" \
+    /bin/bash "$doctor" --karabiner
+}
+
+run_restart() {
+  env HOME="$home" TEST_STATE_FILE="$state" TEST_COMMAND_LOG="$log" \
+    TEST_PLATFORM="${TEST_PLATFORM:-Darwin}" \
+    TEST_RESTART_MODE="${TEST_RESTART_MODE:-success}" \
+    TEST_PROCESS_AVAILABLE="${TEST_PROCESS_AVAILABLE:-1}" \
+    /bin/bash "$restart" "$@"
+}
+
+assert_no_restart() {
+  test ! -s "$log" || {
+    echo "restart was invoked before intent and preconditions were validated" >&2
+    exit 1
+  }
+}
+
+printf '%s\n' \
+  $'101\troot\t14-01:54:27\t16688' \
+  $'151\tconsole-user\t14-01:54:12\t16000' >"$state"
+: >"$log"
+run_restart --help >"$fixture/help"
+grep -qF 'waits up to 10 seconds' "$fixture/help"
+assert_no_restart
+
+for invalid in --bogus unexpected; do
+  : >"$log"
+  set +e
+  run_restart "$invalid" >"$fixture/invalid.out" 2>"$fixture/invalid.err"
+  status=$?
+  set -e
+  test "$status" -eq 64 || {
+    echo "groundwork-karabiner-restart $invalid exited $status, expected 64" >&2
+    exit 1
+  }
+  assert_no_restart
+done
+
+: >"$log"
+set +e
+TEST_PLATFORM=Linux run_restart >"$fixture/linux.out" 2>"$fixture/linux.err"
+status=$?
+set -e
+test "$status" -eq 64
+grep -qF 'macOS only' "$fixture/linux.err"
+assert_no_restart
+
+: >"$log"
+set +e
+TEST_PROCESS_AVAILABLE=0 run_restart >"$fixture/unavailable.out" 2>"$fixture/unavailable.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'process state is unavailable; no restart was requested' "$fixture/unavailable.err"
+assert_no_restart
+
+printf '%s\n' \
+  $'101\troot\t14-01:54:27\t16688' \
+  $'102\troot\t00:01:02\t17000' >"$state"
+: >"$log"
+set +e
+run_restart >"$fixture/multiple.out" 2>"$fixture/multiple.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'multiple Core Service processes' "$fixture/multiple.err"
+assert_no_restart
+
+printf '%s\n' $'101\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+TEST_RESTART_MODE=success run_restart >"$fixture/success.out"
+grep -qF 'Before: PID 101, owner root, elapsed 14-01:54:27, RSS 16.3 MiB' "$fixture/success.out"
+grep -qF 'After: PID 202, owner root, elapsed 00:00:01, RSS 17.6 MiB' "$fixture/success.out"
+grep -qF 'verified: root Core Service PID changed from 101 to 202' "$fixture/success.out"
+test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+grep -qxF 'launchctl kickstart -k gui/501/org.pqrs.service.agent.karabiner_console_user_server' "$log"
+
+printf '%s\n' $'101\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+set +e
+TEST_RESTART_MODE=unchanged run_restart >"$fixture/unchanged.out" 2>"$fixture/unchanged.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'PID 101 did not change' "$fixture/unchanged.err"
+grep -qF 'menu bar' "$fixture/unchanged.err"
+grep -qF 'Settings' "$fixture/unchanged.err"
+test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+
+printf '%s\n' $'101\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+set +e
+TEST_RESTART_MODE=fail run_restart >"$fixture/fail.out" 2>"$fixture/fail.err"
+status=$?
+set -e
+test "$status" -ne 0
+grep -qF 'restart request failed' "$fixture/fail.err"
+test "$(wc -l <"$log" | tr -d ' ')" -eq 1
+
+printf '%s\n' $'858\troot\t14-01:54:27\t16688' >"$state"
+: >"$log"
+TEST_KARABINER_VERSION=15.9.0 TEST_MACOS_VERSION=27.0 run_doctor >"$fixture/doctor-old.out"
+grep -qF 'Karabiner-Elements 15.9.0 is below the 16.1.0 compatibility floor' "$fixture/doctor-old.out"
+grep -qF 'macOS 27.0 is in the supported set' "$fixture/doctor-old.out"
+grep -qF 'Root Core Service PID 858, owner root, elapsed 14-01:54:27, RSS 16.3 MiB' "$fixture/doctor-old.out"
+grep -qF 'Activity Monitor footprint 2375M; compressed memory 2367M' "$fixture/doctor-old.out"
+grep -qF 'One snapshot cannot establish a growth rate' "$fixture/doctor-old.out"
+grep -qF 'Official support source: https://karabiner-elements.pqrs.org/' "$fixture/doctor-old.out"
+if grep -qE '[0-9]+([.][0-9]+)?[[:space:]]*(MB|MiB)/day' "$fixture/doctor-old.out"; then
+  echo 'doctor invented a daily memory-growth rate from one snapshot' >&2
+  exit 1
+fi
+
+TEST_KARABINER_VERSION=16.1.0 TEST_MACOS_VERSION=28.0 TEST_TOP_AVAILABLE=0 \
+  run_doctor >"$fixture/doctor-future.out"
+grep -qF 'Karabiner-Elements 16.1.0 meets the 16.1.0 compatibility floor' "$fixture/doctor-future.out"
+grep -qF 'macOS 28.0 is not in the currently documented supported set' "$fixture/doctor-future.out"
+grep -qF 'Activity Monitor footprint and compressed memory unavailable' "$fixture/doctor-future.out"
+
+grep -qF -- '--karabiner' < <(/bin/bash "$doctor" --help)
+grep -qF $'daily\tgroundwork-doctor --karabiner\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF $'maintenance\tgroundwork-karabiner-restart\tcommand\t' home/dot_local/share/groundwork/commands.tsv
+grep -qF '/bin/launchctl kickstart -k' home/dot_local/share/groundwork/lib/karabiner.sh
+grep -qF 'org.pqrs.service.agent.karabiner_console_user_server' home/dot_local/share/groundwork/lib/karabiner.sh
+# shellcheck disable=SC2016 # Match the literal awk owner predicate in the managed source.
+grep -qF '$2 == "root"' home/dot_local/share/groundwork/lib/karabiner.sh
+grep -qF 'gw_karabiner_restart_user_agent' home/dot_local/bin/executable_groundwork-apps-start
+if rg -n 'launchctl kickstart.*karabiner_console_user_server' home/dot_local/bin; then
+  echo 'a Karabiner restart path bypassed the shared managed library' >&2
+  exit 1
+fi
+if rg -n 'system/org[.]pqrs|Karabiner-VirtualHIDDevice-Daemon|sudo[[:space:]]+launchctl' \
+  home/dot_local/bin/executable_groundwork-karabiner-restart \
+  home/dot_local/share/groundwork/lib/karabiner.sh; then
+  echo 'restart helper manipulates a private or root Karabiner service' >&2
+  exit 1
+fi
+if rg -n 'approve <strong>Input Monitoring</strong>.*<em>and</em>|approve \*\*Input Monitoring\*\* and|needs <strong>two</strong> approvals' \
+  README.md docs; then
+  echo 'stale unconditional Karabiner Input Monitoring guidance remains' >&2
+  exit 1
+fi
+
+echo 'ok: Karabiner diagnostics stay read-only and restart success requires a changed root Core Service PID'

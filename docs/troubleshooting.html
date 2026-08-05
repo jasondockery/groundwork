@@ -312,14 +312,26 @@
         <tr><td><strong>Docker Desktop badged "Personal" on a work machine</strong></td><td>Worth fixing: Desktop needs a paid license in orgs over 250 staff or $10M revenue, which is why Groundwork's work profile installs Colima + the CLI instead. Either get a licensed seat through your employer, or re-run <code>chezmoi init</code> answering "work machine: yes", apply, and use <code>colima start</code> — the CLI workflow is identical</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Karabiner (keyboard)</h2>
-      <p>Caps&nbsp;Lock&nbsp;→&nbsp;Esc/Ctrl won't work until macOS trusts Karabiner. It needs <strong>two</strong> approvals that only you can click:</p>
+      <h2 id="karabiner"><span class="hash">#</span>Karabiner (keyboard)</h2>
+      <p>Caps&nbsp;Lock&nbsp;→&nbsp;Esc/Ctrl won't work until macOS trusts Karabiner. Current Karabiner needs settings that only you can approve:</p>
       <div class="callout warn">
-        <span class="label">System Settings → Privacy &amp; Security</span>
-        <p>Approve <strong>Input Monitoring</strong> for Karabiner, <em>and</em> allow its <strong>driver / system extension</strong> (a separate prompt, sometimes under "Login Items &amp; Extensions"). After both, quit and reopen Karabiner-Elements. A script cannot grant these — macOS requires a human click.</p>
+        <span class="label">Use the settings Karabiner itself documents</span>
+        <p>Keep its background services enabled under System Settings → General → Login Items, approve <strong>Accessibility</strong> under Privacy &amp; Security, and allow <strong>org.pqrs.Karabiner-DriverKit-VirtualHIDDevice</strong> under Login Items &amp; Extensions → Driver Extensions. <strong>Input Monitoring is normally unnecessary on 16.0.0 and later</strong> because Accessibility covers physical-device input; grant it for 15.9.0 or earlier, or when Karabiner itself says it is required. A script cannot grant these — macOS requires a human click.</p>
       </div>
       <p>After Groundwork installs or updates Homebrew casks, it reopens the always-on apps — Karabiner-Elements, Raycast, BetterDisplay, and Anybox — if any is installed but not running, because Homebrew quits an app to replace it and never relaunches it. For Karabiner that makes the menu-bar icon, driver status, and any macOS permission prompts visible instead of leaving the keyboard rule silently inactive; for the others it keeps the launcher hotkey, display presets, and bookmark shortcuts answering. If macOS shows an "open an app downloaded from the internet" prompt, approve it only when it names one of these apps from your Applications folder.</p>
       <p>If <code>chezmoi apply</code> mentions <code>.config/karabiner/karabiner.json</code>, the usual cause is Karabiner writing device or profile metadata after Groundwork last touched the file. Current Groundwork merges the Caps Lock rule into Karabiner's existing JSON instead of replacing the whole file, so pull the latest repo and re-run <code>chezmoi apply</code>.</p>
+
+      <h3 id="karabiner-memory">Case study: Core Service memory after sleep and wake</h3>
+      <p>Suppose Activity Monitor shows a large memory value for <strong>Karabiner-Core-Service</strong> after the Mac has crossed many sleep/wake cycles. Start with observations an agent can compare, not a guessed leak rate:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">karabiner evidence</span></div>
+        <pre><code><span class="prompt">$ </span>groundwork-doctor --karabiner
+<span class="prompt">$ </span>groundwork-karabiner-restart
+<span class="prompt">$ </span>groundwork-doctor --karabiner</code></pre>
+      </div>
+      <p>The doctor records the installed version, current macOS support, the root Core Service PID and age, <code>ps</code> RSS, and Activity Monitor-style footprint and compressed memory when <code>top</code> exposes them. Those memory columns are different observations: a small resident set can coexist with a large compressed footprint. One sample cannot establish MB per day. Re-run the same report after a known number of sleep/wake cycles and compare like with like.</p>
+      <p>If a restart is warranted, the helper uses Karabiner's documented user-domain restart path, waits at most ten seconds, and succeeds only when the root Core Service PID changes. If that proof fails, use Karabiner's menu-bar <strong>Restart Karabiner-Elements</strong> command or Settings → Misc → Restart instead. Groundwork deliberately does not unload or kickstart Karabiner's private root daemons.</p>
+      <p>For deeper evidence, correlate the timestamps in <code>/var/log/karabiner/core_service.log</code>, <code>/var/log/karabiner/virtual_hid_device_service.log</code>, and <code>~/.local/share/karabiner/log/</code> with sleep and wake. <a href="https://github.com/pqrs-org/Karabiner-Elements/issues/4432" target="_blank" rel="noopener">Upstream issue 4432</a> is a reported long-run sleep/wake memory-growth case, not proof that every large snapshot has the same cause. Update through the normal Homebrew cask with <code>update-all</code>; Groundwork keeps the cask on the current channel and checks a 16.1.0 compatibility floor instead of pinning a custom package.</p>
 
       <h2><span class="hash">#</span>Obsidian</h2>
       <table class="keytable">

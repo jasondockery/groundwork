@@ -7411,6 +7411,11 @@ validate_static_helpers() {
   test -x home/dot_local/bin/executable_groundwork-docs
   scripts/test-groundwork-docs
 
+  check "Karabiner diagnostics and verified restart"
+  test -x home/dot_local/bin/executable_groundwork-karabiner-restart
+  test -x scripts/test-karabiner-diagnostics
+  scripts/test-karabiner-diagnostics
+
   check "largest helper"
   test -x home/dot_local/bin/executable_largest
   largest_fixture="$out_dir/largest-fixture"

@@ -14,6 +14,7 @@ daily	groundwork-docker-tidy --yes --clear-pending	command	executable	home/dot_l
 daily	groundwork-docs	command	executable	home/dot_local/share/groundwork/commands.tsv	setup.html	no	yes	all; requires chezmoi
 daily	groundwork-doctor	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	yes	all
 daily	groundwork-doctor --docker	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker
+daily	groundwork-doctor --karabiner	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	yes	macOS desktop
 daily	groundwork-doctor --node-toolchain	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	yes	all
 daily	groundwork-doctor --runtimes	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
 daily	groundwork-doctor --shell	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all
@@ -65,6 +66,7 @@ maintenance	groundwork-cleanup	command	executable	home/dot_local/share/groundwor
 maintenance	groundwork-cleanup --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
 maintenance	groundwork-cleanup --yes --force	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
+maintenance	groundwork-karabiner-restart	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	macOS desktop; requires karabiner
 maintenance	update-all --skip-maintenance	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all
 practice	Practice drill: Agent drill	competency	docs-competency	docs/practice.html	workflow.html	n/a	n/a	all
 practice	Practice drill: Copy drill (keyboard-only)	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all

@@ -176,7 +176,7 @@ Stored in `~/.config/chezmoi/chezmoi.toml`; re-run with `chezmoi init`.
 
 These are the one-time steps macOS or the app vendor should own: account sign-in, App Store purchases, permission prompts, secrets, per-device hotkeys, display IDs, and cloud sync. Groundwork manages stable file/plist-backed defaults; the README keeps the operational checklist, and the linked docs carry the longer context.
 
-- [ ] **Karabiner** — Groundwork opens Karabiner after install/update if it is not running, but macOS still requires you to approve **Input Monitoring** and the driver/system extension in System Settings → Privacy & Security. Enables Caps Lock = Esc/Ctrl. See `docs/keyboard.html`.
+- [ ] **Karabiner** — Groundwork opens Karabiner after install/update if it is not running, but macOS still requires you to enable its background services, approve **Accessibility**, and allow the driver/system extension. **Input Monitoring is normally unnecessary on Karabiner-Elements 16.0.0 and later**; grant it only for 15.9.0 or earlier, or when Karabiner itself asks. Enables Caps Lock = Esc/Ctrl. See `docs/keyboard.html`.
 - [ ] **Apple Developer / Xcode** — optional and large. If you enabled the Xcode setup option, Groundwork attempts the App Store install; if it does not go through, get Xcode from the Mac App Store manually. Then open Xcode once, accept first-launch setup/license prompts, sign in at Xcode → Settings → Accounts, and let Xcode manage certificates/profiles. Never put certificates, provisioning profiles, or `.mobileconfig` profiles in dotfiles. See `docs/macos.html`.
 - [ ] **Password manager** — sign in, enable the SSH agent, and confirm signed commits work. See `docs/apps.html` and `docs/git.html`.
 - [ ] **Bitwarden as default autofill** — make Bitwarden the source of truth for macOS, browsers, and mobile autofill. See `docs/apps.html`.
@@ -208,7 +208,8 @@ groundwork-help                     # show Groundwork commands, aliases, keys, a
 groundwork-help update              # filter the command catalog
 groundwork-docs                     # open the docs from the active Groundwork source checkout
 largest ~                           # find large files/folders, then show cleanup guidance
-groundwork-doctor                   # read-only health report, including legacy Docker proof tags
+groundwork-doctor                   # read-only health report, including Karabiner process memory and legacy Docker proof tags
+groundwork-karabiner-restart        # supported restart request; succeeds only after the root Core Service PID changes
 groundwork-docker-tidy              # dry-run tidy of ephemeral-labeled Docker scratch images, by enumeration (--yes to act)
 groundwork-docker-cache-tidy        # DAEMON-WIDE Docker cleanup preview (all projects; owner-run only, --yes to act)
 groundwork-docker-build-scratch review . --rm-after   # proof-only build that removes itself on success
@@ -289,10 +290,12 @@ home/
   dot_local/bin/executable_groundwork-distro # reports the distro ID; --family reports debian / fedora / arch / opensuse / unknown
   dot_local/bin/executable_largest    # guided largest-file/folder scanner over dust
   dot_local/bin/executable_groundwork-doctor # read-only machine health report
+  dot_local/bin/executable_groundwork-karabiner-restart # supported restart plus root Core Service PID verification
   dot_local/bin/executable_groundwork-docker-tidy # label-scoped Docker tidy by enumeration, dry run by default
   dot_local/bin/executable_groundwork-docker-cache-tidy # daemon-wide Docker cleanup, owner-run only
   dot_local/bin/executable_groundwork-docker-build-scratch # disposable-build wrapper: labels + scratch tag
   dot_local/share/groundwork/lib/docker-scan.sh # shared read-only scanner behind tidy and doctor
+  dot_local/share/groundwork/lib/karabiner.sh # shared version, support, process, memory, and restart facts
   dot_local/bin/executable_groundwork-repos # discover repos under configured roots; picker, status, dirty-repo windows
   dot_local/bin/executable_raycast-extensions.tmpl
                                       # Raycast Store extension checklist helper
