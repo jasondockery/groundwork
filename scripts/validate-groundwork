@@ -9658,6 +9658,21 @@ if shared.get("classification") != "intentional-manual" or shared.get("manager")
 renovate_config = json.loads((root / "renovate.json").read_text(encoding="utf-8"))
 if renovate_config.get("ignorePaths") != ["home/dot_config/mise/config.toml"]:
     raise SystemExit("Renovate must exclude the mise config owned by update-all")
+gitleaks_age_rules = [
+    rule
+    for rule in renovate_config.get("packageRules", [])
+    if rule.get("matchDepNames") == ["ghcr.io/gitleaks/gitleaks"]
+]
+if len(gitleaks_age_rules) != 1:
+    raise SystemExit("Renovate must define exactly one Gitleaks age-policy exception")
+gitleaks_age_rule = gitleaks_age_rules[0]
+if (
+    gitleaks_age_rule.get("matchDatasources") != ["docker"]
+    or "minimumReleaseAge" not in gitleaks_age_rule
+    or gitleaks_age_rule["minimumReleaseAge"] is not None
+    or set(gitleaks_age_rule) != {"description", "matchDatasources", "matchDepNames", "minimumReleaseAge"}
+):
+    raise SystemExit("the Gitleaks age-policy exception must stay exact, Docker-only, and disabled only by null")
 PY
 
   check "groundwork-repos helper"
@@ -10829,6 +10844,8 @@ PY
   # dependabot.yml would create duplicate PRs, so its absence is the guarded state.
   grep -q '"github>jasondockery/renovate-config"' renovate.json
   grep -Fq 'enforces a strict five-day floor for supported normal timestamped npm updates' renovate.json
+  grep -Fq 'GHCR does not expose a Renovate releaseTimestamp for the Gitleaks tags' renovate.json
+  grep -Fq 'Groundwork&apos;s Gitleaks container uses an exact local age-check exception' docs/dependencies.html
   grep -Fq 'timestamped npm major, minor, and patch versions use Renovate' AI_THESIS.md
   grep -Fq 'Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor.' docs/dependencies.html
   grep -Fq 'Security PRs bypass the normal age, weekly schedule, and routine rate limits' PLAYBOOK.md

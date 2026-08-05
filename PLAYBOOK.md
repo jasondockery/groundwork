@@ -24,6 +24,12 @@ What Renovate manages here:
 - The Dockerfile frontend and base image tag/digest.
 - The Gitleaks workflow container's version tag and immutable digest.
 
+  GHCR does not expose Renovate release timestamps for the Gitleaks tags. An
+  exact local package rule therefore disables the timestamp-based age check for
+  only `ghcr.io/gitleaks/gitleaks`; its tag and digest, required CI, and owner
+  review remain the delivery controls. Without that exception, strict age
+  checking would leave every newer Gitleaks tag pending forever.
+
 `dependency-coverage.json` also records the intentional manual lanes: Homebrew
 packages, checksum-coupled ShellCheck/shfmt assets, the Corepack compatibility
 pin, Aider's Python compatibility choice, the tmux theme release, and headless
@@ -36,8 +42,9 @@ Operating notes:
   advance in the separate early-Monday weekly window and are grouped into PRs
   labeled `dependencies`. Normal timestamped major, minor, and patch releases
   must also complete the strict five-day age floor. Action SHA pins, Docker
-  digests, lockfile maintenance, and other unsupported update types use the
-  repository-specific controls recorded in `dependency-coverage.json`. The Dependency
+  tags or digests without usable release timestamps, lockfile maintenance, and
+  other unsupported update types use the repository-specific controls recorded
+  in `dependency-coverage.json`. The Dependency
   Dashboard issue lists pending updates; checking a box there forces a PR
   ahead of the schedule (the runner acts on it at its next cron/dispatch
   run, not instantly).

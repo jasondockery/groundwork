@@ -2,11 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "Groundwork dependency updates use the daily self-hosted runner in jasondockery/renovate-config. The shared preset owns the weekly routine update/branch window, enforces a strict five-day floor for supported normal timestamped npm updates, and explicitly bypasses the routine schedule, age floor, and rate limits for vulnerability alerts. Pins, digests, and manual surfaces use the controls in dependency-coverage.json. The canonical end-to-end acceptance contract lives at renovate-config/specs/renovate-system-acceptance.md.",
-    "Groundwork's managed surfaces are GitHub Actions SHA pins, Dockerfile image tags/digests, the tagged-and-digested Gitleaks workflow container, and declared Python versions in the managed mise configuration. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because several surfaces are immutable pins, not semver ranges. A green runner scan is not Groundwork compatibility proof — an eligible PR must pass Groundwork CI."
+    "Groundwork's managed surfaces are GitHub Actions SHA pins, Dockerfile image tags/digests, the tagged-and-digested Gitleaks workflow container, and declared Python versions in the managed mise configuration. GHCR does not expose a Renovate releaseTimestamp for the Gitleaks tags, so that exact dependency uses its inventoried immutable-digest, CI, and owner-review controls instead of the timestamp-based age check. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because several surfaces are immutable pins, not semver ranges. A green runner scan is not Groundwork compatibility proof — an eligible PR must pass Groundwork CI."
   ],
   "extends": ["github>jasondockery/renovate-config"],
   "ignorePaths": ["home/dot_config/mise/config.toml"],
   "packageRules": [
+    {
+      "description": "GHCR does not expose releaseTimestamp for Gitleaks tags; rely on its immutable digest, required CI, and owner review instead of leaving every update pending forever.",
+      "matchDatasources": ["docker"],
+      "matchDepNames": ["ghcr.io/gitleaks/gitleaks"],
+      "minimumReleaseAge": null
+    },
     {
       "groupName": "non-major dependencies",
       "matchUpdateTypes": ["minor", "patch", "digest", "pin"]

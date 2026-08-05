@@ -52,7 +52,7 @@
         { "pathPattern": "^\\.github/workflows/", "pattern": "container-reference" },
         { "pathPattern": "^\\.github/workflows/", "pattern": "digest" }
       ],
-      "note": "Renovate extracts action SHAs, version comments, runner labels, and workflow containers; pin and digest update types are outside the five-day guarantee."
+      "note": "Renovate extracts action SHAs, version comments, runner labels, and workflow containers; pin and digest update types are outside the five-day guarantee. GHCR does not expose releaseTimestamp for Gitleaks tags, so renovate.json disables the age check only for that exact tag-and-digest-pinned dependency."
     },
     {
       "id": "shared-preset-reference",
