@@ -136,9 +136,9 @@
       <div class="quickref">
         <div class="qr-label">Quick reference — the whole lifecycle</div>
         <div class="quickref-grid">
-          <div class="qr"><span class="keys"><code>git worktree add -b fix-auth ../repo-fix-auth origin/main</code></span> <span class="act">New branch from a stated base</span></div>
+          <div class="qr"><span class="keys"><code>git worktree add -b fix-auth ~/code/.worktrees/example-myrepo/fix-auth origin/main</code></span> <span class="act">Persistent lane from a stated base</span></div>
           <div class="qr"><span class="keys"><code>git worktree list</code></span> <span class="act">Every worktree and its branch</span></div>
-          <div class="qr"><span class="keys"><code>git worktree remove ../repo-fix-auth</code></span> <span class="act">Delete it when the work lands</span></div>
+          <div class="qr"><span class="keys"><code>git worktree remove ~/code/.worktrees/example-myrepo/fix-auth</code></span> <span class="act">Delete it when the work lands</span></div>
           <div class="qr"><span class="keys"><code>git worktree prune</code></span> <span class="act">Clean up after a manually deleted one</span></div>
         </div>
       </div>
@@ -172,10 +172,10 @@
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">worktree lifecycle</span></div>
         <pre><code><span class="prompt">$ </span>git fetch origin                                        <span class="comment"># make the base current first</span>
-<span class="prompt">$ </span>git worktree add -b fix-auth ../myrepo-fix-auth origin/main
-<span class="prompt">$ </span>cd ../myrepo-fix-auth                                   <span class="comment"># work here as normal</span>
+<span class="prompt">$ </span>git worktree add -b fix-auth ~/code/.worktrees/example-myrepo/fix-auth origin/main
+<span class="prompt">$ </span>cd ~/code/.worktrees/example-myrepo/fix-auth            <span class="comment"># work here as normal</span>
 <span class="prompt">$ </span>git worktree list                                       <span class="comment"># see them all, with branches</span>
-<span class="prompt">$ </span>git worktree remove ../myrepo-fix-auth                  <span class="comment"># when the PR is merged</span>
+<span class="prompt">$ </span>git worktree remove ~/code/.worktrees/example-myrepo/fix-auth <span class="comment"># when the PR is merged</span>
 <span class="prompt">$ </span>git fetch origin                                        <span class="comment"># let your local base see the merge</span>
 <span class="prompt">$ </span>git branch -d fix-auth                                  <span class="comment"># then retire the branch</span></code></pre>
       </div>
@@ -185,8 +185,9 @@
         <p>This matters more with agents than without: you often create the worktree from wherever your shell already was, and nothing in the agent's context can reveal a wrong starting point. State the base every time.</p>
         <p>The same applies to cleanup. <code>git branch -d</code> refuses when your <em>local</em> base branch hasn't yet observed the merge — the work is safely on the remote, but your clone doesn't know. Fetch first; if you then still need <code>-D</code>, confirm the commits really landed before forcing it.</p>
       </div>
-      <p>Put worktrees <em>beside</em> the repository, not inside it. A worktree nested in the main checkout shows up as untracked files in the parent and invites an agent to commit one project into another. A sibling directory named after the branch keeps both the shell prompt and <code>git worktree list</code> readable.</p>
-      <p>To read an old revision without disturbing any branch, use a detached one and delete it after: <code>git worktree add --detach ../myrepo-review v1.4.0</code>.</p>
+      <p>For persistent agent work, use <code>&lt;configured-root&gt;/.worktrees/&lt;unique-repo-slug&gt;/&lt;lane&gt;</code>. With Groundwork's default repository root, one example is <code>~/code/.worktrees/example-myrepo/fix-auth</code>. The repository slug should be stable and unique — use <code>owner-project</code> or another unambiguous name when common basenames such as <code>api</code>, <code>docs</code>, or <code>web</code> could collide. The path stays outside the main checkout, survives reboots, remains within <a href="repo-navigation.html"><code>groundwork-repos</code></a> discovery, and makes the repository and lane obvious. If you changed the roots in <code>~/.config/groundwork/repos.conf</code>, put <code>.worktrees</code> under one of those roots instead.</p>
+      <p>Never nest a linked worktree inside its main checkout: it appears as untracked content in the parent and invites an agent to commit one working directory into another. A location under <code>/private/tmp</code> is reasonable for proof you will discard in the same task, but it is normally outside configured roots, so Groundwork's cross-repository picker and dirty-work supervision will not see it.</p>
+      <p>To read an old revision without disturbing any branch, use a detached one and delete it after: <code>git worktree add --detach ~/code/.worktrees/example-myrepo/review-v1.4.0 v1.4.0</code>.</p>
 
       <h2><span class="hash">#</span>What surprises people</h2>
       <table class="keytable">

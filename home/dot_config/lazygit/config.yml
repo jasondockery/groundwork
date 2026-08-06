@@ -15,6 +15,20 @@ gui:
   showBottomLine: true
   # Show the panel jump keys in each panel title.
   showPanelJumps: true
+  # Pin the panel-and-tab layout Groundwork teaches instead of inheriting a
+  # changeable upstream default.
+  sidePanels:
+    - [status]
+    - [files, worktrees, submodules]
+    - [branches, remotes, tags]
+    - [commits, reflog]
+    - [stash]
+  # Pressing an already-focused panel number cycles that panel's tabs. Native
+  # h/l panel movement and [/] tab movement remain unchanged.
+  switchTabsWithPanelJumpKeys: true
+  # Keep LazyGit's warning when checkout targets a branch that is already
+  # active in another worktree.
+  skipSwitchWorktreeOnCheckoutWarning: false
   # No animation, ever: motion adds nothing to inspecting a diff and is an
   # accessibility cost. (This kills the nuke-working-tree explosion.)
   animateExplosion: false

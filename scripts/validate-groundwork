@@ -9835,8 +9835,17 @@ SH
   grep -qF 'language: auto' home/dot_config/lazygit/config.yml
   grep -qF 'showBottomLine: true' home/dot_config/lazygit/config.yml
   grep -qF 'showPanelJumps: true' home/dot_config/lazygit/config.yml
+  grep -qF '    - [status]' home/dot_config/lazygit/config.yml
+  grep -qF '    - [files, worktrees, submodules]' home/dot_config/lazygit/config.yml
+  grep -qF '    - [branches, remotes, tags]' home/dot_config/lazygit/config.yml
+  grep -qF '    - [commits, reflog]' home/dot_config/lazygit/config.yml
+  grep -qF '    - [stash]' home/dot_config/lazygit/config.yml
+  grep -qF 'switchTabsWithPanelJumpKeys: true' home/dot_config/lazygit/config.yml
+  grep -qF 'skipSwitchWorktreeOnCheckoutWarning: false' home/dot_config/lazygit/config.yml
   grep -qF 'animateExplosion: false' home/dot_config/lazygit/config.yml
   grep -qF 'Open repository in Neovim' home/dot_config/lazygit/config.yml
+  grep -qF 'press the active panel' docs/lazygit.html
+  grep -qF '&lt;configured-root&gt;/.worktrees/&lt;unique-repo-slug&gt;/&lt;lane&gt;' docs/worktrees.html
   # lazygit only reads ~/.config on macOS when XDG_CONFIG_HOME says so; the
   # export lives in the login shell so tmux servers and tool runners inherit it.
   grep -qF "export XDG_CONFIG_HOME=\"\${XDG_CONFIG_HOME:-\$HOME/.config}\"" home/dot_zprofile.tmpl
@@ -9933,6 +9942,9 @@ SH
   repos_mk "$repos_root/node_modules/hidden"
   repos_mk "$repos_root/d1/d2/d3/d4/toodeep"
   repos_git -C "$repos_root/alpha" worktree add -q "$repos_root/alpha-wt"
+  repos_git -C "$repos_root/alpha" worktree add -q -b agent-one \
+    "$repos_root/.worktrees/example-alpha/agent-one"
+  echo change >"$repos_root/.worktrees/example-alpha/agent-one/untracked.txt"
   mkdir -p "$repos_root/loop"
   ln -s .. "$repos_root/loop/back"
   echo change >"$repos_root/space repo/untracked.txt"
@@ -10001,6 +10013,7 @@ EOF
   grep -qF "$repos_root/outer"$'\t' "$repos_dir/list-out"
   grep -qF "$repos_root/outer/inner"$'\t' "$repos_dir/list-out"
   grep -qF "$repos_root/alpha-wt"$'\t'"wt" "$repos_dir/list-out"
+  grep -qF "$repos_root/.worktrees/example-alpha/agent-one"$'\t'"wt" "$repos_dir/list-out"
   assert_no_matches "excluded directory leaked into discovery" grep -n 'node_modules' "$repos_dir/list-out"
   assert_no_matches "repo beyond max_depth leaked into discovery" grep -n 'toodeep' "$repos_dir/list-out"
   assert_no_matches "symlink-loop paths leaked past canonical dedupe" grep -n '/loop/back/' "$repos_dir/list-out"
@@ -10087,6 +10100,8 @@ SH
   grep -qF 'one/app' "$repos_dir/status-out"
   grep -qF 'two/app' "$repos_dir/status-out"
   grep -- '/alpha-wt$' "$repos_dir/status-out" | grep -qF ' wt '
+  grep -F 'agent-one' "$repos_dir/status-out" | grep -qF '● dirty'
+  grep -F 'agent-one' "$repos_dir/status-out" | grep -qF ' wt '
   grep -qF 'main' "$repos_dir/status-out"
   assert_no_matches "status table must not emit color under NO_COLOR" grep -n $'\033\[' "$repos_dir/status-out"
   # Shortest-unique-suffix names: identical basename+parent across two roots
@@ -10175,18 +10190,21 @@ SH
   grep -qxF -- 'root2/client/app' "$repos_tmux_log"
   rm "$repos_root/client/app/wip.txt" "$repos_root2/client/app/wip.txt"
 
-  # changed: one window per dirty repo, none for clean repos.
+  # changed: one window per dirty repo, including the persistent agent
+  # worktree under .worktrees, and none for clean repos.
   echo dirt >"$repos_root/alpha/wip.txt"
   echo dirt >"$repos_root/one/app/wip.txt"
   : >"$repos_tmux_log"
   repos_run 'validate,0,0' "$repos_path" changed >"$repos_dir/changed-out"
-  test "$(grep -cxF -- 'new-window' "$repos_tmux_log")" = 2
+  test "$(grep -cxF -- 'new-window' "$repos_tmux_log")" = 3
   grep -qxF -- 'one/app' "$repos_tmux_log"
+  grep -qxF -- 'agent-one' "$repos_tmux_log"
   assert_no_matches "changed opened a window for a clean repo" grep -n "$repos_root/two/app" "$repos_tmux_log"
-  grep -qF 'opened 2 lazygit window(s)' "$repos_dir/changed-out"
+  grep -qF 'opened 3 lazygit window(s)' "$repos_dir/changed-out"
 
   # changed with everything clean opens nothing and says so.
-  rm "$repos_root/alpha/wip.txt" "$repos_root/one/app/wip.txt"
+  rm "$repos_root/alpha/wip.txt" "$repos_root/one/app/wip.txt" \
+    "$repos_root/.worktrees/example-alpha/agent-one/untracked.txt"
   : >"$repos_tmux_log"
   repos_run 'validate,0,0' "$repos_path" changed >"$repos_dir/changed-clean"
   grep -qF 'every discovered repository is clean' "$repos_dir/changed-clean"

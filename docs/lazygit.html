@@ -140,6 +140,8 @@
           <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>g</kbd></span> <span class="act">popup for the current repo</span></div>
           <div class="qr"><span class="keys"><kbd>prefix</kbd> <kbd>R</kbd></span> <span class="act">pick any repo → its lazygit window</span></div>
           <div class="qr"><span class="keys"><kbd>O</kbd></span> <span class="act">open the repo in Neovim (Groundwork custom command)</span></div>
+          <div class="qr"><span class="keys"><kbd>1</kbd>…<kbd>5</kbd></span> <span class="act">jump to a panel; press its number again for the next tab</span></div>
+          <div class="qr"><span class="keys"><kbd>[</kbd> / <kbd>]</kbd></span> <span class="act">previous / next tab in the current panel</span></div>
           <div class="qr"><span class="keys"><kbd>?</kbd></span> <span class="act">every shortcut for the panel you're in</span></div>
         </div>
       </div>
@@ -153,11 +155,33 @@
         <tr><td><code>os.editPreset: nvim</code></td><td>Commit messages, rebases, and "edit this file" land in <a href="neovim.html">Neovim</a></td></tr>
         <tr><td><code>gui.showBottomLine: true</code></td><td>The shortcut hint line stays visible — discoverable keys beat memorized ones</td></tr>
         <tr><td><code>gui.showPanelJumps: true</code></td><td>Panel jump numbers stay visible in panel titles</td></tr>
+        <tr><td><code>gui.sidePanels</code></td><td>Pins the five documented panels and their Files / Worktrees / Submodules, Branches / Remotes / Tags, and Commits / Reflog tabs</td></tr>
+        <tr><td><code>gui.switchTabsWithPanelJumpKeys: true</code></td><td>Press an already-focused panel number again to advance to its next tab</td></tr>
+        <tr><td><code>gui.skipSwitchWorktreeOnCheckoutWarning: false</code></td><td>Keeps the warning when a branch is already checked out in another worktree</td></tr>
         <tr><td><code>gui.animateExplosion: false</code></td><td>No animation, anywhere: motion adds nothing to reviewing a diff</td></tr>
         <tr><td><code>gui.language: auto</code></td><td>Follows your system language instead of pinning English</td></tr>
         <tr><td><kbd>O</kbd> custom command</td><td>"Open repository in Neovim" from any panel — inspect in lazygit, edit in the editor, same window</td></tr>
       </table>
       <p>It's a fully managed file: change it with <code>chezmoi edit --apply ~/.config/lazygit/config.yml</code> so your change survives the next apply, and see <a href="customizing.html">Customizing</a> for the pattern.</p>
+
+      <h2><span class="hash">#</span>Move through panels and tabs</h2>
+      <p>Groundwork keeps LazyGit's native navigation grammar. Items move vertically, panels move horizontally, and tabs cycle with brackets; no custom mapping steals those keys from LazyGit's built-in help.</p>
+      <table class="keytable">
+        <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Next / previous item in the current list</td></tr>
+        <tr><td><kbd>h</kbd> / <kbd>l</kbd></td><td>Previous / next panel</td></tr>
+        <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Previous / next tab in the current panel</td></tr>
+        <tr><td><kbd>1</kbd>…<kbd>5</kbd></td><td>Jump to Status, Files, Branches, Commits, or Stash; press the active panel's number again to cycle its tabs</td></tr>
+        <tr><td><kbd>H</kbd> / <kbd>L</kbd></td><td>Scroll the main content left / right</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Open the context-sensitive keybinding help</td></tr>
+      </table>
+      <p>Panel <kbd>2</kbd> contains Files, Worktrees, and Submodules. Press <kbd>2</kbd> to focus it, then press <kbd>2</kbd> repeatedly to cycle Files → Worktrees → Submodules. Use <kbd>]</kbd> and <kbd>[</kbd> for explicit next / previous tab movement.</p>
+      <table class="keytable">
+        <tr><td><kbd>n</kbd></td><td>Create a linked worktree</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Switch LazyGit to the selected worktree</td></tr>
+        <tr><td><kbd>o</kbd></td><td>Open the selected worktree in Neovim</td></tr>
+        <tr><td><kbd>d</kbd></td><td>Remove the selected worktree directory and its Git worktree metadata; inspect its changes before confirming</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Filter the worktree list</td></tr>
+      </table>
 
       <h2><span class="hash">#</span>Reviewing an agent's work</h2>
       <p>lazygit's review loop is the human half of the <a href="agents.html">agent workflow</a>: the agent proposes, you inspect and own the commit. The moves that matter, all visible under <kbd>?</kbd>:</p>
