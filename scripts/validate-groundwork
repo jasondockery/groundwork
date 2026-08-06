@@ -11763,6 +11763,7 @@ validate_full() {
   # Receipts are still checked and merged in registry order after every child
   # finishes, keeping the final evidence deterministic.
   local entry focused_suite child_report child_status child_pid child_index=0
+  local child_receipt_ok child_receipt_reason
   local -a focused_suites=() child_reports=() child_pids=() child_statuses=()
   for entry in "${suite_registry[@]}"; do
     IFS='|' read -r focused_suite _ <<<"$entry"
@@ -11786,40 +11787,36 @@ validate_full() {
   for focused_suite in "${focused_suites[@]}"; do
     child_report="${child_reports[$child_index]}"
     child_status="${child_statuses[$child_index]}"
-    [[ -f "$child_report" ]] \
-      || fail "full composition received no receipt from focused suite $focused_suite"
-    python3 - "$child_report" "$timing_rows" "$focused_suite" "$source_before" "$repo" <<'PY'
-import json
+    if [[ ! -f "$child_report" ]]; then
+      printf 'focused suite %s\t0\tfailed\t\tfocused suite produced no receipt\n' \
+        "$focused_suite" >>"$timing_rows"
+      fail "full composition received no receipt from focused suite $focused_suite"
+    fi
+    IFS=$'\t' read -r child_receipt_ok child_receipt_reason < <(
+      python3 - "$child_report" "$timing_rows" "$focused_suite" "$source_before" "$repo" <<'PY'
 import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(sys.argv[5]) / "scripts"))
-from ci_receipt import validate_receipt
+from ci_receipt import import_validation_child_receipt
 
-with open(sys.argv[1], encoding="utf-8") as source:
-    receipt = validate_receipt(json.load(source), expected_kind="validation-suite")
-with open(sys.argv[4], encoding="utf-8") as source:
-    parent_source = json.load(source)
-if receipt["body"]["suite"] != sys.argv[3]:
-    raise SystemExit("focused receipt names the wrong suite")
-if receipt["result"] != "passed":
-    raise SystemExit("focused receipt did not pass")
-if receipt["source"]["treeChangedDuringValidation"]:
-    raise SystemExit("focused receipt observed a source change")
-if receipt["source"]["treeFingerprint"] != parent_source["treeFingerprint"]:
-    raise SystemExit("focused receipt does not match the full run's source fingerprint")
-with open(sys.argv[2], "a", encoding="utf-8") as rows:
-    for check in receipt["body"]["checks"]:
-        skip_code = check.get("skipCode", "")
-        reason = check.get("reason", "")
-        if any(character in value for value in (skip_code, reason) for character in "\t\r\n"):
-            raise SystemExit("focused receipt contains unsafe skip evidence")
-        rows.write(
-            f"{check['name']}\t{check['durationSeconds']}\t{check['result']}\t{skip_code}\t{reason}\n"
-        )
+passed, reason = import_validation_child_receipt(
+    pathlib.Path(sys.argv[1]),
+    pathlib.Path(sys.argv[2]),
+    sys.argv[3],
+    pathlib.Path(sys.argv[4]),
+)
+print(f"{'passed' if passed else 'failed'}\t{reason}")
 PY
-    [[ "$child_status" -eq 0 ]] \
-      || fail "focused suite $focused_suite failed during full composition"
+    )
+    if [[ "$child_receipt_ok" != "passed" ]]; then
+      fail "focused suite $focused_suite failed during full composition: $child_receipt_reason"
+    fi
+    if [[ "$child_status" -ne 0 ]]; then
+      printf 'focused suite %s\t0\tfailed\t\tchild process exited %s despite a passing receipt\n' \
+        "$focused_suite" "$child_status" >>"$timing_rows"
+      fail "focused suite $focused_suite exited $child_status despite a passing receipt"
+    fi
     child_index=$((child_index + 1))
   done
 }

@@ -880,6 +880,80 @@ def atomic_write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
                 pass
 
 
+def import_validation_child_receipt(
+    child_path: pathlib.Path,
+    timing_path: pathlib.Path,
+    suite: str,
+    parent_source_path: pathlib.Path,
+) -> tuple[bool, str]:
+    """Import one full-composition child or record why that suite failed."""
+
+    validate_text(suite, "focused suite")
+    if not re.fullmatch(r"[a-z0-9-]+", suite):
+        raise ReceiptError("focused suite has an unsafe name")
+
+    def safe_reason(value: object) -> str:
+        normalized = re.sub(r"[\t\r\n]+", " ", str(value)).strip()
+        return normalized[:500] or "unknown focused-receipt failure"
+
+    def append_failure(reason: str, duration: int = 0) -> tuple[bool, str]:
+        clean_reason = safe_reason(reason)
+        with timing_path.open("a", encoding="utf-8") as rows:
+            rows.write(
+                f"focused suite {suite}\t{duration}\tfailed\t\t{clean_reason}\n"
+            )
+        return False, clean_reason
+
+    try:
+        with child_path.open(encoding="utf-8") as source:
+            receipt = validate_receipt(
+                json.load(source), expected_kind="validation-suite"
+            )
+        with parent_source_path.open(encoding="utf-8") as source:
+            parent_source = json.load(source)
+    except (OSError, json.JSONDecodeError, ReceiptError, KeyError, TypeError) as error:
+        return append_failure(f"focused receipt could not be validated: {error}")
+
+    if receipt["body"]["suite"] != suite:
+        return append_failure(
+            f"focused receipt names suite {receipt['body']['suite']}, expected {suite}"
+        )
+
+    problems: list[str] = []
+    if receipt["result"] != "passed":
+        failed_checks = [
+            check for check in receipt["body"]["checks"] if check["result"] == "failed"
+        ]
+        details = "; ".join(
+            f"{check['name']}: {check.get('reason', 'failed')}"
+            for check in failed_checks
+        )
+        problems.append(f"focused receipt failed: {details or 'no failed check named'}")
+    if receipt["source"]["treeChangedDuringValidation"]:
+        problems.append("focused receipt observed a source change")
+    if receipt["source"]["treeFingerprint"] != parent_source.get("treeFingerprint"):
+        problems.append("focused receipt does not match the full run's source fingerprint")
+    if problems:
+        return append_failure(
+            "; ".join(problems), receipt["body"]["suiteDurationSeconds"]
+        )
+
+    imported_rows: list[str] = []
+    for check in receipt["body"]["checks"]:
+        skip_code = check.get("skipCode", "")
+        reason = check.get("reason", "")
+        for value in (check["name"], skip_code, reason):
+            if any(character in value for character in "\t\r\n"):
+                return append_failure("focused receipt contains unsafe check evidence")
+        imported_rows.append(
+            f"{check['name']}\t{check['durationSeconds']}\t{check['result']}\t"
+            f"{skip_code}\t{reason}\n"
+        )
+    with timing_path.open("a", encoding="utf-8") as rows:
+        rows.writelines(imported_rows)
+    return True, ""
+
+
 def append_summary(path: pathlib.Path | None, content: str) -> None:
     if path is None:
         return

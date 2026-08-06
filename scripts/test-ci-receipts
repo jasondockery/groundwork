@@ -12,7 +12,13 @@ import tempfile
 import time
 
 import ci_receipt
-from ci_receipt import ReceiptError, common_envelope, tree_snapshot, validate_receipt
+from ci_receipt import (
+    ReceiptError,
+    common_envelope,
+    import_validation_child_receipt,
+    tree_snapshot,
+    validate_receipt,
+)
 
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -92,6 +98,93 @@ def assert_rejected(arguments: list[str], output: pathlib.Path, workspace: pathl
     completed = run(arguments, workspace=workspace)
     assert completed.returncode != 0, completed
     assert not output.exists(), f"invalid invocation mutated {output}"
+
+
+def assert_full_child_failure_is_named(temporary: pathlib.Path) -> None:
+    workspace = temporary / "full-child-import-workspace"
+    workspace.mkdir()
+    initialize_repo(workspace)
+    snapshot = tree_snapshot(workspace)
+    parent_source = temporary / "full-parent-source.json"
+    parent_source.write_text(f"{json.dumps(snapshot)}\n", encoding="utf-8")
+
+    def detail(result: str) -> dict:
+        failed = result == "failed"
+        payload = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result=result,
+            started_epoch=100,
+            finished_epoch=102,
+            platform_os="linux",
+            platform_image="fixture",
+            platform_arch="x64",
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+        payload["body"] = {
+            "suite": "static",
+            "scope": "fixture",
+            "proofType": "fixture",
+            "cacheState": "unavailable",
+            "suiteDurationSeconds": 2,
+            "suiteBudgetSeconds": 3,
+            "suiteBudgetState": "within",
+            "hardDeadlineSeconds": 540,
+            "checkCount": 1,
+            "passedCount": 0 if failed else 1,
+            "skippedCount": 0,
+            "failedCount": 1 if failed else 0,
+            "checks": [
+                {
+                    "name": "docs links and coverage",
+                    "durationSeconds": 2,
+                    "result": "failed" if failed else "passed",
+                    **(
+                        {"reason": "discovery artifacts stale: docs/sitemap.xml"}
+                        if failed
+                        else {}
+                    ),
+                }
+            ],
+            "commands": {"localEquivalent": "fixture"},
+        }
+        return validate_receipt(payload, expected_kind="validation-suite")
+
+    child_receipt = temporary / "full-child.json"
+    timing_rows = temporary / "full-child-timings.tsv"
+    timing_rows.write_text("", encoding="utf-8")
+    child_receipt.write_text(f"{json.dumps(detail('passed'))}\n", encoding="utf-8")
+    passed, reason = import_validation_child_receipt(
+        child_receipt, timing_rows, "static", parent_source
+    )
+    assert passed and not reason
+    assert timing_rows.read_text(encoding="utf-8") == (
+        "docs links and coverage\t2\tpassed\t\t\n"
+    )
+
+    timing_rows.write_text("", encoding="utf-8")
+    child_receipt.write_text(f"{json.dumps(detail('failed'))}\n", encoding="utf-8")
+    passed, reason = import_validation_child_receipt(
+        child_receipt, timing_rows, "static", parent_source
+    )
+    assert not passed
+    assert "docs links and coverage" in reason
+    assert "docs/sitemap.xml" in reason
+    failed_row = timing_rows.read_text(encoding="utf-8")
+    assert failed_row.startswith("focused suite static\t2\tfailed\t\t")
+    assert "docs links and coverage" in failed_row
+
+    timing_rows.write_text("", encoding="utf-8")
+    child_receipt.write_text("{not json}\n", encoding="utf-8")
+    passed, reason = import_validation_child_receipt(
+        child_receipt, timing_rows, "static", parent_source
+    )
+    assert not passed
+    assert "could not be validated" in reason
+    assert timing_rows.read_text(encoding="utf-8").startswith(
+        "focused suite static\t0\tfailed\t\t"
+    )
 
 
 def assert_malformed_detail_still_writes_job_receipt(temporary: pathlib.Path) -> None:
@@ -807,6 +900,7 @@ esac
         assert_malformed_detail_still_writes_job_receipt(temporary)
         assert_validator_detail_mismatches_fail_closed(temporary)
         assert_validation_source_transactions(temporary)
+        assert_full_child_failure_is_named(temporary)
 
     print("test-ci-receipts: passed")
     return 0
