@@ -10,7 +10,7 @@ export const toolchainContract = Object.freeze({
     { path: '.github/workflows/ci.yml', tool: 'node', role: 'reference', format: 'node-version-file' },
   ],
   ignoredGeneratedConsumers: ['pnpm-lock.yaml'],
-  classifiedFixtureRoots: ['tools/fixtures'],
+  classifiedFixtureRoots: ['tools/fixtures', 'tests/fixtures'],
   classifiedHistoricalRoots: ['CHANGELOG.md'],
   classifiedImplementationPaths: [
     'tools/check-toolchain.mjs',

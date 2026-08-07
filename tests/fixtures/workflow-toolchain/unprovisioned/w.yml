@@ -1,0 +1,7 @@
+name: u
+jobs:
+  a:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run
+        run: scripts/run-fixture-job --suite full

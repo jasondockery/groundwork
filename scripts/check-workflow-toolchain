@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Every job that runs repository Node tooling provisions the repository toolchain.
+#
+# The defect this pins: a job invokes `scripts/validate-groundwork` or
+# `node tools/…`, which now enforces the Node and pnpm authority contract, but
+# the job never ran `actions/setup-node` from `.node-version` or enabled
+# Corepack. It then fails on the runner's ambient Node, and nothing local
+# reproduces it — a developer machine always has a Node and a pnpm on PATH
+# (field-hit 2026-08-07: the Full validation lane broke this way while CI, which
+# had the setup steps, stayed green).
+#
+# Policy, per job:
+#   runs repository Node tooling  must configure actions/setup-node with
+#                                 node-version-file: .node-version, and must
+#                                 enable Corepack so bare `pnpm` resolves the
+#                                 pinned packageManager
+#   everything else               exempt
+#   reusable-workflow call job    exempt — the CALLED workflow owns its setup
+#
+# `.node-version` is the single Node authority (AGENTS.md → mandatory skill
+# triggers, skills/toolchain-authority); a literal `node-version:` here would be
+# a second owner, so it is rejected rather than accepted as equivalent.
+#
+# Usage: check-workflow-toolchain [workflow-directory]
+set -euo pipefail
+
+workflow_dir="${1:-.github/workflows}"
+repo_root="${2:-.}"
+
+status=0
+found_any=0
+
+# Which repository scripts reach the Node contract. A job rarely calls
+# `validate-groundwork` directly — it calls a wrapper (`run-validation-job`),
+# and hardcoding today's entrypoints means the next wrapper silently escapes
+# the gate. Grow the set to a fixpoint instead: seed it with whatever runs the
+# Node tooling directly, then repeatedly add any script that calls a member.
+reaching=()
+if [[ -d "$repo_root/scripts" ]]; then
+  while IFS= read -r script; do
+    reaching+=("$(basename "$script")")
+  done < <(grep -rlE 'node[[:space:]]+tools/|check-toolchain\.mjs' "$repo_root/scripts" 2>/dev/null || true)
+
+  for _ in 1 2 3 4 5; do
+    added=0
+    for script in "$repo_root/scripts"/*; do
+      [[ -f "$script" ]] || continue
+      name="$(basename "$script")"
+      printf '%s\n' "${reaching[@]}" | grep -qxF "$name" && continue
+      for member in "${reaching[@]}"; do
+        if grep -qF "$member" "$script" 2>/dev/null; then
+          reaching+=("$name")
+          added=1
+          break
+        fi
+      done
+    done
+    [[ $added -eq 0 ]] && break
+  done
+fi
+
+# One alternation awk can test each job body against.
+trigger='node[ \t]+tools/'
+for name in "${reaching[@]}"; do
+  trigger="$trigger|scripts/$name"
+done
+
+# Both extensions are valid GitHub workflow suffixes. Globbing one and silently
+# ignoring the other would let an unprovisioned job pass the gate.
+shopt -s nullglob
+workflows=("$workflow_dir"/*.yml "$workflow_dir"/*.yaml)
+shopt -u nullglob
+
+if [[ ${#workflows[@]} -eq 0 ]]; then
+  echo "no workflow files found in $workflow_dir" >&2
+  exit 1
+fi
+
+for workflow in "${workflows[@]}"; do
+  found_any=1
+  awk -v file="$workflow" -v trigger="$trigger" '
+    function flush_job() {
+      if (job == "" || !needs_toolchain || reusable) return
+      if (!setup_node) {
+        printf "%s: job %s runs repository Node tooling without actions/setup-node\n", file, job
+        bad = 1
+      } else if (!version_file) {
+        printf "%s: job %s must set node-version-file: .node-version, the single Node authority\n", file, job
+        bad = 1
+      }
+      if (!corepack) {
+        printf "%s: job %s runs repository Node tooling without enabling Corepack for the pinned pnpm\n", file, job
+        bad = 1
+      }
+    }
+    /^jobs:[ \t]*$/ { in_jobs = 1; next }
+    !in_jobs { next }
+    # Any new top-level key ends the jobs block.
+    /^[^ \t#]/ { flush_job(); job = ""; in_jobs = 0; next }
+    # Job keys sit at exactly two spaces.
+    /^  [A-Za-z_][A-Za-z0-9_-]*:[ \t]*(#.*)?$/ {
+      flush_job()
+      job = $1; sub(/:$/, "", job)
+      needs_toolchain = 0; setup_node = 0; version_file = 0; corepack = 0; reusable = 0
+      next
+    }
+    job == "" { next }
+    /^    uses:[ \t]/ { reusable = 1; next }
+    # Anything that reaches the repository Node contract, wherever it appears in
+    # the job body (a run block, a composite step, a heredoc).
+    $0 ~ trigger { needs_toolchain = 1 }
+    /uses:[ \t]*actions\/setup-node@/ { setup_node = 1 }
+    /node-version-file:[ \t]*\.node-version[ \t]*(#.*)?$/ { version_file = 1 }
+    /corepack[ \t]+enable/ { corepack = 1 }
+    END { flush_job(); exit bad ? 1 : 0 }
+  ' "$workflow" || status=1
+done
+
+if [[ $found_any -eq 1 && $status -eq 0 ]]; then
+  echo "ok: every job in $workflow_dir that runs repository Node tooling provisions it"
+fi
+
+exit "$status"

@@ -11240,6 +11240,37 @@ EOF
   check "every CI job declares a bounded timeout"
   scripts/check-workflow-timeouts >/dev/null
 
+  check "workflow toolchain checker behaves as specified"
+  # Same fixture discipline as the timeout checker: never mutate live workflow
+  # files to produce a red proof. The fixture scripts also prove the reaching-set
+  # fixpoint, because the job calls a wrapper rather than the Node tooling.
+  toolchain_fixtures="tests/fixtures/workflow-toolchain"
+  expect_workflow_toolchain() {
+    local want="$1" dir="$2" needle="$3" out rc
+    set +e
+    out="$(scripts/check-workflow-toolchain "$toolchain_fixtures/$dir" "$toolchain_fixtures" 2>&1)"
+    rc=$?
+    set -e
+    if [[ "$rc" != "$want" ]]; then
+      echo "workflow-toolchain checker: $dir exited $rc, expected $want" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+    if [[ "$needle" != "-" && "$out" != *"$needle"* ]]; then
+      echo "workflow-toolchain checker: $dir output missing \"$needle\"" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+  }
+  expect_workflow_toolchain 0 provisioned "ok: every job"
+  expect_workflow_toolchain 0 unrelated "ok: every job"
+  expect_workflow_toolchain 1 unprovisioned "without actions/setup-node"
+  expect_workflow_toolchain 1 no-corepack "without enabling Corepack"
+  expect_workflow_toolchain 1 literal-version "single Node authority"
+
+  check "every CI job running repository Node tooling provisions it"
+  scripts/check-workflow-toolchain >/dev/null
+
   check "environment profile: browser resolution, reporting, and hostile arguments"
   # The browser vertical slice consumes the stored posture while preserving the
   # safe-mutating contract: show/set/help and invalid input do not change state.
