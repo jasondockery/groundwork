@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Focused pre-push gate. Budget: 2 minutes (specs/verification-and-proof.md →
+# Hook budget). This is not the final gate: scripts/validate-groundwork owns
+# that, and duplicating it here would only make every push pay for it twice.
+#
+# Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+node tools/check-toolchain.mjs
+node --test tools/*.test.mjs
+scripts/check-workflow-timeouts >/dev/null
+scripts/check-workflow-toolchain >/dev/null

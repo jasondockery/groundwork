@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Cheap pre-commit gate. Budget: 10 seconds (specs/verification-and-proof.md →
+# Hook budget). Full suites, Docker builds, and network-backed proof belong in
+# scripts/validate-groundwork or CI, never here.
+#
+# Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# The toolchain contract is what a commit breaks silently: a hand-edited mirror
+# reads fine in the diff and only fails once something resolves the wrong Node.
+# The same pass rejects a stray version literal anywhere in the tree, so it is
+# not scoped to staged toolchain files.
+node tools/check-toolchain.mjs

@@ -11271,6 +11271,30 @@ EOF
   check "every CI job running repository Node tooling provisions it"
   scripts/check-workflow-toolchain >/dev/null
 
+  check "repository hooks fail closed and stay inside their budget"
+  # Hooks are opt-in (git config core.hooksPath .githooks), so nothing else
+  # notices when one rots. The budget itself is the contract
+  # (specs/verification-and-proof.md → Hook budget): a hook that grows into the
+  # full suite makes every commit pay for proof the validator runs again.
+  for hook in .githooks/pre-commit .githooks/pre-push; do
+    [[ -f "$hook" ]] || fail "$hook is missing"
+    # Without the executable bit git skips the hook silently, which reads
+    # exactly like a passing gate.
+    [[ -x "$hook" ]] || fail "$hook is not executable"
+    grep -qx 'set -euo pipefail' "$hook" || fail "$hook does not fail closed"
+    grep -qF 'git rev-parse --show-toplevel' "$hook" \
+      || fail "$hook does not bind to the repository root"
+    # Compare against what the hook runs, not what its comments explain.
+    hook_commands="$(grep -vE '^[[:space:]]*(#|$)' "$hook")"
+    grep -qF 'validate-groundwork' <<<"$hook_commands" \
+      && fail "$hook must not run the full validator; that is an explicit command"
+    grep -qE 'check:outdated|show-outdated' <<<"$hook_commands" \
+      && fail "$hook must not run network-backed proof"
+  done
+  grep -qF 'node --test' .githooks/pre-commit \
+    && fail "pre-commit must stay cheap; the test suite belongs in pre-push"
+  true
+
   check "environment profile: browser resolution, reporting, and hostile arguments"
   # The browser vertical slice consumes the stored posture while preserving the
   # safe-mutating contract: show/set/help and invalid input do not change state.

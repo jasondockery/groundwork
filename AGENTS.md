@@ -179,12 +179,16 @@ research on named products in an approved private location, not in tracked files
 - Choose exactly one final-proof path: an ordinary scoped change runs `static`
   plus its affected named suites once; a cross-cutting change runs the syntax
   preflight and then `full` once.
-- This repository installs no Git hooks, so `scripts/validate-groundwork` is the
-  only gate — and nothing re-runs it for you. Order the work as index, commit,
-  proof, push: validate the commit you intend to push, once. Validating the
-  working tree and then validating the commit is duplicated proof, not stronger
-  proof, because the commit changes no bytes. When the task is already "commit
-  and push", go straight to the commit and validate after it.
+- Hooks are opt-in and are not installed by cloning: enable them once with
+  `git config core.hooksPath .githooks`. `.githooks/pre-commit` runs the
+  toolchain contract; `.githooks/pre-push` adds the tool tests and the workflow
+  checkers. Neither runs `scripts/validate-groundwork` — the full validator
+  stays an explicit command. Do not hand-run what a hook is about to run.
+- Order the work as index, commit, proof, push: validate the commit you intend
+  to push, once. Validating the working tree and then validating the commit is
+  duplicated proof, not stronger proof, because the commit changes no bytes.
+  When the task is already "commit and push", go straight to the commit and
+  validate after it.
 - Say what a green run actually exercised. A proof must not claim more than it
   ran. A template is not proven until its **rendered** output passes.
 - Classify every handoff as release-affecting or not. Release-affecting work is
