@@ -217,6 +217,9 @@ groundwork-repos                    # table of every discovered repo: branch, di
 groundwork-repos pick               # fuzzy-pick a repo -> its lazygit tmux window (prefix+R in tmux)
 groundwork-repos changed            # lazygit window per dirty repo (prefix+G in tmux)
 scripts/validate-groundwork         # validate/lint the repo before commit/release
+pnpm toolchain:sync                 # derive repo adapters from .node-version + packageManager
+pnpm check:toolchain                # prove exact runtimes, Corepack ownership, and adapter parity
+pnpm check:outdated                 # show lockfile, compatible, mature, registry, toolchain, and policy evidence
 browser-extensions --open       # open vetted browser add-ons for Chrome/Dia
 raycast-extensions --open       # open recommended Raycast Store entries
 chezmoi diff                 # preview pending changes before applying
@@ -229,6 +232,8 @@ chezmoi cd                   # shell into the source repo to commit/push
 new-project myapp            # scaffold AGENTS.md + .agents/ + vendor symlinks in a repo
 new-wiki ~/code/notes        # scaffold an LLM knowledge wiki repo
 ```
+
+The root package metadata is dependency-free contributor tooling, not a new installation requirement. Bootstrap, chezmoi application, `update-all`, and installed Groundwork commands do not require `pnpm install`; the canonical validator invokes the Node toolchain check directly so it can diagnose a broken project-local pnpm path.
 
 `update-all` is the one normal maintenance command. Advanced package-manager
 report, repair, force, and pending-acknowledgement forms remain discoverable

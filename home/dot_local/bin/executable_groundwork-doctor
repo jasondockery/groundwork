@@ -495,6 +495,23 @@ nearest_manifest() {
   return 0
 }
 
+nearest_mise_pnpm() {
+  local dir
+  dir="$(pwd)"
+  while [ -n "$dir" ] && [ "$dir" != "/" ]; do
+    if [ -r "$dir/mise.toml" ] && awk '
+      /^[[:space:]]*\[/ { tools = ($0 ~ /^[[:space:]]*\[tools\][[:space:]]*(#.*)?$/) }
+      tools && /^[[:space:]]*pnpm[[:space:]]*=/ { found = 1 }
+      END { exit(found ? 0 : 1) }
+    ' "$dir/mise.toml"; then
+      printf '%s\n' "$dir/mise.toml"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
 expand_pnpm_global_bin() {
   local value="$1"
   value="${value%\"}"
@@ -687,6 +704,12 @@ node_toolchain_section() {
   note "Node CLI ownership: add project tools with 'pnpm add -D <package>' and run them with 'pnpm exec <command>'."
   note "For a personal cross-project CLI: mise use --minimum-release-age 5d --path \"$HOME/.config/mise/conf.d/90-personal-tools.toml\" npm:<package>@latest"
   note "TypeScript's package is 'typescript'; its compiler command is 'tsc'."
+
+  local competing_mise
+  competing_mise="$(nearest_mise_pnpm || true)"
+  if [ -n "$competing_mise" ]; then
+    warn "$competing_mise declares tools.pnpm — remove it; package.json#packageManager is this repository's pnpm authority and Corepack is the owner."
+  fi
 
   local manifest pinned node_pin node_pin_kind node_pin_value
   manifest="$(nearest_manifest pin)"

@@ -1,0 +1,15 @@
+{
+  "name": "groundwork-tooling",
+  "private": true,
+  "scripts": {
+    "toolchain:sync": "node tools/sync-toolchain.mjs",
+    "check:toolchain": "node tools/check-toolchain.mjs",
+    "check:outdated": "node tools/show-outdated.mjs",
+    "test": "node --test tools/*.test.mjs"
+  },
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": "24.18.1",
+    "pnpm": "11.18.0"
+  }
+}

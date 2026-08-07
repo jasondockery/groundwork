@@ -146,6 +146,7 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
 
 ## Mandatory skill triggers
 Load the skill before the first edit in its area.
+- **`skills/toolchain-authority`** — `.node-version`, `.nvmrc`, repository `mise.toml`, `packageManager`, engines, Corepack ownership, Node setup in CI, Renovate toolchain behavior, or Node/pnpm version prose and fixtures.
 - **`skills/docker-lifecycle`** — any Dockerfile change, local image build, or
   Docker helper. Proof-only builds use
   `groundwork-docker-build-scratch <purpose> <context> --rm-after`, or

@@ -5,8 +5,20 @@
     "Groundwork's managed surfaces are GitHub Actions SHA pins, Dockerfile image tags/digests, the tagged-and-digested Gitleaks workflow container, and declared Python versions in the managed mise configuration. GHCR does not expose a Renovate releaseTimestamp for the Gitleaks tags, so that exact dependency uses its inventoried immutable-digest, CI, and owner-review controls instead of the timestamp-based age check. Only groundwork-specific rules stay local; the wider non-major group below includes digest and pin updates because several surfaces are immutable pins, not semver ranges. A green runner scan is not Groundwork compatibility proof — an eligible PR must pass Groundwork CI."
   ],
   "extends": ["github>jasondockery/renovate-config"],
-  "ignorePaths": ["home/dot_config/mise/config.toml"],
+  "ignorePaths": [".nvmrc", "mise.toml", "home/dot_config/mise/config.toml"],
+  "postUpgradeTasks": {
+    "commands": ["node tools/sync-toolchain.mjs"],
+    "fileFilters": [".node-version", ".nvmrc", "mise.toml", "package.json"],
+    "executionMode": "branch"
+  },
   "packageRules": [
+    {
+      "description": "package.json engines.node is derived from .node-version and must never create a mirror-only branch.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["node"],
+      "matchFileNames": ["package.json"],
+      "enabled": false
+    },
     {
       "description": "GHCR does not expose releaseTimestamp for Gitleaks tags; rely on its immutable digest, required CI, and owner review instead of leaving every update pending forever.",
       "matchDatasources": ["docker"],

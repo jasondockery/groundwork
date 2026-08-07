@@ -1047,6 +1047,15 @@ line_number() {
 }
 
 validate_static_foundation() {
+  check "repository Node/pnpm authority contract"
+  node tools/check-toolchain.mjs
+
+  check "toolchain sync, checker, and reporter regressions"
+  # The checker proves this checkout is consistent; these tests prove the
+  # checker and the sync it depends on still reject drift, unsupported TOML,
+  # and partial rollbacks. A guard with no negative test proves nothing.
+  node --test tools/*.test.mjs
+
   check "shell scripts (syntax, format, lint)"
   # Single authoritative gate: bash -n + the pinned shfmt + the pinned ShellCheck
   # over every tracked/untracked Bash script (scripts/ensure-shell-tools supplies
@@ -9741,8 +9750,8 @@ shared = next(surface for surface in inventory["surfaces"] if surface["id"] == "
 if shared.get("classification") != "intentional-manual" or shared.get("manager") != "versioned-distribution-owner-gate":
     raise SystemExit("the unversioned shared preset must remain owner-gated/manual")
 renovate_config = json.loads((root / "renovate.json").read_text(encoding="utf-8"))
-if renovate_config.get("ignorePaths") != ["home/dot_config/mise/config.toml"]:
-    raise SystemExit("Renovate must exclude the mise config owned by update-all")
+if renovate_config.get("ignorePaths") != [".nvmrc", "mise.toml", "home/dot_config/mise/config.toml"]:
+    raise SystemExit("Renovate must exclude derived toolchain mirrors and the mise config owned by update-all")
 gitleaks_age_rules = [
     rule
     for rule in renovate_config.get("packageRules", [])
@@ -11440,6 +11449,21 @@ SOURCED
     || fail "the doctor did not recommend mise's personal npm-tool lane"
   grep -qF "compiler command is 'tsc'" "$out_dir/doctor-global-bin-out" \
     || fail "the doctor did not distinguish TypeScript's package and executable names"
+
+  doctor_mise_repo="$alias_fixture/repo-with-competing-mise"
+  doctor_groundwork_root="$PWD"
+  mkdir -p "$doctor_mise_repo"
+  printf '%s\n' '[tools]' 'node = "24.18.1"' 'pnpm = "11.18.0"' >"$doctor_mise_repo/mise.toml"
+  printf '%s\n' '{"packageManager":"pnpm@11.18.0"}' >"$doctor_mise_repo/package.json"
+  (
+    cd "$doctor_mise_repo"
+    PATH="$alias_fixture/installs/node/lts/bin:$alias_fixture/stub:/usr/bin:/bin" \
+      /bin/bash "$doctor_groundwork_root/home/dot_local/bin/executable_groundwork-doctor" --node-toolchain
+  ) >"$out_dir/doctor-competing-mise-out" 2>&1 || true
+  grep -qF 'declares tools.pnpm' "$out_dir/doctor-competing-mise-out" \
+    || fail "the doctor did not reject a repository mise.toml that declares pnpm"
+  grep -qF 'package.json#packageManager is this repository' "$out_dir/doctor-competing-mise-out" \
+    || fail "the doctor did not identify packageManager as the pnpm authority"
 
   check "Node/pnpm launcher: parent and nested child resolve one toolchain"
   # The defect this pins: a top-level pnpm can be correct while a nested process

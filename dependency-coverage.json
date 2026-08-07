@@ -20,6 +20,39 @@
   ],
   "surfaces": [
     {
+      "id": "node-runtime",
+      "classification": "built-in",
+      "manager": "nodenv",
+      "paths": [".node-version"],
+      "canonical": ".node-version",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "toolchain sync, required CI, and owner review keep adapters atomic.",
+      "extractionMatchers": [{ "manager": "nodenv", "packageFilePattern": "^\\.node-version$", "depNamePattern": "^node$" }],
+      "note": "Renovate updates the Node authority; toolchain:sync derives adapters."
+    },
+    {
+      "id": "pnpm-runtime",
+      "classification": "built-in",
+      "manager": "npm",
+      "paths": ["package.json"],
+      "canonical": "package.json#packageManager",
+      "agePolicy": "renovate-minimum-release-age",
+      "compensatingControl": "Corepack owns selection and check:toolchain rejects competing owners or partial mirrors.",
+      "extractionMatchers": [{ "manager": "npm", "packageFilePattern": "^package.json$", "depNamePattern": "^(?:node|pnpm)$" }],
+      "note": "packageManager is the sole pnpm authority."
+    },
+    {
+      "id": "toolchain-adapters",
+      "classification": "derived",
+      "manager": "toolchain-sync",
+      "paths": [".nvmrc", "mise.toml", "package.json", "tools/toolchain-contract.mjs"],
+      "canonical": ".node-version and package.json#packageManager",
+      "agePolicy": "not-applicable",
+      "compensatingControl": "toolchain:sync derives adapters and check:toolchain proves the transformation is a no-op.",
+      "scanMatchers": [{ "pathPattern": "^mise\\.toml$", "pattern": "version-assignment" }],
+      "note": "mise owns Node only; it never declares pnpm."
+    },
+    {
       "id": "container-images",
       "classification": "built-in",
       "manager": "dockerfile",
@@ -129,6 +162,23 @@
         { "pathPattern": "^home/run_after_20-tools\\.sh\\.tmpl$", "pattern": "version-assignment", "linePattern": "aider_python=" }
       ],
       "note": "Aider's compatibility runtime is a deliberate exception to the general Python channel."
+    },
+    {
+      "id": "karabiner-compatibility-floor",
+      "classification": "intentional-manual",
+      "manager": "vendor-support-review",
+      "paths": ["home/dot_local/share/groundwork/lib/karabiner.sh", "scripts/test-karabiner-diagnostics"],
+      "canonical": "home/dot_local/share/groundwork/lib/karabiner.sh#GW_KARABINER_MINIMUM_VERSION",
+      "agePolicy": "external-tool-policy",
+      "compensatingControl": "Vendor support evidence and the doctor regression suite keep the compatibility floor and its fixtures aligned.",
+      "scanMatchers": [
+        {
+          "pathPattern": "^(?:home/dot_local/share/groundwork/lib/karabiner\\.sh|scripts/test-karabiner-diagnostics)$",
+          "pattern": "version-assignment",
+          "linePattern": "(?:GW_KARABINER_MINIMUM_VERSION|TEST_KARABINER_VERSION=)"
+        }
+      ],
+      "note": "The minimum supported Karabiner version is reviewed from vendor evidence rather than updated as a generic dependency pin."
     },
     {
       "id": "tmux-plugin-release",
