@@ -256,10 +256,12 @@ def group_running(process_group: int) -> bool:
     return True
 
 
-def other_group_members(process_group: int, supervisor_pid: int) -> set[int] | None:
+def other_group_members(
+    process_group: int, supervisor_pid: int
+) -> dict[int, str] | None:
     try:
         completed = subprocess.run(
-            ["ps", "-eo", "pid=,pgid=,stat="],
+            ["ps", "-eo", "pid=,ppid=,pgid=,stat=,command="],
             check=True,
             capture_output=True,
             text=True,
@@ -267,16 +269,29 @@ def other_group_members(process_group: int, supervisor_pid: int) -> set[int] | N
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    members: set[int] = set()
+    members: dict[int, str] = {}
     for line in completed.stdout.splitlines():
-        fields = line.split()
-        if len(fields) != 3 or not all(field.isdigit() for field in fields[:2]):
+        fields = line.split(maxsplit=4)
+        if len(fields) < 4 or not all(field.isdigit() for field in fields[:3]):
             continue
-        pid, pgid = map(int, fields[:2])
-        state = fields[2]
+        pid, ppid, pgid = map(int, fields[:3])
+        state = fields[3]
+        command = fields[4] if len(fields) == 5 else ""
         if pgid == process_group and pid != supervisor_pid and not state.startswith("Z"):
-            members.add(pid)
+            members[pid] = f"{pid}\t{ppid}\t{pgid}\t{state}\t{command}"
     return members
+
+
+def report_group_members(members: dict[int, str]) -> None:
+    """Publish the exact non-zombie process evidence observed before cleanup."""
+
+    print(
+        "run-validation-deadline: surviving non-zombie process-group members:",
+        file=sys.stderr,
+    )
+    print("PID\tPPID\tPGID\tSTAT\tCOMMAND", file=sys.stderr)
+    for pid in sorted(members):
+        print(members[pid], file=sys.stderr)
 
 
 def release_supervisor(process: subprocess.Popen[bytes]) -> tuple[bool, bool]:
@@ -327,7 +342,7 @@ def wait_for_cooperative_shutdown(
         except RuntimeError:
             return False
         members = other_group_members(process_group, process.pid)
-        if status is not None and members == set():
+        if status is not None and members == {}:
             _released_cleanly, closure_confirmed = release_supervisor(process)
             return closure_confirmed
         if supervisor_exited_unreaped(process):
@@ -518,7 +533,7 @@ def run(
                         return CLEANUP_UNCONFIRMED_STATUS
                     _report_unconfirmed(original_status)
                     return CLEANUP_UNCONFIRMED_STATUS
-                if members == set():
+                if members == {}:
                     released_cleanly, closure_confirmed = release_supervisor_fn(process)
                     if closure_confirmed:
                         if released_cleanly:
@@ -536,6 +551,7 @@ def run(
                         return CLEANUP_UNCONFIRMED_STATUS
                     _report_unconfirmed(original_status)
                     return CLEANUP_UNCONFIRMED_STATUS
+                report_group_members(members)
                 stopped = stop_group_fn(
                     process,
                     process_group,

@@ -5649,6 +5649,14 @@ EOF
       tmux -L "$socket" pipe-pane -t 0 -o "cat >> '$output'"
       printf '%s\n' "$socket"
     }
+    wait_for_gc_output() { # output literal; ten-second deadline
+      local output="$1" literal="$2" attempt
+      for ((attempt = 0; attempt < 100; attempt++)); do
+        grep -aqF -- "$literal" "$output" 2>/dev/null && return 0
+        sleep 0.1
+      done
+      return 1
+    }
 
     # Accept: only posture moves. Preset and independently stored role survive.
     gc_focus_accept="$gc_focus/accept"
@@ -5787,7 +5795,11 @@ EOF
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
     sleep 1
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_field_count + 1))" Enter
-    sleep 2
+    if ! wait_for_gc_output "$gc_xcode_undo/out" 'No changes to apply.'; then
+      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
+      cat "$gc_xcode_undo/out" >&2
+      fail "Xcode off then on in one transaction did not reach a no-op within ten seconds"
+    fi
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'No changes to apply.' "$gc_xcode_undo/out" \
       || fail "Xcode off then on in one transaction must be a complete no-op"
@@ -11942,8 +11954,8 @@ SOURCED
   doctor_mise_repo="$alias_fixture/repo-with-competing-mise"
   doctor_groundwork_root="$PWD"
   mkdir -p "$doctor_mise_repo"
-  printf '%s\n' '[tools]' 'node = "24.18.1"' 'pnpm = "11.18.0"' >"$doctor_mise_repo/mise.toml"
-  printf '%s\n' '{"packageManager":"pnpm@11.18.0"}' >"$doctor_mise_repo/package.json"
+  printf '%s\n' '[tools]' 'node = "98.76.54"' 'pnpm = "87.65.43"' >"$doctor_mise_repo/mise.toml"
+  printf '%s\n' '{"packageManager":"pnpm@87.65.43"}' >"$doctor_mise_repo/package.json"
   (
     cd "$doctor_mise_repo"
     PATH="$alias_fixture/installs/node/lts/bin:$alias_fixture/stub:/usr/bin:/bin" \

@@ -178,6 +178,7 @@ done
 : >"$fixture/integration-events"
 : >"$fixture/integration-arguments"
 GROUNDWORK_VALIDATION_DEADLINE_PARENT="$$" \
+  GROUNDWORK_VALIDATION_PROCESS_GROUP="$$" \
   GROUNDWORK_TEST_REAL_RUNNER="$runner" \
   GROUNDWORK_TEST_INTEGRATION_EVENTS="$fixture/integration-events" \
   GROUNDWORK_TEST_INTEGRATION_PARENT="$fixture/integration-parent" \
@@ -281,6 +282,9 @@ status=$?
 set -e
 [[ "$status" -eq 70 ]]
 grep -qF 'successful child left a process-group member' "$fixture/orphan.err"
+grep -qF 'surviving non-zombie process-group members:' "$fixture/orphan.err"
+grep -qF $'PID\tPPID\tPGID\tSTAT\tCOMMAND' "$fixture/orphan.err"
+grep -qF "$fixture/orphan" "$fixture/orphan.err"
 process_group="$(<"$fixture/process-group")"
 assert_process_group_gone "$process_group"
 rm -f "$fixture/process-group" "$fixture/descendant"
