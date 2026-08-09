@@ -3,7 +3,7 @@ set -euo pipefail
 
 catalog="${GROUNDWORK_BROWSER_EXTENSIONS_CATALOG:-$HOME/.local/share/groundwork/browser-extensions.tsv}"
 password_manager="{{ .password_manager }}"
-browser="all"
+browser="chrome"
 tier="recommended"
 open_links="false"
 
@@ -14,7 +14,7 @@ Usage: browser-extensions [options]
 List or open the Groundwork-recommended browser extensions.
 
 Options:
-  --browser all|chrome|dia       Which browser links to show/open (default: all)
+  --browser chrome               Browser links to show/open (default: chrome)
   --tier recommended|core|dev|privacy|optional|all
   --open                         Open matching store links
   -h, --help                     Show this help
@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$browser" in
-  all|chrome|dia) ;;
+  chrome) ;;
   *)
     echo "unsupported browser: $browser" >&2
     exit 2
@@ -90,7 +90,7 @@ should_show() {
   case "$row_scope" in
     all) ;;
     chromium)
-      [[ "$browser" == "chrome" || "$browser" == "dia" || "$browser" == "all" ]] || return 1
+      [[ "$browser" == "chrome" ]] || return 1
       ;;
     1password|bitwarden)
       [[ "$password_manager" == "$row_scope" || "$tier" == "all" ]] || return 1
@@ -116,7 +116,6 @@ should_show() {
 app_for_browser() {
   case "$1" in
     chrome) printf '%s\n' "Google Chrome" ;;
-    dia) printf '%s\n' "Dia" ;;
   esac
 }
 
@@ -129,12 +128,7 @@ while IFS=$'\t' read -r row_tier row_scope name chromium_url notes; do
   [[ -z "${row_tier:-}" || "$row_tier" == \#* ]] && continue
   should_show "$row_tier" "$row_scope" || continue
 
-  targets=()
-  if [[ "$browser" == "all" ]]; then
-    targets=(chrome dia)
-  else
-    targets=("$browser")
-  fi
+  targets=(chrome)
 
   for target in "${targets[@]}"; do
     url="$(url_for_browser "$target" "$chromium_url")"

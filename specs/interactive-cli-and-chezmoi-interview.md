@@ -1,22 +1,29 @@
 # Interactive CLI UX and the chezmoi Interview
 
-Status: partially implemented (2026-07-24, `origin/main`). Shipped: the numbered
-profile menu + dual-domain normalization (`4bb48df`) and `groundwork-configure`
-(`937ae11`). Open: the raw-interview prompt remediation (bool prompts still spell
-out `y/t = yes, n/f = no`; the password-manager prompt) and the full interactive
-test matrix — see the checklist. `skills/interactive-cli-ux` is the procedure an
-agent follows; `skills/chezmoi-change` (Configuration Interview section) covers
-the template specifics. This spec is the acceptance contract they point at.
+Status: partially implemented (2026-08-09, local review tranche). Shipped on
+`origin/main`: the guarded `groundwork-configure` transaction (`937ae11`). This
+tranche removes mutable release posture and Xcode beta from bootstrap and makes
+the settings editor their canonical owner. Open: the remaining raw-interview
+prompt remediation (bool prompts still spell out `y/t = yes, n/f = no`; the
+password-manager prompt) and the full interactive test matrix — see the
+checklist. `skills/interactive-cli-ux` is the procedure an agent follows;
+`skills/chezmoi-change` (Configuration Interview section) covers the template
+specifics. This spec is the acceptance contract they point at.
 
 ## Problem
 
-Field-hit 2026-07-22: on `chezmoi init`, choosing the starting profile felt
-broken — the user reported that typing part of `personal-preview` did nothing and
-the default was taken. The symptom is real; the exact keystroke sequence is not
-pinned without a pty against the installed version (an ambiguous but valid prefix
-like `pers` stays in the field and should not submit the default while present).
-Two underlying problems, both confirmed against chezmoi's source
-(`internal/cmd/prompt.go`, `internal/chezmoibubbles/choiceinputmodel.go`):
+Bootstrap questions establish facts required to render a usable machine.
+Release posture and beta-channel adoption are mutable preferences: forcing them
+into `chezmoi init` teaches users that they must reinitialize Groundwork to
+change them and makes the first-run interview grow whenever a preference is
+added. `groundwork-configure` already provides the safe selective transaction
+existing users need, so preference ownership belongs there.
+
+Historical field-hit 2026-07-22: the former starting-profile question also felt
+broken because chezmoi's `promptChoice` is a type-to-match field rather than the
+menu users expected. Two underlying behaviors were confirmed against chezmoi's
+source (`internal/cmd/prompt.go`,
+`internal/chezmoibubbles/choiceinputmodel.go`):
 
 1. `promptChoice` is a type-to-match text field, not a navigable menu. On a TTY, a
    keystroke that keeps the text a valid prefix of some choice is accepted with no
@@ -46,23 +53,33 @@ is `groundwork-configure`.
 
 ## Decisions
 
-### Numbered menu (not a prompt split)
+### Bootstrap establishes the machine; configure owns preferences
 
-Present a numbered list (1 Personal current — recommended, 2 Personal preview, 3
-Work managed, 4 Disposable experimental) and map the digit to the existing stored
-value. Each choice is one keystroke with no shared prefix, and every stored
-contract is preserved. Do NOT split preset into separate role/posture prompts:
-`work` is already its own answer and a work machine only DEFAULTS to
-`work-managed` (the user can override), so deriving role from `work` would
-silently drop that override, and existing configs already store the full
-`profile_preset`. Keep `profile_preset`, `environment_role`, `release_posture`,
-and every reader unchanged.
+`chezmoi init` asks only for bootstrap-critical facts such as work/headless
+status, identity, code root, package-manager integration, and selected large
+toolchains. A fresh install derives a stable `profile_preset`,
+`environment_role`, and `release_posture` from those facts without asking a
+second stable-versus-preview question. Existing valid stored values are carried
+forward unchanged on every regeneration.
 
-Normalize the DUAL return domain: a fresh or `--prompt` run yields `1`–`4`, but an
-existing-config run has `promptChoiceOnce` return the stored value
-(`personal-preview`, …) directly — accept both and map to one stored value. On a
-forced re-prompt, map the current stored preset to the numbered default so Enter
-never resets it. Cover with a table-driven fixture.
+`groundwork-configure` is the canonical interactive settings surface for
+mutable preferences, including independent `environment_role` and
+`release_posture` values plus dependent Xcode `beta`. It uses the same preview,
+confirmation, compare-before-swap, backup, and apply transaction as other saved
+settings. Xcode beta is visible only while Xcode is enabled; disabling Xcode
+stages `beta=false` in the same receipt, while returning Xcode to its original
+value removes only a dependency-created beta change. `profile_preset` remains
+bootstrap history rather than a live master switch. `groundwork-profile set
+current|preview` is a narrow power-user shortcut that delegates to that
+transaction; it is not a second writer. A confirmed transaction runs `chezmoi
+apply` and reconciles the selected desired state immediately; `update-all` owns
+subsequent upgrades and maintenance. `groundwork-doctor` reports the current
+posture, and help searches for `beta` or `preview` point to
+`groundwork-configure`.
+
+The first apply prints one informational notice: Groundwork defaults to stable
+channels, the current posture, and the command for changing it later. This is
+communication, not a recurring permission prompt.
 
 ### Cancellation-safe reconfigure transaction
 
@@ -97,8 +114,11 @@ above the stored value.
 
 ## Implementation checklist
 
-- [x] Numbered profile menu + dual-domain normalization + forced-reprompt default
-      mapping + validator fixture (`4bb48df`).
+- [x] Preserve existing profile/posture storage and derive a stable fresh-install
+      default without a release-preference prompt (local review tranche).
+- [x] Make `groundwork-configure` the canonical owner of release posture and
+      Xcode beta; make `groundwork-profile set` delegate to it; report posture in
+      doctor/help/first-run surfaces (local review tranche).
 - [x] `groundwork-configure`: show current answers, change only chosen fields
       (current answer as default), render candidate, preview `chezmoi diff`, apply
       after confirmation, with an atomic lock + compare-before-swap promotion

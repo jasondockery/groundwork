@@ -131,7 +131,7 @@ Groundwork is a shared base with a personal layer. Put small personal preference
 ~/.config/tmux/tmux.local.conf
 ```
 
-Setup choices live in `~/.config/chezmoi/chezmoi.toml`; re-run `chezmoi init` or edit that file, then `chezmoi diff` and `chezmoi apply`. For the full model, open `docs/customizing.html`.
+Machine settings live in `~/.config/chezmoi/chezmoi.toml`. Use `groundwork-configure` to review or change them through a preview-and-confirm transaction; accepting applies the selected desired state immediately, while `update-all` owns later upgrades and maintenance. Plain `chezmoi init` regenerates the bootstrap baseline from saved answers. For the full model, open `docs/customizing.html`.
 
 > **Pre-release macOS:** if you're on a beta/just-released macOS, Homebrew may not have bottles for a few formulae and will build them from source (slow) or skip them. `brew bundle` continues past failures, so skim the output and `brew install <formula>` anything that didn't land.
 
@@ -152,9 +152,9 @@ git -C "${GROUNDWORK_DIR:-$HOME/code/groundwork}" remote set-url origin https://
 
 > The gh credential helper is baked into `home/dot_gitconfig.tmpl`, so it survives every apply. Running `gh auth setup-git` alone isn't enough on its own — `~/.gitconfig` is chezmoi-managed, so without the template change the next `chezmoi apply` would overwrite it.
 
-## You'll be asked (once)
+## Bootstrap questions (asked once)
 
-Stored in `~/.config/chezmoi/chezmoi.toml`; re-run with `chezmoi init`.
+These establish the machine baseline and are stored in `~/.config/chezmoi/chezmoi.toml`. Plain `chezmoi init` preserves and regenerates from them; use `groundwork-configure` when you want to change a setting.
 
 | Prompt | Notes |
 | --- | --- |
@@ -171,6 +171,8 @@ Stored in `~/.config/chezmoi/chezmoi.toml`; re-run with `chezmoi init`.
 | What should the Obsidian vault be named? | folder in iCloud Drive/Obsidian; default `my_obsidian_vault`, blank to skip |
 | Install optional Unity game development tools? | `no` by default. Use `yes` to install Unity Hub and C# VS Code extensions for the Unity FPS track |
 | Install Xcode for native Apple/iOS development? | `no` by default. Use `yes` to attempt the App Store Xcode install for signing, simulators, SwiftUI/iOS/macOS builds, or Unity Apple-platform builds |
+
+Groundwork defaults to a personal role and stable application channels. Environment role, stable-versus-preview release posture, and the optional Xcode beta channel are mutable preferences, so they do not lengthen bootstrap. Change them later with `groundwork-configure`; the Xcode beta choice appears only when Xcode is enabled, and disabling Xcode clears that dependent preference in the same receipt. `groundwork-profile set preview` is the focused shortcut for release posture. Check the stored states with `groundwork-doctor --browser` or `groundwork-profile show`.
 
 ## Finish-up checklist (the manual residue macOS requires)
 
@@ -198,7 +200,7 @@ These are the one-time steps macOS or the app vendor should own: account sign-in
 
 One repo, both machines. The `work` flag (answered at init) gates the work Mac:
 
-- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Dia, Docker Desktop, and AppCleaner. (Chrome, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
+- **Off work:** Claude Code + the Claude app, Codex (CLI + app), ChatGPT, Grok Build, Cursor, OpenCode, Zed, Obsidian, Docker Desktop, and AppCleaner. (Chrome, Karabiner, Raycast, BetterDisplay, and core terminal tools install on both machines.)
 - **On work:** Docker becomes Colima + the Docker CLI (license-free). Confirm your employer permits the AI tools before enabling them there.
 
 ## Daily use
@@ -220,7 +222,7 @@ scripts/validate-groundwork         # validate/lint the repo before commit/relea
 pnpm toolchain:sync                 # derive repo adapters from .node-version + packageManager
 pnpm check:toolchain                # prove exact runtimes, Corepack ownership, and adapter parity
 pnpm check:outdated                 # show lockfile, compatible, mature, registry, toolchain, and policy evidence
-browser-extensions --open       # open vetted browser add-ons for Chrome/Dia
+browser-extensions --open       # open vetted browser add-ons for Chrome
 raycast-extensions --open       # open recommended Raycast Store entries
 chezmoi diff                 # preview pending changes before applying
 chezmoi apply                # apply source -> home

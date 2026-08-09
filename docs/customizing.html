@@ -133,7 +133,7 @@
 
       <div class="callout tip">
         <span class="label">Rule of thumb</span>
-        <p>Small personal additions go in <code>.local</code> files. Setup choices go in <code>~/.config/chezmoi/chezmoi.toml</code>. Full ownership of a managed file means ignore it or maintain your own fork.</p>
+        <p>Small personal additions go in <code>.local</code> files. Machine settings go through <code>groundwork-configure</code> and are stored in <code>~/.config/chezmoi/chezmoi.toml</code>. Full ownership of a managed file means ignore it or maintain your own fork.</p>
       </div>
 
       <h2><span class="hash">#</span>Tier 1: local override files</h2>
@@ -150,12 +150,12 @@ EOF
 <span class="prompt">$ </span>source ~/.zshrc</code></pre></div>
       <p>Some managed files have no <code>.local</code> overlay — <code>starship.toml</code>, the Ghostty config, <code>~/.claude/keybindings.json</code>. For those, edit the managed source so your change and Groundwork's stay in one place: <code>chezmoi edit --apply ~/.claude/keybindings.json</code>. Your edit lives in your local copy of the source; if a later Groundwork update touches the same file, Git shows a visible conflict instead of silently overwriting you. If you find yourself diverging heavily from upstream in one of these files, that's Tier 3.</p>
 
-      <h2><span class="hash">#</span>Tier 2: re-answer setup choices</h2>
-      <p>Choices that Groundwork already asks about live in <code>~/.config/chezmoi/chezmoi.toml</code>. That file is machine-local. Edit it directly or re-run <code>chezmoi init</code>, then apply.</p>
-      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">machine-local choices</span></div><pre><code><span class="prompt">$ </span>chezmoi init
-<span class="prompt">$ </span>chezmoi diff
-<span class="prompt">$ </span>chezmoi apply</code></pre></div>
-      <p>Use this tier for values like work-vs-personal machine, Git identity, password manager, code directory, reset behavior, signing key, and Obsidian vault name.</p>
+      <h2><span class="hash">#</span>Tier 2: change machine settings</h2>
+      <p>Groundwork stores machine-local settings in <code>~/.config/chezmoi/chezmoi.toml</code>. Use the guarded settings editor rather than replaying bootstrap: it starts from the current values, changes only what you select, previews the managed-file diff, and applies the selected desired state only after confirmation. <code>update-all</code> owns subsequent upgrades and maintenance.</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">machine-local settings</span></div><pre><code><span class="prompt">$ </span>groundwork-configure
+<span class="comment"># focused release-posture shortcut:</span>
+<span class="prompt">$ </span>groundwork-profile set preview</code></pre></div>
+      <p>Use this tier for independently mutable environment role and stable-versus-preview release posture, dependent Xcode beta, and for revisiting baseline answers such as work-vs-personal machine, Git identity, password manager, code directory, reset behavior, signing key, and Obsidian vault name. Xcode beta is offered only while Xcode is enabled; disabling Xcode clears that dependent preference in the same visible receipt. Plain <code>chezmoi init</code> regenerates from saved answers; it is not the settings editor.</p>
 
       <h2><span class="hash">#</span>Tier 3: full ownership</h2>
       <p>If you want to fully own an entire file, do not keep fighting <code>chezmoi apply</code>. Either ignore that file for this machine or maintain a fork.</p>

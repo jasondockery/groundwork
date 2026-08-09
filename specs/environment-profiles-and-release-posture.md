@@ -1,10 +1,9 @@
 # Environment Profiles and Release Posture
 
-Status: partially implemented (2026-08-04, `origin/main`). Shipped:
+Status: partially implemented (2026-08-09, local review tranche). Shipped on
+`origin/main`:
 - profile/posture schema and storage, and the `groundwork-profile` reporting
-  command (`f46e3a7`); note `groundwork-profile set` prints a planned migration,
-  it does not itself persist the change;
-- the numbered-menu interview UX that writes `profile_preset` (`4bb48df`);
+  command (`f46e3a7`);
 - selective editing of the `profile_preset` seed via `groundwork-configure`
   (`937ae11`);
 - the browser vertical slice: current and managed profiles select Chrome
@@ -12,12 +11,15 @@ Status: partially implemented (2026-08-04, `origin/main`). Shipped:
   headless profiles select no GUI browser. The selected official casks are
   rendered into `Brewfile.browser` and installed only after the checksummed
   Brewfile succeeds.
-Open:
-- first-class, independent editing of `environment_role` and `release_posture`
-  (they are stored separately from the preset precisely so they can diverge from
-  the seed, but `groundwork-configure` today exposes only `profile_preset`);
-- the remaining posture-driven application families, machine-readable general
-  tool catalog, and first-class role/posture editing. Browser selection is live;
+This local tranche makes `groundwork-configure` the first-class editor for
+independent `environment_role` and `release_posture` values plus dependent Xcode
+`beta`, removes those mutable preferences from bootstrap, treats
+`profile_preset` as compatibility/history rather than a live master switch, and
+makes `groundwork-profile set` delegate to the same guarded transaction. Xcode
+beta is hidden while Xcode is off, and the final transaction reconciles its
+dependent change without overriding an explicit user choice. Open:
+- the remaining posture-driven application families and machine-readable
+  general tool catalog. Browser selection is live;
   broader channel migration and explicit-candidate `update-all` remain open.
 
 `AI_THESIS.md` → "Release posture" owns the product stance; this specifies how it
@@ -125,7 +127,12 @@ building the full container experience is not, and that can follow.
 
 `ci` is deferred until Groundwork actually owns a CI installation path.
 
-### Presets (v1 onboarding)
+Role and posture are independently editable through `groundwork-configure`;
+the stored preset below is only the historical bootstrap seed. Confirming that
+transaction runs `chezmoi apply`, so selected desired state such as Chrome Beta
+is reconciled immediately. `update-all` owns later upgrades and maintenance.
+
+### Stored preset seeds
 
 | Preset | role | posture | |
 | ------ | ---- | ------- | --- |
@@ -152,7 +159,7 @@ channel breakage spends attention that should have gone to directing agents.
 Preview is a first-class, fully supported choice — it is simply not the default,
 and it is never a workaround or an integrity bypass.
 
-Preview onboarding confirms **concrete products**, not an abstract switch: the
+The settings editor confirms **concrete products**, not an abstract switch: the
 user sees the concrete products, including Chrome Beta with stable Chrome kept
 as a fallback. Groundwork never changes the operating system's default-browser
 association, and organization or device policy remains authoritative.
@@ -316,7 +323,7 @@ Switching posture is a mutating operation and follows
 
 ```text
 groundwork-profile show
-groundwork-profile set personal-preview      # plan, then confirm
+groundwork-profile set preview               # guarded preview, then confirm
 groundwork-profile edit
 ```
 

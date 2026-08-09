@@ -174,7 +174,7 @@ browser_section() {
     return 0
   fi
 
-  local data headless posture role
+  local data headless posture role xcode beta
   if ! data="$(chezmoi data --format=json 2>/dev/null)" \
     || ! printf '%s' "$data" | jq -e 'type == "object"' >/dev/null 2>&1; then
     warn "Groundwork could not read the chezmoi profile; browser status is unknown."
@@ -183,13 +183,37 @@ browser_section() {
   headless="$(printf '%s' "$data" | jq -r '.headless // false')"
   posture="$(printf '%s' "$data" | jq -r '.release_posture // "current"')"
   role="$(printf '%s' "$data" | jq -r '.environment_role // (if .work then "managed" else "personal" end)')"
+  xcode="$(printf '%s' "$data" | jq -r '.xcode // false')"
+  beta="$(printf '%s' "$data" | jq -r '.beta // false')"
 
-  if [[ "$headless" == "true" ]]; then
-    ok "headless profile selects no GUI browser"
-    return 0
-  fi
+  local posture_valid=true
   if [[ "$posture" != "current" && "$posture" != "preview" ]]; then
     warn "release_posture is '$posture'; no managed browser claim can be made."
+    posture_valid=false
+  fi
+  if [[ "$posture" == "current" ]]; then
+    ok "Current release posture: stable"
+  elif [[ "$posture" == "preview" ]]; then
+    ok "Current release posture: preview"
+  fi
+  if [[ "$xcode" == "true" ]]; then
+    ok "Xcode: enabled"
+    if [[ "$beta" == "true" ]]; then
+      ok "Xcode beta channel: enabled"
+    else
+      ok "Xcode beta channel: disabled"
+    fi
+  else
+    ok "Xcode: disabled"
+    if [[ "$beta" == "true" ]]; then
+      warn "Xcode beta is enabled while Xcode is disabled; run groundwork-configure to normalize this inactive preference."
+    else
+      ok "Xcode beta channel: disabled"
+    fi
+  fi
+  [[ "$posture_valid" == "true" ]] || return 0
+  if [[ "$headless" == "true" ]]; then
+    ok "headless profile selects no GUI browser"
     return 0
   fi
   if ! command -v brew >/dev/null 2>&1; then

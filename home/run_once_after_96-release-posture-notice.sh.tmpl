@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+posture={{ if and (hasKey . "release_posture") (eq .release_posture "preview") }}"preview"{{ else }}"stable"{{ end }}
+xcode={{ if and (hasKey . "xcode") .xcode }}true{{ else }}false{{ end }}
+beta={{ if and (hasKey . "beta") .beta }}true{{ else }}false{{ end }}
+
+echo
+echo "==> Groundwork release preferences"
+echo
+printf 'Current release posture: %s\n' "$posture"
+if [[ "$posture" == "stable" ]]; then
+  echo "Groundwork defaults to stable application channels."
+  echo "To enable preview channels: groundwork-configure"
+else
+  echo "Your existing preview preference was preserved."
+  echo "Change release settings with: groundwork-configure"
+fi
+if [[ "$xcode" == "true" && "$beta" == "true" ]]; then
+  echo "Xcode beta channel: enabled"
+elif [[ "$xcode" == "true" ]]; then
+  echo "Xcode beta channel: disabled"
+elif [[ "$beta" == "true" ]]; then
+  echo "Xcode beta channel: inactive legacy preference (Xcode is disabled)"
+  echo "Run groundwork-configure to normalize it."
+else
+  echo "Xcode beta channel: disabled (Xcode is disabled)"
+fi

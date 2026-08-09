@@ -7,10 +7,9 @@ set -euo pipefail
 # update-all reads it instead of accumulating flags. See
 # specs/environment-profiles-and-release-posture.md.
 #
-# PHASE 3: storage, reporting, and migration only. No application channel is
-# switched yet — `set` records the value and says exactly that. Channel
-# selection arrives with the tool catalog, and switching an installed app is a
-# planned migration, never a side effect of a refresh.
+# `set` is the narrow power-user shortcut into groundwork-configure's guarded
+# settings transaction. Confirming it applies the selected desired state now;
+# update-all owns later upgrades and maintenance.
 #
 # Arguments are parsed before ANY side effect (skills/safe-mutating-cli): help
 # and invalid input must never reach chezmoi.
@@ -21,10 +20,9 @@ groundwork-profile — show or change this environment's release profile.
 
 Usage:
   groundwork-profile show            Print the active profile and its sources.
-  groundwork-profile set <posture>   Show exactly how to record a new release
-                                     posture. Posture is a stored answer of its
-                                     own; this reports the route and does not
-                                     write the config itself.
+  groundwork-profile set <posture>   Record one release-posture preference
+                                     through groundwork-configure's preview and
+                                     confirmation transaction.
   groundwork-profile edit            Open the chezmoi config to edit answers.
   groundwork-profile --help
 
@@ -105,6 +103,8 @@ role={{ if hasKey . "environment_role" }}{{ .environment_role | quote }}{{ else 
 preset={{ if hasKey . "profile_preset" }}{{ .profile_preset | quote }}{{ else }}"legacy"{{ end }}
 posture={{ if hasKey . "release_posture" }}{{ .release_posture | quote }}{{ else }}"current"{{ end }}
 headless={{ if .headless }}true{{ else }}false{{ end }}
+xcode={{ if and (hasKey . "xcode") .xcode }}true{{ else }}false{{ end }}
+stored_beta={{ if and (hasKey . "beta") .beta }}true{{ else }}false{{ end }}
 browser="Google Chrome stable"
 browser_fallback="none"
 if [[ "$headless" == "true" ]]; then
@@ -138,9 +138,17 @@ case "$command" in
   show)
     echo "Groundwork environment profile"
     echo
-    printf '  Preset            %s\n' "$preset"
+    printf '  Bootstrap seed    %s\n' "$preset"
     printf '  Role              %s\n' "$role"
     printf '  Release posture   %s\n' "$posture"
+    printf '  Xcode             %s\n' "$([[ "$xcode" == "true" ]] && echo enabled || echo disabled)"
+    if [[ "$xcode" == "true" && "$stored_beta" == "true" ]]; then
+      printf '  Xcode beta        enabled\n'
+    elif [[ "$xcode" != "true" && "$stored_beta" == "true" ]]; then
+      printf '  Xcode beta        inactive (stored enabled)\n'
+    else
+      printf '  Xcode beta        disabled\n'
+    fi
     printf '  Desktop apps      %s\n' "$([[ "$headless" == "true" ]] && echo "no (headless)" || echo yes)"
     printf '  Managed browser   %s\n' "$browser"
     [[ "$browser_fallback" == "none" ]] || printf '  Browser fallback  %s\n' "$browser_fallback"
@@ -172,32 +180,12 @@ case "$command" in
       printf 'Release posture is already %s. Nothing to change.\n' "$posture"
       exit 0
     fi
-    echo "Plan"
-    echo
-    printf '  Release posture   %s -> %s\n' "$posture" "$argument"
-    echo
-    echo "  This command is read-only: it does not install, remove, or switch an app."
-    if [[ "$argument" == "preview" ]]; then
-      echo "  After you record the posture and run update-all, Groundwork installs"
-      echo "  Chrome Beta and retains Chrome stable as a compatibility fallback."
-    else
-      echo "  After you record the posture and run update-all, Groundwork ensures"
-      echo "  Chrome stable is present. It never removes Chrome Beta or browser data."
-    fi
-    echo
-    # Posture is stored in its own right. The preset only chooses starting
-    # values, so changing the preset to reach a posture would also move the
-    # environment role — a managed machine would silently become personal. Edit
-    # the stored posture directly; it is preserved across regeneration.
-    echo "Groundwork stores this answer in the chezmoi config. Set it with:"
-    echo
-    echo "  groundwork-profile edit"
-    echo
-    printf '  then set:  release_posture = "%s"\n' "$argument"
-    echo
-    echo "Then run update-all. Editing posture leaves environment_role untouched,"
-    echo "so a managed or disposable machine keeps its role. Device policy remains"
-    echo "authoritative and Groundwork never changes the macOS default browser."
+    configure_command="$HOME/.local/bin/groundwork-configure"
+    [[ -x "$configure_command" ]] || {
+      echo "groundwork-profile: managed helper is missing at $configure_command; run 'chezmoi apply' to restore it." >&2
+      exit 1
+    }
+    exec "$configure_command" --release-posture "$argument"
     ;;
 
   edit)
@@ -205,11 +193,10 @@ case "$command" in
       echo "groundwork-profile: chezmoi is not on PATH." >&2
       exit 1
     }
-    # profile_preset seeds environment_role and release_posture the first time;
-    # after that all three are stored answers and each is preserved on its own,
-    # so posture and role can diverge from the preset by design.
+    # profile_preset is compatibility/history after bootstrap; it is not a live
+    # master switch for independent role and posture fields.
     echo "Opening the chezmoi config. Change release_posture or environment_role"
-    echo "on its own, or profile_preset to reset both, then run update-all."
+    echo "independently; profile_preset records the original bootstrap seed."
     chezmoi edit-config
     ;;
 esac

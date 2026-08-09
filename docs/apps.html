@@ -162,7 +162,6 @@
       <table class="keytable">
         <tr><td><strong>Chrome stable</strong></td><td>The managed default for Personal Current and Work Managed. Preview profiles retain it as a compatibility fallback.</td></tr>
         <tr><td><strong>Chrome Beta</strong></td><td>The managed primary browser for Personal Preview and Disposable Experimental on a desktop Mac. It installs beside stable Chrome.</td></tr>
-        <tr><td><strong>Dia</strong></td><td>An AI-first browser (from the makers of Arc), installed on personal machines. Experimental — worth a look, not yet a daily driver.</td></tr>
       </table>
       <div class="callout note">
         <span class="label">Installed is not the same as default</span>
@@ -173,7 +172,7 @@
         <p>Use Chrome without signing in, or sign in if you want Google to sync bookmarks, history, saved passwords, settings, and open tabs. Groundwork does not sign in, enable sync, or put account data into dotfiles. Any browser Groundwork no longer manages remains installed with its data untouched until you decide what to do with it.</p>
       </div>
       <h3>Browser extensions</h3>
-      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links, or <code>browser-extensions --open</code> on macOS to open them in Chrome or Dia through the Chrome Web Store.</p>
+      <p>Groundwork keeps the extension source of truth in <code>~/.local/share/groundwork/browser-extensions.tsv</code>. Run <code>browser-extensions</code> to list the vetted links, or <code>browser-extensions --open</code> on macOS to open them in Chrome through the Chrome Web Store.</p>
       <table class="keytable">
         <tr><td><strong>Core</strong></td><td>Password manager, uBlock Origin Lite, Anybox Browser Extension, and Obsidian Web Clipper.</td></tr>
         <tr><td><strong>Privacy</strong></td><td>Privacy.com is included as the official virtual-card service link. I could not verify a current official browser extension, so it is not treated as an extension install.</td></tr>
@@ -189,7 +188,7 @@
       <table class="keytable">
         <tr><td><strong>SSH agent</strong></td><td>Sign in to the desktop app, then enable its SSH agent. Bitwarden: Settings → enable SSH agent. 1Password: Settings → Developer → Use the SSH agent. If commits stop signing, unlock the app and retry. See <a href="git.html">Git</a> for the signing flow.</td></tr>
         <tr><td><strong>macOS + Safari</strong></td><td>System Settings → General → AutoFill &amp; Passwords: turn on Bitwarden and turn off Passwords/iCloud Keychain if Bitwarden is the source of truth.</td></tr>
-        <tr><td><strong>Chrome / Dia</strong></td><td>Install the Bitwarden extension, sign in, and pin it. Groundwork disables Chrome's built-in password manager by policy; turn Dia's built-in manager off in its own settings.</td></tr>
+        <tr><td><strong>Chrome</strong></td><td>Install the Bitwarden extension, sign in, and pin it. Groundwork disables Chrome's built-in password manager by policy.</td></tr>
         <tr><td><strong>iOS / iPadOS</strong></td><td>Install Bitwarden, sign in, then Settings → General → AutoFill &amp; Passwords: enable Bitwarden and disable Passwords if you want the same source of truth on mobile.</td></tr>
       </table>
 
@@ -217,7 +216,7 @@
       </div>
       <div class="callout note">
         <span class="label">Raycast extensions are not browser add-ons</span>
-        <p>Browser add-ons live in Chrome and Dia. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
+        <p>Browser add-ons live in Chrome. Raycast extensions live inside the Raycast app and come from the Raycast Store. Groundwork cannot silently install or configure Raycast's internal extension database, but it does install a helper on Mac profiles: run <code>raycast-extensions</code> to list the recommended Store entries, or <code>raycast-extensions --open</code> to open them.</p>
       </div>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">raycast extension helper</span></div><pre><code><span class="prompt">$ </span>raycast-extensions
 <span class="prompt">$ </span>raycast-extensions --open
@@ -240,9 +239,9 @@
         <tr><td><strong>Anybox Quick Find</strong></td><td>Anybox's search window for the durable library; it can search everything or be scoped to a tag or Smart List. The Raycast Anybox extension exposes the library through Search Links.</td></tr>
         <tr><td><strong>Anybox Quick Link</strong></td><td>An optional global typed-keyword expansion. It is not a Raycast alias or Quicklink and it requires extra system permission.</td></tr>
         <tr><td><strong>Chrome bookmark</strong></td><td>A visible link in the small browser hot cache. Keep only the destinations that earn permanent space in the current working surface.</td></tr>
-        <tr><td><strong>Browser Bookmarks extension</strong></td><td>A compatibility bridge for bookmarks that already live in Chrome, Dia, or Safari. It is useful during migration or when another browser must retain its own library, but it is not the Groundwork source of truth.</td></tr>
+        <tr><td><strong>Browser Bookmarks extension</strong></td><td>A compatibility bridge for bookmarks that already live in Chrome or Safari. It is useful during migration or when another browser must retain its own library, but it is not the Groundwork source of truth.</td></tr>
         <tr><td><strong>Browser Tabs</strong></td><td>Use for live open tabs in browsers Raycast can read through macOS automation, especially Safari and Chromium-family browsers.</td></tr>
-        <tr><td><strong>Browser add-ons</strong></td><td>Install the Anybox and Obsidian Web Clipper add-ons in Chrome and Dia with <code>browser-extensions --tier core --open</code>. They are for capturing pages, not for making Raycast itself work.</td></tr>
+        <tr><td><strong>Browser add-ons</strong></td><td>Install the Anybox and Obsidian Web Clipper add-ons in Chrome with <code>browser-extensions --tier core --open</code>. They are for capturing pages, not for making Raycast itself work.</td></tr>
       </table>
 
       <h3>Asking Claude, GPT, or Grok from Raycast</h3>

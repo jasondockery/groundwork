@@ -4,11 +4,11 @@ set -euo pipefail
 # groundwork-configure — review and selectively change your Groundwork setup
 # answers, then preview and apply. This is the SETTINGS EDITOR.
 #
-# `chezmoi init` only REGENERATES the config from your existing answers and never
-# asks what to change; running it with the low-level `--prompt` flag replays the
-# WHOLE interview with template defaults (it can reset answers). This command
-# shows your current answers, changes only what you pick, previews the resulting
-# dotfile diff, and applies only after you confirm.
+# `chezmoi init` establishes the bootstrap-critical machine baseline and later
+# only regenerates from saved answers. Mutable preferences, including release
+# posture and beta channels, live here. This command shows current answers,
+# changes only what you pick, previews the resulting dotfile diff, and applies
+# only after you confirm.
 #
 # Safety: values are read and written with a JSON encoder (never sed on TOML);
 # the candidate config is rendered in a fully isolated chezmoi environment; the
@@ -19,17 +19,23 @@ prog="groundwork-configure"
 
 usage() {
   cat <<EOF
-Usage: $prog
+Usage:
+  $prog
+  $prog --release-posture <current|preview>
 
-Review and selectively change this machine's Groundwork configuration
-(the answers the setup interview asked once), then preview and apply.
+Review and selectively change this machine's Groundwork configuration, then
+preview and apply. The release-posture option opens the same safe transaction
+with that one preference preselected.
 
 Options:
+  --release-posture <current|preview>
+               Preselect the stable/current or preview application posture.
   -h, --help   Show this help and exit.
 EOF
 }
 
 # --- argument contract (before any side effect) ---
+target_posture=""
 case "$#" in
   0) ;;
   1) case "$1" in
@@ -43,8 +49,22 @@ case "$#" in
       exit 64
       ;;
   esac ;;
+  2)
+    if [[ "$1" != "--release-posture" ]]; then
+      echo "$prog: unknown option: $1" >&2
+      usage >&2
+      exit 64
+    fi
+    case "$2" in
+      current | preview) target_posture="$2" ;;
+      *)
+        echo "$prog: --release-posture expects current or preview." >&2
+        exit 64
+        ;;
+    esac
+    ;;
   *)
-    echo "$prog: unexpected arguments; this command takes none." >&2
+    echo "$prog: unexpected arguments." >&2
     usage >&2
     exit 64
     ;;
@@ -105,30 +125,35 @@ config_digest_open="$(cksum <"$config_path")"
 
 # --- field registry (parallel arrays: macOS ships Bash 3.2, no assoc arrays) ---
 # key                  label                 kind    clearable
-# Every field is offered on every platform. The interview gates two questions by
-# platform, but home/.chezmoi.toml.tmpl carries a stored answer through unchanged
-# where it does not ask, so a value changed here sticks everywhere.
-fields_key=(profile_preset work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
-fields_label=("Environment profile" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
-fields_kind=(preset bool pw keyrepeat string string string string bool bool string string)
-fields_clear=(no no no no no no no yes no no yes yes)
+# Every mutable field is offered here even when bootstrap deliberately does not
+# ask it. home/.chezmoi.toml.tmpl preserves stored values on every platform.
+fields_key=(release_posture environment_role beta work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
+fields_label=("Release posture" "Environment role" "Xcode beta channel" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
+fields_kind=(posture role bool bool pw keyrepeat string string string string bool bool string string)
+fields_clear=(no no no no no no no no no yes no no yes yes)
 
-preset_values=(personal-current personal-preview work-managed disposable-experimental)
-preset_labels=("Personal current (Chrome stable)" "Personal preview (Chrome Beta + stable fallback)" "Work managed (Chrome stable; respects device policy)" "Disposable experimental (Chrome Beta in a rebuildable VM)")
+posture_values=(current preview)
+posture_labels=("Stable channels for posture-managed apps (currently Chrome stable)" "Preview channels for posture-managed apps (currently Chrome Beta + stable fallback)")
+role_values=(personal managed disposable)
+role_labels=("Personal" "Managed" "Disposable")
 pw_values=(bitwarden 1password none)
 keyrepeat_values=(fast standard aggressive)
 keyrepeat_labels=("Fast (recommended)" "Standard (slower repeat)" "Aggressive (starts sooner)")
 
-# All three menu kinds differ only in their value/label lists, so they share one
+# All menu kinds differ only in their value/label lists, so they share one
 # prompt, one display path, and one receipt formatter. `pw` has no separate
 # labels: its stored values are already the words a user recognizes.
 choice_values=()
 choice_labels=()
 load_choices() { # kind -> populates choice_values / choice_labels
   case "$1" in
-    preset)
-      choice_values=("${preset_values[@]}")
-      choice_labels=("${preset_labels[@]}")
+    posture)
+      choice_values=("${posture_values[@]}")
+      choice_labels=("${posture_labels[@]}")
+      ;;
+    role)
+      choice_values=("${role_values[@]}")
+      choice_labels=("${role_labels[@]}")
       ;;
     keyrepeat)
       choice_values=("${keyrepeat_values[@]}")
@@ -176,6 +201,7 @@ PY
 # pending overrides (parallel arrays); an entry exists only when it differs from persisted
 pending_key=()
 pending_val=()
+pending_origin=()
 pending_index() { # key -> echoes index or nothing; returns 1 if absent
   local i
   for ((i = 0; i < ${#pending_key[@]}; i++)); do
@@ -190,19 +216,42 @@ current_value() { # key -> pending value if present, else persisted
   local idx
   if idx="$(pending_index "$1")"; then printf '%s' "${pending_val[idx]}"; else persisted "$1"; fi
 }
-stage_change() { # key newval — records only a real change; reverts drop the entry
-  local key="$1" new="$2" idx
+remove_pending() { # key
+  local idx
+  if idx="$(pending_index "$1")"; then
+    unset 'pending_key[idx]' 'pending_val[idx]' 'pending_origin[idx]'
+    pending_key=("${pending_key[@]}")
+    pending_val=("${pending_val[@]}")
+    pending_origin=("${pending_origin[@]}")
+  fi
+}
+stage_change() { # key newval [origin] — records only a real change; reverts drop the entry
+  local key="$1" new="$2" origin="${3:-user}" idx
   if [[ "$new" == "$(persisted "$key")" ]]; then
-    if idx="$(pending_index "$key")"; then
-      unset 'pending_key[idx]' 'pending_val[idx]'
-      pending_key=("${pending_key[@]}")
-      pending_val=("${pending_val[@]}")
-    fi
+    remove_pending "$key"
     return
   fi
-  if idx="$(pending_index "$key")"; then pending_val[idx]="$new"; else
+  if idx="$(pending_index "$key")"; then
+    pending_val[idx]="$new"
+    pending_origin[idx]="$origin"
+  else
     pending_key+=("$key")
     pending_val+=("$new")
+    pending_origin+=("$origin")
+  fi
+}
+
+reconcile_xcode_beta() {
+  local beta_idx beta_origin
+  if [[ "$(current_value xcode)" == "true" ]]; then
+    if beta_idx="$(pending_index beta)"; then
+      beta_origin="${pending_origin[beta_idx]}"
+      case "$beta_origin" in
+        dependency | migration-normalization) remove_pending beta ;;
+      esac
+    fi
+  elif [[ "$(current_value beta)" == "true" ]]; then
+    stage_change beta false dependency
   fi
 }
 
@@ -211,7 +260,7 @@ display_of() { # key kind -> human display of the effective value
   v="$(current_value "$1")"
   case "$2" in
     bool) [[ "$v" == "true" ]] && echo "Yes" || echo "No" ;;
-    preset | keyrepeat) choice_display "$2" "$v" ;;
+    posture | keyrepeat) choice_display "$2" "$v" ;;
     *) [[ -z "$v" ]] && echo "(none)" || echo "$v" ;;
   esac
 }
@@ -252,7 +301,7 @@ edit_field() { # index
         esac
       done
       ;;
-    preset | keyrepeat | pw)
+    posture | role | keyrepeat | pw)
       load_choices "$kind"
       for ((j = 0; j < ${#choice_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${choice_labels[j]}"; done
       while true; do
@@ -295,7 +344,13 @@ edit_field() { # index
       fi
       ;;
   esac
-  stage_change "$key" "$new"
+  stage_change "$key" "$new" user
+  # Reconcile from the transaction's final effective values. A dependency- or
+  # migration-created beta change disappears when Xcode returns to enabled;
+  # an explicit user beta choice remains.
+  if [[ "$key" == "xcode" ]]; then
+    reconcile_xcode_beta
+  fi
 }
 
 # --- candidate render: build an isolated INPUT config with the pending changes
@@ -306,14 +361,15 @@ render_candidate() { # out-path -> 0 ok
   python3 - "$data_json" "$source_path" "$input" "${pairs[@]}" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1])); src = sys.argv[2]; out = sys.argv[3]
-for k in ("chezmoi", "environment_role", "release_posture"):
-    data.pop(k, None)
+data.pop("chezmoi", None)
+pending = {}
 for arg in sys.argv[4:]:
     k, _, v = arg.partition("=")
     if isinstance(data.get(k), bool):
-        data[k] = (v == "true")
+        pending[k] = (v == "true")
     else:
-        data[k] = v
+        pending[k] = v
+data.update(pending)
 lines = ["sourceDir = " + json.dumps(src), "[data]"]
 for k in sorted(data):
     lines.append("    %s = %s" % (k, json.dumps(data[k])))
@@ -352,7 +408,7 @@ print_receipt() { # structured, from the pending registry — no grepped TOML
 fmt() { # value kind -> display
   case "$2" in
     bool) [[ "$1" == "true" ]] && echo "Yes" || echo "No" ;;
-    preset | keyrepeat) choice_display "$2" "$1" ;;
+    posture | role | keyrepeat) choice_display "$2" "$1" ;;
     *) [[ -z "$1" ]] && echo "(none)" || echo "$1" ;;
   esac
 }
@@ -429,16 +485,39 @@ apply_changes() {
   return "$rc"
 }
 
-# --- main menu loop ---
+# Normalize a legacy or hand-edited impossible state transparently. The change
+# remains pending until the user reviews the receipt and confirms it.
+if [[ "$(current_value xcode)" != "true" && "$(current_value beta)" == "true" ]]; then
+  echo "Stored Xcode beta was enabled while Xcode was disabled; applying this transaction will clear that inactive preference."
+  stage_change beta false migration-normalization
+fi
+
+# --- focused shortcut or main menu loop ---
+if [[ -n "$target_posture" ]]; then
+  stage_change release_posture "$target_posture"
+  apply_changes
+  exit $?
+fi
+
 while true; do
   echo
   echo "Groundwork configuration"
   echo
-  n=${#fields_key[@]}
-  for ((i = 0; i < n; i++)); do
+  visible_indices=()
+  for ((i = 0; i < ${#fields_key[@]}; i++)); do
+    # Beta is a dependent preference. Once Xcode is enabled it appears on the
+    # next menu render; otherwise the durable state is always false.
+    if [[ "${fields_key[i]}" == "beta" && "$(current_value xcode)" != "true" ]]; then
+      continue
+    fi
+    visible_indices+=("$i")
+  done
+  n=${#visible_indices[@]}
+  for ((menu_i = 0; menu_i < n; menu_i++)); do
+    i="${visible_indices[menu_i]}"
     marker=" "
     pending_index "${fields_key[i]}" >/dev/null 2>&1 && marker="*"
-    printf ' %s%2d. %-22s %s\n' "$marker" "$((i + 1))" "${fields_label[i]}" "$(display_of "${fields_key[i]}" "${fields_kind[i]}")"
+    printf ' %s%2d. %-22s %s\n' "$marker" "$((menu_i + 1))" "${fields_label[i]}" "$(display_of "${fields_key[i]}" "${fields_kind[i]}")"
   done
   echo "     ------"
   printf '  %2d. %s\n' "$((n + 1))" "Apply changes"
@@ -452,7 +531,7 @@ while true; do
     continue
   fi
   if ((choice >= 1 && choice <= n)); then
-    edit_field "$((choice - 1))"
+    edit_field "${visible_indices[$((choice - 1))]}"
   elif ((choice == n + 1)); then
     if apply_changes; then break; fi
   elif ((choice == n + 2)); then

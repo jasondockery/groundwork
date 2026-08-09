@@ -8,11 +8,11 @@ maintenance	groundwork-cleanup	command	Advanced read-only report: Homebrew/npm c
 maintenance	groundwork-cleanup --yes	command	Run supported Homebrew and npm maintenance now, plus exact-pinned trusted pnpm stores when the machine-wide cadence or pending repair says due.
 maintenance	groundwork-cleanup --yes --force	command	Exceptional override: attempt normal Homebrew and npm maintenance and every eligible pnpm candidate immediately, ignoring pnpm cadence. Routine retries use update-all, or groundwork-cleanup --yes when upgrades should not repeat. Repository dependency installations such as node_modules are not modified; Homebrew may remove installed orphan formula dependencies, while requested formulae/casks remain.
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	Acknowledge one pending homebrew, npm, pnpm, or maintenance-helper reminder that cannot be repaired because its manager was intentionally removed. Clears only Groundwork's reminder, performs no cleanup, and preserves an audit note.
-daily	groundwork-configure	command	Review your Groundwork setup answers and change any of them safely: shows current values, changes only what you pick, previews the diff, applies after you confirm. This is how to change a setting — "chezmoi init" only regenerates, and "chezmoi init --prompt" replays the whole interview.
+daily	groundwork-configure	command	Canonical settings editor for mutable preferences, including environment role, stable versus preview release posture, and Xcode beta. Xcode beta appears only while Xcode is enabled; disabling Xcode stages both fields in one receipt. Other settings change only when selected, with preview and confirmation; accepting applies the selected desired state immediately. "chezmoi init" establishes or regenerates the machine baseline.
 daily	groundwork-platform	command	Report the current platform as darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported.
 daily	groundwork-distro [--family]	command	On Linux or WSL, report the distribution ID; --family reports its bootstrap family (debian, fedora, arch, opensuse, or unknown).
-daily	groundwork-profile show	command	Show the saved environment role, application release posture, headless state, and detected operating-system channel.
-daily	groundwork-profile set <current|preview>	command	Record a new application release posture after showing the plan and previewing the chezmoi diff. No application is installed, removed, or switched by this phase.
+daily	groundwork-profile show	command	Show the bootstrap seed, saved environment role, application release posture, Xcode and Xcode-beta status, headless state, and detected operating-system channel.
+daily	groundwork-profile set <current|preview>	command	Focused shortcut into groundwork-configure's guarded preview-and-confirm transaction for stable versus preview release posture. Confirming applies the selected desired state immediately; update-all owns later upgrades and maintenance.
 daily	groundwork-profile edit	command	Open the chezmoi config when the role, preset, or another profile field needs direct review.
 tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.
 tmux	Ctrl+a then Ctrl+y	key	Copy the current pane's working directory to the clipboard (native OSC 52 via a helper that reads the path from tmux and never runs it through a shell).
@@ -106,7 +106,7 @@ shell	fd <name>	command	Find files by name quickly.
 shell	Ctrl+R	key	Search shell history with atuin/fzf.
 shell	atuin ai inline	command	Run Atuin's opt-in English-to-shell assistant after setup.
 mac	defaultbrowser	command	List or set the macOS default browser; Groundwork never changes it automatically.
-mac	browser-extensions [--open]	command	List or open the recommended Chrome/Dia extension links.
+mac	browser-extensions [--open]	command	List or open the recommended Chrome extension links.
 mac	raycast-extensions [--open]	command	List or open the recommended Raycast Store extension links.
 mac	betterdisplaycli	command	BetterDisplay command-line interface for display automation.
 mac	open -a <App>	command	Open a macOS app from the shell.

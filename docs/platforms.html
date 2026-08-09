@@ -245,9 +245,9 @@
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">profile.sh</span></div>
         <pre><code><span class="prompt">$ </span>groundwork-platform         <span class="comment"># darwin, linux, wsl2, wsl1, wsl-unknown, unsupported</span>
 <span class="prompt">$ </span>groundwork-distro --family  <span class="comment"># Linux/WSL bootstrap family</span>
-<span class="prompt">$ </span>groundwork-profile show     <span class="comment"># role, release posture, headless state, OS channel</span></code></pre>
+<span class="prompt">$ </span>groundwork-profile show     <span class="comment"># bootstrap seed, role, posture, Xcode/beta, headless, OS channel</span></code></pre>
       </div>
-      <p>To change a setup answer, run <code>groundwork-configure</code>. It shows the current answers, changes only what you select, previews the resulting <code>chezmoi diff</code>, and applies only after confirmation. Use <code>groundwork-profile set current|preview</code> only for the narrower release-posture field; this phase records and reports that choice but does not switch installed applications. <code>groundwork-profile edit</code> opens the stored config directly for exceptional review.</p>
+      <p>To change a machine setting or mutable preference, run <code>groundwork-configure</code>. It owns independent environment role and stable-versus-preview posture plus dependent Xcode beta alongside the saved baseline answers, changes only what you select, previews the resulting <code>chezmoi diff</code>, and applies the selected desired state only after confirmation. Use <code>groundwork-profile set current|preview</code> as the narrower release-posture shortcut. <code>groundwork-profile edit</code> opens the stored config directly for exceptional review.</p>
 
       <div class="pagenav">
         <a href="setup.html"><span class="dir">← Prev</span>Setup &amp; chezmoi</a>

@@ -49,60 +49,19 @@ make an older config fail or silently rewrite unrelated answers. */ -}}
 {{- if hasKey . "install_chrome" -}}
 {{- $legacyInstallChrome = .install_chrome -}}
 {{- end -}}
-{{- /* One preset question, not a personality quiz. The preset seeds two stored
-fields: environment ROLE and release POSTURE. Posture seeds default application
-channels through the tool catalog; it never names a vendor channel itself and
-never touches AI-tool freshness, which is current by product contract, nor the
-pnpm/Renovate/mise supply-chain floors, which address a different risk.
-
-Personal Current is the recommended default: AI tools current on stable
-foundations. That is not caution — an AI-assisted workflow already introduces
-variance, and agents work best against a substrate whose behavior is
-documented. See specs/environment-profiles-and-release-posture.md.
-
-Headless machines install no desktop applications, so they are not asked and
-stay on the stable channel. A work machine defaults to work-managed. */ -}}
-{{- /* A NUMBERED menu, not a bare choice list. chezmoi's promptChoice is a
-type-to-match field that auto-submits on a unique abbreviation, and our own
-`personal-current`/`personal-preview` share a nine-character prefix, so the raw
-values needed ten keystrokes to disambiguate while `w`/`d` submitted on one.
-Numbers make every choice one keystroke and keep the stored `profile_preset`
-values unchanged. See specs/interactive-cli-and-chezmoi-interview.md. */ -}}
-{{- $presetByNum := dict "1" "personal-current" "2" "personal-preview" "3" "work-managed" "4" "disposable-experimental" -}}
-{{- $numByPreset := dict "personal-current" "1" "personal-preview" "2" "work-managed" "3" "disposable-experimental" "4" -}}
+{{- /* Bootstrap establishes a usable machine; mutable application-channel
+preferences belong to groundwork-configure. A fresh install therefore seeds a
+stable profile from the bootstrap-critical work-machine answer without asking a
+second stable-versus-preview question. Existing stored presets remain valid and
+survive regeneration. See specs/environment-profiles-and-release-posture.md. */ -}}
+{{- $validPresets := list "personal-current" "personal-preview" "work-managed" "disposable-experimental" -}}
 {{- $defaultPreset := "personal-current" -}}
 {{- if $work -}}
 {{- $defaultPreset = "work-managed" -}}
 {{- end -}}
-{{- /* If a valid preset is already stored, offer ITS number as the default so a
-forced `chezmoi init --prompt` (which replays with template defaults, not the
-stored answer) never silently resets an existing choice. */ -}}
-{{- $defaultNum := index $numByPreset $defaultPreset -}}
-{{- if and (hasKey . "profile_preset") (hasKey $numByPreset (toString .profile_preset)) -}}
-{{- $defaultNum = index $numByPreset (toString .profile_preset) -}}
-{{- end -}}
-{{- /* Seed from the STORED answer before the platform gate, not only inside it.
-The question is asked on desktop macOS alone, but the answer is written on every
-platform — so a machine that skips the prompt (Linux, WSL2, headless) must carry
-its stored preset forward. Without this seed the value silently reverts to the
-default on every regeneration, and `update-all` regenerates on every refresh:
-a recorded answer would be discarded by routine maintenance. */ -}}
 {{- $profilePreset := $defaultPreset -}}
-{{- if and (hasKey . "profile_preset") (hasKey $numByPreset (toString .profile_preset)) -}}
+{{- if and (hasKey . "profile_preset") (has (toString .profile_preset) $validPresets) -}}
 {{- $profilePreset = toString .profile_preset -}}
-{{- end -}}
-{{- if and (eq .chezmoi.os "darwin") (not $headless) -}}
-{{- $presetChoice := promptChoiceOnce . "profile_preset" (printf "Starting profile — type 1-4:\n  1. Personal current (recommended) — AI tools current on the latest stable apps, including Chrome\n  2. Personal preview — adds pre-release apps, including Chrome Beta with stable Chrome retained as a fallback\n  3. Work managed — Chrome stable and all tools remain subject to device policy\n  4. Disposable experimental — a rebuildable container or VM with preview apps\nAI tools stay current in every profile (Enter keeps the default: %s)" $defaultNum) (list "1" "2" "3" "4") $defaultNum -}}
-{{- /* Dual return domain: a fresh or --prompt run yields a digit; an existing
-config has promptChoiceOnce return the stored value string directly. Accept both
-and normalize to exactly one stored value. */ -}}
-{{- if hasKey $presetByNum $presetChoice -}}
-{{- $profilePreset = index $presetByNum $presetChoice -}}
-{{- else if hasKey $numByPreset $presetChoice -}}
-{{- $profilePreset = $presetChoice -}}
-{{- else -}}
-{{- $profilePreset = $defaultPreset -}}
-{{- end -}}
 {{- end -}}
 {{- /* Role and posture are stored separately so a user can later change one
 without the other, and so a preset is only ever a starting value. */ -}}
@@ -191,8 +150,10 @@ run, the stored value string on an ordinary existing-config run. */ -}}
 {{- $gameDev := promptBoolOnce . "game_dev" "Install optional Unity game development tools, a large download (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $xcode := promptBoolOnce . "xcode" "Install Xcode for native Apple and iOS development, large at ~15GB+ (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
 {{- $beta := false -}}
-{{- if $xcode -}}
-{{- $beta = promptBoolOnce . "beta" "Also follow Apple's Xcode beta channel with the xcodes tool, where you sign in with your Apple Account, no paid membership, and choose versions yourself (y/t = yes, n/f = no; Enter keeps the default: no)" false -}}
+{{- /* Xcode beta posture is mutable and belongs to groundwork-configure, not
+bootstrap. Preserve an existing answer; a fresh install stays stable. */ -}}
+{{- if hasKey . "beta" -}}
+{{- $beta = .beta -}}
 {{- end -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
