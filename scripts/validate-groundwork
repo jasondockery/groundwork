@@ -8984,14 +8984,16 @@ EOF
     printf 'sha256:total000%s\tgroundwork/scratch:total-%s\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
       "$total_candidate" "$total_candidate" >>"$tidy_state/images.tsv"
   done
-  cat >"$tidy_state/delay.conf" <<'EOF'
+  total_deadline_sentinel="$tidy_state/total-deadline-candidate.started"
+  cat >"$tidy_state/delay.conf" <<EOF
 DELAY_SUBSTR='image inspect sha256:total'
 DELAY_AFTER=5
-DELAY_SECONDS=2
+DELAY_SECONDS=30
+DELAY_SENTINEL='$total_deadline_sentinel'
 EOF
   set +e
-  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=5 \
-    GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=8 \
+  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=30 \
+    GROUNDWORK_DOCKER_TOTAL_DEADLINE_SECONDS=20 \
     GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
     docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
     >"$out_dir/tidy-total-deadline" 2>&1
@@ -8999,6 +9001,8 @@ EOF
   set -e
   [[ "$tidy_status" -eq 124 ]] \
     || fail "many individually bounded Docker candidates returned $tidy_status instead of total-deadline status 124"
+  test -f "$total_deadline_sentinel" \
+    || fail "the total-deadline fixture expired before reaching the intended post-enumeration candidate"
   grep -qF 'total Docker lane deadline expired' "$out_dir/tidy-total-deadline"
   grep -qE 'Progress: [0-4] of 5 eligible-image candidates completed; [1-5] remained\.' \
     "$out_dir/tidy-total-deadline" \

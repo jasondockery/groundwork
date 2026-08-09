@@ -57,6 +57,17 @@ wait_for_file() {
   return 1
 }
 
+wait_for_literal() {
+  local file="$1" literal="$2" attempts="${3:-80}"
+  while [[ "$attempts" -gt 0 ]]; do
+    grep -qF -- "$literal" "$file" 2>/dev/null && return 0
+    sleep 0.05
+    attempts=$((attempts - 1))
+  done
+  echo "timed out waiting for fixture output: $literal" >&2
+  return 1
+}
+
 cat >"$fixture/mark" <<'SH'
 #!/usr/bin/env bash
 : >"$1"
@@ -257,11 +268,17 @@ set +e
 wait "$owner_runner"
 status=$?
 set -e
-[[ "$status" -eq 137 ]]
+[[ "$status" -eq 137 ]] || {
+  echo "owner-death runner returned $status, expected 137" >&2
+  exit 1
+}
 owner_death_group="$(<"$fixture/owner-death-group")"
+if ! wait_for_literal "$fixture/owner-death.err" \
+  'outer owner disappeared; cancelling validator process group'; then
+  cat "$fixture/owner-death.err" >&2
+  exit 1
+fi
 wait_for_process_group_gone "$owner_death_group"
-grep -qF 'outer owner disappeared; cancelling validator process group' \
-  "$fixture/owner-death.err"
 rm -f "$fixture/owner-death-group" "$fixture/owner-death-descendant"
 
 cat >"$fixture/nested-runner" <<'SH'
