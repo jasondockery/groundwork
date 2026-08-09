@@ -143,6 +143,13 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
   tracked files.
 - Repository navigation is discovered dynamically from configured roots; never
   hardcode a repository list into tmux, shell, lazygit, or docs.
+- GitHub Actions variables and secrets are external configuration. Groundwork's
+  registry is intentionally empty. Introducing external GitHub configuration
+  requires an explicit contract change to the registry schema and checker,
+  followed by a reviewed capability entry with its sensitivity and scope.
+  `secrets: inherit` is forbidden because it bypasses named authority.
+  YAML anchors and aliases are forbidden until the checker can resolve them
+  structurally without hiding external configuration.
 
 ## Mandatory skill triggers
 Load the skill before the first edit in its area.

@@ -116,6 +116,8 @@ for full-image concerns). The GNU/BSD `stat` incident of 2026-07-26 shipped a
 red Linux CI run exactly because the macOS pass was mistaken for a full pass.
 
 The script checks:
+- the empty-by-design GitHub external-configuration authority and every
+  workflow `secrets.*` / `vars.*` reference
 - bootstrap shell syntax
 - ShellCheck linting for checked-in and rendered shell scripts
 - `.chezmoiroot` and `home/` layout

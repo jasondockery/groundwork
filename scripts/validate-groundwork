@@ -1050,6 +1050,9 @@ validate_static_foundation() {
   check "repository Node/pnpm authority contract"
   node tools/check-toolchain.mjs
 
+  check "GitHub external configuration registry"
+  node tools/github-external-config.mjs
+
   check "toolchain sync, checker, and reporter regressions"
   # The checker proves this checkout is consistent; these tests prove the
   # checker and the sync it depends on still reject drift, unsupported TOML,

@@ -5,6 +5,7 @@
     "toolchain:sync": "node tools/sync-toolchain.mjs",
     "check:toolchain": "node tools/check-toolchain.mjs",
     "check:outdated": "node tools/show-outdated.mjs",
+    "check:github-config": "node tools/github-external-config.mjs",
     "test": "node --test tools/*.test.mjs"
   },
   "packageManager": "pnpm@11.18.0",
