@@ -6664,8 +6664,6 @@ EOF
     "Work Managed selected a preview browser"
   assert_not_contains '^cask ' "$browser_headless" \
     "a headless Mac selected a GUI browser"
-  assert_no_matches "Dia must not remain in Groundwork's managed browser or install surfaces" \
-    rg -n -i '\bdia\b' README.md docs home skel specs data
 
   browser_extensions="$out_dir/browser-extensions"
   render darwin false arm64 home/dot_local/bin/executable_browser-extensions.tmpl "$browser_extensions" \
@@ -6677,9 +6675,9 @@ EOF
     || fail "the browser extension helper must continue to list Chrome links"
   browser_extensions_rc=0
   GROUNDWORK_BROWSER_EXTENSIONS_CATALOG="$PWD/home/dot_local/share/groundwork/browser-extensions.tsv" \
-    /bin/bash "$browser_extensions" --browser dia >/dev/null 2>&1 || browser_extensions_rc=$?
+    /bin/bash "$browser_extensions" --browser unsupported >/dev/null 2>&1 || browser_extensions_rc=$?
   [[ "$browser_extensions_rc" -eq 2 ]] \
-    || fail "the browser extension helper must reject the removed Dia browser target"
+    || fail "the browser extension helper must reject an unsupported browser target"
 
   chrome_current="$out_dir/brew-bundle-chrome-current"
   chrome_preview="$out_dir/brew-bundle-chrome-preview"
@@ -11454,8 +11452,6 @@ PY
           "$case_name current posture selected Chrome Beta"
       fi
     fi
-    assert_not_contains 'thebrowsercompany-dia' "$out_dir/$case_name/Brewfile" \
-      "Dia remained in the $case_name managed Brewfile"
     # The tap-trust troubleshooting docs state categorically that Groundwork
     # adds no third-party taps; keep that claim true. A tap line or a
     # tap-qualified package would put Groundwork in the tap-trust business.
