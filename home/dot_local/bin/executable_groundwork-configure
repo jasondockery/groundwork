@@ -220,9 +220,14 @@ remove_pending() { # key
   local idx
   if idx="$(pending_index "$1")"; then
     unset 'pending_key[idx]' 'pending_val[idx]' 'pending_origin[idx]'
-    pending_key=("${pending_key[@]}")
-    pending_val=("${pending_val[@]}")
-    pending_origin=("${pending_origin[@]}")
+    # Bash 3.2 treats an empty array expansion as unbound under `set -u`.
+    # Compact sparse arrays only while an entry remains; the zero-length arrays
+    # are already in the correct state after unsetting their final element.
+    if ((${#pending_key[@]} > 0)); then
+      pending_key=("${pending_key[@]}")
+      pending_val=("${pending_val[@]}")
+      pending_origin=("${pending_origin[@]}")
+    fi
   fi
 }
 stage_change() { # key newval [origin] — records only a real change; reverts drop the entry

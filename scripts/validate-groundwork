@@ -5589,6 +5589,8 @@ KRXS
     # home. The promoted config is still real evidence for the transaction.
     gc_focus="$out_dir/gw-configure-focus"
     gc_focus_real_chezmoi="$(command -v chezmoi)"
+    gc_bash=/bin/bash
+    [[ -x "$gc_bash" ]] || gc_bash="$(command -v bash)"
     mkdir -p "$gc_focus/bin" "$gc_focus/home" "$gc_focus/xdg/chezmoi"
     cat >"$gc_focus/bin/chezmoi" <<'STUB'
 #!/usr/bin/env bash
@@ -5637,7 +5639,7 @@ EOF
       local directory="$1" extra_env="${2:-}" socket="groundwork-gcf-${RANDOM}-$$"
       local output="$directory/out"
       tmux -L "$socket" new-session -d -x 115 -y 45 \
-        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' $extra_env bash '$PWD/$gc_bin' --release-posture preview; sleep 4"
+        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' $extra_env '$gc_bash' '$PWD/$gc_bin' --release-posture preview; sleep 4"
       tmux -L "$socket" pipe-pane -t 0 -o "cat >> '$output'"
       printf '%s\n' "$socket"
     }
@@ -5645,7 +5647,7 @@ EOF
       local directory="$1" socket="groundwork-gcm-${RANDOM}-$$"
       local output="$directory/out"
       tmux -L "$socket" new-session -d -x 115 -y 45 \
-        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' bash '$PWD/$gc_bin'; sleep 4"
+        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' '$gc_bash' '$PWD/$gc_bin'; sleep 4"
       tmux -L "$socket" pipe-pane -t 0 -o "cat >> '$output'"
       printf '%s\n' "$socket"
     }
