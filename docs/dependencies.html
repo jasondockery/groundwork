@@ -152,13 +152,13 @@
       <h2><span class="hash">#</span>What the bot actually does to a repo</h2>
       <div class="callout note">
         <span class="label">Current operating contract</span>
-        <p>The shared runner checks daily and the preset supplies the weekly routine PR window. Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor. Vulnerability alerts explicitly bypass the routine schedule, age floor, and rate limits so the next daily run can create them immediately.</p>
+        <p>The shared runner and preset evaluate eligible routine updates for branch and PR creation on every daily run. Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor. Vulnerability alerts explicitly bypass the routine schedule, age floor, and rate limits so the next daily run can create them immediately.</p>
       </div>
       <p>Concretely, on this repo (Groundwork) and its siblings, Renovate:</p>
       <ul>
-        <li>Opens <strong>weekly, grouped PRs</strong> labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
-        <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is waiting on schedule, what is held by the cooldown. Ticking a checkbox forces a PR ahead of schedule.</li>
-        <li>Opens security PRs on the next daily runner pass, explicitly bypassing the weekly schedule, age floor, and routine rate limits, and merges them itself once CI is green.</li>
+        <li>Opens <strong>eligible grouped PRs on the daily run</strong>, labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
+        <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is held by the maturity floor or rate limits, and what requires approval. Ticking an approval checkbox releases that held update for a future run.</li>
+        <li>Opens security PRs on the next daily runner pass, explicitly bypassing the routine schedule, age floor, and rate limits, and merges them itself once CI is green.</li>
         <li>Updates things that are not npm packages at all: <strong>GitHub Actions pinned to commit SHAs</strong> (it moves the pin and the human-readable version comment together) and <strong>Docker base-image digests</strong>.</li>
         <li>Embeds each package's <strong>release notes in the PR body</strong>, so the review starts with what changed, not with hunting for a changelog.</li>
       </ul>
@@ -200,15 +200,15 @@
         <li><strong>A self-hosted runner</strong>: a small GitHub Actions workflow in an automation repo that runs Renovate on a schedule with a token you control. You gain what hosted hides: every run is a log you can open, grep, and re-dispatch with debug logging. These repos moved to self-hosted after three separate "why is the bot ignoring me?" mysteries whose answers all lived in logs only the hosted portal could see.</li>
       </ul>
       <p>The trade is the same one this site keeps pointing at: convenience versus observability. Start hosted if you're new; move to self-hosted the first time you can't answer "what is the bot doing?" from where you sit. The config file is identical either way, so switching is an executor swap, not a migration.</p>
-      <p>Keep the executor clock separate from the routine update window. These repositories run the self-hosted process daily so vulnerable updates are noticed promptly, while <code>schedule:weekly</code> lets normal updates and branches advance in the early-Monday window. Reducing the runner itself to weekly can add almost another week after a release has already completed its cooldown.</p>
+      <p>These repositories run the self-hosted process daily. Every run evaluates eligible routine updates after their maturity floor and notices vulnerable updates promptly; there is no second weekly branch-creation window. A slower executor clock would delay both ordinary maintenance and urgent fixes after their other controls have cleared.</p>
 
       <h2><span class="hash">#</span>Supervising the bot</h2>
       <p>The human stays the senior partner. In practice that means the config encodes different trust levels for different blast radii:</p>
       <ul>
-        <li><strong>Majors are held for approval.</strong> Framework majors (React, Next.js, TypeScript) appear on the dashboard as approval requests, not open PRs. A major upgrade is deliberate work with its own plan, never something absorbed into a routine merge.</li>
+        <li><strong>High-blast-radius majors are held for approval.</strong> Groundwork treats an Ubuntu base-image major as a platform migration, so it appears on the dashboard for approval instead of opening a routine PR. A major upgrade with that compatibility impact is deliberate work with its own plan.</li>
         <li><strong>High-blast-radius packages always get human review</strong>, even for patches. Deployment engines and infrastructure adapters can break everything at once; the config forbids automerging them.</li>
         <li><strong>Automerge is earned, not default.</strong> Security fixes automerge because CI proves what a human glance would. Routine bumps automerge only after the machinery has demonstrated, over enough cycles, that green CI genuinely means safe.</li>
-        <li><strong>The dashboard is the console.</strong> When something seems stuck, the answer is almost always there: waiting on schedule, held by cooldown, or a config error the bot is telling you about.</li>
+        <li><strong>The dashboard is the console.</strong> When something seems stuck, the answer is almost always there: held by maturity or rate limits, awaiting approval, or blocked by a config error the bot is reporting.</li>
       </ul>
 
       <h2><span class="hash">#</span>Set it up on your own project</h2>

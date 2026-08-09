@@ -38,17 +38,17 @@ install-time release discovery, and the managed mise runtimes applied by
 
 Operating notes:
 
-- The runner inspects all three repositories daily. Routine updates and branches
-  advance in the separate early-Monday weekly window and are grouped into PRs
-  labeled `dependencies`. Normal timestamped major, minor, and patch releases
+- The runner inspects all three repositories daily. Eligible routine updates and
+  branches advance on each daily run and are grouped into PRs labeled
+  `dependencies`. Normal timestamped major, minor, and patch releases
   must also complete the strict five-day age floor. Action SHA pins, Docker
   tags or digests without usable release timestamps, lockfile maintenance, and
   other unsupported update types use the repository-specific controls recorded
   in `dependency-coverage.json`. The Dependency
-  Dashboard issue lists pending updates; checking a box there forces a PR
-  ahead of the schedule (the runner acts on it at its next cron/dispatch
-  run, not instantly).
-- Security PRs bypass the normal age, weekly schedule, and routine rate limits,
+  Dashboard issue lists pending updates; its approval checkboxes release held
+  updates such as Groundwork's Ubuntu major migration (the runner acts on the
+  approval at its next cron/dispatch run, not instantly).
+- Security PRs bypass the normal age, routine schedule, and routine rate limits,
   appear on the next
   daily run, are labeled `security`, and automerge once CI is
   green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove

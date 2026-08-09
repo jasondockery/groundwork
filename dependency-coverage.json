@@ -59,7 +59,7 @@
       "paths": ["Dockerfile"],
       "canonical": "Dockerfile",
       "agePolicy": "unsupported-by-renovate",
-      "compensatingControl": "The base image is tag-and-digest pinned; the disposable Docker proof, required CI, and owner review gate digest updates.",
+      "compensatingControl": "Tag-and-digest pins, disposable Docker proof, and required CI govern routine image maintenance; Ubuntu base-image majors additionally require Dependency Dashboard approval and deliberate owner migration review.",
       "extractionMatchers": [
         { "manager": "dockerfile", "packageFilePattern": "^Dockerfile$", "depNamePattern": ".+" }
       ],
@@ -67,7 +67,7 @@
         { "pathPattern": "^Dockerfile$", "pattern": "container-reference" },
         { "pathPattern": "^Dockerfile$", "pattern": "digest" }
       ],
-      "note": "Renovate owns the Dockerfile frontend and Ubuntu base image, but digest updates do not receive a universal release-age guarantee."
+      "note": "Renovate owns routine Dockerfile frontend and Ubuntu tag/digest maintenance. An Ubuntu major is a platform migration held by Groundwork's local approval rule, and digest updates do not receive a universal release-age guarantee."
     },
     {
       "id": "github-actions-runners-and-containers",

@@ -10154,6 +10154,45 @@ if (
     or set(gitleaks_age_rule) != {"description", "matchDatasources", "matchDepNames", "minimumReleaseAge"}
 ):
     raise SystemExit("the Gitleaks age-policy exception must stay exact, Docker-only, and disabled only by null")
+
+ubuntu_major_rules = [
+    rule
+    for rule in renovate_config.get("packageRules", [])
+    if rule.get("matchDepNames") == ["ubuntu"]
+]
+if len(ubuntu_major_rules) != 1:
+    raise SystemExit("Renovate must define exactly one Ubuntu base-image policy rule")
+ubuntu_major_rule = ubuntu_major_rules[0]
+expected_ubuntu_major_rule = {
+    "description": "Ubuntu base-image majors change Groundwork's supported platform contract; require explicit Dependency Dashboard approval before branch and PR creation.",
+    "matchManagers": ["dockerfile"],
+    "matchDatasources": ["docker"],
+    "matchDepNames": ["ubuntu"],
+    "matchFileNames": ["Dockerfile"],
+    "matchUpdateTypes": ["major"],
+    "dependencyDashboardApproval": True,
+}
+if ubuntu_major_rule != expected_ubuntu_major_rule:
+    raise SystemExit("the Ubuntu major rule must stay exact, Dockerfile-only, and approval-gated")
+
+non_major_rules = [
+    rule
+    for rule in renovate_config.get("packageRules", [])
+    if rule.get("groupName") == "non-major dependencies"
+]
+if len(non_major_rules) != 1 or non_major_rules[0] != {
+    "groupName": "non-major dependencies",
+    "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+}:
+    raise SystemExit("ordinary minor, patch, digest, and pin maintenance must remain enabled and grouped")
+if "vulnerabilityAlerts" in renovate_config:
+    raise SystemExit("Groundwork-local policy must not override the shared vulnerability-alert bypass")
+
+container_surface = next(surface for surface in inventory["surfaces"] if surface["id"] == "container-images")
+if "Ubuntu base-image majors additionally require Dependency Dashboard approval" not in container_surface["compensatingControl"]:
+    raise SystemExit("container coverage must distinguish Ubuntu major approval from routine image maintenance")
+if "routine Dockerfile frontend and Ubuntu tag/digest maintenance" not in container_surface["note"]:
+    raise SystemExit("container coverage must preserve routine Renovate ownership")
 PY
 
   check "groundwork-repos helper"
@@ -11396,14 +11435,14 @@ PY
   # Renovate owns dependency updates (renovate.json) through the shared preset; a
   # dependabot.yml would create duplicate PRs, so its absence is the guarded state.
   grep -q '"github>jasondockery/renovate-config"' renovate.json
-  grep -Fq 'enforces a strict five-day floor for supported normal timestamped npm updates' renovate.json
+  grep -Fq 'evaluates routine updates for branch and PR creation on every daily run after the applicable five-day maturity floor' renovate.json
   grep -Fq 'GHCR does not expose a Renovate releaseTimestamp for the Gitleaks tags' renovate.json
   grep -Fq 'Groundwork&apos;s Gitleaks container uses an exact local age-check exception' docs/dependencies.html
   grep -Fq 'timestamped npm major, minor, and patch versions use Renovate' AI_THESIS.md
   grep -Fq 'Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor.' docs/dependencies.html
-  grep -Fq 'Security PRs bypass the normal age, weekly schedule, and routine rate limits' PLAYBOOK.md
+  grep -Fq 'Security PRs bypass the normal age, routine schedule, and routine rate limits' PLAYBOOK.md
   assert_no_matches "Groundwork must describe the active shared Renovate policy, not the retired proposal" \
-    rg -n 'approved in principle|known effective npm-age discrepancy|target effective strict five-day|activation is still pending|explicit bypass fields remain proposed|Target after activation' \
+    rg -n 'approved in principle|known effective npm-age discrepancy|target effective strict five-day|activation is still pending|explicit bypass fields remain proposed|Target after activation|weekly routine update/branch window|early-Monday weekly window|weekly, grouped PRs|bypassing the weekly schedule' \
     AI_THESIS.md PLAYBOOK.md renovate.json docs/dependencies.html
   if [[ -e .github/dependabot.yml ]]; then
     echo "remove .github/dependabot.yml: Renovate owns dependency updates (see PLAYBOOK.md)" >&2
