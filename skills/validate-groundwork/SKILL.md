@@ -75,6 +75,37 @@ bootstrap, cross-platform, CI-routing, release, and broad cross-cutting changes:
 scripts/validate-groundwork --suite full --report /tmp/groundwork-validation.json
 ```
 
+## Close A Historical CI Failure
+
+Treat the failed run as evidence, not as proof for a repair:
+
+1. Bind the incident to the workflow, run attempt, job, exact SHA, platform,
+   and retained receipt. Confirm that the receipt and checkout identify the
+   same tree before diagnosing the failure.
+2. Read the first exact failed assertion and its surrounding log before naming
+   a cause. Classify it as product logic, fixture logic, process supervision,
+   proof identity/history, or external platform behavior.
+3. Reproduce the cheapest semantic contract with the runtime the repository
+   actually supports. Invoke `/bin/bash` for an Apple Bash contract rather than
+   whichever newer Bash appears first on `PATH`. For a process-group failure,
+   capture PID, PPID, PGID, state, and command before cleanup. Treat required
+   tags, ancestry, and historical blobs as declared checkout inputs; materialize
+   them before parallel proof rather than relying on lazy fetches mid-run.
+4. Repair the classified cause. Do not lengthen sleeps, grace periods, or
+   deadlines merely to make a race disappear. Poll a bounded semantic condition
+   and emit the final observed state on timeout. If stricter observation exposes
+   a product defect, fix the product instead of weakening the test.
+5. When one failure establishes a bounded sibling risk, inspect only that same
+   class and add a compact zero/edge-state regression matrix. Do not broadly
+   rewrite platform-sensitive shell code without evidence.
+6. Shift the check left only when a cheaper layer can prove the same behavior.
+   If the check already runs in the earliest appropriate suite, strengthen its
+   observation there instead of duplicating it.
+7. Close the incident only after the final committed SHA passes in the
+   environment that exposed it. Use focused runs for diagnosis, then the normal
+   exact-commit proof path and exact-SHA CI. A rerun of the old SHA can confirm
+   history, but it cannot prove the repair.
+
 For an owner-authorized push, reconcile the index and create the intended local
 commit before this final proof. The receipt must describe that exact clean
 commit, and no source, index, or history mutation may occur between proof and
