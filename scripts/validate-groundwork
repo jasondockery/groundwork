@@ -5664,11 +5664,23 @@ EOF
     gc_focus_accept="$gc_focus/accept"
     write_gc_focus_config "$gc_focus_accept" current false false managed
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_accept")"
-    sleep 2
+    if ! wait_for_gc_output "$gc_focus_accept/out" 'Preview the dotfiles this would change?'; then
+      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
+      cat "$gc_focus_accept/out" >&2
+      fail "focused release-posture transaction did not reach preview consent within ten seconds"
+    fi
     tmux -L "$gc_focus_sock" send-keys -t 0 Enter
-    sleep 2
+    if ! wait_for_gc_output "$gc_focus_accept/out" 'Apply these changes?'; then
+      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
+      cat "$gc_focus_accept/out" >&2
+      fail "focused release-posture transaction did not reach apply consent within ten seconds"
+    fi
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    if ! wait_for_gc_output "$gc_focus_accept/out" 'Dotfiles applied.'; then
+      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
+      cat "$gc_focus_accept/out" >&2
+      fail "focused release-posture transaction did not finish apply within ten seconds"
+    fi
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'Release posture:' "$gc_focus_accept/out" \
       || fail "focused release-posture transaction must print the selected change"
