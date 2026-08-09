@@ -1,6 +1,11 @@
 ---
 name: validate-groundwork
-description: Validate Groundwork before commit, release, public repo publication, or after broad changes. Use when checking chezmoi layout, rendered templates, docs links, secret patterns, and public-repo readiness.
+description: >
+  Validate Groundwork and diagnose or close failed CI. Use when selecting
+  verification suites, reviewing GitHub Actions failures, reproducing
+  platform-specific validation defects, closing historical CI incidents,
+  checking exact-SHA proof, checking chezmoi/rendered/docs/secret contracts,
+  or validating broad, release, or public-repository changes.
 ---
 
 # Validate Groundwork
