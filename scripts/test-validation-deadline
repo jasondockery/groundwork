@@ -221,16 +221,28 @@ set -e
 [[ "$status" -eq 143 ]]
 test ! -e "$fixture/mutated"
 
+timeout_started="$SECONDS"
 set +e
-"$runner" --seconds 1 --grace-seconds 1 -- \
+"$runner" --seconds 5 --grace-seconds 1 -- \
   "$fixture/hang" "$fixture/process-group" "$fixture/descendant" \
-  >"$fixture/timeout.out" 2>"$fixture/timeout.err"
+  >"$fixture/timeout.out" 2>"$fixture/timeout.err" &
+timeout_runner=$!
+set -e
+if ! wait_for_file "$fixture/process-group" 80; then
+  kill -TERM "$timeout_runner" 2>/dev/null || true
+  wait "$timeout_runner" 2>/dev/null || true
+  cat "$fixture/timeout.err" >&2
+  exit 1
+fi
+set +e
+wait "$timeout_runner"
 status=$?
 set -e
 [[ "$status" -eq 124 ]]
-grep -qF '1s hard deadline reached' "$fixture/timeout.err"
+grep -qF '5s hard deadline reached' "$fixture/timeout.err"
 process_group="$(<"$fixture/process-group")"
 assert_process_group_gone "$process_group"
+[[ "$((SECONDS - timeout_started))" -le 8 ]]
 rm -f "$fixture/process-group" "$fixture/descendant"
 
 set +e
@@ -259,19 +271,28 @@ SH
 chmod +x "$fixture/nested-runner"
 nested_started="$SECONDS"
 set +e
-"$runner" --seconds 1 --grace-seconds 1 -- \
+"$runner" --seconds 5 --grace-seconds 1 -- \
   "$fixture/nested-runner" "$runner" "$fixture/hang" \
   "$fixture/nested-group" "$fixture/nested-descendant" \
-  >"$fixture/nested.out" 2>"$fixture/nested.err"
+  >"$fixture/nested.out" 2>"$fixture/nested.err" &
+nested_runner=$!
+set -e
+if ! wait_for_file "$fixture/nested-group" 80; then
+  kill -TERM "$nested_runner" 2>/dev/null || true
+  wait "$nested_runner" 2>/dev/null || true
+  cat "$fixture/nested.err" >&2
+  exit 1
+fi
+set +e
+wait "$nested_runner"
 status=$?
 set -e
 [[ "$status" -eq 124 ]]
-grep -qF '1s hard deadline reached' "$fixture/nested.err"
-wait_for_file "$fixture/nested-group"
+grep -qF '5s hard deadline reached' "$fixture/nested.err"
 nested_group="$(<"$fixture/nested-group")"
 wait_for_process_group_gone "$nested_group"
 nested_elapsed=$((SECONDS - nested_started))
-[[ "$nested_elapsed" -le 4 ]]
+[[ "$nested_elapsed" -le 8 ]]
 rm -f "$fixture/nested-group" "$fixture/nested-descendant"
 
 set +e

@@ -8943,21 +8943,25 @@ EOF
   # its descendant, returns 124, and preserves pending repair state.
   docker_state_init "$tidy_state"
   docker_timeout_pid_file="$tidy_state/delayed-child.pid"
+  docker_timeout_sentinel="$tidy_state/delayed-command.started"
   cat >"$tidy_state/delay.conf" <<EOF
 DELAY_SUBSTR='images --no-trunc --filter label=dev.roost.ephemeral=true'
 DELAY_SPAWN_DESCENDANT=1
 DELAY_DESCENDANT_SECONDS=30
 DELAY_PID_FILE='$docker_timeout_pid_file'
+DELAY_SENTINEL='$docker_timeout_sentinel'
 EOF
   set +e
-  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=5 \
     GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
     docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
     >"$out_dir/tidy-timeout" 2>&1
   tidy_status=$?
   set -e
   [[ "$tidy_status" -eq 124 ]] || fail "a stalled Docker observation returned $tidy_status, expected 124"
-  grep -qF 'exceeded its 1s hard deadline' "$out_dir/tidy-timeout"
+  test -f "$docker_timeout_sentinel" \
+    || fail "the Docker timeout fixture did not reach the intended stalled image listing"
+  grep -qF 'exceeded its 5s hard deadline' "$out_dir/tidy-timeout"
   test -f "$docker_pending_file" || fail "a timed-out Docker tidy recorded no pending state"
   docker_timeout_pid="$(<"$docker_timeout_pid_file")"
   for _ in {1..20}; do
@@ -9045,18 +9049,22 @@ EOF
   docker_state_init "$tidy_state"
   printf 'sha256:firstinspect\tgroundwork/scratch:first-inspect\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n' \
     >"$tidy_state/images.tsv"
-  cat >"$tidy_state/delay.conf" <<'EOF'
+  first_inspect_sentinel="$tidy_state/first-inspect.started"
+  cat >"$tidy_state/delay.conf" <<EOF
 DELAY_SUBSTR='image inspect sha256:firstinspect'
 DELAY_SECONDS=30
+DELAY_SENTINEL='$first_inspect_sentinel'
 EOF
   set +e
-  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_OBSERVE_DEADLINE_SECONDS=5 \
     GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
     docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
     >"$out_dir/tidy-timeout-first-inspect" 2>&1
   tidy_status=$?
   set -e
   [[ "$tidy_status" -eq 124 ]] || fail "first image-inspect timeout returned $tidy_status"
+  test -f "$first_inspect_sentinel" \
+    || fail "the image-inspect timeout fixture did not reach the intended stalled command"
   first_inspect_line="$(grep -nF 'image inspect sha256:firstinspect' "$tidy_state/argv.log" | head -n 1 | cut -d: -f1)"
   [[ "$(wc -l <"$tidy_state/argv.log" | tr -d '[:space:]')" -eq "$first_inspect_line" ]] \
     || fail "timeout during first image inspection allowed a later Docker call"
@@ -9107,18 +9115,22 @@ EOF
     printf 'sha256:rmfirst0\tgroundwork/scratch:rm-first\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
     printf 'sha256:rmsecond\tgroundwork/scratch:rm-second\ttrue\t2001-01-01T00:00:00Z\t2001-01-01T00:00:00Z\t1.0GB\n'
   } >"$tidy_state/images.tsv"
-  cat >"$tidy_state/delay.conf" <<'EOF'
+  image_delete_sentinel="$tidy_state/image-delete.started"
+  cat >"$tidy_state/delay.conf" <<EOF
 DELAY_SUBSTR='image rm sha256:rmfirst0'
 DELAY_SECONDS=30
+DELAY_SENTINEL='$image_delete_sentinel'
 EOF
   set +e
-  GROUNDWORK_DOCKER_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_DEADLINE_SECONDS=5 \
     GROUNDWORK_DOCKER_CANCEL_GRACE_SECONDS=1 GROUNDWORK_DOCKER_POLL_SECONDS=0.1 \
     docker_run "$tidy_state" "$docker_stub_bin:$PATH" groundwork-docker-tidy --yes \
     >"$out_dir/tidy-timeout-image-delete" 2>&1
   tidy_status=$?
   set -e
   [[ "$tidy_status" -eq 124 ]] || fail "image-deletion timeout returned $tidy_status"
+  test -f "$image_delete_sentinel" \
+    || fail "the image-deletion timeout fixture did not reach the intended stalled command"
   assert_no_matches "timeout deleting one image continued to the next candidate" \
     grep -n 'image rm sha256:rmsecond' "$tidy_state/argv.log"
 
@@ -9245,17 +9257,21 @@ EOF
   install_fixture_runtime_clock "$docker_stub_bin/date"
 
   docker_state_init "$cache_state"
-  cat >"$cache_state/delay.conf" <<'EOF'
+  cache_prune_sentinel="$cache_state/container-prune.started"
+  cat >"$cache_state/delay.conf" <<EOF
 DELAY_SUBSTR='container prune --force'
 DELAY_SECONDS=30
+DELAY_SENTINEL='$cache_prune_sentinel'
 EOF
   set +e
-  GROUNDWORK_DOCKER_CACHE_TIDY_OPERATION_DEADLINE_SECONDS=1 \
+  GROUNDWORK_DOCKER_CACHE_TIDY_OPERATION_DEADLINE_SECONDS=5 \
     docker_run "$cache_state" "$docker_stub_bin:$PATH" groundwork-docker-cache-tidy --yes \
     >"$out_dir/cache-prune-timeout" 2>&1
   cache_status=$?
   set -e
   [[ "$cache_status" -eq 124 ]] || fail "bounded daemon-wide prune returned $cache_status"
+  test -f "$cache_prune_sentinel" \
+    || fail "the cache-prune timeout fixture did not reach the intended stalled command"
   assert_no_matches "cache cleanup continued after a prune deadline" \
     grep -nE 'image prune|builder prune' "$cache_state/argv.log"
   rm -f "$cache_state/delay.conf"
