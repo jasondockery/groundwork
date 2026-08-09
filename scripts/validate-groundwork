@@ -11126,6 +11126,11 @@ EOF
   grep -qF 'actions/download-artifact@' .github/workflows/ci.yml
   grep -qF 'scripts/aggregate-ci-receipts --mode ci' .github/workflows/ci.yml
   grep -qF 'scripts/aggregate-ci-receipts --mode full' .github/workflows/full-validation.yml
+  # Full runs start the focused suites concurrently, and the update suite reads
+  # the v1.9 launcher from history. Materialize the declared full history at
+  # checkout instead of making exact-SHA proof depend on a runtime lazy fetch.
+  assert_no_matches "full validation must materialize historical blobs before parallel suite composition" \
+    rg -n 'filter:[[:space:]]*blob:none' .github/workflows/full-validation.yml
   grep -qF -- '--budget-seconds 300' .github/workflows/ci.yml \
     || fail "ordinary CI must expose the five-minute advisory workflow target"
   grep -qF 'Suite duration | Suite target | Complete job | GitHub workflow safety timeout' \
