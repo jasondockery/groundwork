@@ -5669,9 +5669,13 @@ EOF
       || fail "focused posture change rewrote the bootstrap preset history"
     [[ -f "$gc_focus_accept/apply-log" ]] \
       || fail "accepted focused transaction did not invoke the final apply"
-    "$gc_focus_real_chezmoi" --config "$gc_focus_accept/xdg/chezmoi/chezmoi.toml" \
-      --source "$PWD/home" execute-template \
-      <home/dot_config/homebrew/Brewfile.browser.tmpl >"$gc_focus_accept/Brewfile.browser"
+    gc_focus_accept_posture="$(
+      "$gc_focus_real_chezmoi" --config "$gc_focus_accept/xdg/chezmoi/chezmoi.toml" \
+        data --format=json | jq -r '.release_posture'
+    )"
+    render darwin false arm64 home/dot_config/homebrew/Brewfile.browser.tmpl \
+      "$gc_focus_accept/Brewfile.browser" false false false false bitwarden \
+      personal-current managed "$gc_focus_accept_posture"
     grep -qx 'cask "google-chrome@beta"' "$gc_focus_accept/Brewfile.browser" \
       || fail "accepted preview posture did not select Chrome Beta for the immediate apply"
 
