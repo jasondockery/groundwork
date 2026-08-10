@@ -7,7 +7,7 @@ after the work is verified, never aspirationally.
 
 ## Current execution order
 
-Reconciled 2026-08-02 against `origin/main` at `d7cb618`; `v1.10.0` is the
+Reconciled 2026-08-10 against `origin/main` at `40fe3f9`; `v1.14.0` is the
 current release tag. Detailed acceptance criteria live in the specs; this list
 is only sequence.
 
@@ -31,6 +31,15 @@ is only sequence.
    bypass. Keep this open until five representative final-tree receipts establish
    `static` ≤55s, `update` ≤90s, `docker` ≤75s, `platform-macos` ≤15s, and
    `full` ≤270s, or create measured follow-up work for any honest miss.
+   The exact-SHA `40fe3f9` hosted receipts established the first accepted
+   baseline: static 188s, update 103s, Docker 125s, platform-macos 8s, full
+   Linux 175s, and full macOS 304s. Preserve the platform lane and optimize the
+   honest misses in measured slices. The first slice replaces the static
+   settings editor's fixed PTY sleeps (100s in the accepted local receipt) with
+   bounded semantic prompt and completion observation. Next, profile the update
+   policy watchdog (84s) and Docker tidy real-runtime proof (104s) before
+   changing either; do not raise targets or replace runtime contracts with
+   policy-only fixtures to obtain green timing.
 4. **Fail-closed CI change classification.** Only after suite and receipt
    contracts stabilize: keep every required job visible, widen unknown/shared
    runner/validator/workflow/template changes to all suites, and permit an

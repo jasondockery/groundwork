@@ -5841,6 +5841,22 @@ KRXS
   # reach the Apply confirmation (the P0 regression never did), DECLINE, and leave
   # the config untouched.
   if command -v tmux >/dev/null 2>&1; then
+    wait_for_gc_output() { # output literal expected-count; ten-second deadline
+      local output="$1" literal="$2" expected="$3" attempt observed
+      for ((attempt = 0; attempt < 100; attempt++)); do
+        observed="$(grep -aF -c -- "$literal" "$output" 2>/dev/null || true)"
+        [[ "$observed" -ge "$expected" ]] && return 0
+        sleep 0.1
+      done
+      return 1
+    }
+    await_gc_output() { # socket output literal expected-count failure-message
+      local socket="$1" output="$2" literal="$3" expected="$4" message="$5"
+      wait_for_gc_output "$output" "$literal" "$expected" && return 0
+      tmux -L "$socket" kill-server 2>/dev/null || true
+      [[ ! -f "$output" ]] || cat "$output" >&2
+      fail "$message"
+    }
     # TTY + MISSING config: a real terminal but no config points at setup, NOT the
     # interactive-terminal message (the terminal is already interactive). The lead
     # `sleep 1` lets pipe-pane attach before the fast-exiting output prints.
@@ -5851,7 +5867,8 @@ KRXS
     tmux -L "$gc_ncsock" new-session -d -x 100 -y 30 \
       "sleep 1; XDG_CONFIG_HOME='$gc_ttync/xdg' bash '$PWD/$gc_bin'; sleep 2"
     tmux -L "$gc_ncsock" pipe-pane -t 0 -o "cat >> '$gc_ncout'"
-    sleep 3
+    await_gc_output "$gc_ncsock" "$gc_ncout" 'no Groundwork configuration' 1 \
+      "groundwork-configure (TTY, no config) did not report its terminal state within ten seconds"
     tmux -L "$gc_ncsock" kill-server 2>/dev/null || true
     grep -aqF 'no Groundwork configuration' "$gc_ncout" \
       || {
@@ -5885,17 +5902,23 @@ KRXS
     tmux -L "$gc_sock" new-session -d -x 115 -y 45 \
       "XDG_CONFIG_HOME='$gc_dir/xdg' bash '$PWD/$gc_bin'; sleep 8"
     tmux -L "$gc_sock" pipe-pane -t 0 -o "cat >> '$gc_out'"
-    sleep 2
+    await_gc_output "$gc_sock" "$gc_out" 'Choose a setting to change' 1 \
+      "groundwork-configure did not reach its initial settings menu within ten seconds"
     tmux -L "$gc_sock" send-keys -t 0 1 Enter
-    sleep 1
+    await_gc_output "$gc_sock" "$gc_out" 'Choose 1-2 (Enter keeps current)' 1 \
+      "groundwork-configure did not reach the release-posture choice within ten seconds"
     tmux -L "$gc_sock" send-keys -t 0 2 Enter
-    sleep 1
+    await_gc_output "$gc_sock" "$gc_out" 'Choose a setting to change' 2 \
+      "groundwork-configure did not return to its settings menu within ten seconds"
     tmux -L "$gc_sock" send-keys -t 0 "$gc_apply_index" Enter
-    sleep 3
+    await_gc_output "$gc_sock" "$gc_out" 'Preview the dotfiles this would change?' 1 \
+      "groundwork-configure did not reach preview consent within ten seconds"
     tmux -L "$gc_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_sock" "$gc_out" 'Apply these changes?' 1 \
+      "groundwork-configure did not reach apply consent within ten seconds"
     tmux -L "$gc_sock" send-keys -t 0 n Enter
-    sleep 2
+    await_gc_output "$gc_sock" "$gc_out" 'Not applied' 1 \
+      "groundwork-configure did not finish the declined transaction within ten seconds"
     tmux -L "$gc_sock" kill-server 2>/dev/null || true
     grep -aqF 'Proposed changes:' "$gc_out" \
       || {
@@ -5977,40 +6000,23 @@ EOF
       local directory="$1" socket="groundwork-gcm-${RANDOM}-$$"
       local output="$directory/out"
       tmux -L "$socket" new-session -d -x 115 -y 45 \
-        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' '$gc_bash' '$PWD/$gc_bin'; sleep 4"
+        "sleep 1; env HOME='$directory/home' XDG_CONFIG_HOME='$directory/xdg' PATH='$gc_focus/bin:$PATH' GROUNDWORK_REAL_CHEZMOI='$gc_focus_real_chezmoi' GROUNDWORK_CONFIGURE_APPLY_LOG='$directory/apply-log' '$gc_bash' '$PWD/$gc_bin' && echo complete > '$directory/session-complete'; sleep 4"
       tmux -L "$socket" pipe-pane -t 0 -o "cat >> '$output'"
       printf '%s\n' "$socket"
     }
-    wait_for_gc_output() { # output literal; ten-second deadline
-      local output="$1" literal="$2" attempt
-      for ((attempt = 0; attempt < 100; attempt++)); do
-        grep -aqF -- "$literal" "$output" 2>/dev/null && return 0
-        sleep 0.1
-      done
-      return 1
-    }
-
     # Accept: only posture moves. Preset and independently stored role survive.
     gc_focus_accept="$gc_focus/accept"
     write_gc_focus_config "$gc_focus_accept" current false false managed
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_accept")"
-    if ! wait_for_gc_output "$gc_focus_accept/out" 'Preview the dotfiles this would change?'; then
-      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
-      cat "$gc_focus_accept/out" >&2
-      fail "focused release-posture transaction did not reach preview consent within ten seconds"
-    fi
+    await_gc_output "$gc_focus_sock" "$gc_focus_accept/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "focused release-posture transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 Enter
-    if ! wait_for_gc_output "$gc_focus_accept/out" 'Apply these changes?'; then
-      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
-      cat "$gc_focus_accept/out" >&2
-      fail "focused release-posture transaction did not reach apply consent within ten seconds"
-    fi
+    await_gc_output "$gc_focus_sock" "$gc_focus_accept/out" 'Apply these changes?' 1 \
+      "focused release-posture transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    if ! wait_for_gc_output "$gc_focus_accept/session-complete" 'complete'; then
-      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
-      cat "$gc_focus_accept/out" >&2
-      fail "focused release-posture transaction did not exit successfully within ten seconds"
-    fi
+    await_gc_output "$gc_focus_sock" "$gc_focus_accept/session-complete" complete 1 \
+      "focused release-posture transaction did not exit successfully within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'Release posture:' "$gc_focus_accept/out" \
       || fail "focused release-posture transaction must print the selected change"
@@ -6038,7 +6044,8 @@ EOF
     gc_focus_noop="$gc_focus/noop"
     write_gc_focus_config "$gc_focus_noop" preview false false managed
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_noop")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_focus_noop/out" 'No changes to apply.' 1 \
+      "focused no-op transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'No changes to apply.' "$gc_focus_noop/out" \
       || fail "focused release-posture transaction must report an already-active posture as a no-op"
@@ -6050,9 +6057,12 @@ EOF
     write_gc_focus_config "$gc_focus_eof" current false false personal
     cp "$gc_focus_eof/xdg/chezmoi/chezmoi.toml" "$gc_focus_eof/before.toml"
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_eof")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_focus_eof/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "focused EOF transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 C-d
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_focus_eof/out" 'Cancelled; nothing changed.' 1 \
+      "focused EOF transaction did not stop cleanly within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     cmp -s "$gc_focus_eof/before.toml" "$gc_focus_eof/xdg/chezmoi/chezmoi.toml" \
       || fail "EOF during focused posture change mutated the configuration"
@@ -6064,7 +6074,9 @@ EOF
     write_gc_focus_config "$gc_focus_fail" current false false personal
     cp "$gc_focus_fail/xdg/chezmoi/chezmoi.toml" "$gc_focus_fail/before.toml"
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_fail" 'GROUNDWORK_CONFIGURE_FAIL_INIT=1')"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_focus_fail/out" \
+      'could not render the candidate configuration' 1 \
+      "focused render-failure transaction did not fail within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'could not render the candidate configuration' "$gc_focus_fail/out" \
       || fail "focused posture path did not report a candidate-render failure"
@@ -6075,12 +6087,17 @@ EOF
     gc_focus_race="$gc_focus/concurrent-change"
     write_gc_focus_config "$gc_focus_race" current false false personal
     gc_focus_sock="$(run_gc_focus_session "$gc_focus_race")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_focus_race/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "focused concurrent-change transaction did not reach preview consent within ten seconds"
     echo '# concurrent owner update' >>"$gc_focus_race/xdg/chezmoi/chezmoi.toml"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_focus_race/out" 'Apply these changes?' 1 \
+      "focused concurrent-change transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_focus_race/out" \
+      'changed since this editor opened' 1 \
+      "focused concurrent-change transaction did not reject stale state within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'changed since this editor opened' "$gc_focus_race/out" \
       || fail "focused posture path did not refuse a concurrently changed config"
@@ -6102,17 +6119,27 @@ EOF
     gc_xcode_disable="$gc_focus/xcode-disable"
     write_gc_focus_config "$gc_xcode_disable" current true true personal
     gc_focus_sock="$(run_gc_main_session "$gc_xcode_disable")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/out" \
+      'Choose a setting to change' 1 \
+      "Xcode-disable transaction did not reach the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_xcode_index" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/out" \
+      'New value [y/n]' 1 \
+      "Xcode-disable transaction did not reach the value prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/out" \
+      'Choose a setting to change' 2 \
+      "Xcode-disable transaction did not return to the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_field_count" Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "Xcode-disable transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/out" 'Apply these changes?' 1 \
+      "Xcode-disable transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_disable/session-complete" complete 1 \
+      "Xcode-disable transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'Xcode:' "$gc_xcode_disable/out" \
       || fail "disabling Xcode must include Xcode in the receipt"
@@ -6129,21 +6156,26 @@ EOF
     write_gc_focus_config "$gc_xcode_undo" current true true personal
     cp "$gc_xcode_undo/xdg/chezmoi/chezmoi.toml" "$gc_xcode_undo/before.toml"
     gc_focus_sock="$(run_gc_main_session "$gc_xcode_undo")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" \
+      'Choose a setting to change' 1 \
+      "Xcode-undo transaction did not reach the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_xcode_index" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" 'New value [y/n]' 1 \
+      "Xcode-undo transaction did not reach the disable prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" \
+      'Choose a setting to change' 2 \
+      "Xcode-undo transaction did not return after disabling Xcode within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_xcode_index - 1))" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" 'New value [y/n]' 2 \
+      "Xcode-undo transaction did not reach the re-enable prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" \
+      'Choose a setting to change' 3 \
+      "Xcode-undo transaction did not return after re-enabling Xcode within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_field_count + 1))" Enter
-    if ! wait_for_gc_output "$gc_xcode_undo/out" 'No changes to apply.'; then
-      tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
-      cat "$gc_xcode_undo/out" >&2
-      fail "Xcode off then on in one transaction did not reach a no-op within ten seconds"
-    fi
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo/out" 'No changes to apply.' 1 \
+      "Xcode off then on in one transaction did not reach a no-op within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'No changes to apply.' "$gc_xcode_undo/out" \
       || fail "Xcode off then on in one transaction must be a complete no-op"
@@ -6155,25 +6187,41 @@ EOF
     gc_xcode_undo_explicit="$gc_focus/xcode-undo-explicit-beta"
     write_gc_focus_config "$gc_xcode_undo_explicit" current true true personal
     gc_focus_sock="$(run_gc_main_session "$gc_xcode_undo_explicit")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Choose a setting to change' 1 \
+      "explicit-beta transaction did not reach the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_xcode_index" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" 'New value [y/n]' 1 \
+      "explicit-beta transaction did not reach the Xcode-disable prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Choose a setting to change' 2 \
+      "explicit-beta transaction did not return after disabling Xcode within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_xcode_index - 1))" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" 'New value [y/n]' 2 \
+      "explicit-beta transaction did not reach the Xcode-enable prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Choose a setting to change' 3 \
+      "explicit-beta transaction did not return after enabling Xcode within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_beta_index" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" 'New value [y/n]' 3 \
+      "explicit-beta transaction did not reach the beta prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Choose a setting to change' 4 \
+      "explicit-beta transaction did not return after the beta choice within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_field_count + 1))" Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "explicit-beta transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/out" \
+      'Apply these changes?' 1 \
+      "explicit-beta transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_undo_explicit/session-complete" complete 1 \
+      "explicit-beta transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'Xcode beta channel:' "$gc_xcode_undo_explicit/out" \
       || fail "an explicit beta change after Xcode undo must remain in the receipt"
@@ -6187,19 +6235,28 @@ EOF
     gc_xcode_enable="$gc_focus/xcode-enable"
     write_gc_focus_config "$gc_xcode_enable" current false false personal
     gc_focus_sock="$(run_gc_main_session "$gc_xcode_enable")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/out" \
+      'Choose a setting to change' 1 \
+      "Xcode-enable transaction did not reach the settings menu within ten seconds"
     assert_not_contains 'Xcode beta channel' "$gc_xcode_enable/out" \
       "Xcode beta must not be offered while Xcode is disabled"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_xcode_index - 1))" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/out" 'New value [y/n]' 1 \
+      "Xcode-enable transaction did not reach the value prompt within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/out" \
+      'Choose a setting to change' 2 \
+      "Xcode-enable transaction did not return to the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$((gc_field_count + 1))" Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "Xcode-enable transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/out" 'Apply these changes?' 1 \
+      "Xcode-enable transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_enable/session-complete" complete 1 \
+      "Xcode-enable transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -qF 'xcode = true' "$gc_xcode_enable/xdg/chezmoi/chezmoi.toml" \
       || fail "confirmed Xcode enable did not persist"
@@ -6209,15 +6266,21 @@ EOF
     gc_xcode_invalid="$gc_focus/xcode-invalid"
     write_gc_focus_config "$gc_xcode_invalid" current false true personal
     gc_focus_sock="$(run_gc_main_session "$gc_xcode_invalid")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_invalid/out" \
+      'Choose a setting to change' 1 \
+      "Xcode-normalization transaction did not reach the settings menu within ten seconds"
     grep -aqF 'will clear that inactive preference' "$gc_xcode_invalid/out" \
       || fail "groundwork-configure must explain normalization of xcode=false plus beta=true"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_field_count" Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_invalid/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "Xcode-normalization transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_xcode_invalid/out" 'Apply these changes?' 1 \
+      "Xcode-normalization transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_xcode_invalid/session-complete" complete 1 \
+      "Xcode-normalization transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -qF 'beta = false' "$gc_xcode_invalid/xdg/chezmoi/chezmoi.toml" \
       || fail "confirmed normalization did not clear inactive Xcode beta"
@@ -6227,17 +6290,27 @@ EOF
     gc_role_change="$gc_focus/role-change"
     write_gc_focus_config "$gc_role_change" current false false personal
     gc_focus_sock="$(run_gc_main_session "$gc_role_change")"
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_role_change/out" \
+      'Choose a setting to change' 1 \
+      "role-change transaction did not reach the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_role_index" Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_role_change/out" \
+      'Choose 1-3 (Enter keeps current)' 1 \
+      "role-change transaction did not reach the role choice within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 3 Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_role_change/out" \
+      'Choose a setting to change' 2 \
+      "role-change transaction did not return to the settings menu within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 "$gc_field_count" Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_role_change/out" \
+      'Preview the dotfiles this would change?' 1 \
+      "role-change transaction did not reach preview consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 n Enter
-    sleep 1
+    await_gc_output "$gc_focus_sock" "$gc_role_change/out" 'Apply these changes?' 1 \
+      "role-change transaction did not reach apply consent within ten seconds"
     tmux -L "$gc_focus_sock" send-keys -t 0 y Enter
-    sleep 2
+    await_gc_output "$gc_focus_sock" "$gc_role_change/session-complete" complete 1 \
+      "role-change transaction did not finish within ten seconds"
     tmux -L "$gc_focus_sock" kill-server 2>/dev/null || true
     grep -aqF 'Environment role:' "$gc_role_change/out" \
       || fail "role change must appear in the transaction receipt"
