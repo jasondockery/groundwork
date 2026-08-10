@@ -55,6 +55,9 @@ Same session
 update-all
   groundwork-docker-tidy --automatic (internal mode)
   aged, explicitly labeled scratch images and exited labeled containers only
+  when the selected macOS backend is stopped: interactive consent may start
+  that backend for this lane, bounded readiness is required, and every exit
+  path restores the original stopped state
 
 Owner review
   groundwork-docker-cache-tidy
@@ -65,6 +68,14 @@ Never run `docker system prune`, automatic volume cleanup, or
 `groundwork-docker-cache-tidy --yes` from an agent or scheduled/update path.
 The Docker daemon is shared by every repository; broad stopped-container,
 dangling-image, builder-cache, and volume decisions require the owner.
+
+`update-all` owns only the backend selected by the rendered machine profile:
+Docker Desktop on a personal Mac, Colima on a work Mac. It never starts the
+other backend, never stops a backend that was already running, defaults its
+start prompt to no, and never starts either backend without a terminal.
+`groundwork-apps-start` deliberately excludes Docker. A start, readiness,
+tidy, stop, timeout, or signal failure must withhold update success and retain
+or create the exact pending repair needed for the next bounded retry.
 
 ## Verification and handoff
 

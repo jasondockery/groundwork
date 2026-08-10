@@ -99,6 +99,15 @@ if [[ -n "$clear_pending_stage" ]]; then
   fi
 fi
 
+cleanup_receipt_fd="${GROUNDWORK_CLEANUP_RECEIPT_FD:-}"
+if [[ -n "$cleanup_receipt_fd" ]]; then
+  if [[ ! "$cleanup_receipt_fd" =~ ^[3-9]$ ||
+    "${GROUNDWORK_UPDATE_LOCK_HELD:-}" != "1" ]]; then
+    echo "groundwork-cleanup: the internal update receipt channel is invalid." >&2
+    exit 64
+  fi
+fi
+
 state_dir="$HOME/.local/state/groundwork"
 pending_dir="$state_dir/update-all-pending"
 pnpm_success="$state_dir/pnpm-prune-last-success"
@@ -175,6 +184,13 @@ if [[ "$act" -eq 1 ]]; then
   if [[ "${GROUNDWORK_UPDATE_LOCK_HELD:-}" == "1" &&
     "${groundwork_lock_owned:-0}" -eq 0 ]]; then
     nested_update_transaction=1
+  fi
+  if [[ -n "$cleanup_receipt_fd" ]]; then
+    if [[ "$nested_update_transaction" -ne 1 ]] \
+      || ! { : >&"$cleanup_receipt_fd"; } 2>/dev/null; then
+      echo "groundwork-cleanup: the internal update receipt channel is unavailable." >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -774,12 +790,14 @@ print_candidates() {
   done <"$store_candidates"
 }
 
+review_item_count=0
 print_review() {
   local source message generation generation_name root canonical matched generation_size generation_bytes
   local seen_roots=$'\n' found=0
   while IFS=$'\t' read -r source message; do
     [[ -n "$source" ]] || continue
     found=1
+    review_item_count=$((review_item_count + 1))
     printf '  %s\n    %s\n' "$source" "$message"
   done <"$review_records"
   for root in "${trusted_store_roots[@]}"; do
@@ -791,12 +809,14 @@ print_review() {
       generation_name="$(basename "$generation")"
       if has_terminal_control "$generation_name"; then
         found=1
+        review_item_count=$((review_item_count + 1))
         printf '  %s\n    A store-generation entry containing terminal controls was not inspected.\n' "$root"
         continue
       fi
       [[ "$generation_name" =~ ^v[0-9]+$ ]] || continue
       if [[ -L "$generation" ]]; then
         found=1
+        review_item_count=$((review_item_count + 1))
         printf '  %s\n    Store-generation symlinks are not followed.\n' "$generation"
         continue
       fi
@@ -805,6 +825,7 @@ print_review() {
       matched="$(awk -F'\t' -v path="$canonical" '$1 == path {print "yes"; exit}' "$store_candidates")"
       [[ "$matched" == "yes" ]] && continue
       found=1
+      review_item_count=$((review_item_count + 1))
       if [[ "$act" -eq 0 ]]; then
         generation_bytes=""
         capture_dir_bytes generation_bytes "$generation" || true
@@ -889,6 +910,9 @@ maintenance_exit_status=0
 brew_status=0
 npm_status=0
 pnpm_status=0
+homebrew_receipt_status="not-installed"
+npm_receipt_status="not-installed"
+pnpm_receipt_status="unknown"
 
 record_maintenance_failure_status() {
   local status="$1"
@@ -961,6 +985,9 @@ if [[ "$brew_present" -eq 1 ]]; then
   echo "  Requested formulae and casks stay installed. autoremove may remove installed orphan formula dependencies; cleanup removes reproducible cached and superseded state."
   if [[ "$cleanup_status" -eq 0 ]]; then
     clear_pending "homebrew"
+    homebrew_receipt_status="completed"
+  else
+    homebrew_receipt_status="failed"
   fi
 fi
 
@@ -1009,6 +1036,9 @@ if [[ -n "$npm_provider" ]]; then
     "$(if [[ -n "$npm_before" && -n "$npm_after" && "$npm_after" -le "$npm_before" ]]; then format_bytes "$((npm_before - npm_after))"; else printf 'not measured'; fi)"
   if [[ "$npm_status" -eq 0 ]]; then
     clear_pending "npm"
+    npm_receipt_status="completed"
+  else
+    npm_receipt_status="failed"
   fi
 fi
 
@@ -1029,10 +1059,12 @@ prune_pnpm_store() {
 echo
 echo "pnpm"
 if [[ "$pnpm_discovery_failed" -ne 0 ]]; then
+  pnpm_receipt_status="failed"
   maintenance_failed=1
   mark_pending "pnpm" "exact repository discovery is unavailable; no pnpm store was touched"
   echo "  Maintenance incomplete: exact repository discovery is unavailable; no pnpm store was touched" >&2
 elif [[ "$pnpm_due" -eq 0 ]]; then
+  pnpm_receipt_status="not-due"
   echo "  Maintenance not due: $pnpm_due_reason"
   if [[ -s "$store_candidates" ]]; then
     echo "  Next machine-wide pnpm maintenance: approximately $((monthly_days - last_success_days)) days"
@@ -1040,6 +1072,7 @@ elif [[ "$pnpm_due" -eq 0 ]]; then
     echo "  Next pnpm maintenance: after an exact pin selects a trusted store"
   fi
 elif [[ ! -s "$store_candidates" ]]; then
+  pnpm_receipt_status="failed"
   maintenance_failed=1
   mark_pending "pnpm" "pnpm maintenance is pending but no trusted exact-pinned store can be resolved"
   echo "  Maintenance incomplete: no trusted exact-pinned store can be resolved" >&2
@@ -1094,9 +1127,11 @@ else
       "$(if [[ "$pnpm_sizes_complete" -eq 1 && "$pnpm_after_complete" -eq 1 && "$pnpm_after" -le "$pnpm_before" ]]; then format_bytes "$((pnpm_before - pnpm_after))"; else printf 'not measured'; fi)"
     echo "  Next machine-wide pnpm maintenance: approximately $monthly_days days"
     clear_pending "pnpm"
+    pnpm_receipt_status="completed"
   else
     mark_pending "pnpm" "pnpm store maintenance failed (exit $pnpm_status)"
     echo "  Store maintenance incomplete (exit $pnpm_status)" >&2
+    pnpm_receipt_status="failed"
   fi
 fi
 
@@ -1109,6 +1144,12 @@ if [[ "$maintenance_failed" -eq 0 ]]; then
   clear_pending "maintenance-helper"
 fi
 has_pending && maintenance_failed=1
+
+if [[ -n "$cleanup_receipt_fd" ]]; then
+  printf 'homebrew\t%s\nnpm\t%s\npnpm\t%s\nowner-review\t%s\n' \
+    "$homebrew_receipt_status" "$npm_receipt_status" "$pnpm_receipt_status" \
+    "$review_item_count" >&"$cleanup_receipt_fd"
+fi
 
 if [[ "$maintenance_failed" -ne 0 ]]; then
   if [[ "$nested_update_transaction" -eq 0 ]]; then

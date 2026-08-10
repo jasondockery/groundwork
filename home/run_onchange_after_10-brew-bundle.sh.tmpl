@@ -46,8 +46,35 @@ export HOMEBREW_CURL_RETRIES=3
 # when Homebrew prints its own remediation block (circular formula
 # dependencies and similar known-broken states), groundwork-brew-repair can
 # offer to run exactly those commands and the bundle retries once.
-bundle_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-bundle.XXXXXX")"
-trap 'rm -f -- "$bundle_log"' EXIT
+brew_output_lib="$HOME/.local/share/groundwork/lib/brew-output.sh"
+if [[ ! -r "$brew_output_lib" ]]; then
+  echo "Groundwork: Homebrew output classifier is missing: $brew_output_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$brew_output_lib"
+brew_log_dir="$HOME/.local/state/groundwork/logs"
+mkdir -p "$brew_log_dir"
+bundle_log_final="$brew_log_dir/homebrew-bundle-latest.log"
+bundle_log="$(mktemp "$brew_log_dir/homebrew-bundle.XXXXXX")"
+chmod 600 "$bundle_log"
+bundle_receipt_owned=0
+if [[ "${GROUNDWORK_UPDATE_LOCK_HELD:-}" == "1" &&
+  -n "${GROUNDWORK_UPDATE_RECEIPT_DIR:-}" &&
+  -d "$GROUNDWORK_UPDATE_RECEIPT_DIR" && ! -L "$GROUNDWORK_UPDATE_RECEIPT_DIR" ]]; then
+  bundle_receipt="$GROUNDWORK_UPDATE_RECEIPT_DIR/homebrew-bundle.tsv"
+else
+  bundle_receipt="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-bundle-receipt.XXXXXX")"
+  bundle_receipt_owned=1
+fi
+bundle_log_exit() {
+  local status=$?
+  trap - EXIT
+  mv -f -- "$bundle_log" "$bundle_log_final" 2>/dev/null || true
+  [[ "$bundle_receipt_owned" -eq 0 ]] || rm -f -- "$bundle_receipt" || true
+  exit "$status"
+}
+trap bundle_log_exit EXIT
 # The tee below makes brew see a pipe, which silently dropped color from the
 # longest stage of a refresh even on a real terminal. Key color on the
 # run-wide signal instead: update-all exports GROUNDWORK_COLOR before the
@@ -77,7 +104,9 @@ bundle_status=0
 user_cask_opts="${HOMEBREW_CASK_OPTS-}"
 safe_cask_opts="${user_cask_opts:+$user_cask_opts }--require-sha"
 HOMEBREW_CASK_OPTS="$safe_cask_opts" \
-  brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 | tee "$bundle_log" || bundle_status=$?
+  brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 \
+    | gw_brew_classify_stream "$bundle_log" "$bundle_receipt" reset \
+    || bundle_status=$?
 # The repair helper runs even when the bundle exited 0: Homebrew's per-cask
 # "cannot be upgraded as-is" warning does not fail the run, so it would
 # otherwise repeat on every apply forever. Its exit code distinguishes
@@ -104,8 +133,11 @@ fi
 if [[ "$retry_bundle" -eq 1 ]]; then
   bundle_status=0
   HOMEBREW_CASK_OPTS="$safe_cask_opts" \
-    brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" || bundle_status=$?
+    brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 \
+      | gw_brew_classify_stream "$bundle_log" "$bundle_receipt" append \
+      || bundle_status=$?
 fi
+gw_brew_report_classification "Homebrew bundle" "$bundle_receipt" "$bundle_log_final"
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 # Homebrew may quit always-on apps (Karabiner, Raycast, BetterDisplay,

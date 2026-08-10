@@ -23,7 +23,11 @@ Usage:
 Run update-all for the normal full transaction. This runner is directly
 invocable for repair and testing, so it validates the same arguments before
 chezmoi apply or any update or maintenance operation. On macOS, a successful
-transaction ends with the same consent-gated Karabiner health postflight.
+transaction may offer a temporary, restored start of the selected Docker
+backend for scratch maintenance, then ends with the same consent-gated
+Karabiner health postflight. Without a terminal, neither service is restarted.
+The final receipt classifies no-change, maintenance, review, warning, failure,
+and pending-repair outcomes; raw Homebrew streams remain in Groundwork state.
 EOF
 }
 
@@ -101,10 +105,34 @@ fi
 source "$lock_lib"
 groundwork_lock_acquire "groundwork-update-run" || exit $?
 runner_temp=""
+runner_temp_final=""
+runner_receipt_dir=""
+docker_backend_restore_required=0
 runner_exit() {
-  local status=$?
+  local status=$? restore_status=0
+  trap - EXIT
+  if [[ "$docker_backend_restore_required" -eq 1 ]] \
+    && declare -F restore_docker_backend >/dev/null 2>&1; then
+    restore_docker_backend || restore_status=$?
+    if [[ "$restore_status" -ne 0 ]]; then
+      echo "Groundwork: could not restore the Docker backend's original stopped state (exit $restore_status)." >&2
+      [[ "$status" -ne 0 ]] || status=1
+    fi
+  fi
   groundwork_lock_release || true
-  [[ -z "$runner_temp" ]] || rm -f -- "$runner_temp" || true
+  if [[ -n "$runner_temp" ]]; then
+    if [[ -n "$runner_temp_final" ]]; then
+      mv -f -- "$runner_temp" "$runner_temp_final" 2>/dev/null || true
+    else
+      rm -f -- "$runner_temp" || true
+    fi
+  fi
+  if [[ -n "$runner_receipt_dir" ]]; then
+    rm -f -- "$runner_receipt_dir/homebrew-bundle.tsv" \
+      "$runner_receipt_dir/homebrew-upgrade.tsv" \
+      "$runner_receipt_dir/package-maintenance.tsv" 2>/dev/null || true
+    rmdir "$runner_receipt_dir" 2>/dev/null || true
+  fi
   exit "$status"
 }
 trap runner_exit EXIT
@@ -136,6 +164,13 @@ if [[ "$GROUNDWORK_COLOR" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 
+# One private, transaction-scoped directory lets the Brewfile hook and
+# package-maintenance child return small typed facts to this exact runner. Raw
+# upstream logs live separately under the user's Groundwork state directory.
+runner_receipt_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-update-receipt.XXXXXX")"
+chmod 700 "$runner_receipt_dir"
+export GROUNDWORK_UPDATE_RECEIPT_DIR="$runner_receipt_dir"
+
 # The launcher installs this runner and its lock helper before exec'ing it; the
 # FULL apply — configuration files and install hooks, the Homebrew bundle among
 # them — runs here, under the freshly synchronized implementation. A hang or
@@ -164,7 +199,15 @@ fi
 {{- end }}
 chezmoi apply
 
+brew_lane_status="skipped"
 if command -v brew >/dev/null 2>&1; then
+  brew_output_lib="$HOME/.local/share/groundwork/lib/brew-output.sh"
+  if [[ ! -r "$brew_output_lib" ]]; then
+    echo "Groundwork: Homebrew output classifier is missing: $brew_output_lib" >&2
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  . "$brew_output_lib"
   # Select the exact Groundwork-owned candidate set BEFORE updating metadata or
   # packages. An unqualified `brew upgrade` also mutates user-installed apps
   # that are no longer in Groundwork, which would make removal from the Brewfile
@@ -225,13 +268,20 @@ if command -v brew >/dev/null 2>&1; then
   # NOT fail the upgrade, so without this it repeats on every refresh
   # forever; the helper shows brew's exact suggested command and only acts
   # on a yes. A failed upgrade retries once after a repair actually ran.
-  upgrade_log="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-upgrade.XXXXXX")"
+  brew_log_dir="$HOME/.local/state/groundwork/logs"
+  mkdir -p "$brew_log_dir"
+  upgrade_log_final="$brew_log_dir/homebrew-upgrade-latest.log"
+  upgrade_log="$(mktemp "$brew_log_dir/homebrew-upgrade.XXXXXX")"
+  chmod 600 "$upgrade_log"
   runner_temp="$upgrade_log"
+  runner_temp_final="$upgrade_log_final"
+  upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
   upgrade_status=0
   echo "Groundwork: upgrading the exact packages declared in the managed Brewfile."
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
     brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
-      2>&1 | tee "$upgrade_log" || upgrade_status=$?
+      2>&1 | gw_brew_classify_stream "$upgrade_log" "$upgrade_receipt" reset \
+      || upgrade_status=$?
   repair_status=0
   "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
   retry_upgrade=0
@@ -254,22 +304,43 @@ if command -v brew >/dev/null 2>&1; then
     upgrade_status=0
     HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
       brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
+        2>&1 | gw_brew_classify_stream "$upgrade_log" "$upgrade_receipt" append \
         || upgrade_status=$?
   fi
-  rm -f -- "$upgrade_log"
+  mv -f -- "$upgrade_log" "$upgrade_log_final"
   runner_temp=""
+  runner_temp_final=""
+  gw_brew_report_classification "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final"
   [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
   {{- else }}
   # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades the exact
   # Groundwork-managed formula list.
-  HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade "${managed_formulae[@]}"
+  brew_log_dir="$HOME/.local/state/groundwork/logs"
+  mkdir -p "$brew_log_dir"
+  upgrade_log_final="$brew_log_dir/homebrew-upgrade-latest.log"
+  upgrade_log="$(mktemp "$brew_log_dir/homebrew-upgrade.XXXXXX")"
+  chmod 600 "$upgrade_log"
+  runner_temp="$upgrade_log"
+  runner_temp_final="$upgrade_log_final"
+  upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
+  upgrade_status=0
+  HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade "${managed_formulae[@]}" 2>&1 \
+    | gw_brew_classify_stream "$upgrade_log" "$upgrade_receipt" reset \
+    || upgrade_status=$?
+  mv -f -- "$upgrade_log" "$upgrade_log_final"
+  runner_temp=""
+  runner_temp_final=""
+  gw_brew_report_classification "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final"
+  [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
   {{- end }}
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
   {{- end }}
+  brew_lane_status="current-or-updated"
 fi
 
 update_status=0
+mise_lane_status="skipped"
 if command -v mise >/dev/null 2>&1; then
   # The same 5-day floor the renovate-config preset applies to repo
   # dependencies, now applied to the machine: don't adopt a release the world
@@ -296,6 +367,11 @@ EOF
   case "$update_status" in
     129 | 130 | 143) exit "$update_status" ;;
   esac
+  if [[ "$update_status" -eq 0 ]]; then
+    mise_lane_status="current-or-updated"
+  else
+    mise_lane_status="failed"
+  fi
 fi
 
 # Supported package-manager cleanup is one stage with one receipt and durable
@@ -339,6 +415,10 @@ clear_maintenance_helper_pending() {
 }
 
 maintenance_status=0
+maintenance_homebrew="skipped"
+maintenance_npm="skipped"
+maintenance_pnpm="skipped"
+owner_review_count=0
 if [[ "$skip_maintenance" -eq 1 ]]; then
   echo
   echo "Package-manager maintenance skipped for this exceptional refresh."
@@ -350,7 +430,69 @@ elif [[ -x "$HOME/.local/bin/groundwork-cleanup" ]]; then
   # Record helper-level intent before exec so an early crash cannot disappear
   # behind a still-fresh successful update timestamp.
   mark_maintenance_helper_pending "package-manager maintenance helper started but has not completed"
-  "$HOME/.local/bin/groundwork-cleanup" --yes || maintenance_status=$?
+  cleanup_receipt="$runner_receipt_dir/package-maintenance.tsv"
+  : >"$cleanup_receipt"
+  exec 9>"$cleanup_receipt"
+  GROUNDWORK_CLEANUP_RECEIPT_FD=9 \
+    "$HOME/.local/bin/groundwork-cleanup" --yes || maintenance_status=$?
+  exec 9>&-
+  cleanup_receipt_valid=1
+  receipt_homebrew_seen=0
+  receipt_npm_seen=0
+  receipt_pnpm_seen=0
+  receipt_review_seen=0
+  while IFS=$'\t' read -r receipt_key receipt_value receipt_extra; do
+    if [[ -n "$receipt_extra" ]]; then
+      cleanup_receipt_valid=0
+      break
+    fi
+    case "$receipt_key:$receipt_value" in
+      homebrew:completed | homebrew:not-installed | homebrew:failed)
+        if [[ "$receipt_homebrew_seen" -eq 1 ]]; then
+          cleanup_receipt_valid=0
+        else
+          maintenance_homebrew="$receipt_value"
+          receipt_homebrew_seen=1
+        fi
+        ;;
+      npm:completed | npm:not-installed | npm:failed)
+        if [[ "$receipt_npm_seen" -eq 1 ]]; then
+          cleanup_receipt_valid=0
+        else
+          maintenance_npm="$receipt_value"
+          receipt_npm_seen=1
+        fi
+        ;;
+      pnpm:completed | pnpm:not-due | pnpm:failed | pnpm:unknown)
+        if [[ "$receipt_pnpm_seen" -eq 1 ]]; then
+          cleanup_receipt_valid=0
+        else
+          maintenance_pnpm="$receipt_value"
+          receipt_pnpm_seen=1
+        fi
+        ;;
+      owner-review:[0-9]*)
+        if [[ "$receipt_review_seen" -eq 1 ]]; then
+          cleanup_receipt_valid=0
+        else
+          case "$receipt_value" in
+            *[!0-9]*) cleanup_receipt_valid=0 ;;
+            *) owner_review_count="$receipt_value"; receipt_review_seen=1 ;;
+          esac
+        fi
+        ;;
+      *)
+        cleanup_receipt_valid=0
+        ;;
+    esac
+  done <"$cleanup_receipt"
+  if [[ "$cleanup_receipt_valid" -ne 1 || "$receipt_homebrew_seen" -ne 1 \
+    || "$receipt_npm_seen" -ne 1 || "$receipt_pnpm_seen" -ne 1 \
+    || "$receipt_review_seen" -ne 1 ]]; then
+    [[ "$maintenance_status" -ne 0 ]] || maintenance_status=1
+    mark_maintenance_helper_pending "package-manager maintenance returned a missing or malformed receipt"
+    echo "Groundwork: package-manager maintenance returned a missing or malformed receipt." >&2
+  fi
   if [[ "$maintenance_status" -eq 0 ]]; then
     clear_maintenance_helper_pending
   elif maintenance_manager_pending; then
@@ -374,6 +516,42 @@ esac
 # uses only managed code, the canonical grace, and a verified local endpoint.
 # Daemon-wide cleanup remains structurally absent from update-all.
 docker_pending="$HOME/.local/state/groundwork/docker-tidy-pending"
+docker_maintenance_result="skipped"
+docker_backend="none"
+{{- if and (eq .chezmoi.os "darwin") (not .headless) }}
+{{- if .work }}
+docker_backend="colima"
+{{- else }}
+docker_backend="docker-desktop"
+{{- end }}
+{{- end }}
+docker_start_deadline="${GROUNDWORK_DOCKER_START_DEADLINE_SECONDS:-180}"
+docker_stop_deadline="${GROUNDWORK_DOCKER_STOP_DEADLINE_SECONDS:-120}"
+docker_ready_deadline="${GROUNDWORK_DOCKER_READY_DEADLINE_SECONDS:-90}"
+docker_probe_deadline="${GROUNDWORK_DOCKER_PROBE_DEADLINE_SECONDS:-8}"
+for docker_deadline in "$docker_start_deadline" "$docker_stop_deadline" \
+  "$docker_ready_deadline" "$docker_probe_deadline"; do
+  if [[ ! "$docker_deadline" =~ ^[0-9]+$ || "$docker_deadline" -lt 1 ]]; then
+    echo "Groundwork: Docker lifecycle deadlines must be positive integers." >&2
+    exit 64
+  fi
+done
+
+docker_runner_lib="$HOME/.local/share/groundwork/lib/maintenance-runner.sh"
+if [[ ! -r "$docker_runner_lib" ]]; then
+  echo "Groundwork: the bounded Docker lifecycle runner is missing: $docker_runner_lib" >&2
+  exit 1
+fi
+# shellcheck disable=SC2034 # These globals are the sourced runner library's API.
+declare deadline="$docker_start_deadline" \
+  observe_deadline="$docker_probe_deadline" \
+  heartbeat=15 \
+  cancel_grace=2 \
+  poll_seconds=0.2 \
+  orphan_grace=5
+# shellcheck source=/dev/null
+. "$docker_runner_lib"
+
 mark_docker_pending() {
   local temporary="${docker_pending}.tmp.$$"
   mkdir -p "$(dirname "$docker_pending")"
@@ -381,8 +559,153 @@ mark_docker_pending() {
   mv -f -- "$temporary" "$docker_pending"
 }
 
+docker_backend_label() {
+  case "$docker_backend" in
+    docker-desktop) printf 'Docker Desktop' ;;
+    colima) printf 'Colima' ;;
+    *) printf 'Docker runtime' ;;
+  esac
+}
+
+docker_context_is_canonical_local() {
+  local context_output context_status=0
+  [[ -z "${DOCKER_HOST:-}" && -z "${DOCKER_CONTEXT:-}" && -z "${DOCKER_CONFIG:-}" ]] || return 1
+  command -v docker >/dev/null 2>&1 || return 1
+  context_output="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-context.XXXXXX")"
+  runner_temp="$context_output"
+  run_bounded_internal "inspect the selected Docker context" "$docker_probe_deadline" \
+    "$context_output" docker context inspect --format '{{"{{"}}.Endpoints.docker.Host{{"}}"}}' \
+    || context_status=$?
+  if [[ "$context_status" -eq 0 ]] \
+    && ! LC_ALL=C grep -q '[[:cntrl:]]' "$context_output" \
+    && grep -Eq '^unix://[^[:space:]]+$' "$context_output"; then
+    rm -f -- "$context_output"
+    runner_temp=""
+    return 0
+  fi
+  rm -f -- "$context_output"
+  runner_temp=""
+  return 1
+}
+
+docker_backend_is_manageable() {
+  local status=0
+  case "$docker_backend" in
+    docker-desktop)
+      run_bounded_internal "verify Docker Desktop lifecycle support" "$docker_probe_deadline" "" \
+        docker desktop start --help >/dev/null 2>&1 || status=$?
+      ;;
+    colima)
+      command -v colima >/dev/null 2>&1 || return 1
+      run_bounded_internal "verify Colima lifecycle support" "$docker_probe_deadline" "" \
+        colima start --help >/dev/null 2>&1 || status=$?
+      ;;
+    *) return 1 ;;
+  esac
+  [[ "$status" -eq 0 ]]
+}
+
+prompt_start_docker_backend() {
+  local prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}" prompt_fd=0 answer
+  if [[ -t 0 ]]; then
+    prompt_fd=0
+  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
+    prompt_fd=8
+  else
+    return 2
+  fi
+  while true; do
+    printf 'Start %s temporarily for Groundwork scratch maintenance? [y/N] ' \
+      "$(docker_backend_label)" >&2
+    if ! read -r -u "$prompt_fd" answer; then
+      [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
+      echo >&2
+      return 1
+    fi
+    case "$answer" in
+      y | Y | [yY][eE][sS])
+        [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
+        return 0
+        ;;
+      "" | n | N | [nN][oO])
+        [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
+        return 1
+        ;;
+      *) echo "Please answer yes or no." >&2 ;;
+    esac
+  done
+}
+
+start_docker_backend() {
+  docker_backend_restore_required=1
+  case "$docker_backend" in
+    docker-desktop)
+      run_bounded_internal "start Docker Desktop" "$docker_start_deadline" "" \
+        docker desktop start --timeout "$docker_start_deadline"
+      ;;
+    colima)
+      run_bounded_internal "start Colima" "$docker_start_deadline" "" colima start
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+restore_docker_backend() {
+  local status=0
+  [[ "$docker_backend_restore_required" -eq 1 ]] || return 0
+  case "$docker_backend" in
+    docker-desktop)
+      run_bounded_internal "stop Docker Desktop" "$docker_stop_deadline" "" \
+        docker desktop stop --timeout "$docker_stop_deadline" || status=$?
+      ;;
+    colima)
+      run_bounded_internal "stop Colima" "$docker_stop_deadline" "" colima stop || status=$?
+      ;;
+    *) status=1 ;;
+  esac
+  if [[ "$status" -eq 0 ]]; then
+    docker_backend_restore_required=0
+    printf 'Groundwork: restored %s to its original stopped state.\n' "$(docker_backend_label)"
+  fi
+  return "$status"
+}
+
+wait_for_docker_ready() {
+  local started now next_notice probe_status probe_output
+  # Bash's monotonic per-process counter keeps the readiness budget independent
+  # of wall-clock jumps and of the fixed policy clock used by fixtures.
+  started="$SECONDS"
+  next_notice=$((started + 15))
+  probe_output="$(mktemp "${TMPDIR:-/tmp}/groundwork-docker-ready.XXXXXX")"
+  runner_temp="$probe_output"
+  while true; do
+    probe_status=0
+    run_bounded_internal "probe Docker readiness" "$docker_probe_deadline" \
+      "$probe_output" docker info || probe_status=$?
+    if [[ "$probe_status" -eq 0 ]]; then
+      rm -f -- "$probe_output"
+      runner_temp=""
+      return 0
+    fi
+    case "$probe_status" in 125 | 129 | 130 | 143) return "$probe_status" ;; esac
+    now="$SECONDS"
+    if [[ "$now" -ge $((started + docker_ready_deadline)) ]]; then
+      echo "Groundwork: Docker did not become ready within ${docker_ready_deadline}s." >&2
+      rm -f -- "$probe_output"
+      runner_temp=""
+      return 124
+    fi
+    if [[ "$now" -ge "$next_notice" ]]; then
+      echo "  Still waiting for Docker readiness ($((now - started))s elapsed)" >&2
+      next_notice=$((now + 15))
+    fi
+    sleep 1
+  done
+}
+
 docker_maintenance_status=0
 if [[ "$skip_maintenance" -eq 1 ]]; then
+  docker_maintenance_result="skipped"
   echo "Docker scratch maintenance skipped for this exceptional refresh."
   if [[ -f "$docker_pending" ]]; then
     docker_maintenance_status=1
@@ -393,20 +716,64 @@ elif [[ -x "$HOME/.local/bin/groundwork-docker-tidy" ]]; then
   [[ -f "$docker_pending" ]] && docker_pending_before=1
   "$HOME/.local/bin/groundwork-docker-tidy" --automatic || docker_maintenance_status=$?
   if [[ "$docker_maintenance_status" -eq 3 ]]; then
-    if [[ "$docker_pending_before" -eq 1 || -f "$docker_pending" ]]; then
-      docker_maintenance_status=1
-      echo "Groundwork: Docker is unavailable or unaccepted, so earlier Docker scratch maintenance remains pending." >&2
+    docker_maintenance_status=0
+    if [[ "$docker_backend" != "none" ]] && docker_context_is_canonical_local \
+      && docker_backend_is_manageable; then
+      printf '%s is installed but not running.\n' "$(docker_backend_label)"
+      prompt_status=0
+      prompt_start_docker_backend || prompt_status=$?
+      if [[ "$prompt_status" -eq 0 ]]; then
+        start_status=0
+        start_docker_backend || start_status=$?
+        case "$start_status" in 125 | 129 | 130 | 143) exit "$start_status" ;; esac
+        if [[ "$start_status" -eq 0 ]]; then
+          wait_for_docker_ready || start_status=$?
+        fi
+        if [[ "$start_status" -eq 0 ]]; then
+          "$HOME/.local/bin/groundwork-docker-tidy" --automatic \
+            || docker_maintenance_status=$?
+          if [[ "$docker_maintenance_status" -eq 0 ]]; then
+            docker_maintenance_result="completed"
+          fi
+        else
+          docker_maintenance_status="$start_status"
+          mark_docker_pending "$(docker_backend_label) could not be started and verified for Docker scratch maintenance (exit $start_status)"
+        fi
+        restore_status=0
+        restore_docker_backend || restore_status=$?
+        if [[ "$restore_status" -ne 0 ]]; then
+          [[ "$docker_maintenance_status" -ne 0 ]] || docker_maintenance_status="$restore_status"
+          mark_docker_pending "$(docker_backend_label) could not be restored to its original stopped state (exit $restore_status)"
+        fi
+      elif [[ "$prompt_status" -eq 2 ]]; then
+        echo "Groundwork: Docker scratch maintenance skipped because $(docker_backend_label) was stopped and no interactive terminal was available."
+      else
+        echo "Groundwork: Docker scratch maintenance skipped; $(docker_backend_label) remains stopped."
+      fi
     else
-      docker_maintenance_status=0
-      echo "Groundwork: Docker scratch maintenance skipped because no canonical local daemon was available; no earlier repair is pending."
+      echo "Groundwork: Docker scratch maintenance skipped because no safe managed local backend was available."
+    fi
+    if [[ "$docker_maintenance_status" -eq 0 \
+      && ( "$docker_pending_before" -eq 1 || -f "$docker_pending" ) ]]; then
+      docker_maintenance_status=1
+      echo "Groundwork: earlier Docker scratch maintenance remains pending." >&2
+    elif [[ "$docker_maintenance_status" -eq 0 \
+      && "$docker_maintenance_result" != "completed" ]]; then
+      docker_maintenance_result="skipped-runtime-stopped"
+      echo "Groundwork: no earlier Docker repair is pending."
     fi
   elif [[ "$docker_maintenance_status" -ne 0 && ! -f "$docker_pending" ]]; then
     mark_docker_pending "Docker scratch helper failed before recording its acting stage (exit $docker_maintenance_status)"
+  elif [[ "$docker_maintenance_status" -eq 0 ]]; then
+    docker_maintenance_result="completed"
   fi
 else
   docker_maintenance_status=1
   mark_docker_pending "Docker scratch maintenance helper is missing"
   echo "Groundwork: the Docker scratch maintenance helper is missing: $HOME/.local/bin/groundwork-docker-tidy" >&2
+fi
+if [[ "$docker_maintenance_status" -ne 0 ]]; then
+  docker_maintenance_result="pending-repair"
 fi
 case "$docker_maintenance_status" in
   124 | 125 | 129 | 130 | 143) exit "$docker_maintenance_status" ;;
@@ -440,8 +807,15 @@ fi
 # upgrades remain complete, but the success timestamp is withheld and callers
 # see a nonzero status. Per-stage pending records keep the shell reminder active.
 if [[ "$update_status" -ne 0 || "$maintenance_status" -ne 0 || "$docker_maintenance_status" -ne 0 ]]; then
-  cat >&2 <<EOF
-Groundwork: completed with warnings, so this refresh is not recorded as successful.
+  final_status="$update_status"
+  [[ "$final_status" -ne 0 ]] || final_status="$maintenance_status"
+  [[ "$final_status" -ne 0 ]] || final_status="$docker_maintenance_status"
+  cat >&2 <<'EOF'
+
+Groundwork update incomplete
+
+Result
+  FAILED · required work did not complete
 EOF
   if [[ "$update_status" -ne 0 ]]; then
     echo "  A required upgrade stage failed (exit $update_status); run update-all again after repairing it." >&2
@@ -473,7 +847,10 @@ EOF
   Daemon-wide cleanup remains an owner-reviewed, separate command.
 EOF
   fi
-  exit 1
+  if maintenance_pending || [[ -f "$docker_pending" ]]; then
+    echo "  Pending repair: recorded for the next bounded retry." >&2
+  fi
+  exit "$final_status"
 fi
 
 {{- if eq .chezmoi.os "darwin" }}
@@ -516,4 +893,55 @@ date -u '+%Y-%m-%dT%H:%M:%SZ' >"$temporary"
 mv -f -- "$temporary" "$timestamp"
 runner_temp=""
 
-echo "Groundwork tools refreshed. The shell reminder will stay quiet until the next stale window."
+brew_current_count=0
+brew_warning_count=0
+for brew_receipt in "$runner_receipt_dir/homebrew-bundle.tsv" \
+  "$runner_receipt_dir/homebrew-upgrade.tsv"; do
+  [[ -r "$brew_receipt" ]] || continue
+  receipt_count="$(gw_brew_classification_count current "$brew_receipt")"
+  brew_current_count=$((brew_current_count + receipt_count))
+  receipt_count="$(gw_brew_classification_count warning "$brew_receipt")"
+  brew_warning_count=$((brew_warning_count + receipt_count))
+done
+
+cat <<EOF
+
+Groundwork update complete
+
+Updates
+  Homebrew packages       $brew_lane_status
+  mise runtimes           $mise_lane_status
+
+Deferred
+  Runtime releases        five-day maturity policy enforced when mise is selected; any deferred release was named above
+
+Maintenance
+  Homebrew                $maintenance_homebrew
+  npm                     $maintenance_npm
+  pnpm                    $maintenance_pnpm
+  Docker scratch          $docker_maintenance_result
+EOF
+if [[ "$brew_current_count" -gt 0 ]]; then
+  printf '\nCurrent\n  Homebrew                %s known no-change message(s) summarized\n' \
+    "$brew_current_count"
+fi
+if [[ "$owner_review_count" -gt 0 ]]; then
+  printf '\nReview\n  Package state           %s owner-review item(s) · run groundwork-cleanup\n' \
+    "$owner_review_count"
+fi
+if [[ "$brew_warning_count" -gt 0 ]]; then
+  printf '\nWarning\n  Homebrew                %s unknown warning(s) preserved in the transcript and raw logs\n' \
+    "$brew_warning_count"
+fi
+result_suffix=""
+if [[ "$owner_review_count" -gt 0 ]]; then
+  result_suffix="$result_suffix · $owner_review_count OWNER-REVIEW ITEM(S)"
+fi
+if [[ "$brew_warning_count" -gt 0 ]]; then
+  result_suffix="$result_suffix · $brew_warning_count WARNING(S)"
+fi
+printf '\nResult\n  SUCCESS%s\n' "$result_suffix"
+echo "  The shell reminder will stay quiet until the next stale window."
+if [[ "$brew_lane_status" != "skipped" ]]; then
+  echo "  Homebrew details: ~/.local/state/groundwork/logs/homebrew-upgrade-latest.log"
+fi

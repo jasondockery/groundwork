@@ -1288,6 +1288,33 @@ SH
   fi
   grep -qF 'Homebrew is not on PATH' "$out_dir/brew-missing"
 
+  check "Homebrew output classification"
+  brew_output_fixture="$out_dir/brew-output-fixture"
+  mkdir -p "$brew_output_fixture"
+  printf '\033[33mWarning: direnv 2.37.1 already installed\033[0m\n%s\n%s\n%s\n' \
+    'Warning: Not upgrading ghostty, the latest version is already installed' \
+    'Warning: actionable upstream condition' \
+    'Warning: direnv already installed with unexpected wording' \
+    >"$brew_output_fixture/input"
+  # shellcheck source=/dev/null
+  . home/dot_local/share/groundwork/lib/brew-output.sh
+  gw_brew_classify_stream "$brew_output_fixture/raw" "$brew_output_fixture/receipt" reset \
+    <"$brew_output_fixture/input" >"$brew_output_fixture/visible"
+  assert_not_contains 'direnv 2.37.1 already installed|Not upgrading ghostty' \
+    "$brew_output_fixture/visible" \
+    "known exact Homebrew no-change messages remained visible as warnings"
+  grep -qxF 'Warning: actionable upstream condition' "$brew_output_fixture/visible" \
+    || fail "an unfamiliar Homebrew warning was hidden"
+  grep -qxF 'Warning: direnv already installed with unexpected wording' \
+    "$brew_output_fixture/visible" \
+    || fail "a near-match Homebrew warning was incorrectly treated as benign"
+  cmp "$brew_output_fixture/input" "$brew_output_fixture/raw" \
+    || fail "the Homebrew classifier did not preserve its exact raw stream"
+  grep -qx $'current\t2' "$brew_output_fixture/receipt" \
+    || fail "the Homebrew classifier did not count exact no-change messages"
+  grep -qx $'warning\t2' "$brew_output_fixture/receipt" \
+    || fail "the Homebrew classifier did not count preserved warnings"
+
   check "update-all launcher handoff and runner transaction"
   update_all_fixture="$out_dir/update-all-fixture"
   update_all_home="$update_all_fixture/home"
@@ -1404,6 +1431,11 @@ case "${1:-}" in
       "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" \
       "${HOMEBREW_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
     [[ "${BREW_NOTHING_TO_UPGRADE:-0}" == "0" ]] || echo "Already up-to-date."
+    if [[ "${BREW_CLASSIFICATION_FIXTURE:-0}" == 1 ]]; then
+      echo 'Warning: git 2.51.0 already installed'
+      echo 'Warning: Not upgrading ghostty, the latest version is already installed'
+      echo 'Warning: unfamiliar Homebrew condition remains actionable'
+    fi
     ;;
   autoremove)
     if [[ "${ASSERT_UPDATE_LOCK_DURING_MAINTENANCE:-0}" == "1" ]]; then
@@ -1492,6 +1524,8 @@ fi
 [[ "${NPM_STUB_LOG:-0}" == "0" ]] || printf 'npm %s pwd=%s\n' "$*" "$PWD" >>"$GROUNDWORK_TEST_LOG"
 SH
   cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
+  cp home/dot_local/share/groundwork/lib/brew-output.sh \
+    "$update_all_home/.local/share/groundwork/lib/brew-output.sh"
   install_fixture_policy_runner \
     "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
   install_fixture_policy_clock "$update_all_bin/date"
@@ -1500,6 +1534,15 @@ SH
 printf 'docker-tidy %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
 pending="$HOME/.local/state/groundwork/docker-tidy-pending"
 status="${DOCKER_TIDY_STATUS:-0}"
+if [[ -n "${DOCKER_RUNTIME_STATE_FILE:-}" && -f "$DOCKER_RUNTIME_STATE_FILE" ]] \
+  && grep -qxF running "$DOCKER_RUNTIME_STATE_FILE"; then
+  status="${DOCKER_TIDY_RUNNING_STATUS:-0}"
+  if [[ "${DOCKER_TIDY_SIGNAL_PARENT:-0}" == 1 ]]; then
+    kill -TERM "$PPID"
+    sleep 1
+    exit 143
+  fi
+fi
 if [[ "$status" -eq 0 ]]; then
   rm -f -- "$pending"
 elif [[ "$status" -ne 3 && "${DOCKER_TIDY_RECORD_PENDING:-1}" -eq 1 ]]; then
@@ -1508,11 +1551,64 @@ elif [[ "$status" -ne 3 && "${DOCKER_TIDY_RECORD_PENDING:-1}" -eq 1 ]]; then
 fi
 exit "$status"
 SH
+  cat >"$update_all_bin/docker" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == context && "${2:-}" == inspect ]]; then
+  [[ "${DOCKER_CONTEXT_STATUS:-0}" == 0 ]] || exit "$DOCKER_CONTEXT_STATUS"
+  printf '%s\n' "${DOCKER_CONTEXT_HOST:-unix:///private/tmp/groundwork-docker.sock}"
+  exit 0
+fi
+if [[ "${1:-}" == desktop && "${2:-}" == start && "${3:-}" == --help ]]; then
+  exit "${DOCKER_DESKTOP_CAPABILITY_STATUS:-0}"
+fi
+if [[ "${1:-}" == desktop && "${2:-}" == start ]]; then
+  printf 'docker-desktop-start\n' >>"$GROUNDWORK_TEST_LOG"
+  if [[ "${DOCKER_START_PARTIAL:-0}" == 1 || "${DOCKER_START_STATUS:-0}" == 0 ]]; then
+    printf 'running\n' >"$DOCKER_RUNTIME_STATE_FILE"
+  fi
+  exit "${DOCKER_START_STATUS:-0}"
+fi
+if [[ "${1:-}" == desktop && "${2:-}" == stop ]]; then
+  printf 'docker-desktop-stop\n' >>"$GROUNDWORK_TEST_LOG"
+  if [[ "${DOCKER_STOP_STATUS:-0}" == 0 ]]; then
+    printf 'stopped\n' >"$DOCKER_RUNTIME_STATE_FILE"
+  fi
+  exit "${DOCKER_STOP_STATUS:-0}"
+fi
+if [[ "${1:-}" == info ]]; then
+  printf 'docker-info\n' >>"$GROUNDWORK_TEST_LOG"
+  grep -qxF running "$DOCKER_RUNTIME_STATE_FILE" || exit 1
+  exit "${DOCKER_INFO_STATUS:-0}"
+fi
+exit 64
+SH
+  cat >"$update_all_bin/colima" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == start && "${2:-}" == --help ]]; then
+  exit "${COLIMA_CAPABILITY_STATUS:-0}"
+fi
+if [[ "${1:-}" == start ]]; then
+  printf 'colima-start\n' >>"$GROUNDWORK_TEST_LOG"
+  if [[ "${DOCKER_START_PARTIAL:-0}" == 1 || "${DOCKER_START_STATUS:-0}" == 0 ]]; then
+    printf 'running\n' >"$DOCKER_RUNTIME_STATE_FILE"
+  fi
+  exit "${DOCKER_START_STATUS:-0}"
+fi
+if [[ "${1:-}" == stop ]]; then
+  printf 'colima-stop\n' >>"$GROUNDWORK_TEST_LOG"
+  if [[ "${DOCKER_STOP_STATUS:-0}" == 0 ]]; then
+    printf 'stopped\n' >"$DOCKER_RUNTIME_STATE_FILE"
+  fi
+  exit "${DOCKER_STOP_STATUS:-0}"
+fi
+exit 64
+SH
   chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
     "$update_all_bin/npm" "$update_all_bin/groundwork-cleanup" \
     "$update_all_bin/groundwork-docker-tidy" \
     "$update_all_bin/groundwork-repos" "$update_all_bin/groundwork-brew-update" \
-    "$update_all_bin/groundwork-platform" \
+    "$update_all_bin/groundwork-platform" "$update_all_bin/docker" \
+    "$update_all_bin/colima" \
     "$update_all_fixture/fresh-runner"
 
   update_all_log="$update_all_fixture/commands.log"
@@ -1865,6 +1961,14 @@ EOF
   update_all_temps=("${update_all_stamp}.tmp."*)
   ((${#update_all_temps[@]} == 0)) || fail "update-all runner left a temporary timestamp behind"
   grep -qF 'managed separately by your distribution' "$update_all_fixture/success-output"
+  grep -qF 'Groundwork update complete' "$update_all_fixture/success-output" \
+    || fail "a successful update omitted its final receipt"
+  grep -qF 'Homebrew                completed' "$update_all_fixture/success-output" \
+    || fail "the final receipt omitted Homebrew maintenance status"
+  grep -qF 'Docker scratch          completed' "$update_all_fixture/success-output" \
+    || fail "the final receipt omitted Docker maintenance status"
+  grep -qF '  SUCCESS' "$update_all_fixture/success-output" \
+    || fail "the final receipt did not classify the successful transaction"
   : >"$update_all_log"
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
@@ -1872,6 +1976,33 @@ EOF
     >"$update_all_fixture/wsl-success-output" 2>&1
   diff -u "$update_all_fixture/expected-success" "$update_all_log"
   grep -qF 'managed separately on the host' "$update_all_fixture/wsl-success-output"
+
+  # The real runner collapses only the exact known no-change Homebrew shapes,
+  # keeps an unknown warning in the live transcript, counts both classes in the
+  # final receipt, and preserves the complete raw stream for diagnosis.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    BREW_CLASSIFICATION_FIXTURE=1 "$update_all_fixture/rendered-runner" \
+    >"$update_all_fixture/brew-classified-run" 2>&1 \
+    || fail "the runner failed while classifying Homebrew output"
+  assert_not_contains 'Warning: git 2.51.0 already installed|Warning: Not upgrading ghostty' \
+    "$update_all_fixture/brew-classified-run" \
+    "known Homebrew no-change messages leaked into the live warning stream"
+  grep -qF 'Warning: unfamiliar Homebrew condition remains actionable' \
+    "$update_all_fixture/brew-classified-run" \
+    || fail "the runner hid an unfamiliar Homebrew warning"
+  grep -qF 'Homebrew                2 known no-change message(s) summarized' \
+    "$update_all_fixture/brew-classified-run" \
+    || fail "the final receipt omitted the Homebrew current count"
+  grep -qF 'Homebrew                1 unknown warning(s) preserved' \
+    "$update_all_fixture/brew-classified-run" \
+    || fail "the final receipt omitted the preserved Homebrew warning count"
+  raw_upgrade_log="$update_all_home/.local/state/groundwork/logs/homebrew-upgrade-latest.log"
+  grep -qF 'Warning: git 2.51.0 already installed' "$raw_upgrade_log" \
+    || fail "the raw Homebrew log omitted a collapsed no-change message"
+  grep -qF 'Warning: unfamiliar Homebrew condition remains actionable' "$raw_upgrade_log" \
+    || fail "the raw Homebrew log omitted an unfamiliar warning"
 
   # Docker scratch maintenance is part of the normal transaction, after package
   # maintenance. Its failure preserves earlier stages and the previous success
@@ -1930,7 +2061,11 @@ EOF
     DOCKER_TIDY_STATUS=3 "$update_all_fixture/rendered-runner" \
     >"$update_all_fixture/docker-unavailable-clean" 2>&1 \
     || fail "Docker unavailability without pending repair failed update-all"
-  grep -qF 'no earlier repair is pending' "$update_all_fixture/docker-unavailable-clean"
+  grep -qF 'Docker scratch maintenance skipped because no safe managed local backend was available' \
+    "$update_all_fixture/docker-unavailable-clean"
+  grep -qF 'Docker scratch          skipped-runtime-stopped' \
+    "$update_all_fixture/docker-unavailable-clean" \
+    || fail "the final receipt did not classify the unavailable Docker lane as skipped"
   test ! -e "$docker_pending" || fail "an unavailable Docker lane invented pending state"
   test -f "$update_all_stamp" || fail "an honest Docker-unavailable skip withheld update-all success"
 
@@ -2026,7 +2161,11 @@ EOF
   # exist in that branch.
   render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
     "$update_all_fixture/darwin-runner"
-  chmod +x "$update_all_fixture/darwin-runner"
+  render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    "$update_all_fixture/darwin-work-runner" true false false false bitwarden \
+    work-managed managed current
+  chmod +x "$update_all_fixture/darwin-runner" \
+    "$update_all_fixture/darwin-work-runner"
   cat >"$update_all_bin/groundwork-apps-start" <<'SH'
 #!/usr/bin/env bash
 printf 'apps-start\n' >>"$GROUNDWORK_TEST_LOG"
@@ -2079,6 +2218,204 @@ EOF
   diff -u "$update_all_fixture/expected-darwin" "$update_all_log" \
     || fail "the successful macOS transaction omitted or reordered its Karabiner postflight"
   test -f "$update_all_stamp"
+  assert_not_contains 'docker-desktop-(start|stop)|colima-(start|stop)' "$update_all_log" \
+    "an already-available Docker lane changed backend lifecycle state"
+
+  # A stopped selected backend is an explicit, reversible update-all repair.
+  # Consent is required, noninteractive runs remain stopped, and Groundwork
+  # restores the original state after success, ordinary failure, timeout, or a
+  # real TERM delivered by the acting tidy child. Personal renders own Docker
+  # Desktop; work renders own Colima. The nonselected backend must stay inert.
+  docker_runtime_state="$update_all_fixture/docker-runtime-state"
+  docker_tty_yes="$update_all_fixture/docker-tty-yes"
+  docker_tty_no="$update_all_fixture/docker-tty-no"
+  printf 'yes\n' >"$docker_tty_yes"
+  printf 'no\n' >"$docker_tty_no"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_no" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-declined" 2>&1 \
+    || fail "declining a temporary Docker Desktop start failed update-all"
+  grep -qxF 'stopped' "$docker_runtime_state"
+  [[ "$(grep -c '^docker-tidy --automatic$' "$update_all_log")" -eq 1 ]] \
+    || fail "a declined Docker lifecycle prompt retried scratch maintenance"
+  assert_not_contains 'docker-desktop-start|docker-desktop-stop|colima-start|colima-stop' \
+    "$update_all_log" "declining Docker lifecycle consent changed a backend"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-noninteractive" 2>&1 \
+    || fail "a noninteractive stopped Docker lane failed without pending work"
+  grep -qF 'no interactive terminal was available' \
+    "$update_all_fixture/docker-noninteractive"
+  assert_not_contains 'docker-desktop-start|docker-desktop-stop|colima-start|colima-stop' \
+    "$update_all_log" "a noninteractive update started a Docker backend"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_TIDY_RUNNING_STATUS=0 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-personal-approved" 2>&1 \
+    || fail "an approved temporary Docker Desktop maintenance cycle failed"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "Docker Desktop was not restored to its original stopped state"
+  [[ "$(grep -c '^docker-tidy --automatic$' "$update_all_log")" -eq 2 ]] \
+    || fail "approved Docker maintenance did not retry the tidy exactly once"
+  grep -qxF 'docker-desktop-start' "$update_all_log"
+  grep -qxF 'docker-info' "$update_all_log"
+  grep -qxF 'docker-desktop-stop' "$update_all_log"
+  assert_not_contains 'colima-start|colima-stop' "$update_all_log" \
+    "the personal profile changed the nonselected Colima backend"
+  grep -qF 'Docker scratch          completed' \
+    "$update_all_fixture/docker-personal-approved" \
+    || fail "the final receipt did not classify completed Docker maintenance"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_TIDY_RUNNING_STATUS=0 "$update_all_fixture/darwin-work-runner" \
+    >"$update_all_fixture/docker-work-approved" 2>&1 \
+    || fail "an approved temporary Colima maintenance cycle failed"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "Colima was not restored to its original stopped state"
+  grep -qxF 'colima-start' "$update_all_log"
+  grep -qxF 'colima-stop' "$update_all_log"
+  assert_not_contains 'docker-desktop-start|docker-desktop-stop' "$update_all_log" \
+    "the work profile changed the nonselected Docker Desktop backend"
+
+  printf 'running\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=0 \
+    "$update_all_fixture/darwin-work-runner" \
+    >"$update_all_fixture/docker-work-running" 2>&1 \
+    || fail "a work update with running Colima failed"
+  grep -qxF 'running' "$docker_runtime_state" \
+    || fail "update-all stopped a Colima backend that was already running"
+  assert_not_contains 'colima-start|colima-stop|docker-desktop-start|docker-desktop-stop' \
+    "$update_all_log" "an already-running work backend changed lifecycle state"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  rm -f "$update_all_stamp" "$docker_pending"
+  : >"$update_all_log"
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_no" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    "$update_all_fixture/darwin-work-runner" \
+    >"$update_all_fixture/docker-work-declined" 2>&1 \
+    || fail "declining a temporary Colima start failed update-all"
+  grep -qxF 'stopped' "$docker_runtime_state"
+  assert_not_contains 'colima-start|colima-stop|docker-desktop-start|docker-desktop-stop' \
+    "$update_all_log" "declining Colima lifecycle consent changed a backend"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$docker_pending"
+  : >"$update_all_log"
+  set +e
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_START_PARTIAL=1 DOCKER_START_STATUS=124 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-start-timeout" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 124 ]] \
+    || fail "a Docker backend start timeout exited $update_all_status instead of 124"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "a partial timed-out Docker start was not restored"
+  grep -qxF 'docker-desktop-stop' "$update_all_log"
+  grep -qxF 'previous-success' "$update_all_stamp"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$docker_pending"
+  : >"$update_all_log"
+  set +e
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    GROUNDWORK_DOCKER_READY_DEADLINE_SECONDS=1 \
+    GROUNDWORK_DOCKER_PROBE_DEADLINE_SECONDS=1 \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_INFO_STATUS=1 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-readiness-timeout" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 124 ]] \
+    || fail "a Docker readiness timeout exited $update_all_status instead of 124"
+  grep -qF 'did not become ready within 1s' \
+    "$update_all_fixture/docker-readiness-timeout"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "a Docker readiness timeout did not restore the stopped backend"
+  grep -qxF 'docker-desktop-stop' "$update_all_log"
+  grep -qxF 'previous-success' "$update_all_stamp"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$docker_pending"
+  : >"$update_all_log"
+  set +e
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_TIDY_RUNNING_STATUS=9 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-cleanup-failure" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "a failed tidy after temporary backend start reported success"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "a Docker tidy failure did not restore the stopped backend"
+  test -f "$docker_pending" || fail "a failed temporary tidy recorded no pending repair"
+  grep -qxF 'previous-success' "$update_all_stamp"
+
+  printf 'stopped\n' >"$docker_runtime_state"
+  printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$docker_pending"
+  : >"$update_all_log"
+  set +e
+  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
+    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
+    DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
+    DOCKER_TIDY_SIGNAL_PARENT=1 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/docker-signal" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -eq 143 ]] \
+    || fail "TERM during temporary Docker maintenance exited $update_all_status instead of 143"
+  grep -qxF 'stopped' "$docker_runtime_state" \
+    || fail "TERM during Docker maintenance did not restore the stopped backend"
+  grep -qxF 'docker-desktop-stop' "$update_all_log"
+  grep -qxF 'previous-success' "$update_all_stamp"
+  rm -f "$docker_pending"
 
   # The runner snapshots Karabiner before the full apply, because that apply can
   # run a changed Brewfile hook before the explicit upgrade lane. The observed
@@ -2409,8 +2746,11 @@ EOF
   set -e
   [[ "$update_all_status" -ne 0 ]] \
     || fail "a failed cache cleanup must not exit 0; nothing else would tell a script"
-  grep -qF 'completed with warnings' "$update_all_fixture/cache-cleanup-fail" \
-    || fail "a failed cache cleanup must not be reported as a fully clean refresh"
+  grep -qF 'Groundwork update incomplete' "$update_all_fixture/cache-cleanup-fail" \
+    || fail "a failed cache cleanup must be classified as an incomplete refresh"
+  grep -qF 'FAILED · required work did not complete' \
+    "$update_all_fixture/cache-cleanup-fail" \
+    || fail "a failed cache cleanup must carry a failed final result"
   grep -qF 'brew cleanup --prune=all was incomplete (exit 1)' "$update_all_fixture/cache-cleanup-fail" \
     || fail "a failed cache cleanup must name the command and its status"
   grep -qF 'Permission denied' "$update_all_fixture/cache-cleanup-fail" \
@@ -9201,14 +9541,22 @@ EOF
     home/dot_local/bin/executable_groundwork-update-run.tmpl \
     home/dot_zshrc.tmpl home/run_after_20-tools.sh.tmpl \
     home/run_onchange_after_10-brew-bundle.sh.tmpl
-  # update-all runs only the label-scoped tidy in acting mode; the helper owns
-  # Docker reachability itself, so no duplicated probe belongs in the runner.
+  # update-all runs only the label-scoped tidy in acting mode. The helper owns
+  # ordinary reachability and cleanup policy. The runner has exactly one
+  # separate probe: bounded readiness after an owner-approved temporary backend
+  # start, before it retries the unchanged tidy.
   grep -qF 'groundwork-docker-tidy" --automatic' home/dot_local/bin/executable_groundwork-update-run.tmpl
   assert_not_contains 'groundwork-docker-tidy" --summary' \
     home/dot_local/bin/executable_groundwork-update-run.tmpl \
     "update-all only reported Docker leftovers instead of maintaining the opted-in scratch lane"
-  assert_no_matches "update-run must not duplicate the tidy's docker reachability probe" \
-    rg -n 'docker info' home/dot_local/bin/executable_groundwork-update-run.tmpl
+  [[ "$(rg -c 'docker info' home/dot_local/bin/executable_groundwork-update-run.tmpl)" -eq 1 ]] \
+    || fail "update-run must keep exactly one post-start Docker readiness probe"
+  docker_readiness_source="$(sed -n '/^wait_for_docker_ready() {/,/^}/p' \
+    home/dot_local/bin/executable_groundwork-update-run.tmpl)"
+  grep -qF 'run_bounded_internal "probe Docker readiness"' <<<"$docker_readiness_source" \
+    || fail "the post-start Docker readiness probe is not bounded"
+  grep -qF 'docker info' <<<"$docker_readiness_source" \
+    || fail "Docker readiness moved outside its temporary-start function"
   cache_state="$out_dir/cache-state"
   docker_state_init "$cache_state"
   printf 'sha256:dangx000\t-\t-\t-\t2001-01-01T00:00:00Z\t300MB\n' >"$cache_state/images.tsv"

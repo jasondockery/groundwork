@@ -265,10 +265,13 @@ done nor lost in review prose.
       re-fetch of failed downloads, no-op chatter removal — shipped on
       `origin/main`), and the `groundwork-configure` re-init wrapper shipped
       (`937ae11`; the reconfigure/regenerate model + source preflight landed in
-      `62c30bd`). Remaining: (a) a phase-status summary at the end of every
-      `update-all` — completed / degraded / failed per stage, what to run next,
-      and a full log captured to `~/.local/state/groundwork/logs/` with only
-      concise output on the console by default; (b) elapsed-time heartbeat for
+      `62c30bd`). The first typed terminal receipt and bounded raw Homebrew logs
+      now separate current/no-change, maintenance, owner review, preserved
+      warnings, failure, and pending repair without hiding unfamiliar upstream
+      warnings. Remaining: (a) promote that receipt to the durable structured
+      stage schema, add elapsed/degraded facts and exact next actions, and make
+      the console concise by default while the complete multi-stage log stays
+      available; (b) elapsed-time heartbeat for
       long quiet Homebrew stretches and an `update-all --retry-failed` that
       re-fetches only failed casks at reduced concurrency; (c) required-vs-
       optional package classification with a stable exit contract (required
