@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internationalization First"
+  short_description: "Make user-facing work translation-ready"
+  default_prompt: "Use $internationalization-first to make this user-facing work translation-ready without requiring unnecessary translations."

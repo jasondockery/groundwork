@@ -2,12 +2,12 @@
 
 Skills are optional, on-demand procedures for repeated agent workflows.
 
-Compass owns the projected shared skills `dependency-change`,
-`field-failure-backpressure`, `performance-sensitive-change`, and
-`verification-selection`. Their regular files are receipt-bound and checked by
-`.compass/check-projection.mjs`; do not edit them independently. Groundwork owns
-the other skills in this directory and may narrow or extend a shared procedure
-for its product, platform, and repository commands.
+Compass owns the projected shared skills named by `.compass/receipt.json`.
+Their regular files are receipt-bound and checked by
+`.compass/check-projection.mjs`; do not edit them independently or maintain a
+second inventory here. Groundwork owns the remaining skills in this directory
+and may narrow or extend a shared procedure for its product, platform, and
+repository commands.
 
 Use a skill when all of these are true:
 - The workflow happens often.

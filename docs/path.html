@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html" class="active">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -137,21 +140,21 @@
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>1. Ship something today</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>1. Ship something today</h2>
   <p>Your first win should feel like leverage. Open a capable editor, describe a tiny real thing to an agent, run it, and change one line yourself. No tmux, no Vim, no architecture lecture.</p>
   <div class="trigger"><b>You're here because</b> you want proof that AI can help you make something real before you study the whole toolchain.</div>
   <p class="reach"><b>Reach for:</b> <a href="getting-started.html">Getting started</a>, <a href="editors-ai.html">Editors &amp; AI</a>, then the first track that feels motivating: <a href="game-dev.html">FPS Browser</a>, <a href="game-dev-unity.html">FPS Unity</a>, <a href="web-dev.html">Web &amp; sites</a>, <a href="app-dev.html">Apps</a>, or <a href="gen-media.html">Image &amp; video</a>. Stop there until you have a tiny working change.</p>
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>2. Don't get lost</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>2. Don't get lost</h2>
   <p>Vibe coding works right up until it doesn't: a path is wrong, a command fails, the agent edits the wrong file, or you need to explain what happened. Now you need the floor under the floor.</p>
   <div class="trigger"><b>You're here because</b> something broke and you realized you cannot navigate without the agent.</div>
   <p class="reach"><b>Reach for:</b> <a href="command-line.html">Command line &amp; Unix</a>, <a href="shell.html">Shell &amp; CLI</a>, and <a href="git.html">Git</a> basics. Learn where you are, how files move, how commands compose, and how to save work before experimenting.</p>
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>3. Earn each tool</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>3. Earn each tool</h2>
   <p>This is the stage most guides front-load. Groundwork waits until the pain shows up, then gives you the tool as the answer.</p>
   <h3>When the agent is plausibly wrong</h3>
   <p>The moment a vibe coder starts gaining chops is the moment they read the diff for whether the code is right, not just whether it runs.</p>
@@ -172,21 +175,21 @@
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>4. Build the chops</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>4. Build the chops</h2>
   <p>Now make the useful moves automatic. Fluency comes from short repeated reps, not from one heroic study session. The goal is not terminal cosplay; the goal is to free your attention for judgment.</p>
   <div class="trigger"><b>You're here because</b> you are ready to get genuinely fast, not just functional.</div>
   <p class="reach"><b>Reach for:</b> the <a href="practice.html">Practice plan</a>: daily shell, tmux, editor, Git, and agent-review drills.</p>
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>5. Think like an engineer</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>5. Think like an engineer</h2>
   <p>Speed without judgment produces broken things faster. This is where architecture, design patterns, specs, tests, evals, security review, and taste become central. The agent is the fast hands; you remain responsible for the system.</p>
   <div class="trigger"><b>You're here because</b> "it works" stopped being a high enough bar.</div>
   <p class="reach"><b>Reach for:</b> <a href="agentic-engineering.html">Vibe &rarr; agentic</a>, <a href="development.html">Development</a>, <a href="new-project.html">Starting a project</a>, and the verification loop in <a href="workflow.html">Everyday workflow</a>.</p>
 </div>
 
 <div class="stageblock">
-  <h2><span class="hash">#</span>6. Work for real, teach others</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>6. Work for real, teach others</h2>
   <p>The last stage is making the loop durable: repeatable daily work, a knowledge base so learning compounds, and the ability to teach the workflow to someone else.</p>
   <div class="trigger"><b>You're here because</b> you are shipping regularly and bringing other people along.</div>
   <p class="reach"><b>Reach for:</b> <a href="workflow.html">Everyday workflow</a>, <a href="knowledge.html">Knowledge base</a>, and <a href="agents.html">AI agents &amp; rules</a>.</p>

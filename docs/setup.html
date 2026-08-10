@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html" class="active">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -131,7 +134,7 @@
       <h1>What chezmoi is, and why you run it.</h1>
       <p class="lead">chezmoi keeps the configuration for your environment in one Git repository, and lays those files down in the right places on each supported profile: full Mac desktop, Linux/WSL terminal layer, or headless container. Understanding it means you can explain, reproduce, and repair the setup instead of treating it as hidden magic.</p>
 
-      <h2><span class="hash">#</span>The mental model</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The mental model</h2>
       <p>There are two sides. On one side is a <strong>source repository</strong> — a folder full of your config files, tracked in Git. On the other is your <strong>home directory</strong>, where programs actually look for their settings. chezmoi's whole job is to copy from the first to the second, correctly.</p>
 
       <figure class="diagram">
@@ -170,7 +173,7 @@
         <p>Files in the repo start with <code>dot_</code> instead of a dot so they're visible and easy to work with. A <code>.tmpl</code> ending means the file has blanks chezmoi fills in per machine — your name, your email, whether it's a work computer. That's how one repo serves many people without hard-coding anyone.</p>
       </div>
 
-      <h2><span class="hash">#</span>What <code>apply</code> actually does</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What <code>apply</code> actually does</h2>
       <p>When you run <code>chezmoi apply</code>, it walks the source repo and, for each file, decides what your home directory <em>should</em> look like, then makes it match. Concretely it:</p>
       <ul>
         <li>fills in any templates with this machine's answers,</li>
@@ -179,7 +182,7 @@
       </ul>
       <p>It only changes what's different. Run it twice in a row and the second run does almost nothing — that's the point. It's safe to run any time you want to be sure your machine or shell profile matches the repo.</p>
 
-      <h2><span class="hash">#</span>Why it's in version control</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Why it's in version control</h2>
       <p>Because your setup is <strong>code</strong>. It lives in Git, so every change is recorded, you can see what changed and when, and you can roll back. Share the repo and someone else gets the same operating model: machine setup, terminal workflow, and agent instructions. Lose the laptop and a new one is minutes away, not days.</p>
 
       <div class="callout tip">
@@ -191,7 +194,7 @@
         <tr><td><code>chezmoi cd</code></td><td>Open a shell in the Groundwork source checkout when you want to inspect or work on the setup as a repository.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>First-time setup</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>First-time setup</h2>
       <div class="callout warn">
         <span class="label">Opinionated setup</span>
         <p>This is not a passive app installer. It changes shell, Git, terminal, tmux, editor, Homebrew, Finder, keyboard repeat, browser/developer, and app settings. First apply creates a focused backup at <code>~/.local/state/groundwork/backups/latest</code>. Restore the backed-up files and macOS defaults with <code>groundwork-restore</code>. Already-used Macs can also choose an optional clean start that moves old Neovim, tmux, and zsh completion state to <code>~/.local/state/groundwork/reset/latest</code>.</p>
@@ -218,7 +221,7 @@
         <p>Don't hand-edit a file that chezmoi manages (like <code>~/.zshrc</code>) — the next <code>apply</code> overwrites it. Change it in the <strong>repo</strong> instead, commit, then apply. The repo always wins, by design.</p>
       </div>
 
-      <h2><span class="hash">#</span>Customize without forking</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Customize without forking</h2>
       <p>Groundwork is a shared base with a personal layer. For normal personal preferences, use the local override files that Groundwork intentionally loads last: <code>~/.zshrc.local</code>, <code>~/.gitconfig.local</code>, and <code>~/.config/tmux/tmux.local.conf</code>. For setup choices (your profile, work machine, password manager, and so on), run <code>groundwork-configure</code> — it shows your current answers, changes only what you pick, previews the diff, and applies after you confirm. (Plain <code>chezmoi init</code> only <em>regenerates</em> from your existing answers; it never asks what to change.) See <a href="customizing.html">Customizing</a> for the full tiered model.</p>
 
 
@@ -228,7 +231,7 @@
   <p>The Docker image is the non-interactive headless profile for agents, CI, and disposable shells. From the repo root, build it with <code>docker build -t groundwork .</code> and run <code>docker run -it --rm groundwork</code>. Keep that <code>groundwork</code> tag for the image you actually use; when you or an agent rebuild only to test a Dockerfile change, build it with <code>groundwork-docker-build-scratch &lt;purpose&gt; .</code> instead — the wrapper applies the ephemeral labels and the <code>groundwork/scratch:&lt;purpose&gt;</code> tag so <code>groundwork-docker-tidy</code> can remove it later — see <a href="platforms.html">Platforms</a> for the contract. Personal Macs can use Docker Desktop; work Macs use Colima plus the Docker CLI, so start the daemon with <code>colima start</code> first. This does not try to teach Dockerfiles, Compose, or app hosting; it just gives the Groundwork terminal environment somewhere reproducible to run. See <a href="platforms.html">Platforms</a> for the profile-by-profile split.</p>
 </div>
 
-      <h2><span class="hash">#</span>Day to day</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Day to day</h2>
       <p>When the shared repo gets new changes, pull them and apply:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">update.sh</span></div>
@@ -259,7 +262,7 @@
 <span class="comment"># shows exactly what apply will change, and nothing else</span></code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://www.chezmoi.io/quick-start/" target="_blank" rel="noopener">chezmoi — Quick start</a> — the official fastest path from zero to a working Groundwork repo.</li>
         <li><a href="https://www.chezmoi.io/user-guide/command-overview/" target="_blank" rel="noopener">chezmoi — User guide</a> — the daily-workflow reference (add, edit, diff, apply, templates).</li>

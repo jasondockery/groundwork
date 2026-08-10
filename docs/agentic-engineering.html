@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -146,15 +149,15 @@
   </div>
 </div>
 
-<h2><span class="hash">#</span>The floor: vibe coding</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The floor: vibe coding</h2>
 <p>Vibe coding means giving the agent a goal in plain language, letting it write the code, running the result, and feeding errors back until the thing works. It is useful, joyful, and a real doorway into software for people who would otherwise never start.</p>
 <p>The catch is that a working demo is not the same as understanding. When the code breaks, leaks data, grows brittle, or has to be maintained by a team, you need more than momentum.</p>
 
-<h2><span class="hash">#</span>The ceiling: agentic engineering</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The ceiling: agentic engineering</h2>
 <p>Agentic engineering keeps the speed but adds responsibility. You orchestrate agents, but you do not outsource the parts that require judgment: what should be built, what must never break, how the system should be shaped, and how you know the result is safe and correct.</p>
 <p>That is why Groundwork teaches boring-looking fundamentals beside modern AI tools. The shell, Git, tests, project instructions, and review habits are how you direct the agent instead of being dragged by it.</p>
 
-<h2><span class="hash">#</span>The five chops</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The five chops</h2>
 <p>These are the durable skills that stay yours even as agents write more of the code.</p>
 <div class="chop"><div class="h"><span class="k">01</span><span class="t">Spec design</span></div><p>Write the goal, invariants, edge cases, security boundaries, and acceptance criteria before the agent starts. The prompt is not just a request; it is a design artifact.</p><p class="do">Practice: write acceptance criteria for a change before allowing an agent to edit.</p></div>
 <div class="chop"><div class="h"><span class="k">02</span><span class="t">Diff review</span></div><p>Read generated code for whether it is right, maintainable, and scoped, not just whether tests pass. Plausible-but-wrong code is the core failure mode.</p><p class="do">Practice: read every agent diff and name one risk before accepting it.</p></div>
@@ -162,14 +165,14 @@
 <div class="chop"><div class="h"><span class="k">04</span><span class="t">Security oversight</span></div><p>You are still responsible for secrets, auth, permissions, injections, data exposure, dependency risk, and accidental public leaks. Speed is not an excuse.</p><p class="do">Practice: ask what the change could leak, let in, or silently corrupt.</p></div>
 <div class="chop"><div class="h"><span class="k">05</span><span class="t">Taste</span></div><p>Know the difference between code that works and a system that will hold. Taste comes from seeing patterns, studying failures, and making tradeoffs explicit.</p><p class="do">Practice: once a week, study one design pattern or postmortem and compare it to an agent's default solution.</p></div>
 
-<h2><span class="hash">#</span>Why you still put in the hours</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Why you still put in the hours</h2>
 <p>If an agent can write code, why practice keyboard shortcuts, Git, architecture, and tests? Because fluency is what lets you supervise. You cannot reliably review a diff you cannot read, recover from a bad change without Git, or direct a system you do not understand.</p>
 <div class="callout note">
   <span class="label">The Groundwork bet</span>
   <p>Start on the floor. Ship something. Then climb: spec, review, evals, security, and taste. That climb is the difference between being impressed by an agent and being able to lead one.</p>
 </div>
 
-<h2><span class="hash">#</span>Go deeper</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Go deeper</h2>
 <p class="links">
   <a href="https://x.com/karpathy/status/2019137879310836075" target="_blank" rel="noopener">Karpathy's one-year retrospective on agentic engineering</a>
   <a href="https://www.youtube.com/results?search_query=Karpathy+Sequoia+AI+Ascent+2026" target="_blank" rel="noopener">Sequoia AI Ascent 2026 talk search</a>

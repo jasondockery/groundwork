@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html" class="active">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -141,7 +144,7 @@
     <p>Generative media is a <strong>stack</strong>, not a button. The <strong>model</strong> layer (FLUX, Stable Diffusion, Veo, Kling, Wan) does the generation. The <strong>workflow</strong> layer (ComfyUI node graphs, the <code>diffusers</code> library, a hosted API like fal.ai or Replicate) orchestrates it. The <strong>integration</strong> layer is your software: a game&apos;s textures, a site&apos;s images, an app&apos;s media feature. You will work all three this week, and the agent will write most of the code in the middle and top.</p>
   </div>
 
-  <h2><span class="hash">#</span>Day 0: pick your path and set up</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>Day 0: pick your path and set up</h2>
   <p>There are two on-ramps. Most people should do a bit of both; choose your primary by your hardware and goal.</p>
   <ul>
     <li><strong>Hosted (any machine):</strong> a multi-model API. <a href="https://fal.ai/" target="_blank" rel="noopener">fal.ai</a> and <a href="https://replicate.com/" target="_blank" rel="noopener">Replicate</a> both give one API key and access to hundreds of image and video models. Best if you lack a strong GPU or want to ship fast.</li>
@@ -200,7 +203,7 @@
   </ul>
   <div class="check"><span class="ico">▶</span><div><b>Shipped</b> A deployed media tool, a reproducible pipeline, and a set of assets in a real project, built in a hard week.</div></div>
 
-  <h2><span class="hash">#</span>Where to learn more</h2>
+  <h2><span class="hash" aria-hidden="true">#</span>Where to learn more</h2>
   <p>The durable, excellent 2026 references (specific video tutorials age fast, so favor official docs and the official channels, then search for current-year walkthroughs):</p>
   <ul>
     <li><strong>Workflows &amp; control:</strong> <a href="https://www.comfy.org/" target="_blank" rel="noopener">ComfyUI</a> and its <a href="https://docs.comfy.org/" target="_blank" rel="noopener">docs</a> and example workflows, the most important tool for serious local control.</li>

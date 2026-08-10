@@ -1,0 +1,4 @@
+interface:
+  display_name: "Secure by Design"
+  short_description: "Design trust boundaries to fail closed"
+  default_prompt: "Use $secure-by-design to design this trust boundary with least privilege and fail-closed behavior."

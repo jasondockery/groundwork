@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html" class="active">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -142,13 +145,13 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Why Groundwork has a package.json</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Why Groundwork has a package.json</h2>
       <p>Groundwork is still a macOS/chezmoi project, not a JavaScript application. Its first-run, applied commands, diagnostics, and canonical validator continue to work without a project install. The root <code>package.json</code> is deliberately dependency-free metadata for repository contributors: it pins the Node and pnpm authorities and provides consistent toolchain audit wrappers.</p>
       <p>Repo-maintenance commands still live as direct scripts under <code>scripts/</code> and <code>tools/</code>; for example, CI and humans run <code>scripts/validate-groundwork</code>, which invokes the dependency-free Node checker directly before any pnpm wrapper is needed. The empty lockfile proves the declared package-manager contract reproducibly; it does not move bootstrap, chezmoi apply, <code>update-all</code>, or installed user commands behind <code>pnpm install</code>.</p>
       <p>The ownership rule is simple: a command that performs work in child processes lives in <code>~/.local/bin</code>; a shell function is reserved for work that must change the current shell, such as <code>cd</code>, an export, or activation. Self-updating commands split in two: <code>update-all</code> is a stable launcher that synchronizes Groundwork and then hands the same invocation to the freshly applied runner, <code>groundwork-update-run</code>, which holds the actual update stages. A fix delivered by the sync therefore governs the rest of that same invocation, and the launcher itself never needs to change.</p>
       <p>A separate hand-written man page would duplicate the same command contract in a third place. Groundwork follows the modern CLI layers instead: every substantial helper owns complete <code>-h</code>/<code>--help</code> output, <code>groundwork-help</code> provides searchable offline discovery across helpers, and this site teaches the larger workflow. If Groundwork later grows into a stable multi-command suite, its man pages should be generated from that command definition rather than maintained separately.</p>
 
-      <h2><span class="hash">#</span>Daily Groundwork commands</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Daily Groundwork commands</h2>
       <table class="keytable">
         <tr><td><code>groundwork-help</code></td><td>Show the command catalog. Add a query to filter it.</td></tr>
         <tr><td><code>groundwork-help --pick</code></td><td>Fuzzy-pick a command from the catalog with fzf; prints it and copies it to the clipboard when possible.</td></tr>
@@ -172,7 +175,7 @@
         <tr><td><code>chezmoi cd</code></td><td>Jump into the Groundwork source repo.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>AI context sharing</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>AI context sharing</h2>
       <p>Use these when you want a chat app, reviewer, or second agent to see the exact files you chose, with each path attached to its contents. Keep the bundle small: copy the files that explain the question, not the whole repo.</p>
       <table class="keytable">
         <tr><td><code>copy-context AGENTS.md src tests</code></td><td>Copy selected files or folders to the clipboard with path headers and contents.</td></tr>
@@ -180,14 +183,14 @@
         <tr><td><code>copy-context --paths-only docs</code></td><td>Copy only the selected file list when you want to discuss scope before sharing contents.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Repository navigation</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Repository navigation</h2>
       <table class="keytable">
         <tr><td><code>groundwork-repos</code></td><td>Table of every Git repository discovered under your configured roots (<code>~/.config/groundwork/repos.conf</code>): branch, dirty/clean as symbol + word, ahead/behind, worktree marker, path. Discovery is dynamic — a fresh clone appears within the cache TTL (30&nbsp;s), or immediately with <code>--refresh</code>, with no config edit. See <a href="repo-navigation.html">Repository navigation</a>.</td></tr>
         <tr><td><code>groundwork-repos pick</code></td><td>Fuzzy-pick a discovered repository (fzf) with a live git-status preview, then open or reuse its lazygit tmux window. Inside tmux it becomes a window (also on <kbd>Ctrl</kbd><kbd>a</kbd> then <kbd>Shift</kbd><kbd>R</kbd>); outside, it creates or attaches the <code>repos</code> session.</td></tr>
         <tr><td><code>groundwork-repos changed</code></td><td>Open one lazygit tmux window per repository with uncommitted work — the fastest way to see everything your agents left unreviewed (also on <kbd>Ctrl</kbd><kbd>a</kbd> then <kbd>Shift</kbd><kbd>G</kbd>).</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Project scaffolders</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Project scaffolders</h2>
       <table class="keytable">
         <tr><td><code>new-project my-app</code></td><td>Create a starter repo with <code>AGENTS.md</code>, shared agent folders, editor settings, and ignored local/secrets files.</td></tr>
         <tr><td><code>new-twelve-log</code></td><td>Create the Groundwork Twelve learning-log repo at <code>~/groundwork-log</code>, make its first commit, and enter it. Pass a path to put it somewhere else.</td></tr>
@@ -197,7 +200,7 @@
         <tr><td><code>obsidian-plugins ~/code/llm-wiki</code></td><td>Install the Groundwork-managed Obsidian plugin set into a vault.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>GitHub auth</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>GitHub auth</h2>
       <table class="keytable">
         <tr><td><code>gh auth login</code></td><td>Sign in to GitHub for <code>gh</code> and HTTPS Git operations.</td></tr>
         <tr><td><code>gh auth setup-git</code></td><td>Configure <code>gh</code> as Git's HTTPS credential helper in an unmanaged Git config. Groundwork already renders the equivalent helper block, so this is normally unnecessary here.</td></tr>
@@ -206,7 +209,7 @@
         <tr><td><code>groundwork-github-ssh revert-443</code></td><td>Remove the managed port-443 fallback — byte-exact when the config is unedited since enable, surgical otherwise. Backups are kept.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Dev runtimes</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Dev runtimes</h2>
       <table class="keytable">
         <tr><td><code>mise use node@24</code></td><td>Pin a runtime/tool version in the current project.</td></tr>
         <tr><td><code>mise upgrade</code></td><td>Upgrade globally managed mise tools, including floating baselines such as Node LTS. Takes effect at your next prompt, even in already-open terminals.</td></tr>
@@ -215,7 +218,7 @@
         <tr><td><code>uv</code></td><td>Fast Python package, project, script, tool, and virtualenv manager.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Git commands</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Git commands</h2>
       <table class="keytable">
         <tr><td><code>git status</code></td><td>Show changed, staged, and untracked files.</td></tr>
         <tr><td><code>git diff</code></td><td>Inspect unstaged changes before asking an agent to continue.</td></tr>
@@ -224,7 +227,7 @@
         <tr><td><code>git show --stat</code></td><td>Review the latest commit summary.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Groundwork safety</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Groundwork safety</h2>
       <table class="keytable">
         <tr><td><code>chezmoi diff</code></td><td>Preview what Groundwork would change before applying.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply the source repo to the home directory.</td></tr>
@@ -245,7 +248,7 @@
         <tr><td><code>groundwork-pnpm-store-tidy --yes</code></td><td>Run <code>pnpm store prune</code> on the store selected by the current directory, with a measured before/after/reclaimed receipt. It re-checks the selection (store and pnpm version) immediately before pruning and refuses if either moved after the report — you authorize exactly the state you saw — and it refuses outright when a valid <code>packageManager</code> pin disagrees with the pnpm that actually resolved, because that is launcher drift to diagnose (<code>groundwork-doctor --node-toolchain</code>), not to prune under. Projects are not modified, and a pruned package re-downloads the next time something needs it. Other store generations are never touched: an older store (a <code>v10</code> beside a selected <code>v11</code>) may be selected by another repository&apos;s <code>packageManager</code> field, so retiring one is a separate human decision after checking your repos.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>The shell runtime</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The shell runtime</h2>
       <div class="callout note">
         <span class="label">Provisional beyond Apple Silicon</span>
         <p>Shell adoption and <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>Y</kbd></span> are covered by automated tests and verified on Apple Silicon macOS. Intel macOS, native Linux, and WSL2 receipts are still being collected — and Groundwork's rule is that support follows verification, not intent — so treat those platforms as provisional for these two commands until the receipts land. Recovery (<code>--revert</code>) is designed to work regardless, including with Homebrew broken or missing.</p>
@@ -260,7 +263,7 @@
         <tr><td><code>groundwork-shell-adopt --revert-to &lt;shell&gt;</code></td><td>Restore a specific login shell, for the case where no previous one was recorded.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Shell aliases and search</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Shell aliases and search</h2>
       <table class="keytable">
         <tr><td><code>ll</code></td><td>Detailed file listing with hidden files, Git status, and directories first.</td></tr>
         <tr><td><code>lt</code></td><td>Tree view of the current folder, two levels deep; the quick shape-of-a-repo view.</td></tr>
@@ -284,7 +287,7 @@
         <tr><td><code>largest --folders ~</code></td><td>Show only folders under your home folder. Add <code>-n N</code> to change the result count.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>tmux commands</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>tmux commands</h2>
       <table class="keytable">
         <tr><td><code>tmux new -s name</code></td><td>Start a named tmux session.</td></tr>
         <tr><td><code>tmux attach -t name</code></td><td>Attach to an existing session.</td></tr>
@@ -310,7 +313,7 @@
         <tr><td><span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span></td><td>Move between tmux panes and Neovim splits with the same keys.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Mac and display commands</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Mac and display commands</h2>
       <table class="keytable">
         <tr><td><code>defaultbrowser</code></td><td>List or set the macOS default browser. Groundwork installs Chrome but never changes this association.</td></tr>
         <tr><td><code>browser-extensions</code></td><td>List or open the recommended extension links for Chrome.</td></tr>
@@ -319,7 +322,7 @@
         <tr><td><code>open -a "Google Chrome"</code></td><td>Open Chrome stable directly from the shell; use Raycast when you want to search.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">

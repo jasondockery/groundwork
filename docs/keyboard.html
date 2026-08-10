@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html" class="active">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -142,7 +145,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>One key, two jobs</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>One key, two jobs</h2>
       <p>Via <strong>Karabiner-Elements</strong>, Caps Lock becomes a <strong>dual-role key</strong>:</p>
       <ul>
         <li><strong>Tap it</strong> → <kbd>Esc</kbd>. The single most-pressed key in Vim (it's how you leave Insert mode and get back to Normal) — now without reaching to the top-left corner.</li>
@@ -150,7 +153,7 @@
       </ul>
       <p>The key earns its prime spot many times a minute, and real Caps Lock is still there when you want it — on a deliberate two-key press instead of a single accidental one.</p>
 
-      <h2><span class="hash">#</span>Getting real Caps Lock back</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Getting real Caps Lock back</h2>
       <p>Hold <kbd>Right Shift</kbd> and press <kbd>Caps</kbd>. That sends a genuine Caps Lock, so it <strong>toggles</strong> — the same press turns it on and turns it off. Left Shift is deliberately not bound, so ordinary capitalized typing can never trigger it by accident.</p>
       <div class="callout note">
         <span class="label">If the Caps Lock light is stuck on</span>
@@ -159,7 +162,7 @@
         <p>Because it's a toggle, pressing it again turns Caps Lock back on. If the light doesn't respond at all, Karabiner isn't seeing the key: check that it's running and has Input Monitoring permission.</p>
       </div>
 
-      <h2><span class="hash">#</span>Why this is the keystone</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Why this is the keystone</h2>
       <p>Look back at the other pages and notice how much lives on <kbd>Esc</kbd>, <kbd>Ctrl</kbd>, and <kbd>Alt</kbd>:</p>
       <table class="keytable">
         <tr><td><a href="neovim.html">Neovim</a></td><td><kbd>Esc</kbd> returns to Normal mode — the move you make constantly</td></tr>
@@ -174,7 +177,7 @@
         <p>Groundwork opens Karabiner after install/update if it is not running, but macOS still requires you to enable its background services, approve <strong>Accessibility</strong>, and allow its <strong>driver / system extension</strong>. <strong>Input Monitoring is normally unnecessary on Karabiner-Elements 16.0.0 and later</strong>; use it only for 15.9.0 or earlier, or when Karabiner itself asks. A script can't click these for you — full steps are on the <a href="troubleshooting.html#karabiner">Troubleshooting</a> page.</p>
       </div>
 
-      <h2><span class="hash">#</span>The other keyboard tweaks</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The other keyboard tweaks</h2>
       <p>The setup also nudges a few macOS keyboard defaults so the terminal feels right:</p>
       <table class="keytable">
         <tr><td><strong>Key repeat</strong></td><td>Hold a key and it repeats quickly, so <kbd>j</kbd>/<kbd>k</kbd> scrolling and holding a motion in Vim are snappy. Setup asks which speed you want — see below</td></tr>
@@ -186,7 +189,7 @@
         <p>The key-repeat settings are read when an app launches, so they fully take hold after you log out and back in (or restart). If holding a key still shows the accent popup, that's the one to do.</p>
       </div>
 
-      <h2 id="key-repeat"><span class="hash">#</span>How fast should key repeat be?</h2>
+      <h2 id="key-repeat"><span class="hash" aria-hidden="true">#</span>How fast should key repeat be?</h2>
       <p>Holding a key is a primary motion in a terminal, not an edge case: <kbd>j</kbd>/<kbd>k</kbd> down a file, arrow keys through a long command, backspace over a wrong path. Two separate things control it — how long before repeating <em>starts</em>, and how fast it repeats <em>once started</em>. Setup asks once and you can change it later.</p>
       <table class="keytable">
         <tr><td><strong>Fast</strong> <em>(default)</em></td><td>Starts repeating soon, repeats quickly. The recommended answer, and what the rest of these pages assume</td></tr>
@@ -200,7 +203,7 @@
         <p>On Linux desktops Groundwork applies it through GNOME's keyboard settings, which persist. On a non-GNOME X11 desktop it can only set the current session, and it prints the <code>xset</code> line to add to your own startup; other Wayland compositors set it in their own config.</p>
       </div>
 
-      <h2><span class="hash">#</span>Put it to use</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Put it to use</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -216,7 +219,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://karabiner-elements.pqrs.org/docs/" target="_blank" rel="noopener">Karabiner-Elements documentation</a> — for any other remap you dream up (other dual-role keys, app-specific rules, home-row mods).</li>
         <li><a href="https://manuals.info.apple.com" target="_blank" rel="noopener">Apple's keyboard settings</a> — the System Settings → Keyboard panel mirrors several of these.</li>

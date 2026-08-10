@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -145,7 +148,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>The mental model</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The mental model</h2>
       <p>You've already been on the receiving end of Git. Groundwork itself lives in a Git repository on GitHub, and this page is a file inside it. When this page gets improved, Jason, who created and maintains Groundwork (in Git terms, its <strong>maintainer</strong>), <strong>edits</strong> the file, <strong>stages</strong> it (picks it for the next snapshot), <strong>commits</strong> it (saves the snapshot, with a note saying why), and <strong>pushes</strong> it to GitHub. The next time your machine updates Groundwork, it <strong>pulls</strong>: the new snapshot comes down, and the page you're reading quietly gets better. Every project you'll ever touch moves the same way; only the names change.</p>
 
       <figure class="diagram">
@@ -184,7 +187,7 @@
 
       <p>That's the whole model: four places. Three live on any machine doing the writing: the <strong>working files</strong> being edited, the <strong>staging area</strong> where the next snapshot is assembled, and the <strong>history</strong> of saved snapshots. The fourth, <strong>GitHub</strong>, is the shared copy every machine pushes to and pulls from. Every command on this page just moves change between these four places, and when it's your project, you're the one on the laptop at the top of the diagram.</p>
 
-      <h2><span class="hash">#</span>The daily loop</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The daily loop</h2>
       <p>Ninety percent of Git is five commands. Check what changed, stage it, commit it with a message, and sync with GitHub. When an agent changed more than one concern in a file, use <code>git add -p</code> to review and stage one hunk at a time instead of accepting the whole file.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">daily</span></div>
@@ -205,7 +208,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Branches — the superpower</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Branches — the superpower</h2>
       <p>A branch is a parallel line of work. You split off from <code>main</code>, build something without touching the working version, and <strong>merge</strong> it back when it's ready. This is how you try ideas — and how teams avoid stepping on each other.</p>
 
       <figure class="diagram">
@@ -248,7 +251,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>GitHub and the gh command</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>GitHub and the gh command</h2>
       <p>GitHub is where repositories live online. The <code>gh</code> command talks to it from the terminal — sign in once, then clone repos and open pull requests without leaving the shell.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gh</span></div>
@@ -266,7 +269,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>When something goes wrong</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>When something goes wrong</h2>
       <p>Committed work is very hard to truly lose — Git keeps almost everything. One term first, because every undo is described relative to it: <strong>HEAD</strong> is Git's name for the commit you currently have checked out — normally the tip of your current branch, the snapshot your next commit will build on. (In the rare "detached HEAD" state Git warns about, it points at a commit directly instead of through a branch — inspect-only territory until you understand it.) Most "mistakes" have a calm fix:</p>
       <table class="keytable">
         <tr><td><code>git restore &lt;file&gt;</code></td><td>Throw away <em>uncommitted</em> edits to a file and go back to the last commit</td></tr>
@@ -287,7 +290,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>lazygit: a picture of Git, not a replacement for it</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>lazygit: a picture of Git, not a replacement for it</h2>
       <p>Now that the commands are in your hands, meet <strong>lazygit</strong>: a keyboard-driven view of the same repository, where every keystroke maps to a command you already know. Its value is that you can <em>see</em> the model this page taught: files moving from unstaged to staged to committed, branches as a live graph, and every line an agent touched, reviewable one hunk at a time. Learn the commands first (they're the shared language between you, the docs, and your agents); use lazygit to watch what they do and to move faster at things that are genuinely visual, like staging individual lines or reading history. It's the same app however you open it:</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>l</kbd><kbd>g</kbd></span></td><td>In any terminal — the short alias (or type <code>lazygit</code> in full)</td></tr>
@@ -329,7 +332,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>What's already configured</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What's already configured</h2>
       <p>Your Git arrives pre-tuned, so the sensible behavior is just the default. You never set this up — but it's worth knowing what's on, because it quietly removes a lot of papercuts.</p>
 
       <h3>Readable diffs — delta</h3>
@@ -391,7 +394,7 @@
       <p>GitHub stopped accepting passwords years ago, so Git authenticates through <strong>gh</strong> for HTTPS remotes. The setup bakes <code>gh</code> in as Git's credential helper (in the managed git config, so it survives every <code>chezmoi apply</code>) for your own GitHub repos after you run <code>gh auth login --git-protocol https</code>. SSH remotes are still fine when your <code>~/.ssh/config</code> clearly maps the right key to the right GitHub account.</p>
       <p>You may see <code>gh auth setup-git</code> in GitHub CLI guidance. It writes the same kind of credential-helper block for an unmanaged Git config; Groundwork already renders that block, so running it here is normally unnecessary and the next apply would restore the managed version.</p>
 
-      <h2><span class="hash">#</span>Going deeper: a ladder, not a pile</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper: a ladder, not a pile</h2>
       <p>Pick your entry point by where you are, not by what looks most authoritative. The classic mistake is starting with Pro Git (the "Git bible"): it is the definitive reference and a rough first week, because it covers internals, hooks, and server setup alongside the basics. This ladder runs from first hour to deep mechanics. Step on at your level, step off when you have what you need, and come back a rung higher later.</p>
 
       <p><strong>First week: the on-ramp (hands-on, about an hour each)</strong></p>

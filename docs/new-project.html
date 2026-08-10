@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html" class="active">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -143,10 +146,10 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Why a project needs a guide</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Why a project needs a guide</h2>
       <p>An <a href="editors-ai.html">AI agent</a> is only as good as what it knows about your project. Tell it nothing and it guesses your stack, your test command, your conventions. Write them down once — in a file the agent reads automatically — and it follows them every time, the same way a new teammate would read the README. That file is <code>AGENTS.md</code>; tool-specific files should point back to it.</p>
 
-      <h2><span class="hash">#</span>Scaffold it — <code>new-project</code></h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Scaffold it — <code>new-project</code></h2>
       <p>This setup ships a small command that lays the structure down for you. Point it at a folder:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">new-project</span></div>
@@ -170,7 +173,7 @@
         <p>The point of the symlinks: you write a rule, command, or skill <em>once</em> in <code>.agents/</code>, then tool-specific folders point back to it. No copy-paste, no keeping two files in sync.</p>
       </div>
 
-      <h2><span class="hash">#</span>Fill in <code>AGENTS.md</code></h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Fill in <code>AGENTS.md</code></h2>
       <p>The scaffold leaves a skeleton. Replace it with the handful of things an agent (or a new contributor) genuinely needs — and delete any section you don't have a real answer for, because empty scaffolding just wastes the agent's attention:</p>
       <table class="keytable">
         <tr><td><strong>Stack</strong></td><td>Language + version, key frameworks, and anything the project deliberately avoids</td></tr>
@@ -183,7 +186,7 @@
         <p>A short, true <code>AGENTS.md</code> beats a long aspirational one. Two sentences the agent actually follows are worth more than a page it has to wade through. You can even ask <code>claude</code> to draft it: "read this project and write a starter AGENTS.md."</p>
       </div>
 
-      <h2><span class="hash">#</span>Pin the tools — mise &amp; direnv</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Pin the tools — mise &amp; direnv</h2>
       <p>So the project uses the same runtimes on every machine (and every agent), pin them with <a href="shell.html">mise</a>. Anyone who <code>cd</code>s in gets exactly these versions:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">pin versions + per-folder env</span></div>
@@ -193,7 +196,7 @@
       </div>
       <p><a href="shell.html">direnv</a> loads that <code>.envrc</code> automatically when you enter the folder and unloads it when you leave — so project settings never leak into the rest of your shell. (Keep real secrets out of Git; <code>.env</code> is already in the scaffold's <code>.gitignore</code>.)</p>
 
-      <h2><span class="hash">#</span>Start the history</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Start the history</h2>
       <p>Make it a <a href="git.html">Git</a> repo and put it on GitHub — one commit, then it's real:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">first commit + GitHub</span></div>
@@ -201,10 +204,10 @@
 <span class="prompt">$ </span>gh repo create my-app --private --source=. --push</code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Then build</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Then build</h2>
       <p>That's the setup done. Open the folder in a <a href="workflow.html">tmux session</a>, start an agent, and go — it'll read your <code>AGENTS.md</code> and work to your rules. A separate kind of project, a <a href="knowledge.html">knowledge wiki</a>, has its own scaffolder (<code>new-wiki</code>) for turning sources into a durable, AI-maintained reference.</p>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://agents.md" target="_blank" rel="noopener">AGENTS.md</a> — the open convention for the project-instructions file, used across AI coding tools.</li>
       </ul>

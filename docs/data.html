@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html" class="active">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -136,7 +139,7 @@
         <p>Agents are excellent at <em>writing</em> SQL and data code — and they will write it confidently whether it's right or wrong. The human's job is judging it: does this query answer the actual question? Will this <code>UPDATE</code> touch three rows or three million? Is this the right shape for the data at all? You can't verify what you can't read. Data fluency is verification fluency.</p>
       </div>
 
-      <h2><span class="hash">#</span>The two big families</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The two big families</h2>
       <p>Nearly every storage system you'll meet is one of two shapes — and most real systems use both, for different jobs.</p>
       <table class="keytable">
         <tr><td><strong>Relational (SQL)</strong></td><td>Data lives in <strong>tables</strong> — rows and typed columns, like a very strict spreadsheet. Relationships between tables are first-class (<em>this order belongs to that customer</em>), the schema is enforced up front, and you query with <strong>SQL</strong>, a language from 1974 that has outlived everything built to replace it. Examples: <strong>SQLite</strong> (a whole database in one file, already on your machine), <strong>PostgreSQL</strong> and <strong>MySQL</strong> (the servers behind most of the web).</td></tr>
@@ -151,7 +154,7 @@
         <p>Start every project with SQLite. It's one file, zero setup, real SQL, and it carries further than people expect — many production systems never outgrow it. Graduate to PostgreSQL when you need concurrent writers or a server; add a document store when a specific access pattern demands it, not because it's trendy.</p>
       </div>
 
-      <h2><span class="hash">#</span>SQL in ten minutes, on your machine</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>SQL in ten minutes, on your machine</h2>
       <p>SQLite ships with macOS and Linux — no install, no server, no account. Open a terminal and type along; this is the whole create-insert-query loop:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">sqlite3</span></div>
@@ -171,7 +174,7 @@
 <span class="prompt">sqlite&gt; </span>DELETE FROM days WHERE mode = 'minimum';       <span class="comment">-- same WHERE, now it's safe to mean it</span></code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Documents in ten minutes, no install at all</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Documents in ten minutes, no install at all</h2>
       <p>You already know the document model if you've seen JSON — a document store is conceptually "a folder of JSON, indexed, with an API." You can practice the shape with <code>jq</code> on plain files:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">documents with jq</span></div>
@@ -183,7 +186,7 @@
       </div>
       <p>Real document databases add what files can't give you: indexes (fast lookup by any field), concurrent access, and durability guarantees. DynamoDB adds one more idea worth knowing early because it inverts SQL thinking: you <strong>design the table around your access patterns</strong> — decide the questions first, then shape keys so each question is one cheap lookup. SQL lets you ask anything later; Dynamo makes you commit to the questions up front in exchange for flat, predictable speed at any scale.</p>
 
-      <h2><span class="hash">#</span>Directing agents at data</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Directing agents at data</h2>
       <p>This is where the two halves of Groundwork meet. Rules that keep agent-written data code safe:</p>
       <table class="keytable">
         <tr><td><strong>Reads are cheap, writes are decisions</strong></td><td>Let an agent draft any <code>SELECT</code> it likes. Any <code>UPDATE</code>, <code>DELETE</code>, <code>DROP</code>, or migration gets read by you, preceded by the matching <code>SELECT</code>, and run against a copy first when the data matters.</td></tr>
@@ -192,7 +195,7 @@
         <tr><td><strong>Backups before bravery</strong></td><td>SQLite makes this absurdly easy: <code>cp practice.db practice.backup.db</code>. Do it before any agent-written migration, every time.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -215,7 +218,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://sqlbolt.com" target="_blank" rel="noopener">SQLBolt</a> — interactive SQL lessons in the browser; the fastest zero-to-queries path.</li>
         <li><a href="https://www.sqlite.org/quickstart.html" target="_blank" rel="noopener">SQLite quickstart</a> — the official five-minute intro to the database you already have.</li>

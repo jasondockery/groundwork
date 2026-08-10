@@ -1,0 +1,4 @@
+interface:
+  display_name: "Privacy by Design"
+  short_description: "Minimize and govern personal data"
+  default_prompt: "Use $privacy-by-design to minimize and govern the personal data in this change."

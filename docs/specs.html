@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html" class="active">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,10 +136,10 @@
 
 <div class="trigger"><b>When you'll want this</b> An agent confidently built the wrong thing, or you're about to delegate something big enough that a wrong guess is expensive.</div>
 
-<h2><span class="hash">#</span>From request to contract</h2>
+<h2><span class="hash" aria-hidden="true">#</span>From request to contract</h2>
 <p>A <strong>spec</strong> (specification) is the written answer to one question: how will we know this work is done and correct? It doesn&apos;t need a template or a tool — it needs to be checkable. The lightest useful spec is a sentence with acceptance criteria; the strongest is an artifact the agent can run its own output against. Everything in between counts.</p>
 
-<h2 id="give-agents-a-concrete-target"><span class="hash">#</span>Give agents a concrete target</h2>
+<h2 id="give-agents-a-concrete-target"><span class="hash" aria-hidden="true">#</span>Give agents a concrete target</h2>
 <p>The single highest-leverage change in how you direct an agent: replace descriptions of what you want with an <strong>artifact the agent can check itself against</strong>.</p>
 <ul>
   <li><strong>A failing test</strong> — the gold standard for behavior. Write (or have the agent write) a test that fails for exactly the bug or missing feature, then ask for the code that makes it pass. That&apos;s the difference between "I think it&apos;s fixed" and "the test passes."</li>
@@ -146,7 +149,7 @@
 </ul>
 <p>The principle underneath: an agent with a checkable target can verify its own work and iterate; an agent with only prose must guess what you meant and wait for you to notice. On real teams this habit hardens into machinery — a repo rule that every bug fix starts with a red test before any fix is written. You&apos;re learning the habit; a well-governed repo enforces it.</p>
 
-<h2><span class="hash">#</span>Worked example: request to shipped</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Worked example: request to shipped</h2>
 <p>Not every request starts as code. This one starts in a planning meeting, from someone who has never written a line of code and never will — and it turns into the same kind of checkable spec, plan, failing test, and green run as any engineering-born request. The arc is identical whether the idea came from a stakeholder, a support ticket, or your own backlog.</p>
 
 <h3>The request</h3>
@@ -262,11 +265,11 @@ def test_appending_twice_yields_two_records():
   </div>
 </div>
 
-<h2><span class="hash">#</span>Why this scales</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Why this scales</h2>
 <p>One agent working from a vague goal produces one plausible-but-wrong diff, and you catch it. Fan that same vagueness out to five agents and you get five diffs drifting in five directions — the failure mode the industry named <strong>drift</strong> and built <em>spec-driven development</em> to kill: confident code that quietly solves the wrong problem because nobody grounded it in a real spec. A sharper spec makes delegation safe, and the same contract that makes a single agent reliable is what lets you trust a team of them — see <a href="agents.html">AI agents &amp; rules</a> for the orchestration side.</p>
 <p>The durable workflow, tool-independent: write the spec first, derive a plan, break it into atomic tasks, then let one agent or ten build with that spec as their shared memory. Every major tool shipped a flavor of this in 2025–2026 (GitHub Spec Kit, AWS Kiro, and others), but do not adopt a vendor&apos;s ceremony — adopt the habit.</p>
 
-<h2><span class="hash">#</span>References</h2>
+<h2><span class="hash" aria-hidden="true">#</span>References</h2>
 <ul>
   <li><a href="https://addyosmani.com/blog/good-spec/" target="_blank" rel="noopener">How to write a good spec</a> — for anyone writing their first specs: a practical, example-driven walkthrough of what makes a spec an agent can actually build from.</li>
   <li><a href="https://blog.allegro.tech/2026/06/spec-driven-development-best-practices.html" target="_blank" rel="noopener">Spec-driven development best practices</a> — a working engineering team on the spec-first approach that grounds agents in a checkable contract before they build.</li>

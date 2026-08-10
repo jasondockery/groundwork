@@ -19,8 +19,9 @@ function inspectGroundworkAdoption() {
   for (const route of ['.compass/COMPASS.md', '.compass/TERMINOLOGY.md']) {
     if (!agents.includes(route)) problems.push(`AGENTS.md does not route to ${route}`)
   }
-  for (const skill of sharedSkills) {
-    if (!agents.includes(`skills/${skill}`)) problems.push(`AGENTS.md does not route to skills/${skill}`)
+  const inclusionDispatcher = 'skills/inclusive-product-foundation'
+  if (!agents.includes(inclusionDispatcher)) {
+    problems.push(`AGENTS.md does not route user-facing changes through ${inclusionDispatcher}`)
   }
 
   const skillNames = fs.readdirSync(path.join(root, 'skills'), { withFileTypes: true })

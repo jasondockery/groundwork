@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html" class="active">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -128,7 +131,7 @@
   <main id="main" class="main">
     <div class="content">
 <section class="hero">
-  <p class="prompt-line">$ groundwork --start<span class="cursor">_</span></p>
+  <p class="prompt-line">$ groundwork --start<span class="cursor" aria-hidden="true">_</span></p>
   <p class="eyebrow">Overview</p>
   <h1>Start as a vibe coder. Learn to think like an engineer.</h1>
   <p class="lead">You can build real software with AI today, before you know a single keyboard shortcut. That's the on-ramp. Groundwork is written for adult learners: start with a quick win, then build the hours, taste, and verification habits that move you toward "I shipped this and I can defend every line."</p>
@@ -148,7 +151,7 @@
   <pre><code><span class="prompt">$ </span>bash -c "$(curl -fsSL https://raw.githubusercontent.com/jasondockery/groundwork/main/bootstrap-mac.sh)"</code></pre>
 </div>
 
-<h2><span class="hash">#</span>The two modes you're moving between</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The two modes you're moving between</h2>
 <p>Groundwork treats AI-native development as a climb, not a gatekeeping exercise. Start with momentum. Then build the judgment, habits, and verification muscles that let you keep moving fast without losing the plot.</p>
 <div class="arc">
   <div class="floor">
@@ -164,7 +167,7 @@
 </div>
 <p>The useful framing from Andrej Karpathy is simple: <strong>vibe coding raises the floor; agentic engineering raises the ceiling.</strong> Groundwork is for the person who wants both: the joy of building early and the chops to defend the work later. Read more in <a href="agentic-engineering.html">Vibe &rarr; agentic</a>.</p>
 
-<h2><span class="hash">#</span>The path at a glance</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The path at a glance</h2>
 <p>You do not learn these tools by reading a catalog. You learn each one when it solves a pain you can feel. The docs are now organized around that journey.</p>
 <div class="stages">
   <div class="stage"><div class="n">1</div><div class="body"><div class="t">Ship something today</div><div class="when">No tmux, no Vim, no theory. Open an editor, talk to an agent, build a tiny real thing.</div><div class="d">Start with <a href="getting-started.html">Getting started</a>, <a href="editors-ai.html">Editors &amp; AI</a>, or an interest track: <a href="game-dev.html">FPS Browser</a>, <a href="game-dev-unity.html">FPS Unity</a>, <a href="web-dev.html">Web &amp; sites</a>, <a href="app-dev.html">Apps</a>, or <a href="gen-media.html">Image &amp; video</a>.</div></div></div>
@@ -176,14 +179,14 @@
 </div>
 <p><a href="path.html">Follow the full path &rarr;</a></p>
 
-<h2><span class="hash">#</span>Why the hours still matter</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Why the hours still matter</h2>
 <p>AI can draft the code. It cannot give you understanding by osmosis. The reps in this guide are how you notice when an agent edited the wrong file, introduced a brittle abstraction, skipped a security boundary, or wrote a test that proves too little.</p>
 <div class="callout note">
   <span class="label">The deal</span>
   <p>Ship early. Then put in the reps. The tools fade into the background, your judgment moves to the front, and you build toward moving at AI speed without lowering the bar.</p>
 </div>
 
-<h2><span class="hash">#</span>Use the docs two ways</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Use the docs two ways</h2>
 <div class="grid">
   <a class="card" href="why.html"><span class="ct">why</span><h3>Why Groundwork</h3><p>The case for an AI-native development foundation that teaches judgment, not just tools.</p></a>
   <a class="card" href="path.html"><span class="ct">journey</span><h3>The path</h3><p>A staged route from first build toward agentic engineering.</p></a>

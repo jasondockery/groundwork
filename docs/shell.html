@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html" class="active">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -153,7 +156,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Already wired up</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Already wired up</h2>
       <p>Two of the commands you'll type most are remapped the moment your shell starts. You don't do anything — <code>ls</code> and <code>cat</code> already run the better tools:</p>
       <table class="keytable">
         <tr><td><code>ls</code></td><td>runs <strong>eza</strong> — colored, sorted, folders first</td></tr>
@@ -166,7 +169,7 @@
         <p>Need the plain version? Put a backslash in front: <code>\ls</code> or <code>\cat</code> runs the untouched original. You never lose the classic behavior.</p>
       </div>
 
-      <h2><span class="hash">#</span>Moving on the command line</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Moving on the command line</h2>
       <p>Before you reach for the mouse or the arrow keys, these editing shortcuts move and erase text far faster. They work on every command you type, in any shell.</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>A</kbd> / <kbd>Ctrl</kbd><kbd>E</kbd></span></td><td>Jump to the start / end of the line</td></tr>
@@ -187,7 +190,7 @@
         <p>The commands on this page are identical whether or not you're in <a href="tmux.html">tmux</a>. Pane and Neovim-split navigation uses <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>, leaving the classic shell controls alone: <kbd>Ctrl</kbd><kbd>L</kbd> clears, <kbd>Ctrl</kbd><kbd>K</kbd> deletes to the end of the line, and <kbd>Ctrl</kbd><kbd>R</kbd> searches history.</p>
       </div>
 
-      <h2><span class="hash">#</span>Folders and files</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Folders and files</h2>
       <p>These are the folder moves beginners ask for first, and the commands experienced developers still type all day. <code>.</code> means "this folder"; <code>..</code> means "the parent folder."</p>
       <table class="keytable">
         <tr><td><code>pwd</code></td><td>Print the current folder path</td></tr>
@@ -205,7 +208,7 @@
         <p><code>rm</code> is permanent from the shell. Beginners should use <code>rm -i</code> until they understand exactly what will disappear, and avoid copied commands like <code>rm -rf</code> unless they can explain every character.</p>
       </div>
 
-      <h2><span class="hash">#</span>The daily drivers</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The daily drivers</h2>
 
       <div class="callout note">
         <span class="label">Why the names stick</span>
@@ -336,7 +339,7 @@
       </div>
       <p>Default folder expansion respects ignore rules, so dependency and build folders stay out of the prompt. Use <code>--stdout</code> before pasting when the files are sensitive or large, and never copy secrets into a chat tool.</p>
 
-      <h2><span class="hash">#</span>Also installed</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Also installed</h2>
       <p>You won't reach for these every hour, but they're there when you need them.</p>
       <table class="keytable">
         <tr><td><code>atuin</code></td><td>Records every command with its context, fully searchable — a much smarter history behind <kbd>Ctrl</kbd><kbd>R</kbd></td></tr>
@@ -351,7 +354,7 @@
         <tr><td><code>mise</code></td><td>Gives each project the right tool versions (Node, Python…) automatically</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -393,7 +396,7 @@
         <p>Don't try to absorb the whole table today. Pick <code>rg</code> and <code>z</code> this week — they pay off immediately — and let the rest arrive as you need them. Every tool answers <code>--help</code>.</p>
       </div>
 
-      <h2><span class="hash">#</span>The managed zsh runtime</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The managed zsh runtime</h2>
       <p>Groundwork installs and updates Homebrew&apos;s current zsh so the interactive shell behaves consistently across macOS, Linux, and WSL2. Applying the dotfiles does not silently change your account&apos;s login shell; adoption is a separate, explicit action, and the operating system&apos;s shell remains installed as the recovery path.</p>
       <table class="keytable">
         <tr><td><code>groundwork-shell-adopt</code></td><td>Record the current login shell, register Homebrew zsh when needed, select it for the account, and verify the account record.</td></tr>
@@ -406,7 +409,7 @@
         <p>The validator drives adoption, status, failure, and revert branches against isolated account-command fixtures. Fresh Apple Silicon, Intel Mac, native Ubuntu, and WSL2 account receipts are still pending, so treat the cross-machine adoption proof as provisional rather than assuming a fixture changed a real login record.</p>
       </div>
 
-      <h2><span class="hash">#</span>Under the hood: the zsh setup</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Under the hood: the zsh setup</h2>
       <p>The shell you're typing into is <strong>zsh</strong>, and a few small pieces make it feel modern. You don't configure any of this by hand — it's all in <code>~/.zshrc</code> and managed by the setup — but here's what's running and why.</p>
 
       <h3>Plugins, loaded by antidote</h3>
@@ -458,7 +461,7 @@
       </table>
       <p>What's deliberately <em>not</em> configured: hard CPU or memory caps. macOS can't enforce per-process memory limits anyway, and a cap that silently kills a build is a worse beginner experience than a slow one. When you genuinely need hard limits — a runaway workload, or bounding an agent's sandbox — run it in a container, which is where real limits live: <code>docker run --cpus 2 --memory 2g …</code>. To <em>see</em> what's using the machine right now, run <code>btop</code>.</p>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://missing.csail.mit.edu/2020/shell-tools/" target="_blank" rel="noopener">The Missing Semester: shell tools &amp; scripting</a> — how these fit together.</li>
         <li><a href="command-line.html">Command line &amp; Unix</a> — this guide's deeper page: core commands, scripting, and curated resources.</li>

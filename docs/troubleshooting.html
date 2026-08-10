@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html" class="active">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -143,7 +146,7 @@
         <p>The first apply creates a focused backup under <code>~/.local/state/groundwork/backups/latest</code>. Run <code>groundwork-restore</code> to restore the backed-up managed files and macOS defaults. It does not uninstall apps or undo Homebrew upgrades.</p>
       </div>
 
-      <h2><span class="hash">#</span>Quick triage</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Quick triage</h2>
       <table class="keytable">
         <tr><td><strong>A command isn't found</strong></td><td>The shell hasn't picked up a newly-installed tool. Run <code>exec zsh</code> (reloads the shell) or open a new tab</td></tr>
         <tr><td><strong>A config edit did nothing</strong></td><td>You edited the file in your home folder, not the repo. Edit with <code>chezmoi edit</code>, or your change gets overwritten on next apply — see <a href="setup.html">Setup</a></td></tr>
@@ -153,7 +156,7 @@
         <tr><td><strong>Git keeps asking to log in</strong></td><td>An auth issue, not a setup bug — jump to <a href="#git">Git access</a></td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Install &amp; bootstrap</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Install &amp; bootstrap</h2>
       <h3>The local docs look older than the public site</h3>
       <p>Every Groundwork setup has the complete site locally inside its active source checkout; a <code>file://</code> URL is not a separately installed copy. Run <code>groundwork-docs</code> instead of opening a remembered path. It resolves the checkout chezmoi is actually using, prints its revision, and opens the index on macOS.</p>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">local-docs</span></div><pre><code><span class="prompt">$ </span>source="$(chezmoi source-path)"
@@ -272,7 +275,7 @@
 <span class="prompt">$ </span>git reset --hard</code></pre>
       </div>
 
-      <h2><span class="hash">#</span>tmux</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>tmux</h2>
       <table class="keytable">
         <tr><td><strong>Plugins missing on first run</strong></td><td>Groundwork runs TPM's installer during <code>chezmoi apply</code>. If a network hiccup skipped it, re-run <code>chezmoi apply</code>, or press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>I</kbd></span> inside tmux to repair manually</td></tr>
         <tr><td><strong>TPM update pane looks frozen</strong></td><td><span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Shift</kbd><kbd>U</kbd></span> is TPM's plugin update binding, not a built-in tmux command. If its pane does not repaint, wait a few seconds, then press <kbd>Esc</kbd> or <kbd>Enter</kbd> to reveal or dismiss the summary. To watch normal output instead, run <code>~/.config/tmux/plugins/tpm/bin/update_plugins all</code> from a shell.</td></tr>
@@ -285,7 +288,7 @@
       </table>
       <p>See the <a href="tmux.html">tmux page</a> for what each plugin does and how saving/restoring works.</p>
 
-      <h2><span class="hash">#</span>Neovim</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Neovim</h2>
       <p>The first time you open <code>nvim</code>, LazyVim downloads and compiles its plugins — let it finish before judging anything. After that, two commands diagnose almost everything:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">nvim — in command mode</span></div>
@@ -294,7 +297,7 @@
       </div>
       <p>If <code>:checkhealth</code> flags a missing command-line tool, install it with <code>brew install &lt;tool&gt;</code> — Neovim's extras lean on the same CLI tools from the <a href="shell.html">Shell page</a> (ripgrep, fd). If the editor ever gets truly wedged, it's safe to wipe its state and let it rebuild: <code>rm -rf ~/.local/share/nvim ~/.local/state/nvim</code>, then reopen.</p>
 
-      <h2><span class="hash">#</span>Shell &amp; prompt</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Shell &amp; prompt</h2>
       <table class="keytable">
         <tr><td><strong>No grey autosuggestions / no colors</strong></td><td>The plugins didn't load. Run <code>exec zsh</code>; if it persists, check <code>~/.zsh_plugins.txt</code> exists and that antidote is installed (<code>brew list antidote</code>)</td></tr>
         <tr><td><strong>Prompt shows boxes or wrong glyphs</strong></td><td>Terminal font isn't a Nerd Font — Groundwork sets Ghostty to <em>JetBrainsMono Nerd Font</em>. Re-run <code>chezmoi apply</code>, restart Ghostty, then verify with <code>ghostty +show-config | grep -i font-family</code></td></tr>
@@ -302,21 +305,21 @@
         <tr><td><strong>Slow shell startup</strong></td><td>Time it with <code>hyperfine 'zsh -i -c exit'</code>; a recently-added plugin is the usual cause</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Claude Code</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Claude Code</h2>
       <table class="keytable">
         <tr><td><strong>Esc doesn't cancel in the chat</strong></td><td>Deliberate. Terminal and vim fingers hit <kbd>Esc</kbd> reflexively, so Groundwork ships <code>~/.claude/keybindings.json</code> with the Chat-context Esc cancel binding removed. Stop running work deliberately with <kbd>Ctrl</kbd><kbd>C</kbd> (the hardcoded interrupt — can't be rebound or lost); undo a wrong turn with <code>/rewind</code>. Want stock behavior back? Remove the <code>"escape": null</code> line with <code>chezmoi edit --apply ~/.claude/keybindings.json</code></td></tr>
         <tr><td><strong>Keybinding edits keep reverting</strong></td><td>The file is chezmoi-managed, and Claude Code's <code>/keybindings</code> shortcut opens the applied copy — edits there are overwritten on the next apply. Make changes with <code>chezmoi edit --apply ~/.claude/keybindings.json</code> instead</td></tr>
         <tr><td><strong>Keybindings file seems ignored</strong></td><td>Custom keybindings need Claude Code v2.1.18 or later — check with <code>claude --version</code>. On a current version, run <code>/doctor</code> inside Claude Code — it has a section that validates <code>~/.claude/keybindings.json</code> and names the exact problem</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Docker</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Docker</h2>
       <table class="keytable">
         <tr><td><strong>Desktop says "unable to find docker zsh completion in your fpath"</strong></td><td>Groundwork generates completions into <code>~/.docker/completions</code> on every apply, and <code>.zshrc</code> adds that folder to <code>fpath</code> when it exists. In a <em>new</em> terminal, verify: <code>ls ~/.docker/completions/_docker</code>, then type <code>docker con</code> and press the <kbd>Tab</kbd> key (don't paste "&lt;Tab&gt;" — zsh reads it as a redirect and throws a parse error). If the file is missing, check <code>command -v docker</code> and re-run <code>chezmoi apply</code>. If completion works, the banner is cosmetic — Desktop greps <code>~/.zshrc</code> for its own snippet. <strong>Don't click its Install button:</strong> it edits <code>~/.zshrc</code> directly, chezmoi reverts that on the next apply, and the warning comes back. Restart Docker Desktop after the first apply and it usually clears</td></tr>
         <tr><td><strong>Orange "this can prevent Docker from starting" banner on the Docker Engine page</strong></td><td>A standing caution above the JSON editor, not an error — it warns that bad JSON here stops the daemon. The builder-GC config shown is Docker Desktop's stock default; Groundwork doesn't manage Desktop's <code>daemon.json</code> (work machines get equivalent disk-growth caps through the Colima template instead)</td></tr>
         <tr><td><strong>Docker Desktop badged "Personal" on a work machine</strong></td><td>Worth fixing: Desktop needs a paid license in orgs over 250 staff or $10M revenue, which is why Groundwork's work profile installs Colima + the CLI instead. Either get a licensed seat through your employer, or re-run <code>chezmoi init</code> answering "work machine: yes", apply, and use <code>colima start</code> — the CLI workflow is identical</td></tr>
       </table>
 
-      <h2 id="karabiner"><span class="hash">#</span>Karabiner (keyboard)</h2>
+      <h2 id="karabiner"><span class="hash" aria-hidden="true">#</span>Karabiner (keyboard)</h2>
       <p>Caps&nbsp;Lock&nbsp;→&nbsp;Esc/Ctrl won't work until macOS trusts Karabiner. Current Karabiner needs settings that only you can approve:</p>
       <div class="callout warn">
         <span class="label">Use the settings Karabiner itself documents</span>
@@ -338,14 +341,14 @@
       <p>The helper uses Karabiner's documented user-domain restart path, waits at most ten seconds, and succeeds only when the root Core Service PID changes. If that proof fails, use Karabiner's menu-bar <strong>Restart Karabiner-Elements</strong> command or Settings → Misc → Restart instead. Groundwork deliberately does not unload or kickstart Karabiner's private root daemons.</p>
       <p>For deeper evidence, correlate the timestamps in <code>/var/log/karabiner/core_service.log</code>, <code>/var/log/karabiner/virtual_hid_device_service.log</code>, and <code>~/.local/share/karabiner/log/</code> with sleep and wake. <a href="https://github.com/pqrs-org/Karabiner-Elements/issues/4432" target="_blank" rel="noopener">Upstream issue 4432</a> is a reported long-run sleep/wake memory-growth case, not proof that every large snapshot has the same cause. Update through the normal Homebrew cask with <code>update-all</code>; Groundwork keeps the cask on the current channel and checks a 16.1.0 compatibility floor instead of pinning a custom package.</p>
 
-      <h2><span class="hash">#</span>Obsidian</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Obsidian</h2>
       <table class="keytable">
         <tr><td><strong>No vault to open</strong></td><td>The setup now creates one at <code>iCloud&nbsp;Drive/Obsidian/&lt;name&gt;</code> on apply. If it's missing, re-run <code>chezmoi apply</code>, or make one in-app pointed at that folder</td></tr>
         <tr><td><strong>Plugins not showing</strong></td><td><strong>Restart Obsidian once</strong> after first launch so the auto-installed community plugins load, then enable them in Settings</td></tr>
         <tr><td><strong>Notes stuck as cloud placeholders</strong></td><td>Right-click the vault folder in Finder → <strong>Keep Downloaded</strong> so iCloud keeps them local</td></tr>
       </table>
 
-      <h2 id="github-ssh"><span class="hash">#</span>git pull hangs silently, but the web works</h2>
+      <h2 id="github-ssh"><span class="hash" aria-hidden="true">#</span>git pull hangs silently, but the web works</h2>
       <p>When <code>git pull</code> or <code>chezmoi update</code> sits there printing nothing while browsing is fine, one common cause — when the remote uses SSH (an HTTPS remote is unaffected by this) — is a network (hotel, office, some VPN or router setups) that lets the SSH connection to <code>github.com</code> open but never answers the handshake, so git waits forever instead of erroring. GitHub's documented escape is SSH over the HTTPS port, and Groundwork wraps it in a reversible helper:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">github ssh</span></div>
@@ -355,7 +358,7 @@
       </div>
       <p>It changes only the <code>Host github.com</code> route — other hosts, SSH aliases, and your keys are untouched — and requires GitHub's host keys, fetched over TLS, to match the fingerprints GitHub publishes in the same metadata before trusting them. Two honest caveats: some proxies interfere with SSH over 443 too (so <code>status</code> probes both ports, offering no key, before anything changes), and <code>revert-443</code> removes Groundwork's override only — other configuration of yours that selects port 443 stays in force.</p>
 
-      <h2 id="git"><span class="hash">#</span>Git keeps asking for a login</h2>
+      <h2 id="git"><span class="hash" aria-hidden="true">#</span>Git keeps asking for a login</h2>
       <p>This is an <em>access</em> problem, not a setup bug. <code>git pull</code> / <code>chezmoi update</code> can't authenticate. The usual culprit is being logged into <code>gh</code> as the wrong account, or using an SSH remote without the matching key/account configured. First, see who you are:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">git auth</span></div>
@@ -366,7 +369,7 @@
       </div>
       <p>Groundwork itself pulls from a public HTTPS remote by default. The credential helper is still baked into the git config because most developers use GitHub for their own repos, and chezmoi manages <code>~/.gitconfig</code>. SSH is still fine when the Mac's SSH config clearly maps the right key to the right GitHub account.</p>
 
-      <h2><span class="hash">#</span>Still stuck?</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Still stuck?</h2>
       <p>Two reliable fallbacks. Re-apply from the source of truth, and if that doesn't do it, ask an agent — it can read the actual error and the config together:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">last resorts</span></div>

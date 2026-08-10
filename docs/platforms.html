@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html" class="active">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -136,7 +139,7 @@
         <p><code>.chezmoi.os</code> decides what the operating system can support. The saved setup answers in <code>~/.config/chezmoi/chezmoi.toml</code> decide the machine role: work or personal, normal Mac or server/CI Mac, optional Unity, optional Xcode.</p>
       </div>
 
-      <h2><span class="hash">#</span>What changes by platform</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What changes by platform</h2>
       <table class="keytable">
         <tr><td><strong>macOS desktop</strong></td><td>The full setup: shell, Git, tmux, Neovim, mise/uv, Homebrew formulae, casks, App Store apps, browser helpers, Raycast, Anybox, BetterDisplay, Karabiner, and selected macOS defaults.</td></tr>
         <tr><td><strong>macOS server / CI</strong></td><td>Same operating system, different role. Answer yes to the server/CI Mac prompt to skip desktop apps, App Store apps, browser helpers, Obsidian setup, Karabiner, and macOS defaults.</td></tr>
@@ -145,11 +148,11 @@
         <tr><td><strong>Native Windows</strong></td><td>Not supported. Groundwork is a zsh/tmux/Homebrew/mise Unix environment; a PowerShell or CMD port would be a separate project, and Git Bash is not an equivalent tier. On Windows, install WSL2 with Ubuntu and run Groundwork inside it — setup fails closed on native Windows with that guidance. Keep repositories in the WSL filesystem (<code>~/code</code>), not under <code>/mnt/c</code>.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>What stays the same</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What stays the same</h2>
       <p>The durable development spine is the same everywhere: shell literacy, file paths, Git, diffs, tmux sessions, editor basics, project instructions, validation, and the habit of checking an agent's work before accepting it.</p>
       <p>That is why most docs pages are not split by OS. The operating system changes the install surface; it does not change the core practice.</p>
 
-      <h2><span class="hash">#</span>Read-only health checks</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Read-only health checks</h2>
       <p><code>groundwork-doctor</code> reports what this machine proves without changing it. Its default run already includes Karabiner on macOS, including the exact restart command when the shared memory review threshold is met. Run the whole report first, or narrow it when you are diagnosing one layer:</p>
       <table class="keytable">
         <tr><td><code>groundwork-doctor --shell</code></td><td>Check that Groundwork&apos;s Homebrew zsh is installed, registered, selected as the login shell, and actually running in this process.</td></tr>
@@ -179,7 +182,7 @@
 <span class="prompt">$ </span>command -v tsc
 <span class="prompt">$ </span>tsc --version</code></pre></div>
 
-      <h2><span class="hash">#</span>Headless containers</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Headless containers</h2>
       <p>Docker is an environment option here, not a separate curriculum track. Use it when you want the Groundwork terminal layer in a reproducible agent workspace, CI job, or disposable shell: no GUI apps, no macOS defaults, no browser helpers, just the command-line foundation agents and humans can share.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">container.sh</span></div>
@@ -190,7 +193,7 @@
       <p>The repo also ships a devcontainer (<code>.devcontainer/devcontainer.json</code>) built from the same Dockerfile, so VS Code, Cursor, or GitHub Codespaces can open Groundwork in this container directly — no manual <code>docker build</code> step.</p>
       <p>Containers also give an agent a boundary. <code>docker run --cpus 2 --memory 2g</code> caps what a runaway process can consume, and a disposable container is the right place for an agent running with permission checks relaxed: the blast radius is the container, not your machine. Since early 2026 there is a stronger off-the-shelf tier for unattended work — Docker Sandboxes runs each coding agent in its own microVM (its own kernel, its own Docker daemon, per-sandbox network allow and deny lists) through a standalone <code>sbx run</code> command, and Anthropic's reference devcontainer for Claude Code pairs container isolation with a default-deny outbound firewall. The principle to carry: the less you plan to watch an agent, the stronger the isolation you give it.</p>
 
-      <h2><span class="hash">#</span>Containers at native speed</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Containers at native speed</h2>
       <p>Your chip has an architecture — Apple Silicon and most new Windows laptops are <code>arm64</code>, older PCs and most cloud CI are <code>amd64</code> — and every container image is built for one or more of them. An image that matches your chip runs at native speed; a mismatched one runs through an emulation layer and everything inside it slows down. So the first rule is about images, not settings: <strong>prefer images built for your architecture</strong>, and treat emulation as a fallback for the rare image that ships no native build. This matters doubly for agents, which may run entire toolchains inside a container without noticing it is emulated.</p>
       <table class="keytable">
         <tr><td><strong>Mac, Docker Desktop</strong></td><td>Settings → General: keep <em>Apple Virtualization framework</em> as the VMM, <em>VirtioFS</em> for file sharing, and leave <em>Use Rosetta for x86_64/amd64 emulation</em> checked. Checked does not mean your containers use Rosetta — it only engages when an image has no arm64 build, and is then far faster than the QEMU fallback. If you notice containers running amd64 routinely, fix the image, not this setting. (<em>Docker VMM</em> is faster still for pure-arm64 work but, as of mid-2026, has no Rosetta support — switch to it only if nothing you run needs amd64.) These are app-owned settings, so Groundwork documents them rather than writing them for you.</td></tr>
@@ -216,7 +219,7 @@
 <span class="comment"># arm64 on Apple Silicon = native. amd64 there = emulated — find an arm64 image.</span></code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Ephemeral builds and the tidy habit</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Ephemeral builds and the tidy habit</h2>
       <p>AI-native workflows build images constantly: every review, test, or agent session that touches a Dockerfile builds a full image to verify it, tags it something ad hoc (<code>groundwork:test</code>, <code>groundwork:review-fix</code>), and moves on. Tags never expire, each full build is gigabytes, and nothing in that flow prunes — so a few weeks of perfectly normal work can quietly accumulate several gigabytes of dead images on the disk. The fix is not deleting harder afterward; it is declaring intent at build time.</p>
       <p>The contract: a build that exists only to verify something says so, with a scratch-namespace tag (<code>&lt;project&gt;/scratch:&lt;purpose&gt;</code>) and two labels — <code>dev.roost.ephemeral=true</code> (the consent) and <code>dev.roost.built</code> (the authoritative build clock the tidy strict-parses). Groundwork and Roost-scaffolded repos share the same label pair, so one tidy serves every repo on the machine. Don't hand-type any of that — the wrapper owns the syntax, so it cannot forget a label, typo the namespace, or emit a timestamp the tidy refuses to parse:</p>
       <div class="terminal">
@@ -231,7 +234,7 @@
       <p>If that automatic lane finds the selected macOS Docker backend stopped, an interactive <code>update-all</code> offers to start only the profile&apos;s backend: Docker Desktop on a personal Mac or Colima on a work Mac. Enter keeps the safe default, no. A run without a terminal never starts Docker. Approval is temporary: Groundwork verifies a canonical local context, bounds the start and readiness wait, retries the label-scoped tidy, and restores the original stopped state after success, failure, timeout, or interruption. A backend that was already running stays running. Docker remains absent from <code>groundwork-apps-start</code>, so ordinary app relaunch never wakes a daemon.</p>
       <p>Daemon-wide state is a separate decision. <code>groundwork-docker-cache-tidy</code> handles dangling images, stopped containers, and builder cache — resources from <em>every project on this machine</em>, which is why it is its own command: it says so when it runs, it is a dry run by default, and neither <code>update-all</code> nor any scheduled or agent path ever invokes it. After reviewing that preview, <code>groundwork-docker-cache-tidy --yes</code> applies it only through a trusted CLI against a verified local Unix endpoint; each operation and the complete owner-run transaction are bounded. Its builder-cache step (<code>docker builder prune --keep-storage 5GB</code>) asks Docker to prune eligible cache for the selected builder while retaining a target — an honest cap request, not a guarantee that total cache lands under the number.</p>
 
-      <h2><span class="hash">#</span>Mac choices</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Mac choices</h2>
       <p>Most Macs should use the default desktop profile. The server/CI prompt exists for the unusual case: a Mac used as a remote runner, build box, or agent host with no logged-in desktop workflow.</p>
       <table class="keytable">
         <tr><td><strong>Work machine?</strong></td><td>Turns off personal apps and uses Colima plus Docker CLI instead of Docker Desktop.</td></tr>
@@ -240,7 +243,7 @@
         <tr><td><strong>Xcode?</strong></td><td>Optional. Attempts the Mac App Store Xcode install for native Apple/iOS development; first launch and signing remain manual.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Check your saved profile</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Check your saved profile</h2>
       <p>Ask Groundwork for the interpreted state before reading its storage. These commands separate platform, Linux distribution, and environment profile instead of collapsing them into one label:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">profile.sh</span></div>

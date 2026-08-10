@@ -83,6 +83,10 @@ remains explicit. Measure suite, job, build, and deploy duration. Do not solve
 an economics failure by merely raising a budget. CI minutes and developer
 waiting time are finite engineering resources.
 
+Quality moves left until the cheapest reliable boundary owns it. What cannot be
+automated remains an explicit human acceptance boundary, not an omitted
+requirement or an automated claim that exceeds its evidence.
+
 ## Secure by default
 
 Minimize attack surface and privilege. Protect secrets and sensitive data,
@@ -109,6 +113,30 @@ Distinguish working-tree proof, exact-commit proof, hosted exact-SHA proof, and
 deployed acceptance. No lower level implies a higher one. Distributed and
 generated artifacts bind to immutable source identities, include checksums and
 provenance, and are proven through the bytes consumers actually receive.
+
+## Owner-controlled working state
+
+The working tree, index, untracked paths, branches, stashes, and history are
+owner-controlled state. Whether a change is staged or unstaged does not
+establish ownership, task scope, approval, or permission to commit it. A human
+may stage or unstage changes for review without transferring authority over
+them.
+
+Preserve pre-existing owner state. Do not normalize, stage, unstage, reset,
+stash, clean, amend, rebase, or force-push unrelated state. Determine task
+ownership from the task's authority and the observed baseline, not from the
+index.
+
+When Git mutation is authorized, inspect the complete task diff independently
+of staging, stage only task-attributable changes, and avoid broad staging such
+as `git add -A` when unrelated state exists. Do not sweep unrelated staged
+content into a task commit. If owner and agent changes in the same file cannot
+be separated safely, stop for owner direction.
+
+Branch, ruleset, review, required-check, and bypass decisions are owner
+authority and are never inferred from technical access. Each repository owns
+its autonomy model, including whether an authorized agent may commit and push
+or must stop at a review boundary.
 
 ## Shared by authority, specialized by ownership
 

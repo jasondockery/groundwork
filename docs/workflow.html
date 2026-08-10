@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html" class="active">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -136,7 +139,7 @@
         <p>This page assumes you've skimmed <a href="tmux.html">tmux</a>, <a href="neovim.html">Neovim</a>, <a href="shell.html">Shell</a>, and <a href="git.html">Git</a>. Here we're not learning keys — we're stringing them into a real session.</p>
       </div>
 
-      <h2><span class="hash">#</span>The shape of a working session</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The shape of a working session</h2>
       <p>One window, one project, three or four panes. The editor where you write, a shell where you run things, an agent pane where you delegate or ask questions, and whatever else the task needs — logs, a test watcher, a second shell. tmux holds the layout together and keeps it alive; you move between everything with the same four keys.</p>
       <figure class="diagram">
         <svg viewBox="0 0 720 250" role="img" aria-label="A tmux window split into an editor pane, a shell pane, and a logs pane, inside a project session">
@@ -155,7 +158,7 @@
         <figcaption>Move between all of them with <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> — same keys whether the neighbor is a tmux pane or a Neovim split.</figcaption>
       </figure>
 
-      <h2><span class="hash">#</span>The loop, start to finish</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The loop, start to finish</h2>
       <p>Here's a complete pass at a small task — say, adding a feature to a project. Every step links to the page that teaches the keys.</p>
 
       <div class="drill">
@@ -215,7 +218,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Which tool for which job</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Which tool for which job</h2>
       <p>When you're not sure what to reach for:</p>
       <table class="keytable">
         <tr><td><strong>Move around / keep things alive</strong></td><td><a href="tmux.html">tmux</a> — panes, windows, sessions that survive</td></tr>
@@ -226,7 +229,7 @@
         <tr><td><strong>Look something up you've learned</strong></td><td>Your <a href="knowledge.html">knowledge base</a> — ask Claude Code over your own notes</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Habits that make it click</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Habits that make it click</h2>
       <div class="callout tip">
         <span class="label">Three that pay off fastest</span>
         <p><strong>One session per project</strong> — name it, and let tmux keep it warm. <strong>Commit before you experiment</strong> — then any change, yours or an agent's, is one command to undo. <strong>Stay on the home row</strong> — the more you lean on <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span>, <kbd>Space</kbd> in the editor, and <kbd>Ctrl</kbd><kbd>R</kbd> history, the less the mouse pulls you out of flow.</p>
@@ -240,7 +243,7 @@
         <p>Nobody runs this whole loop smoothly in week one. Get comfortable in <em>one</em> pane first, then add splitting, then lazygit, then agents. The <a href="index.html">learning path</a> on the overview orders it for you.</p>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://missing.csail.mit.edu" target="_blank" rel="noopener">The Missing Semester of Your CS Education</a> — MIT's free course on exactly this: shell, editor, tmux, and Git as one workflow.</li>
         <li><a href="editors-ai.html">Editors &amp; AI</a> — the agent loop Groundwork uses everywhere: describe, plan, edit, review, verify, commit.</li>

@@ -26,5 +26,32 @@ description: Design or review work that may affect user latency, startup, build,
 8. Treat a budget regression as engineering work. Do not obtain green merely by
    raising the budget or deleting proof.
 
+## Web user experience
+
+For applicable public web surfaces, distinguish four kinds of evidence:
+
+- **Core Web Vitals field SLO:** at the 75th percentile, evaluated separately
+  for mobile and desktop, target LCP at or below 2.5 seconds, INP at or below
+  200 milliseconds, and CLS at or below 0.1.
+- **Lab measurement:** reproducible pre-release or exact-deployment evidence.
+  It predicts and diagnoses behavior but is not real-user field evidence.
+- **FCP and TTFB diagnostics:** 1.8 seconds or less is the good FCP target;
+  0.8 seconds or less is a useful TTFB guide. Neither is a Core Web Vital, so a
+  diagnostic miss does not independently redefine an otherwise accepted user
+  experience.
+- **Build and resource budgets:** deterministic shift-left regression guards.
+  Derive byte, request, route, and client-execution limits from a measured
+  product or framework baseline. Compass does not impose one universal
+  JavaScript-byte budget.
+
+Measure exact deployed routes before claiming deployed performance. Add field
+monitoring after sufficient traffic exists; lack of pre-launch RUM is not a
+reason to fabricate field acceptance.
+
+Reviewed 2026-08-10 against the current
+[Core Web Vitals guidance](https://web.dev/articles/vitals),
+[FCP guidance](https://web.dev/articles/fcp), and
+[TTFB guidance](https://web.dev/articles/ttfb).
+
 Report before and after measurements, the affected identity, resource tradeoffs,
 and what remains unmeasured.

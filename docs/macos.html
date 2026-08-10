@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html" class="active">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -147,7 +150,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>The mental model</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The mental model</h2>
       <table class="keytable">
         <tr><td><strong>macOS</strong></td><td>Owns apps, windows, tabs, spaces, full screen, Mission Control, and system shortcuts.</td></tr>
         <tr><td><strong>Raycast</strong></td><td>Owns <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span>, launcher, clipboard history, snippets, quick commands, and normal window snapping.</td></tr>
@@ -164,7 +167,7 @@
         <p>The full rule lives in <a href="apps.html#configuration-boundary">What Groundwork can configure</a>: stable files/defaults belong in the repo; Raycast, Anybox, BetterDisplay, password managers, and per-device app state stay with their own sync/export or local settings.</p>
       </div>
 
-      <h2><span class="hash">#</span>Developer settings and profiles</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Developer settings and profiles</h2>
       <p>macOS uses the word "profile" for several different things. Keep them separate:</p>
       <table class="keytable">
         <tr><td><strong>Command Line Tools</strong></td><td>Groundwork checks for these and opens Apple's installer when they are missing. They live at <code>/Library/Developer/CommandLineTools</code> and give Homebrew, Git, compilers, headers, and normal terminal build tools.</td></tr>
@@ -188,7 +191,7 @@
         <p>Do not automate Apple Developer certificates, provisioning profiles, MDM/configuration profiles, Gatekeeper changes, reduced-security boot settings, or debugger authorization prompts in shared setup repos. Those are identity and security boundaries, and each Mac/user should approve them deliberately. Apple betas sit on the same line: opting into the beta channel installs the <code>xcodes</code> tool so you can pull Xcode betas yourself, but Groundwork never downloads them or signs into your Apple Account for you. See <a href="development.html#apple">Xcode betas</a>.</p>
       </div>
 
-      <h2><span class="hash">#</span>Windows, tabs, and apps</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Windows, tabs, and apps</h2>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>⌘</kbd><kbd>Tab</kbd></span></td><td>Switch apps. Hold <kbd>⌘</kbd> and tap <kbd>Tab</kbd> repeatedly to choose.</td></tr>
         <tr><td><span class="keys"><kbd>⌘</kbd><kbd>`</kbd></span></td><td>Cycle through windows of the current app. This is the one people miss when they come from Windows.</td></tr>
@@ -204,7 +207,7 @@
         <tr><td><span class="keys"><kbd>⌘</kbd><kbd>,</kbd></span></td><td>Open settings/preferences for the current app.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Full screen, spaces, and Mission Control</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Full screen, spaces, and Mission Control</h2>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>⌃</kbd><kbd>⌘</kbd><kbd>F</kbd></span></td><td>Enter or exit full screen in apps that support it.</td></tr>
         <tr><td><span class="keys"><kbd>Esc</kbd></span></td><td>Exit some full-screen modes, especially browser/video full screen.</td></tr>
@@ -218,7 +221,7 @@
         <p>Full screen creates a separate space, which is great for focus but can make window switching feel jumpy. For daily development, Raycast left/right/maximize commands are often faster than full-screen mode.</p>
       </div>
 
-      <h2><span class="hash">#</span>Window management: Raycast first</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Window management: Raycast first</h2>
       <p>Raycast is the default window manager for this setup. It is already installed, it is keyboard-first, and its Window Management commands cover the normal moves: maximize, left/right half, quarters, thirds, center, restore, move to display, move to space, and custom layouts.</p>
       <p>Anybox does not manage windows. It manages saved links. If you saw translucent layout zones while dragging a window, that was macOS's native drag-to-edge tiling overlay, not Raycast. Raycast window management is command- and hotkey-driven: invoke a layout or bind a hotkey and the frontmost window moves immediately.</p>
       <p>Raycast AI is optional. Leave it off while learning the basics unless you specifically want Raycast's AI chat, AI commands, or model integrations on that Mac. For the extension checklist, run <code>raycast-extensions</code>; it opens the recommended Store entries for Browser Bookmarks, Browser Tabs, Anybox, GitHub, Homebrew, VS Code/Cursor project openers, and optional AI integrations.</p>
@@ -235,7 +238,7 @@
       </div>
       <p>Rectangle and Magnet are good apps, but they duplicate Raycast for this setup. Add one only if you want a dedicated window manager with its own preferences, importable presets, or advanced snapping behavior beyond Raycast.</p>
 
-      <h2><span class="hash">#</span>Displays and resolutions: BetterDisplay</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Displays and resolutions: BetterDisplay</h2>
       <p>BetterDisplay is the right app for changing resolution from the menu bar, creating favorites, controlling external monitor brightness/input when supported, and protecting display layouts. It complements Raycast; it does not replace it.</p>
       <table class="keytable">
         <tr><td><strong>Resolution presets</strong></td><td>Save the display modes you actually use and switch from the menu bar first; add hotkeys only for modes you change constantly.</td></tr>
@@ -249,7 +252,7 @@
         <p>BetterDisplay has a free tier and a paid Pro license. Business use beyond the trial/free terms needs a license, so teams should budget it rather than quietly relying on a personal license.</p>
       </div>
 
-      <h2><span class="hash">#</span>Links and web recall: Anybox</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Links and web recall: Anybox</h2>
       <p>Use Anybox instead of turning every browser profile into a private bookmark island. It is the shared link library: project dashboards, docs, research, client portals, reading lists, and reusable references. Raycast launches actions; Anybox remembers links.</p>
       <table class="keytable">
         <tr><td><strong>Quick Save</strong></td><td>Capture the current page without leaving the browser.</td></tr>
@@ -260,7 +263,7 @@
         <tr><td><strong>iCloud sync</strong></td><td>Keep links, profiles, and Quick Links available on Mac, iPhone, and iPad. This is the supported sync path; do not put the app database or API keys in dotfiles.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Daily practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Daily practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -290,7 +293,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://support.apple.com/en-us/102650" target="_blank" rel="noopener">Apple Mac keyboard shortcuts</a></li>
         <li><a href="https://manual.raycast.com/window-management" target="_blank" rel="noopener">Raycast Window Management</a></li>

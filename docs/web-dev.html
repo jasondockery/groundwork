@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html" class="active">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -135,7 +138,7 @@
         <p>This is the <a href="path.html">path</a> made concrete for the web. Each step has a <strong>prompt</strong> to ask your assistant, the <strong>concept</strong> you're learning, and a <strong>your turn</strong> tweak you do by hand. Build one small site you care about (a portfolio, a page for a hobby, a tiny tool) and apply each step to it.</p>
       </div>
 
-      <h2><span class="hash">#</span>What you'll install</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What you'll install</h2>
       <ol>
         <li><strong>A code editor</strong> &mdash; <a href="https://code.visualstudio.com/" target="_blank" rel="noopener">VS Code</a> is the easy default.</li>
         <li><strong>Node.js 24</strong> &mdash; the runtime for modern web tooling. If you set up the <a href="setup.html">groundwork environment</a>, you already have it via <code>mise</code>; otherwise grab the LTS from <a href="https://nodejs.org/" target="_blank" rel="noopener">nodejs.org</a>.</li>
@@ -159,7 +162,7 @@
       <div class="concept"><b>Concept · JavaScript &amp; the DOM</b>JavaScript adds behavior. It listens for events (a click) and changes the page (the DOM &mdash; the live tree of elements). Read the script: it's "when this is clicked, flip a class on the page." That listen-then-change loop is most of front-end programming.</div>
       <div class="yourturn"><b>Your turn:</b> change the button's text. Then open dev tools, click the button, and watch the page's class change in the Elements panel.</div>
 
-      <h2 id="web-underneath"><span class="hash">#</span>The web underneath: requests, responses, status codes</h2>
+      <h2 id="web-underneath"><span class="hash" aria-hidden="true">#</span>The web underneath: requests, responses, status codes</h2>
       <p>Before your page pulls in live data (next step), meet the conversation every website is made of. You've already used it today: when you opened this page, your browser sent a <strong>request</strong> ("give me web-dev.html") to a server, and the server sent back a <strong>response</strong> — a three-digit <strong>status code</strong> saying how it went, plus the page itself. The first digit is the family: <code>2xx</code> succeeded (<code>200</code> "here it is"), <code>3xx</code> redirects you elsewhere, <code>4xx</code> means the request as sent can't be fulfilled (<code>404</code> "no such thing"), and <code>5xx</code> means something on the server's side failed. That exchange is HTTP, and every fetch, form, and API call in this track is another round of it.</p>
       <p>You can watch the exchange raw with <code>curl</code>, which makes a request from the terminal and prints exactly what comes back — and you can be the server too. Your machine answers to the name <strong>localhost</strong>, and a <strong>port</strong> is a numbered door a server listens behind, so <code>localhost:8000</code> means "door 8000 on my own machine." One precision that matters on shared Wi-Fi: without <code>--bind 127.0.0.1</code>, Python's teaching server answers <em>every</em> network interface, so other machines on the same network could browse your folder. The bind flag keeps it to your machine only — and either way this is a five-minute teaching tool, not a production server.</p>
       <div class="terminal">
@@ -185,7 +188,7 @@
       <div class="concept"><b>Concept · Deploy &amp; the Git workflow</b>Modern hosting watches your <a href="git.html">Git</a> repo: you push a change, it builds and publishes automatically. Free tiers are generous enough for real projects. You now have a public URL &mdash; and the same push-to-deploy loop the pros use.</div>
       <div class="yourturn"><b>Your turn:</b> make one small edit, commit, and push &mdash; then watch it appear live a minute later. That feedback loop is addictive on purpose.</div>
 
-      <h2><span class="hash">#</span>Where to go next</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Where to go next</h2>
       <ul>
         <li><strong>Fundamentals, free:</strong> <a href="https://developer.mozilla.org/" target="_blank" rel="noopener">MDN Web Docs</a> (the reference for everything web), <a href="https://www.theodinproject.com/" target="_blank" rel="noopener">The Odin Project</a> and <a href="https://scrimba.com/" target="_blank" rel="noopener">Scrimba</a> (free tier) for structured, project-based courses on HTML, CSS, and JavaScript, and <a href="https://javascript.info/" target="_blank" rel="noopener">javascript.info</a> for JavaScript in depth. Practice on <a href="https://exercism.org/" target="_blank" rel="noopener">Exercism</a> with free human mentoring.</li>
         <li><strong>The chops:</strong> on the <a href="agentic-engineering.html">Vibe &rarr; agentic</a> page &mdash; start specifying a feature before you prompt, and review every diff for what it actually changed.</li>

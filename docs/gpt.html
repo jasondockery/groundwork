@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html" class="active">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,7 +136,7 @@
 
 <div class="trigger"><b>When you'll want this</b> You need a patient tutor, a second opinion, a spec draft, or a way to rehearse a task before asking an agent to change files.</div>
 
-<h2><span class="hash">#</span>Where GPT fits in Groundwork</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Where GPT fits in Groundwork</h2>
 <table class="keytable">
   <tr><td><strong>Learn a concept</strong></td><td>Ask for a beginner explanation, examples, quizzes, and a tiny exercise. Then apply it in the terminal or editor.</td></tr>
   <tr><td><strong>Write a spec</strong></td><td>Turn a fuzzy idea into requirements, constraints, acceptance checks, and a first implementation plan.</td></tr>
@@ -147,24 +150,24 @@
   <p>Do not treat a chat answer as verified. If it affects a real repo, turn it into a local task for Codex, Claude Code, or another agent, then review the diff and run the checks.</p>
 </div>
 
-<h2><span class="hash">#</span>Prompts that teach instead of just answer</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Prompts that teach instead of just answer</h2>
 <div class="prompt-card"><span class="who">tutor</span>Teach me this concept like I am new to it, then give me three tiny exercises and the answer key separately.</div>
 <div class="prompt-card"><span class="who">spec</span>Turn this idea into a one-page implementation spec with goals, non-goals, files likely involved, tests, and edge cases.</div>
 <div class="prompt-card"><span class="who">review before agent</span>Here is my plan. Find unclear requirements, risky assumptions, and what I should ask the coding agent to verify before it edits.</div>
 <div class="prompt-card"><span class="who">after agent</span>Here is the diff summary and test output. Explain what changed, what risk remains, and what I should manually inspect.</div>
 
-<h2><span class="hash">#</span>GPT vs a coding agent</h2>
+<h2><span class="hash" aria-hidden="true">#</span>GPT vs a coding agent</h2>
 <div class="two">
   <div class="floor"><span class="tag">GPT / ChatGPT</span><h3>Best for thinking</h3><p>Clarify the idea, learn the basics, compare options, draft prompts, and create practice exercises.</p></div>
   <div class="ceiling"><span class="tag">Codex / Claude Code</span><h3>Best for changing repos</h3><p>Read project instructions, inspect files, edit, run commands, show a diff, and verify the result in the real workspace.</p></div>
 </div>
 
-<h2><span class="hash">#</span>Daily practice</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Daily practice</h2>
 <div class="drill"><div class="num">5</div><div class="body"><h3>Ask for a concept</h3><p>Pick one term from the <a href="glossary.html">glossary</a> and ask GPT for a plain-English explanation plus a command you can run.</p></div></div>
 <div class="drill"><div class="num">10</div><div class="body"><h3>Draft an agent prompt</h3><p>Ask GPT to improve a vague coding request into a precise agent task with acceptance criteria.</p></div></div>
 <div class="drill"><div class="num">15</div><div class="body"><h3>Verify locally</h3><p>Give the improved prompt to Codex or Claude Code in a small repo. Read the diff and compare it to the spec.</p></div></div>
 
-<h2><span class="hash">#</span>Official references</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Official references</h2>
 <ul>
   <li><a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a> — OpenAI&apos;s main chat product.</li>
   <li><a href="https://help.openai.com/en/collections/3742473-chatgpt" target="_blank" rel="noopener">OpenAI ChatGPT help</a> — official help articles for ChatGPT features and account behavior.</li>

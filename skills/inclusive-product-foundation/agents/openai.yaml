@@ -1,0 +1,4 @@
+interface:
+  display_name: "Inclusive Product Foundation"
+  short_description: "Route applicable quality specialists"
+  default_prompt: "Use $inclusive-product-foundation to classify this product change and load the applicable quality specialists."

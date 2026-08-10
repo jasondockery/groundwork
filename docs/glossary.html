@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html" class="active">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -131,7 +134,7 @@
       <h1>Glossary: the words, without the jargon.</h1>
       <p class="lead">Every field has its own vocabulary, and the terminal has a lot of it. Here's what the words mean — short, concrete, and pointing you to the page that goes deeper. Skim it once; come back when a term trips you up.</p>
 
-      <h2><span class="hash">#</span>The terminal &amp; the shell</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The terminal &amp; the shell</h2>
       <table class="keytable">
         <tr><td><strong>Terminal</strong></td><td>The app window where you type commands. On this setup it's <a href="apps.html">Ghostty</a>. Also called a "terminal emulator."</td></tr>
         <tr><td><strong>Shell</strong></td><td>The program <em>inside</em> the terminal that reads your commands and runs them. Here it's <code>zsh</code>.</td></tr>
@@ -147,7 +150,7 @@
         <tr><td><strong>Standard in/out/error</strong></td><td>A program's input stream, its normal output, and its separate error output — the three channels pipes and redirects move around.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Files &amp; the system</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Files &amp; the system</h2>
       <table class="keytable">
         <tr><td><strong>Directory</strong></td><td>A folder. "Directory" and "folder" mean the same thing.</td></tr>
         <tr><td><strong>Path</strong></td><td>The address of a file or folder: <code>/Users/you/code</code>. <em>Absolute</em> starts at <code>/</code>; <em>relative</em> starts from where you are.</td></tr>
@@ -164,7 +167,7 @@
         <tr><td><strong>Kernel</strong></td><td>The core of the operating system that talks to the hardware. macOS's is named XNU; Linux's is "Linux." See <a href="command-line.html">flavors of Unix</a>.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Editor &amp; terminal multiplexer</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Editor &amp; terminal multiplexer</h2>
       <table class="keytable">
         <tr><td><strong>Modal editor</strong></td><td>An editor with <em>modes</em> — <a href="neovim.html">Neovim</a> separates "typing text" from "running commands on text."</td></tr>
         <tr><td><strong>Buffer</strong></td><td>An open file in the editor (it may or may not be visible in a window).</td></tr>
@@ -177,7 +180,7 @@
         <tr><td><strong>Prefix</strong></td><td>The key combo that starts a tmux command — here <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Git &amp; GitHub</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Git &amp; GitHub</h2>
       <table class="keytable">
         <tr><td><strong>Repository (repo)</strong></td><td>A project folder that Git is tracking, including its full history.</td></tr>
         <tr><td><strong>Commit</strong></td><td>A saved snapshot of your project at a point in time, with a message describing it.</td></tr>
@@ -195,7 +198,7 @@
         <tr><td><strong>SSH key</strong></td><td>A cryptographic key pair that proves who you are to GitHub without a password.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>AI agents &amp; this setup</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>AI agents &amp; this setup</h2>
       <table class="keytable">
         <tr><td><strong>LLM</strong></td><td>Large Language Model — the AI behind tools like Claude that reads and writes text and code.</td></tr>
         <tr><td><strong>Agent</strong></td><td>An AI you give a task to that <em>acts</em> — reads your project, edits files, runs commands — versus a chatbot that just replies. See <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>

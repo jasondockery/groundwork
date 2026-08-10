@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html" class="active">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -146,10 +149,10 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Learn Git first, then get fast</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Learn Git first, then get fast</h2>
       <p>The <a href="git.html">Git page</a> teaches the commands and introduces lazygit as a picture of them — start there if staging and branches are still new, because the TUI only makes sense as a view of a model you already hold. This page is about the layer Groundwork adds on top: managed defaults, editor integration, and the tmux wiring that makes lazygit the review surface for <em>all</em> your repositories, not just the one you happen to be standing in.</p>
 
-      <h2><span class="hash">#</span>The managed defaults</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The managed defaults</h2>
       <p>Groundwork manages <code>~/.config/lazygit/config.yml</code> (and exports <code>XDG_CONFIG_HOME=$HOME/.config</code> in the login shell so lazygit actually reads it there on macOS, instead of <code>~/Library/Application Support</code>). What's in it, and why:</p>
       <table class="keytable">
         <tr><td><code>os.editPreset: nvim</code></td><td>Commit messages, rebases, and "edit this file" land in <a href="neovim.html">Neovim</a></td></tr>
@@ -164,7 +167,7 @@
       </table>
       <p>It's a fully managed file: change it with <code>chezmoi edit --apply ~/.config/lazygit/config.yml</code> so your change survives the next apply, and see <a href="customizing.html">Customizing</a> for the pattern.</p>
 
-      <h2><span class="hash">#</span>Move through panels and tabs</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Move through panels and tabs</h2>
       <p>Groundwork keeps LazyGit's native navigation grammar. Items move vertically, panels move horizontally, and tabs cycle with brackets; no custom mapping steals those keys from LazyGit's built-in help.</p>
       <table class="keytable">
         <tr><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Next / previous item in the current list</td></tr>
@@ -183,7 +186,7 @@
         <tr><td><kbd>/</kbd></td><td>Filter the worktree list</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Reviewing an agent's work</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Reviewing an agent's work</h2>
       <p>lazygit's review loop is the human half of the <a href="agents.html">agent workflow</a>: the agent proposes, you inspect and own the commit. The moves that matter, all visible under <kbd>?</kbd>:</p>
       <table class="keytable">
         <tr><td><kbd>Space</kbd></td><td>Stage or unstage the selected file — or the selected line/hunk inside a diff. Staging touches the index only; it never edits file contents</td></tr>
@@ -194,7 +197,7 @@
       </table>
       <p>For the multi-repo version of this loop — every dirty repository as its own lazygit window — see <a href="repo-navigation.html">Repository navigation</a> and <a href="tmux-repository-windows.html">tmux repo windows</a>.</p>
 
-      <h2><span class="hash">#</span>Accessible by construction</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Accessible by construction</h2>
       <p>Everything is keyboard-driven with the current keys always on screen; state in Groundwork's surrounding tooling is words and symbols rather than color alone; and the one animation lazygit ships is turned off. If you prefer a mouse-first view some days, <a href="git.html">GitUp</a> reads the same repository — tools here are choices, not tests.</p>
 
       <div class="pagenav">

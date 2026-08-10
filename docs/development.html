@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html" class="active">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -138,7 +141,7 @@
         <p>AI-native does not mean skipping basics. It means shortening the feedback loop: ask better questions, inspect diffs, run tests, keep notes, and rebuild the same idea until you can explain it without the agent.</p>
       </div>
 
-      <h2><span class="hash">#</span>The Groundwork workflow</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The Groundwork workflow</h2>
       <table class="keytable">
         <tr><td><strong>Project contract</strong></td><td>Start every serious repo with <code>AGENTS.md</code>: what the project is, how to run it, what "done" means, and what the agent must never touch.</td></tr>
         <tr><td><strong>Agent loop</strong></td><td>Ask for inspection and a plan, let the agent make a narrow edit, review the diff, run verification, then commit.</td></tr>
@@ -146,7 +149,7 @@
         <tr><td><strong>Learning memory</strong></td><td>Save hard-won lessons in the <a href="knowledge.html">knowledge base</a> so future learners, teammates, and agents can find them again.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>The learning loop</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The learning loop</h2>
       <table class="keytable">
         <tr><td><strong>Learn</strong></td><td>Read the official docs or watch one focused lesson. Keep the scope small: one concept, one feature, one bug.</td></tr>
         <tr><td><strong>Build</strong></td><td>Make a tiny working version by hand. For deep learning assignments, turn off AI autocomplete while writing the core code.</td></tr>
@@ -155,7 +158,7 @@
         <tr><td><strong>Remember</strong></td><td>Save durable notes in the <a href="knowledge.html">knowledge base</a>: what worked, what failed, commands used, and links worth revisiting.</td></tr>
       </table>
 
-<h2><span class="hash">#</span>Interest tracks</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Interest tracks</h2>
 <p>Use these when motivation matters more than taxonomy. Each one starts with a concrete first project and uses the same prompt, concept, and your-turn rhythm so AI helps without replacing the learning.</p>
 <div class="grid">
   <a class="card" href="game-dev.html">
@@ -185,7 +188,7 @@
   </a>
 </div>
 
-      <h2><span class="hash">#</span>Pick a route</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Pick a route</h2>
       <div class="grid">
         <a class="card" href="#apple">
           <span class="ct">native apps</span>
@@ -229,7 +232,7 @@
         </a>
       </div>
 
-      <h2 id="apple"><span class="hash">#</span>macOS and iOS development</h2>
+      <h2 id="apple"><span class="hash" aria-hidden="true">#</span>macOS and iOS development</h2>
       <p>Native Apple development starts with Swift and SwiftUI, but good apps also require understanding Apple&apos;s design language, signing, provisioning, privacy prompts, accessibility, and App Store rules.</p>
       <table class="keytable">
         <tr><td><a href="https://developer.apple.com/tutorials/swiftui" target="_blank" rel="noopener">SwiftUI Tutorials</a></td><td>Best first Apple path. Build real screens while learning state, navigation, lists, controls, and app structure.</td></tr>
@@ -257,7 +260,7 @@
         </div>
       </div>
 
-      <h2 id="web"><span class="hash">#</span>React, Next.js, Node, and TypeScript</h2>
+      <h2 id="web"><span class="hash" aria-hidden="true">#</span>React, Next.js, Node, and TypeScript</h2>
       <p>This is the main product-development stack for the repo: TypeScript for clarity, React for interfaces, Next.js for full-stack web apps, Node for scripts and services, and agents for tests, refactors, and project scaffolding. If you want a concrete first project, start with <a href="web-dev.html">Web &amp; sites</a>, then <a href="app-dev.html">Apps</a>.</p>
       <table class="keytable">
         <tr><td><a href="https://react.dev/learn" target="_blank" rel="noopener">React Learn</a></td><td>Official React path. Start here for components, props, state, effects, and thinking in React.</td></tr>
@@ -282,7 +285,7 @@
       </div>
 
 
-<h2 id="game"><span class="hash">#</span>Game development</h2>
+<h2 id="game"><span class="hash" aria-hidden="true">#</span>Game development</h2>
 <p>Game development is a strong AI-native learning path because feedback is visible: the agent creates a scene, writes a script, and you immediately feel whether it works. The browser track is the code-first route where agents are strongest; the Unity track is the industry-engine route where agents write C# and architecture while you drive the editor and assets.</p>
 <table class="keytable">
   <tr><td><a href="game-dev.html">Groundwork FPS Browser track</a></td><td>A substantial one-week Three.js arena shooter: movement, weapons, enemy AI, HUD, spatial audio, optimization, and deploy.</td></tr>
@@ -295,7 +298,7 @@
 </table>
 <p>First milestone: finish either FPS track, publish a browser-playable build, then add one feature from a spec before asking the agent to code it.</p>
 
-      <h2 id="media"><span class="hash">#</span>Generative media engineering</h2>
+      <h2 id="media"><span class="hash" aria-hidden="true">#</span>Generative media engineering</h2>
       <p>Image and video creation belongs here when it is treated as development: model calls behind interfaces, reproducible prompts and seeds, versioned workflows, manifests, cost controls, and assets integrated into software. If you only want one-off pictures, a consumer app is faster. If you want to build with media models, use this route.</p>
       <table class="keytable">
         <tr><td><a href="gen-media.html">Groundwork Image &amp; video track</a></td><td>A substantial one-week build: hosted or local setup, structured prompts, ControlNet/LoRA-style control, spec-driven pipelines, async video jobs, evaluation UI, and shipped assets.</td></tr>
@@ -306,7 +309,7 @@
       </table>
       <p>First milestone: finish the image/video track, generate a reproducible asset set from a spec file, integrate it into the FPS or web track, and commit the prompt, seed, model, and manifest records beside the output.</p>
 
-      <h2 id="rust"><span class="hash">#</span>Rust</h2>
+      <h2 id="rust"><span class="hash" aria-hidden="true">#</span>Rust</h2>
       <p>Use Rust when correctness, packaging, memory safety, and performance matter: CLIs, dev tools, high-throughput services, parsers, and parts of the stack where Python or Node feel too loose.</p>
       <table class="keytable">
         <tr><td><a href="https://doc.rust-lang.org/book/" target="_blank" rel="noopener">The Rust Book</a></td><td>Official first path. Ownership, borrowing, enums, traits, error handling, testing, and cargo.</td></tr>
@@ -315,7 +318,7 @@
       </table>
       <p>First milestone: rewrite a small shell helper as a Rust CLI with <code>clap</code>, tests, helpful errors, and a release build. Ask an agent to review the error handling and command help text.</p>
 
-      <h2 id="python"><span class="hash">#</span>Python</h2>
+      <h2 id="python"><span class="hash" aria-hidden="true">#</span>Python</h2>
       <p>Python is the glue language for automation, data, notebooks, ML experiments, and many AI toolchains. Learn plain Python well before leaning on frameworks. In this setup, <code>mise</code> installs the baseline Python interpreter and <code>uv</code> manages project dependencies, virtual environments, scripts, and Python CLI tools.</p>
       <table class="keytable">
         <tr><td><a href="https://docs.python.org/3/tutorial/" target="_blank" rel="noopener">Python Tutorial</a></td><td>Official tutorial. Good enough for beginners, still useful as a refresher for experienced developers.</td></tr>
@@ -326,7 +329,7 @@
       </table>
       <p>First milestone: create a small package with <code>uv init</code>, pin Python with <code>mise use python@3.13</code> if the project needs it, add a CLI command, typed functions, pytest coverage, and one notebook that calls the package instead of hiding the logic inside notebook cells.</p>
 
-      <h2 id="ml"><span class="hash">#</span>Machine learning</h2>
+      <h2 id="ml"><span class="hash" aria-hidden="true">#</span>Machine learning</h2>
       <p>For software developers, the goal is not to become a researcher first. The goal is to understand data, loss, optimization, evaluation, deployment, and failure modes well enough to build and review AI systems responsibly.</p>
       <table class="keytable">
         <tr><td><a href="https://course.fast.ai/" target="_blank" rel="noopener">fast.ai Practical Deep Learning</a></td><td>Best hands-on first ML course for builders. It starts with working models and explains theory as needed.</td></tr>
@@ -337,7 +340,7 @@
         <tr><td><a href="https://www.deeplearning.ai/courses/" target="_blank" rel="noopener">DeepLearning.AI</a></td><td>Free and paid short courses and specializations. Good when you want a guided sprint on one topic.</td></tr>
       </table>
 
-      <h2 id="llms"><span class="hash">#</span>LLMs and frontier AI</h2>
+      <h2 id="llms"><span class="hash" aria-hidden="true">#</span>LLMs and frontier AI</h2>
       <p>Use Stanford as the technical backbone and Harvard as orientation. The point is to move from vocabulary to implementation: tokens, tensors, embeddings, attention, loss, training, inference, evaluation, data, post-training, and serving economics.</p>
       <table class="keytable">
         <tr><td><a href="https://generative-ai-course.hks.harvard.edu/spring-2024" target="_blank" rel="noopener">Harvard HKS GenAI</a></td><td>Light warm-up: intro, prompting, RAG/fine-tuning vocabulary, risks, copyright, and future-of-work context.</td></tr>
@@ -367,7 +370,7 @@
         <p>You should be able to explain or implement tokenization, token IDs, embeddings, logits, softmax, cross-entropy loss, attention, MLP/FFN, a transformer block, a tiny training loop, and a basic inference loop.</p>
       </div>
 
-      <h2><span class="hash">#</span>Practice plans by experience level</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice plans by experience level</h2>
       <table class="keytable">
         <tr><td><strong>Brand new</strong></td><td>Do <a href="command-line.html">Command line &amp; Unix</a>, <a href="practice.html">Practice plan</a>, React Learn basics, Python Tutorial basics, and one tiny web app. Use AI to explain terms and generate quizzes.</td></tr>
         <tr><td><strong>Working developer</strong></td><td>Build one Next.js app, one Python package, one Rust CLI, one reproducible media pipeline, and one agent-assisted feature from issue to tests to PR. Keep notes in the wiki.</td></tr>
@@ -375,7 +378,7 @@
         <tr><td><strong>AI platform path</strong></td><td>Use CS336 as the core, CS229 as backfill, CS153 for systems, Full Stack Deep Learning for production ML, Hugging Face for practical ecosystem fluency, and the image/video track for multimodal pipeline practice.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>AI-native development habits</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>AI-native development habits</h2>
       <table class="keytable">
         <tr><td><strong>Prompt from context</strong></td><td>Start agents inside the repo, reference files by path, and ask for a plan before broad edits. See <a href="editors-ai.html">Editors &amp; AI</a>.</td></tr>
         <tr><td><strong>Keep one source of truth</strong></td><td>Project behavior belongs in <a href="agents.html">AGENTS.md</a>; human learning belongs in <code>docs/</code>; reusable agent workflows belong in <code>skills/</code>.</td></tr>

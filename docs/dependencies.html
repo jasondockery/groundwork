@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html" class="active">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -145,11 +148,11 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>The mental model</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The mental model</h2>
       <p>Your project declares <strong>intent</strong> (roughly which versions it wants, in <code>package.json</code> or similar) and records <strong>resolution</strong> (exactly which versions it got, in a lockfile). A dependency bot watches the package registries, notices when something newer satisfies your intent, and opens a pull request that updates both files together. Your CI runs on that PR like on any other. You review and merge, or you teach the bot which categories it may merge itself.</p>
       <p>The tool used across these repos is <a href="https://docs.renovatebot.com" target="_blank" rel="noopener">Renovate</a>. Treat it exactly like the coding agents on the <a href="agents.html">AI agents &amp; rules</a> page: it is tireless and consistent, it does exactly what its instructions say, and it has no judgment about what its changes <em>mean</em>. The instructions file is the contract; the PRs and dashboard are how you supervise.</p>
 
-      <h2><span class="hash">#</span>What the bot actually does to a repo</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>What the bot actually does to a repo</h2>
       <div class="callout note">
         <span class="label">Current operating contract</span>
         <p>The shared runner and preset evaluate eligible routine updates for branch and PR creation on every daily run. Supported normal timestamped npm major, minor, and patch updates use a strict five-day floor. Vulnerability alerts explicitly bypass the routine schedule, age floor, and rate limits so the next daily run can create them immediately.</p>
@@ -166,7 +169,7 @@
         <p><strong>The bot bumps versions; it never adopts features.</strong> If a release ships a new API that would simplify your code, that judgment call is yours (or a task for a coding agent you direct at it). Reading the release notes in each PR is where those opportunities surface, which is a strong reason to keep updates small and regular instead of letting them pile up.</p>
       </div>
 
-      <h2><span class="hash">#</span>The cooldown: patience as a security control</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The cooldown: patience as a security control</h2>
       <p>Supply-chain attacks on package registries follow a pattern: a malicious release appears (a hijacked maintainer account, a typosquat, a compromised build), and the ecosystem usually catches and yanks it within days. A <strong>cooldown</strong> (Renovate's <code>minimumReleaseAge</code>) says: do not propose a supported timestamped release younger than N days. These repos use five days for supported normal timestamped major, minor, and patch updates. You give up a little freshness and buy a real defense: by the time a supported version reaches a PR, the world has had time to notice if it was poisoned.</p>
       <p>Package managers are adopting the same idea at install time (pnpm's <code>minimumReleaseAge</code> refuses too-young versions during resolution), so the floor holds even when a human runs the install by hand. Security fixes get an explicit escape hatch, because for a known vulnerability the risk calculus reverses.</p>
 
@@ -187,13 +190,13 @@
         <p>And a manually-run updater is not a substitute for any of this. Running it yourself controls the timing and prevents an unattended rollout — but nobody recognizes a malicious binary by watching upgrade output scroll past.</p>
       </div>
 
-      <h2><span class="hash">#</span>One policy, many repos</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>One policy, many repos</h2>
       <p>Once two repos both run the bot, their configs drift: one repo gets a better cooldown, the other keeps the old value, and nobody decided that. The fix is the same one you use for agent rules: define shared policy <strong>once</strong>, in one place, and have each repo reference it. Renovate supports this with shareable presets. These repos extend a small public preset repo, <a href="https://github.com/jasondockery/renovate-config" target="_blank" rel="noopener">renovate-config</a>, which holds only the policy that must stay identical everywhere: schedule, cooldown, PR limits, labels, rebase behavior, and the security-PR rules. Anything repo-specific (which packages need human review, which groups make sense) stays in that repo's own <code>renovate.json</code>.</p>
       <div class="callout tip">
         <p><strong>Copy, don't depend.</strong> That preset repo is MIT-licensed and deliberately public as a worked example: read it, fork it, copy the files into your own automation repo. Don't <code>extends</code> someone else's living policy, including this one; it changes without notice, and your dependency policy should answer to you.</p>
       </div>
 
-      <h2><span class="hash">#</span>Hosted or self-hosted: a real choice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Hosted or self-hosted: a real choice</h2>
       <p>Renovate runs two ways, and both are legitimate:</p>
       <ul>
         <li><strong>The hosted Mend app</strong>: two clicks to install, zero credentials to manage. Right for a first project and for anyone who never wants to read a job log. One trap: in the onboarding wizard the default mode can be "Scan Only," which runs silently and opens nothing. Pick "Scan and Alert" (Interactive), or the bot looks installed but broken.</li>
@@ -202,7 +205,7 @@
       <p>The trade is the same one this site keeps pointing at: convenience versus observability. Start hosted if you're new; move to self-hosted the first time you can't answer "what is the bot doing?" from where you sit. The config file is identical either way, so switching is an executor swap, not a migration.</p>
       <p>These repositories run the self-hosted process daily. Every run evaluates eligible routine updates after their maturity floor and notices vulnerable updates promptly; there is no second weekly branch-creation window. A slower executor clock would delay both ordinary maintenance and urgent fixes after their other controls have cleared.</p>
 
-      <h2><span class="hash">#</span>Supervising the bot</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Supervising the bot</h2>
       <p>The human stays the senior partner. In practice that means the config encodes different trust levels for different blast radii:</p>
       <ul>
         <li><strong>High-blast-radius majors are held for approval.</strong> Groundwork treats an Ubuntu base-image major as a platform migration, so it appears on the dashboard for approval instead of opening a routine PR. A major upgrade with that compatibility impact is deliberate work with its own plan.</li>
@@ -211,7 +214,7 @@
         <li><strong>The dashboard is the console.</strong> When something seems stuck, the answer is almost always there: held by maturity or rate limits, awaiting approval, or blocked by a config error the bot is reporting.</li>
       </ul>
 
-      <h2><span class="hash">#</span>Set it up on your own project</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Set it up on your own project</h2>
       <p>The five-minute version, for a project on GitHub:</p>
       <ol>
         <li>Install the <a href="https://github.com/apps/renovate" target="_blank" rel="noopener">Mend Renovate app</a> on your repo (choose Renovate Only, mode Interactive).</li>
@@ -246,7 +249,7 @@
         <p><strong>Never add a <code>dependabot.yml</code> alongside Renovate.</strong> GitHub's Dependabot would open duplicate PRs for the same updates. Keep Dependabot's <em>alerts</em> on (they're a data source Renovate reads for security PRs) and leave version updates to one bot.</p>
       </div>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <ul>
         <li>Open the Dependency Dashboard issue on a repo that has one. For each pending update, say out loud <em>why</em> it hasn't merged yet: schedule, cooldown, or awaiting review.</li>
         <li>Read one Renovate PR top to bottom, including the embedded release notes. Find one changed thing that could matter to the code, even if the answer is "nothing here affects us."</li>
@@ -254,7 +257,7 @@
         <li>In any project, run your package manager's outdated command (<code>pnpm outdated</code>, <code>npm outdated</code>) and compare what it shows against what the bot has proposed. If they differ, work out which policy (cooldown, grouping, held majors) explains the gap.</li>
       </ul>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://docs.renovatebot.com/upgrade-best-practices/" target="_blank" rel="noopener">Renovate's upgrade best practices</a>: the maintainers' own advice on cadence, grouping, and automerge.</li>
         <li><a href="https://docs.renovatebot.com/key-concepts/dashboard/" target="_blank" rel="noopener">The Dependency Dashboard</a>: everything the checkboxes can do.</li>

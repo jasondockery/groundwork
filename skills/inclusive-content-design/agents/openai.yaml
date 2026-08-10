@@ -1,0 +1,4 @@
+interface:
+  display_name: "Inclusive Content Design"
+  short_description: "Write inclusive words and media"
+  default_prompt: "Use $inclusive-content-design to make these words, examples, and media inclusive and actionable."

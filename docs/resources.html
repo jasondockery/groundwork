@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html" class="active">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,7 +136,7 @@
 
       <div class="trigger"><b>When you'll want this</b> You want high-quality outside material without turning learning into link collecting.</div>
 
-      <h2><span class="hash">#</span>Best first resources</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Best first resources</h2>
       <div class="grid">
         <a class="card" href="editors-ai.html">
           <span class="ct">groundwork path</span>
@@ -172,7 +175,7 @@
 </a>
       </div>
 
-      <h2><span class="hash">#</span>Terminal and shell</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Terminal and shell</h2>
       <table class="keytable">
         <tr><td><a href="https://missing.csail.mit.edu/" target="_blank" rel="noopener">Missing Semester</a></td><td>Free lectures and notes. Use the shell, Vim, Git, and debugging lectures as the foundation for this guide.</td></tr>
         <tr><td><a href="https://explainshell.com/" target="_blank" rel="noopener">explainshell</a></td><td>Paste a shell command and see each flag explained. Useful when copying commands from docs.</td></tr>
@@ -180,14 +183,14 @@
         <tr><td><a href="https://ghostty.org/docs/config/reference#macos-option-as-alt" target="_blank" rel="noopener">Ghostty Option as Alt</a></td><td>Official reference for why macOS Option can be configured to send terminal Alt sequences.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>tmux</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>tmux</h2>
       <table class="keytable">
         <tr><td><a href="https://hamvocke.com/blog/a-quick-and-easy-guide-to-tmux/" target="_blank" rel="noopener">Ham Vocke tmux guide</a></td><td>A clear beginner walkthrough of sessions, windows, panes, and detaching.</td></tr>
         <tr><td><a href="https://github.com/tmux/tmux/wiki" target="_blank" rel="noopener">tmux wiki</a></td><td>Official project wiki. Use it when you need exact behavior or command syntax.</td></tr>
         <tr><td><a href="https://github.com/christoomey/vim-tmux-navigator" target="_blank" rel="noopener">vim-tmux-navigator</a></td><td>The plugin that lets pane and Neovim split movement share one directional key family.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Vim and Neovim</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Vim and Neovim</h2>
       <table class="keytable">
         <tr><td><code>vimtutor</code></td><td>Built in, free, and still excellent. Run it in the terminal, then repeat it the next day.</td></tr>
         <tr><td><a href="https://www.openvim.com/" target="_blank" rel="noopener">OpenVim</a></td><td>Browser-based practice for the first motions and editing commands.</td></tr>
@@ -195,7 +198,7 @@
         <tr><td><a href="https://www.lazyvim.org/" target="_blank" rel="noopener">LazyVim docs</a></td><td>The distribution behind this Neovim config. Use it for plugin and keybinding behavior.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Git and collaboration</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Git and collaboration</h2>
       <p>These are the highlights; the <a href="git.html">Git page</a> has the full progressive ladder from first hour to deep reference.</p>
       <table class="keytable">
         <tr><td><a href="https://github.com/skills/introduction-to-github" target="_blank" rel="noopener">GitHub Skills: Introduction to GitHub</a></td><td>The best first hour: branches, commits, and pull requests hands-on in a real repo.</td></tr>
@@ -204,7 +207,7 @@
         <tr><td><a href="https://git-scm.com/book/en/v2" target="_blank" rel="noopener">Pro Git</a></td><td>The free "Git bible": a superb reference, a rough on-ramp. Chapters 1-3 first; the rest when you need it.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Dotfiles and AI-native work</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Dotfiles and AI-native work</h2>
       <table class="keytable">
         <tr><td><a href="https://www.chezmoi.io/user-guide/command-overview/" target="_blank" rel="noopener">chezmoi commands</a></td><td>Official command map for daily dotfile work: status, diff, apply, edit, update.</td></tr>
         <tr><td><a href="https://github.com/jasondockery/groundwork/blob/main/AI_THESIS.md">Groundwork AI thesis</a></td><td>The canonical north star for keeping this repo aimed at an AI-native Mac, Linux/WSL, and headless developer foundation.</td></tr>
@@ -217,7 +220,7 @@
         <tr><td><a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview" target="_blank" rel="noopener">Claude prompt engineering</a></td><td>Good general reading on precise instructions, examples, and context management.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Development and AI learning</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Development and AI learning</h2>
       <table class="keytable">
         <tr><td><a href="development.html">Development learning paths</a></td><td>This guide&apos;s progressive curriculum for macOS and iOS, React/Next/Node, browser and Unity games, generative media, Rust, Python, ML, and LLMs.</td></tr>
         <tr><td><a href="game-dev.html">Groundwork FPS Browser track</a> &middot; <a href="game-dev-unity.html">FPS Unity track</a></td><td>Two substantial week-long shooter paths: a code-first Three.js build that ships to a URL, and a Unity 6 build with C#, NavMesh, UI, profiling, and WebGL shipping.</td></tr>
@@ -236,7 +239,7 @@
         <tr><td><a href="https://developer.apple.com/tutorials/swiftui" target="_blank" rel="noopener">SwiftUI Tutorials</a></td><td>Official first path for learning Apple-platform app development.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>macOS productivity</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>macOS productivity</h2>
       <table class="keytable">
         <tr><td><a href="https://support.apple.com/en-us/102650" target="_blank" rel="noopener">Apple keyboard shortcuts</a></td><td>The canonical reference for Mac app, window, Finder, Mission Control, and text-editing shortcuts.</td></tr>
         <tr><td><a href="https://manual.raycast.com/window-management" target="_blank" rel="noopener">Raycast Window Management</a></td><td>The window-manager layer this setup uses instead of installing Rectangle or Magnet.</td></tr>

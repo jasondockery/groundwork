@@ -1,0 +1,4 @@
+interface:
+  display_name: "Accessible Product Development"
+  short_description: "Build accessible user-facing products"
+  default_prompt: "Use $accessible-product-development to implement and prove the accessibility target for this user-facing surface."

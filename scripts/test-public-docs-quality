@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+checker="$repo_root/scripts/check-public-docs-quality"
+fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-public-docs.XXXXXX")"
+cleanup() {
+  rm -rf -- "$fixture"
+}
+trap cleanup EXIT HUP INT TERM
+
+"$checker" --root "$repo_root" >/dev/null
+cp -R "$repo_root/docs" "$fixture/docs"
+
+page="$fixture/docs/index.html"
+perl -pi -e 's/<html lang="en" dir="ltr">/<html lang="" dir="ltr">/' "$page"
+if "$checker" --root "$fixture" >"$fixture/lang.out" 2>"$fixture/lang.err"; then
+  echo "public docs checker accepted a missing document language" >&2
+  exit 1
+fi
+grep -qF 'html lang is not a BCP 47-shaped language tag' "$fixture/lang.err"
+cp "$repo_root/docs/index.html" "$page"
+
+style="$fixture/docs/assets/style.css"
+perl -pi -e 's/--success-text: #17670b;/--success-text: #40a02b;/g' "$style"
+if "$checker" --root "$fixture" >"$fixture/contrast.out" 2>"$fixture/contrast.err"; then
+  echo "public docs checker accepted a low-contrast light-theme text token" >&2
+  exit 1
+fi
+grep -qF 'expected at least 4.5:1' "$fixture/contrast.err"
+cp "$repo_root/docs/assets/style.css" "$style"
+
+dd if=/dev/zero bs=1024 count=12 >>"$fixture/docs/assets/site.js" 2>/dev/null
+if "$checker" --root "$fixture" >"$fixture/budget.out" 2>"$fixture/budget.err"; then
+  echo "public docs checker accepted an oversized JavaScript resource" >&2
+  exit 1
+fi
+grep -qF 'resource budget' "$fixture/budget.err"
+
+echo "ok: public docs quality rejects missing locale metadata, low-contrast tokens, and oversized resources"

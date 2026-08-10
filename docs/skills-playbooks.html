@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html" class="active">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,13 +136,13 @@
 
 <div class="trigger"><b>When you'll want this</b> You&apos;ve explained the same multi-step procedure to an agent (or a teammate) twice, and the second explanation differed from the first.</div>
 
-<h2><span class="hash">#</span>Playbooks: the repeatable how</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Playbooks: the repeatable how</h2>
 <p>A <strong>playbook</strong> is the written form of "how we do this here" for a recurring operation: cutting a release, validating before publishing, changing a managed config, responding to a failing deploy. It differs from a rule — a rule says what must always hold; a playbook says what steps to take, in what order, with what checks. Teams have kept playbooks (runbooks) for decades; what&apos;s new in AI-native work is that a playbook can now be <em>executed</em> by an agent, not just read by a person — which raises the bar for how precisely it&apos;s written.</p>
 
-<h2><span class="hash">#</span>Skills: playbooks an agent can load</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Skills: playbooks an agent can load</h2>
 <p>A <strong>skill</strong> is the executable packaging: a folder with a <code>SKILL.md</code> entrypoint that an agent loads on demand when the task matches. Keep the source in one place — Groundwork keeps repo skills in <code>skills/</code> with <code>.claude/skills</code>, <code>.agents/skills</code>, and <code>.codex/skills</code> as symlinks — so every tool discovers the same procedure through its own native path.</p>
 
-<h2><span class="hash">#</span>When a skill is worth creating</h2>
+<h2><span class="hash" aria-hidden="true">#</span>When a skill is worth creating</h2>
 <p>A skill is useful when the workflow is repeated, procedural, and easy to get subtly wrong. It is not a second rulebook.</p>
 <p>In Groundwork, repo-local skills include <code>docs-alignment</code>, <code>chezmoi-change</code>, <code>macos-default-change</code>, and <code>validate-groundwork</code>. They cover the exact places where hidden coupling matters: keeping docs aimed at <code>AI_THESIS.md</code>, managed files, macOS defaults plus backup/restore, and release validation.</p>
 <p>The litmus test for tool-specific skill files is simple: if an agent should follow the text, it belongs in <code>SKILL.md</code>. If a tool only uses it to label or register the skill, it can live beside the skill as metadata. Groundwork validates that any Codex <code>openai.yaml</code> file stays in the second category.</p>
@@ -169,7 +172,7 @@
   <p><code>AGENTS.md</code> is the reliable contract. Skills are on-demand procedure guides, and discovery varies by tool. Anything the agent must always obey belongs in <code>AGENTS.md</code>; anything step-by-step and repeatable can live in <code>skills/</code>.</p>
 </div>
 
-<h2><span class="hash">#</span>A real one from this repo</h2>
+<h2><span class="hash" aria-hidden="true">#</span>A real one from this repo</h2>
 <p>Groundwork ships to users through Git tags and GitHub Releases, not through whatever happens to sit on <code>main</code>. That split — <code>main</code> as the rolling edge, tags as the known-good refs people actually pin and pull — is exactly the kind of procedure a person explains once, forgets a step of the second time, and an agent should instead run the same way every time. The <code>cut-release</code> skill (<code>skills/cut-release/SKILL.md</code>) is that procedure written down.</p>
 <p><strong>Trigger.</strong> The skill states its own condition for when to run, not a schedule: <code>"Run this when the change is release-affecting: it alters what a fresh bootstrap or chezmoi update / update-all delivers... Do not cut a release for internal automation, CI plumbing, or dependency bumps that change nothing a user consumes…"</code> A trigger phrased as a check the reader can answer, not a vague "when appropriate," is what makes a playbook usable by an agent.</p>
 <p><strong>Preconditions.</strong> Before any tagging happens, three things must all hold, and each is a command, not a feeling:</p>
@@ -190,7 +193,7 @@
   </div>
 </div>
 
-<h2><span class="hash">#</span>References</h2>
+<h2><span class="hash" aria-hidden="true">#</span>References</h2>
 <ul>
   <li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Claude Code skills</a> — project skills, <code>SKILL.md</code>, and skill discovery paths.</li>
   <li><a href="agents.html">AI agents &amp; rules</a> — the contract layer skills must never replace.</li>

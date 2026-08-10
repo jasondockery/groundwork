@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,9 +57,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -67,17 +69,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html" class="active">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -87,53 +89,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -148,7 +151,7 @@
       <p>Groundwork Twelve combines pieces that are usually separate: from-zero tool fluency, a session-by-session plan, hours-deep practice that builds muscle memory, honest progress measurement, and directing AI agents as a first-class skill. It sequences the pages already in this guide — each session tells you what to do, how long it takes, and where to read.</p>
       <p>It's written in layers, like everything here. If you already know a stage's material, take its gate check first: pass it and move on, and let the plan slow you down only where your fingers (not your understanding) need the reps.</p>
 
-      <h2><span class="hash">#</span>Pick your pace</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Pick your pace</h2>
       <p>The plan is <strong>60 core sessions and 12 builds, organized into 12 stages</strong>. A stage ends at a gate check — you advance when you pass it, not when the calendar says so. Pace decides how many sessions you run per day and how deep each day goes. More hours don't just finish sooner; they compound into more total practice, and the hours are the product.</p>
       <div class="pace-picker" role="group" aria-label="Choose your pace">
         <span><strong>Show the plan for:</strong></span>
@@ -166,7 +169,7 @@
         <p>Most people who plan twelve-hour days sustain three. That's fine — the gates don't care. Because progression is check-passed rather than calendar-boxed, the plan never lies about where you are: run immersed for a week, drop to steady for a month, and nothing breaks. Declare your pace in your log, change it when life changes.</p>
       </div>
 
-      <h2><span class="hash">#</span>The shape of a day</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The shape of a day</h2>
       <p>Every core session has the same four slots, about an hour together:</p>
       <table class="keytable">
         <tr><td><strong>⟳ Drill</strong> <span class="muted">20m</span></td><td>Repeat an <em>earlier</em> skill until it's automatic. Skills come back on a fading schedule — about two days after you learn them, then a week, then three weeks. Each session names what to re-drill so you never have to plan it.</td></tr>
@@ -194,7 +197,7 @@
         <p>People finish paced programs together far more often than alone. One friend on the same sequence — even at a different pace — or one person who reads your log weekly changes the odds more than any tool on this site.</p>
       </div>
 
-      <h2><span class="hash">#</span>Let the agent run the schedule</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Let the agent run the schedule</h2>
       <p>Three presets can't capture "90 minutes on weekdays, ten hours on Saturday" — but your agent can, trivially. The log-repo scaffold ships a machine-readable <code>syllabus.md</code> (all 60 sessions, drills, builds, and gates) and a <code>prompts/scheduler.md</code>. Each day, tell the agent your hours; it reads your log and the syllabus and serves a plan sized to exactly the time you have — including which old drills are due for their spaced repeat. You declare intent; it does the bookkeeping. That's the whole Groundwork thesis in miniature.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">a scheduled morning</span></div>
@@ -202,7 +205,7 @@
 <span class="prompt">&gt; </span>Use prompts/scheduler.md. I have 6 hours today.</code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Play your way through it</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Play your way through it</h2>
       <p>If games are what keep you coming back, real ones exist for most of these skills — legitimate substitutes for drill slots and first-class citizens of the immersed drill &amp; game block (never substitutes for the build):</p>
       <table class="keytable">
         <tr><td><a href="https://gitlab.com/slackermedia/bashcrawl" target="_blank" rel="noopener"><strong>bashcrawl</strong></a></td><td>A dungeon crawler that <em>is</em> a folder tree: explore with <code>cd</code>, examine with <code>ls</code>, read scrolls with <code>cat</code>, fight monsters with scripts. The gentlest possible start — Stage 1.</td></tr>
@@ -219,7 +222,7 @@
         <p>Nobody has made a good game for tmux, or for directing agents. If those existed we'd list them; they may yet come from here — the agent itself makes a surprisingly good game master (ask it: "invent a five-level terminal treasure hunt for me in a scratch folder and grade my solutions").</p>
       </div>
 
-      <h2><span class="hash">#</span>How progress is measured</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>How progress is measured</h2>
       <p>Four layers, no gimmicks. No points, no badges, no timers — artifacts, observable skills, and gates.</p>
       <table class="keytable">
         <tr><td><strong>1. The daily log</strong></td><td>Your log is a Git repository — creating it is Session 1. One line per day, committed daily. The streak <em>is</em> <code>git log</code>, so measuring your progress is itself Git practice. Push it to GitHub for public accountability if that motivates you.</td></tr>
@@ -252,7 +255,7 @@ Don't show me how. After the five, tell me: what am I avoiding,
 what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
 
-      <h2><span class="hash">#</span>Agent rules by phase</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Agent rules by phase</h2>
       <p>The agent is present from Session 1 — but what it's <em>allowed to do</em> grows as your fundamentals harden. This ladder is the heart of the plan: an agent that does the work for you in Stage 2 quietly robs you of the practice that makes Stage 10 possible. Each session below has an <em>Agent:</em> line applying these rules; state your phase when you start a session.</p>
       <table class="keytable">
         <tr><td><strong>Stages 1–3<br>Explainer</strong></td><td><em>Allowed:</em> explain commands and concepts, quiz you, point out mistakes after you try, generate practice drills, and (any pace) serve your daily schedule.<br><em>Not allowed:</em> write commands for you to copy blindly, edit files for you, solve a drill before you've attempted it.</td></tr>
@@ -265,7 +268,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
         <p>Because judgment is the skill. An agent can produce working output on Session 1, but the ability to direct, review, and verify that output only grows out of hands-on fluency. You climb the ladder as fast as your gates pass — the restriction is scaffolding, not punishment.</p>
       </div>
 
-      <h2><span class="hash">#</span>The arc</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The arc</h2>
       <table class="keytable">
         <tr><td><strong>Stages 1–3</strong></td><td>Machine fluency: keyboard, terminal, files, the modern shell tools, tmux. Agent explains and quizzes only.</td></tr>
         <tr><td><strong>Stages 4–6</strong></td><td>Craft: Git for real, your editor, pipes and scripts, publishing to GitHub. Agent becomes your reviewer.</td></tr>
@@ -273,7 +276,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
         <tr><td><strong>Stages 10–12</strong></td><td>Direction at scale: narrow agent tasks, then specs, plans, verification, and judgment across whole repos. Capstone.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Stage 1 — Keyboard, terminal, and your log</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 1 — Keyboard, terminal, and your log</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 1</span><span class="ph-committed">Committed: ≈ days 1–4</span><span class="ph-immersed">Immersed: ≈ days 1–2</span></p>
       <p>Reading: <a href="getting-started.html">Getting started</a>. Everything happens in the terminal from the first minute. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
@@ -293,7 +296,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 1</strong> — without the cheat sheet: navigate anywhere and back; create, move, and delete a file; recall a command with <kbd>Ctrl</kbd><kbd>R</kbd>; start, split, detach, and reattach tmux; a commit in your log for every day so far.</p>
 
-      <h2><span class="hash">#</span>Stage 2 — The daily drivers</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 2 — The daily drivers</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 2</span><span class="ph-committed">Committed: ≈ days 4–7</span><span class="ph-immersed">Immersed: ≈ days 3–4</span></p>
       <p>Reading: <a href="shell.html">Shell &amp; CLI</a>. Clone a real project to explore: <code>git clone https://github.com/jasondockery/groundwork ~/code/groundwork-explore</code>. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
@@ -313,7 +316,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 2:</strong> find any file by name and any string by content in a repo you've never seen; jump between three projects with <code>z</code>; resurrect yesterday's commands without retyping them.</p>
 
-      <h2><span class="hash">#</span>Stage 3 — tmux and the machine</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 3 — tmux and the machine</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 3</span><span class="ph-committed">Committed: ≈ days 8–11</span><span class="ph-immersed">Immersed: ≈ days 4–6</span></p>
       <p>Reading: <a href="tmux.html">tmux</a>, plus <a href="macos.html">macOS desktop</a> and <a href="keyboard.html">Keyboard</a>. On Linux/WSL, swap Session 14 for your window manager's equivalents — the tools are choices; the keyboard-first habit is the point. Agent phase: <strong>explainer</strong>.</p>
       <table class="keytable">
@@ -333,7 +336,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 3:</strong> cold start to full workspace in one command; move between editor, terminal, and browser without touching the mouse; survive a detach in the middle of real work.</p>
 
-      <h2><span class="hash">#</span>Stage 4 — Git for real</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 4 — Git for real</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 4</span><span class="ph-committed">Committed: ≈ days 11–14</span><span class="ph-immersed">Immersed: ≈ days 6–7</span></p>
       <p>Reading: <a href="git.html">Git</a>. The Session 1 ritual becomes understanding. Agent phase: <strong>reviewer</strong> — from now on, end each session asking it to critique your commits.</p>
       <table class="keytable">
@@ -353,7 +356,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 4:</strong> stage half a file with <code>add -p</code>; explain what HEAD is in one sentence; undo an unstaged change, a staged change, and a bad commit; branch and merge without consulting anything.</p>
 
-      <h2><span class="hash">#</span>Stage 5 — The editor</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 5 — The editor</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 5</span><span class="ph-committed">Committed: ≈ days 15–18</span><span class="ph-immersed">Immersed: ≈ days 8–9</span></p>
       <p>Reading: <a href="neovim.html">Neovim</a>. If you've chosen VS Code or another editor, do the same drills with its keyboard equivalents — fluent editing is the requirement; the editor is your choice. Agent phase: <strong>reviewer</strong>.</p>
       <table class="keytable">
@@ -373,7 +376,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 5:</strong> make five common edits without arrow keys or mouse; open any file by fuzzy name; move between editor and terminal panes without thinking about it.</p>
 
-      <h2><span class="hash">#</span>Stage 6 — Pipes, scripts, and publishing</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 6 — Pipes, scripts, and publishing</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 6</span><span class="ph-committed">Committed: ≈ days 18–21</span><span class="ph-immersed">Immersed: ≈ days 9–11</span></p>
       <p>Reading: <a href="command-line.html">Command line &amp; Unix</a>, and the remote sections of <a href="git.html">Git</a>. Agent phase: <strong>reviewer</strong>.</p>
       <table class="keytable">
@@ -393,7 +396,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 6:</strong> compose a pipeline from scratch to answer a question; write, run, and lint a script; push a branch and open a PR without looking anything up.</p>
 
-      <h2><span class="hash">#</span>Stage 7 — Programming, by hand</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 7 — Programming, by hand</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 7</span><span class="ph-committed">Committed: ≈ days 22–25</span><span class="ph-immersed">Immersed: ≈ days 11–13</span></p>
       <p>Python via <code>uv</code> — the interpreter is already managed for you (<a href="development.html">Development</a>). Agent phase: <strong>bounded pair</strong> — it may implement <em>after</em> you've written a spec or failing test. Not before.</p>
       <table class="keytable">
@@ -413,7 +416,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 7:</strong> write a loop, a dict lookup, and a function from a blank file; make a failing test pass; read a traceback bottom-up and say what it means before fixing it.</p>
 
-      <h2><span class="hash">#</span>Stage 8 — Data: tables and documents</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 8 — Data: tables and documents</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 8</span><span class="ph-committed">Committed: ≈ days 25–28</span><span class="ph-immersed">Immersed: ≈ days 13–14</span></p>
       <p>Reading: <a href="data.html">Data &amp; storage</a> — foundational forever: every real app is data plus rules about who can change it, and agents write data code you must be able to judge. Agent phase: <strong>bounded pair</strong>.</p>
       <table class="keytable">
@@ -433,7 +436,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 8:</strong> create a table and query it with WHERE/GROUP BY from memory; run the SELECT-before-UPDATE ritual unprompted; explain tables-vs-documents in two sentences using your own data as the example.</p>
 
-      <h2><span class="hash">#</span>Stage 9 — The web: HTTP and a real app</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 9 — The web: HTTP and a real app</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 9</span><span class="ph-committed">Committed: ≈ days 29–32</span><span class="ph-immersed">Immersed: ≈ days 15–16</span></p>
       <p>Reading: <a href="web-dev.html#web-underneath">Web — the web underneath</a>. How programs talk: requests, responses, JSON over the wire. Agent phase: <strong>bounded pair</strong>.</p>
       <table class="keytable">
@@ -453,7 +456,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 9:</strong> explain request/response and a status code in plain words; fetch, store, and serve the same piece of data; find your way around a codebase you've never seen well enough to describe one file's job.</p>
 
-      <h2><span class="hash">#</span>Stage 10 — Directing agents on narrow work</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 10 — Directing agents on narrow work</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 10</span><span class="ph-committed">Committed: ≈ days 32–35</span><span class="ph-immersed">Immersed: ≈ days 16–18</span></p>
       <p>Reading: <a href="editors-ai.html">Editors &amp; AI</a> — the loop, concrete targets, and knowing your budget. This stage the skill under practice <em>is</em> direction. Agent phase: <strong>bounded pair</strong>, deliberately exercised.</p>
       <table class="keytable">
@@ -473,7 +476,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 10:</strong> run the full loop without skipping review; produce a red test an agent can work from; notice a polluted context before it costs you an hour.</p>
 
-      <h2><span class="hash">#</span>Stage 11 — Repo scale: specs, delegation, verification</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 11 — Repo scale: specs, delegation, verification</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 11</span><span class="ph-committed">Committed: ≈ days 36–39</span><span class="ph-immersed">Immersed: ≈ days 18–20</span></p>
       <p>Reading: <a href="agents.html">AI agents &amp; rules</a>, <a href="new-project.html">Starting a project</a>, and the security chop on <a href="agentic-engineering.html">the agentic engineering page</a>. Agent phase: <strong>delegate</strong> — bounded tasks end to end. You own the merge.</p>
       <table class="keytable">
@@ -493,7 +496,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>Gate check 11:</strong> a fresh agent session follows your AGENTS.md without coaching; you catch a plan-reality divergence before merge; the SELECT-before-write and risk-naming habits fire without prompting.</p>
 
-      <h2><span class="hash">#</span>Stage 12 — Capstone</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Stage 12 — Capstone</h2>
       <p class="stage-cadence"><span class="ph-steady">Steady: week 12</span><span class="ph-committed">Committed: ≈ days 39–42</span><span class="ph-immersed">Immersed: ≈ days 20–21</span></p>
       <p>One small, real thing you want to exist — built the way you now work: planned, directed, verified, explained. Agent phase: <strong>delegate</strong>, with you as the engineer of record.</p>
       <table class="keytable">
@@ -511,7 +514,7 @@ what should I repeat next stage, and one thing I did well.</code></pre>
       </div>
       <p><strong>The last day:</strong> the retrospective. Read your whole log start to finish — the person who wrote Day 1 and the person reading it are different people. Then choose what's next.</p>
 
-      <h2><span class="hash">#</span>After the twelfth gate</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>After the twelfth gate</h2>
       <p>You have habits, a portfolio repo, and an agent you know how to direct. Point it at something you love: a week-long <a href="game-dev.html">game</a>, <a href="web-dev.html">web</a>, <a href="app-dev.html">app</a>, or <a href="gen-media.html">media</a> track — immersed pace makes those a natural next month — or straight at <a href="path.html">the longer path</a> toward working like an engineer. The daily log doesn't have to stop; only the schedule does.</p>
 
       <div class="pagenav">

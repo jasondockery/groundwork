@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html" class="active">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,7 +136,7 @@
 
 <div class="trigger"><b>When you'll want this</b> You want an OpenAI agent to read a project, make code or docs changes, run checks, and help you review the result.</div>
 
-<h2><span class="hash">#</span>Which Codex surface to use</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Which Codex surface to use</h2>
 <table class="keytable">
   <tr><td><strong>Codex CLI</strong></td><td>Best when you are already in a terminal or tmux pane. Start it in the project folder, give it a task, approve commands, review the diff, and commit with Git.</td></tr>
   <tr><td><strong>Codex app</strong></td><td>Best for juggling threads, screenshots, longer planning, reviews, and multiple pieces of work in parallel. It is the comfortable cockpit; the CLI is the fast lane.</td></tr>
@@ -146,7 +149,7 @@
   <p>Use the CLI for daily repo work and the app when the work benefits from multiple threads, visual context, or longer-running supervision. Either way, the contract is the same: inspect, plan, edit, verify, review, commit.</p>
 </div>
 
-<h2><span class="hash">#</span>Daily commands</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Daily commands</h2>
 <table class="keytable">
   <tr><td><code>codex</code></td><td>Open the interactive terminal UI in the current project.</td></tr>
   <tr><td><code>codex "explain this repo"</code></td><td>Start with a one-shot prompt from the shell.</td></tr>
@@ -158,7 +161,7 @@
   <tr><td><code>/status</code> &amp; <code>/usage</code></td><td>The two gauges: session config with remaining context capacity, and account usage. Check both before long work — see <a href="ai-budget.html">Know your AI budget</a>.</td></tr>
 </table>
 
-<h2><span class="hash">#</span>The safe loop</h2>
+<h2><span class="hash" aria-hidden="true">#</span>The safe loop</h2>
 <div class="stages">
   <div class="stage"><div class="n">1</div><div class="body"><div class="t">Start in a clean project</div><div class="d">Run <code>git status</code>. Commit or stash unrelated work before handing the agent a larger task.</div></div></div>
   <div class="stage"><div class="n">2</div><div class="body"><div class="t">Ask for inspection first</div><div class="d">Use prompts like: <em>Inspect the repo and tell me the plan before editing files.</em></div></div></div>
@@ -167,12 +170,12 @@
   <div class="stage"><div class="n">5</div><div class="body"><div class="t">Verify and commit</div><div class="d">Run the relevant check, then commit with a message that says what changed and why.</div></div></div>
 </div>
 
-<h2><span class="hash">#</span>Good first prompts</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Good first prompts</h2>
 <div class="prompt-card"><span class="who">inspect</span>Read <code>AGENTS.md</code>, inspect this repo, and summarize the project structure and validation commands. Do not edit files yet.</div>
 <div class="prompt-card"><span class="who">small change</span>Make the smallest change needed to fix this issue. Show me the plan first, then run the relevant validation after editing.</div>
 <div class="prompt-card"><span class="who">review</span>Review my uncommitted changes for correctness, missing tests, docs drift, and risky assumptions. Do not modify files.</div>
 
-<h2><span class="hash">#</span>Official references</h2>
+<h2><span class="hash" aria-hidden="true">#</span>Official references</h2>
 <ul>
   <li><a href="https://developers.openai.com/codex" target="_blank" rel="noopener">OpenAI Codex docs</a> — current entry point for Codex surfaces and workflows.</li>
   <li><a href="https://developers.openai.com/codex/codex-manual.md" target="_blank" rel="noopener">Codex manual</a> — detailed reference for CLI, app, config, skills, plugins, MCP, and permissions.</li>

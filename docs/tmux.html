@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html" class="active">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -181,10 +184,10 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Why bother</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Why bother</h2>
       <p>Without tmux, one terminal window is one shell. With it, you get an editor, a running server, logs, and Git side by side — and if you close the laptop or the connection drops, that whole layout is still there when you come back. That last part, <strong>persistent sessions</strong>, is the feature people fall in love with.</p>
 
-      <h2><span class="hash">#</span>The three ideas</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The three ideas</h2>
       <p>Everything in tmux is one of three things, nested inside each other.</p>
       <ul>
         <li><strong>Session</strong> — a whole workspace for a project. You can have several and jump between them.</li>
@@ -216,7 +219,7 @@
         <figcaption>One session holds windows (like tabs). The open window is split into panes. Sessions keep running even after you detach.</figcaption>
       </figure>
 
-      <h2><span class="hash">#</span>The prefix — the one habit</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The prefix — the one habit</h2>
       <p>Almost every tmux command starts with the <strong>prefix</strong>: press <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>, let go, then tap the next key. It's how tmux knows you're talking to <em>it</em> and not to the program in the pane.</p>
       <p>So "split the pane" is really: <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>|</kbd></span>. Throughout this page, that pattern means <em>prefix, then the key</em>.</p>
       <p>If a program inside the pane needs a literal <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd></span>, send it with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>Ctrl</kbd><kbd>a</kbd></span>.</p>
@@ -225,7 +228,7 @@
         <p>The mouse is enabled: click a pane to focus it, drag a border to resize, scroll to look back. Keys are faster once they stick, but the mouse is a fine way to start.</p>
       </div>
 
-      <h2><span class="hash">#</span>Best-practice shape in this setup</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Best-practice shape in this setup</h2>
       <p>The modern, low-friction pattern is <strong>one tmux session per project</strong>, a few clearly named windows inside it, and panes only where seeing two things at once helps. This repo now uses that pattern directly:</p>
       <table class="keytable">
         <tr><td><strong>sesh</strong></td><td>Jump to an existing session or create one from a project folder with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>T</kbd></span></td></tr>
@@ -236,7 +239,7 @@
       <p>A good default shape for a project session is four named windows: <strong>edit</strong> for the editor or coding agent, <strong>shell</strong> for general commands, <strong>run</strong> for the dev server or test watcher, and <strong>git</strong> for lazygit and review. Create a window with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>c</kbd></span> and name it with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>,</kbd></span>; resurrect snapshots keep the layout across restarts. Skip the permanent file-tree pane: <code>lt</code> shows a repo's shape on demand, and the fzf pickers (<span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span> files, <span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span> folders) pop up, do their job, and get out of the way.</p>
       <p>That keeps the daily workflow simple: use <strong>sesh</strong> to move around, let <strong>continuum</strong> snapshot your state, and reach for <strong>tmuxp</strong> only when a project has a layout worth sharing or recreating from scratch.</p>
 
-      <h2><span class="hash">#</span>The essential moves</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The essential moves</h2>
       <p>This is the custom keymap on this setup. You don't need all of it on day one — the panes and sessions rows are what matter first.</p>
 
       <h3>Panes</h3>
@@ -340,7 +343,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Selecting and copying: one owner per place</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Selecting and copying: one owner per place</h2>
       <p>Selection lives in layers, and knowing which one you're in is the whole trick. <strong>Outside tmux</strong>, Ghostty owns the scrollback and the selection. <strong>Inside a tmux pane</strong>, tmux owns the history, search, and selection — that's why a terminal's "select last output" can't reach into a pane, and why <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>[</kbd></span> is the way in. Inside a pane running a <strong>mouse-aware app</strong> (Neovim, lazygit), that app owns the mouse. The mouse is a convenience; the keyboard copy is the skill that travels — over SSH, on any terminal, from a trackpad or a keyboard.</p>
       <div class="callout note">
         <span class="label">Which layer am I in?</span>
@@ -374,7 +377,7 @@ q               leave</code></pre>
         <p>Running <code>chezmoi apply</code> inside tmux is okay. First check whether the command is simply busy: tool installs such as <code>uv</code>, <code>mise</code>, or Homebrew can sit quietly during downloads. From another pane, <code>ps aux | rg -i 'uv|mise|brew|aider'</code> can confirm. If nothing is running and output still seems frozen, press <kbd>Ctrl</kbd><kbd>Q</kbd>; <kbd>Ctrl</kbd><kbd>S</kbd> can freeze terminal output through flow control. Stop a truly stuck command with <kbd>Ctrl</kbd><kbd>C</kbd>. If tmux itself feels confused after a tmux/plugin update, detach with <span class="keys"><kbd>Ctrl</kbd><kbd>a</kbd> <span class="then">then</span> <kbd>d</kbd></span>, open a fresh Ghostty tab, and reattach with <code>tmux attach</code>.</p>
       </div>
 
-      <h2><span class="hash">#</span>Project layouts as code</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Project layouts as code</h2>
       <p>Two layers, one rule: the repo owns the <em>commands</em> (its package scripts and CLI), and your own config owns the <em>arrangement</em>. Personal session recipes live in <code>~/.config/sesh/sesh.toml</code> — a name, a folder, and a startup command per project, so the <span class="keys"><kbd>prefix</kbd> <kbd>T</kbd></span> switcher opens a project already doing something useful. Groundwork seeds that file with examples to copy.</p>
       <p>When a project always wants the same <em>multi-window</em> arrangement — editor, agent, server, tests, logs — store that as <code>.tmuxp.yaml</code> in the project. That is the shareable version for teams and students. Resurrect restores whatever you personally had open; tmuxp starts a known layout from a file.</p>
       <div class="terminal">
@@ -407,7 +410,7 @@ windows:
         <p>Commit <code>.tmuxp.yaml</code> only when it helps someone else start the project. Do not put secrets, personal paths outside the repo, or one-off local commands in it. For private variations, use a local ignored file such as <code>.tmuxp.local.yaml</code>.</p>
       </div>
 
-      <h2><span class="hash">#</span>The plugins</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The plugins</h2>
       <p>Most of what makes this tmux pleasant isn't tmux itself — it's a handful of plugins, managed by <strong>TPM</strong> (the Tmux Plugin Manager). You rarely touch them after install, but knowing what each one does explains where the magic comes from.</p>
 
       <h3>Managing them — TPM</h3>
@@ -464,7 +467,7 @@ windows:
       <h3>The look — Catppuccin</h3>
       <p>The rounded, pastel status bar is the <strong>Catppuccin</strong> theme (the <code>mocha</code> flavor — the same palette as this guide, Ghostty, and your editor). The status line is built from composable modules: session name on the left, app/host/clock on the right. It's purely cosmetic; nothing breaks if you change or remove it. To try another flavor, set <code>@catppuccin_flavor</code> in the config to <code>latte</code> (light), <code>frappe</code>, or <code>macchiato</code>, then reload.</p>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <p>When the basics feel automatic, these run from a gentle intro to the full reference:</p>
       <ul>
         <li><a href="https://github.com/tmux/tmux/wiki/Getting-Started" target="_blank" rel="noopener">Official tmux wiki: Getting Started</a> — the canonical intro to sessions, windows, and panes.</li>

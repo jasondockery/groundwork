@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html" class="active">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -154,7 +157,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>A bigger toolkit</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>A bigger toolkit</h2>
       <p>Beyond moving around, these are the verbs you'll use constantly. (This setup swaps a few for nicer versions — <code>ls</code>→eza, <code>cat</code>→bat, and <code>grep</code>/<code>find</code> have faster cousins <code>rg</code>/<code>fd</code> on the <a href="shell.html">Shell page</a> — but the classics below are everywhere, so they're worth knowing by name.)</p>
       <table class="keytable">
         <tr><td><code>cp</code> <em>src dst</em></td><td>Copy a file (<code>cp -r</code> for a folder)</td></tr>
@@ -171,7 +174,7 @@
         <tr><td><code>chmod</code> / <code>chown</code></td><td>Change a file's permissions / owner</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>The big idea: small tools, piped together</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The big idea: small tools, piped together</h2>
       <p>This is the heart of Unix and the reason the command line is so powerful: each tool does one thing, and you connect them. A <strong>pipe</strong> (<code>|</code>) feeds one command's output into the next; a <strong>redirect</strong> (<code>&gt;</code>) sends output to a file. Chain a few and you've built something none of them does alone.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">composing commands</span></div>
@@ -187,14 +190,14 @@
         <tr><td><code>&lt; file</code></td><td>Feed a file <strong>in</strong> as a command's input</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Permissions &amp; <code>sudo</code></h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Permissions &amp; <code>sudo</code></h2>
       <p>Every file records who may read, write, and execute it. You'll mostly meet this in two places: making a script <em>executable</em>, and being told "permission denied." <code>chmod +x file</code> grants the run permission. And <code>sudo</code> runs a single command as the all-powerful "root" admin — necessary sometimes, but pause and read any command you're about to <code>sudo</code>, because root can change anything.</p>
       <div class="callout warn">
         <span class="label">Two commands to truly respect</span>
         <p><code>rm -rf</code> deletes a folder and everything under it with no undo, and <code>sudo</code> removes the guardrails. They're normal tools — but read them twice before pressing <kbd>Enter</kbd>, especially if a path has a variable in it.</p>
       </div>
 
-      <h2><span class="hash">#</span>Writing your first script</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Writing your first script</h2>
       <p>A <strong>shell script</strong> is just a file of commands the shell runs top to bottom — the natural next step once you're typing the same sequence repeatedly. Three things make a script: a "shebang" line naming the interpreter, the commands, and the executable permission.</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">greet.sh</span></div>
@@ -213,7 +216,7 @@ done</code></pre>
       </div>
       <p>From there the language grows: variables (<code>name="x"</code>, used as <code>$name</code>), conditionals (<code>if</code>), loops (<code>for</code>, <code>while</code>), and functions. The <a href="setup.html">setup's own <code>run_</code> scripts</a> are real-world examples you can read. Two habits that save hours: start every script with <code>set -euo pipefail</code>, and run it through <strong>ShellCheck</strong> (linked below) — it catches the classic mistakes before they bite.</p>
 
-      <h2><span class="hash">#</span>So what <em>is</em> Unix? (and where your Mac fits)</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>So what <em>is</em> Unix? (and where your Mac fits)</h2>
       <p>You'll hear "Unix," "Linux," and "macOS" used loosely. Here's the real picture — it explains why some commands you copy from the internet behave differently on a Mac.</p>
 
       <h3>One ancestor, two branches</h3>
@@ -243,7 +246,7 @@ done</code></pre>
         <p>If you want the Linux behavior, install the GNU versions: <code>brew install coreutils gnu-sed findutils grep</code>. Homebrew names them with a <code>g</code> prefix (<code>gsed</code>, <code>gdate</code>, <code>gls</code>) so they don't shadow the system ones. Also worth knowing: your Mac's default shell has been <strong>zsh</strong> since macOS Catalina (2019), and the built-in <code>/bin/bash</code> is frozen at an ancient 3.2 — <code>brew install bash</code> if you need a modern one.</p>
       </div>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -266,7 +269,7 @@ done</code></pre>
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <p><strong>Learn the basics:</strong></p>
       <ul>
         <li><a href="https://linuxcommand.org/tlcl.php" target="_blank" rel="noopener">The Linux Command Line</a> (William Shotts) — the best free book for newcomers, first commands through scripting. Free PDF, kept current.</li>

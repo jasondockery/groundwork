@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html" class="active">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -136,7 +139,7 @@
         <p>Small personal additions go in <code>.local</code> files. Machine settings go through <code>groundwork-configure</code> and are stored in <code>~/.config/chezmoi/chezmoi.toml</code>. Full ownership of a managed file means ignore it or maintain your own fork.</p>
       </div>
 
-      <h2><span class="hash">#</span>Tier 1: local override files</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Tier 1: local override files</h2>
       <p>Use this for the normal case: a few aliases, a different Git preference, or one tmux binding. These files are not managed by Groundwork, and they load after the shared defaults, so your local choices win.</p>
       <table class="keytable">
         <tr><td><code>~/.zshrc.local</code></td><td>Shell aliases, functions, exports, PATH additions, and prompt-adjacent tweaks.</td></tr>
@@ -150,14 +153,14 @@ EOF
 <span class="prompt">$ </span>source ~/.zshrc</code></pre></div>
       <p>Some managed files have no <code>.local</code> overlay — <code>starship.toml</code>, the Ghostty config, <code>~/.claude/keybindings.json</code>. For those, edit the managed source so your change and Groundwork's stay in one place: <code>chezmoi edit --apply ~/.claude/keybindings.json</code>. Your edit lives in your local copy of the source; if a later Groundwork update touches the same file, Git shows a visible conflict instead of silently overwriting you. If you find yourself diverging heavily from upstream in one of these files, that's Tier 3.</p>
 
-      <h2><span class="hash">#</span>Tier 2: change machine settings</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Tier 2: change machine settings</h2>
       <p>Groundwork stores machine-local settings in <code>~/.config/chezmoi/chezmoi.toml</code>. Use the guarded settings editor rather than replaying bootstrap: it starts from the current values, changes only what you select, previews the managed-file diff, and applies the selected desired state only after confirmation. <code>update-all</code> owns subsequent upgrades and maintenance.</p>
       <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">machine-local settings</span></div><pre><code><span class="prompt">$ </span>groundwork-configure
 <span class="comment"># focused release-posture shortcut:</span>
 <span class="prompt">$ </span>groundwork-profile set preview</code></pre></div>
       <p>Use this tier for independently mutable environment role and stable-versus-preview release posture, dependent Xcode beta, and for revisiting baseline answers such as work-vs-personal machine, Git identity, password manager, code directory, reset behavior, signing key, and Obsidian vault name. Xcode beta is offered only while Xcode is enabled; disabling Xcode clears that dependent preference in the same visible receipt. Plain <code>chezmoi init</code> regenerates from saved answers; it is not the settings editor.</p>
 
-      <h2><span class="hash">#</span>Tier 3: full ownership</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Tier 3: full ownership</h2>
       <p>If you want to fully own an entire file, do not keep fighting <code>chezmoi apply</code>. Either ignore that file for this machine or maintain a fork.</p>
       <table class="keytable">
         <tr><td><strong>Ignore a file locally</strong></td><td>Use when one machine should stop receiving a managed file from Groundwork. Add the path to your local chezmoi ignore setup only after deciding you really want full ownership.</td></tr>

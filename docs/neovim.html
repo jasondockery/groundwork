@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -149,7 +152,7 @@
         </div>
       </div>
 
-      <h2><span class="hash">#</span>The one idea: modes</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The one idea: modes</h2>
       <p>Every other editor is always in "typing" mode. Neovim has <strong>modes</strong>, and this is the whole thing to understand. In <strong>Normal</strong> mode — where you start — the keys aren't letters, they're commands: <kbd>d</kbd> deletes, <kbd>y</kbd> copies, <kbd>j</kbd> moves down. To actually type text, you switch to <strong>Insert</strong> mode. To do anything else, you come back to Normal. Normal mode is home base.</p>
 
       <figure class="diagram">
@@ -191,7 +194,7 @@
         <p>Lost, or keys doing strange things? Press <kbd>Esc</kbd>. It returns you to Normal mode from anywhere. This single habit fixes ninety percent of "Neovim is broken" moments.</p>
       </div>
 
-      <h2><span class="hash">#</span>Surviving your first session</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Surviving your first session</h2>
       <p>Yes — the classic question is "how do I get <em>out</em>." Here's the whole survival kit. Open a file with <code>nvim &lt;name&gt;</code> (or just <code>vim</code>, which is aliased to it here).</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>i</kbd></span></td><td>Enter Insert mode and start typing</td></tr>
@@ -203,7 +206,7 @@
       </table>
       <p>Those <code>:</code> commands are Command mode. Type the colon, the letters, then <kbd>Enter</kbd>. That's enough to never feel trapped again.</p>
 
-      <h2><span class="hash">#</span>Moving around</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Moving around</h2>
       <p>In Normal mode you fly without arrow keys (though arrows work too). Your right hand stays on the home row.</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></span></td><td>Left, down, up, right</td></tr>
@@ -213,7 +216,7 @@
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>d</kbd> / <kbd>Ctrl</kbd><kbd>u</kbd></span></td><td>Half a page down / up</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Editing is a little language</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Editing is a little language</h2>
       <p>This is the part that makes people fall for Neovim. Edits are built from a <strong>verb plus a motion</strong>, and they combine like grammar. Learn a few verbs and a few motions and you can express thousands of edits.</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>d</kbd></span></td><td>Delete &nbsp;&middot;&nbsp; <kbd>c</kbd> change &nbsp;&middot;&nbsp; <kbd>y</kbd> yank (copy) &nbsp;&middot;&nbsp; <kbd>p</kbd> paste</td></tr>
@@ -224,7 +227,7 @@
       </table>
       <p>Read them aloud: <kbd>d</kbd><kbd>w</kbd> is "delete word," <kbd>c</kbd><kbd>i</kbd><kbd>w</kbd> is "change inside word." Once the grammar clicks, you stop memorizing keys and start composing them.</p>
 
-      <h2><span class="hash">#</span>It's already set up: LazyVim</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>It's already set up: LazyVim</h2>
       <p>You're not running bare Neovim — it's configured with <strong>LazyVim</strong>, which adds a file tree, fuzzy finding, autocomplete, and language smarts out of the box. The gateway to all of it is the <strong>leader key</strong>, which is <kbd>Space</kbd>.</p>
       <div class="callout tip">
         <span class="label">The best trick for learning: which-key</span>
@@ -237,10 +240,10 @@
         <tr><td><span class="keys"><kbd>Space</kbd><kbd>g</kbd><kbd>g</kbd></span></td><td>Open lazygit right inside the editor</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>It plays nice with tmux</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>It plays nice with tmux</h2>
       <p>Neovim and <a href="tmux.html">tmux</a> are wired together: <span class="keys"><kbd>Alt</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> moves between Neovim's split windows <em>and</em> tmux's panes with the same keys — no thinking about which is which. Open the editor in one tmux pane, a shell in another, and move around the whole layout seamlessly.</p>
 
-      <h2><span class="hash">#</span>Practice</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Practice</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -275,10 +278,10 @@
         <p>Plan on a couple of awkward weeks; every Neovim user had them. You can't break anything permanently — the config lives in the setup repo, so if Neovim ever gets strange, re-applying restores it. Push through the dip and it becomes second nature.</p>
       </div>
 
-      <h2><span class="hash">#</span>Lua and config files</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Lua and config files</h2>
       <p>Modern Neovim is configured mostly with <strong>Lua</strong>, a small scripting language. You can use this setup without learning Lua first. Just know that files ending in <code>.lua</code> are editor configuration or plugin code, and <code>:help lua-guide</code> is the built-in reference when you want to go deeper.</p>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <p><strong>Start — learn the motions:</strong></p>
       <ul>
         <li><code>vimtutor</code> (or <code>:Tutor</code> in Neovim) — the built-in ~30-minute lesson. Start here, really.</li>

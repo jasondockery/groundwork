@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,9 +43,11 @@
       <span class="name">Groundwork</span>
       </a>
       <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
     </div>
-    <nav class="nav-group">
-      <h4>Start here</h4>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group">
+      <h2 class="nav-heading">Start here</h2>
       <a href="index.html">Overview</a>
       <a href="why.html">Why Groundwork</a>
       <a href="path.html">The path</a>
@@ -53,17 +55,17 @@
       <a href="getting-started.html">Getting started</a>
       <a href="practice.html">Practice plan</a>
       <a href="groundwork-twelve.html">Groundwork Twelve</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Set up</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Set up</h2>
       <a href="setup.html">Setup &amp; chezmoi</a>
       <a href="platforms.html">Platforms</a>
       <a href="customizing.html">Customizing</a>
       <a href="development.html">Development</a>
       <a href="installed.html">What&apos;s installed</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Foundations</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
       <a href="tmux.html">tmux</a>
@@ -73,53 +75,54 @@
       <a href="lazygit.html">lazygit</a>
       <a href="data.html">Data &amp; storage</a>
       <a href="editors-ai.html">Editors &amp; AI</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Daily workflow</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Daily workflow</h2>
       <a href="workflow.html">Everyday workflow</a>
       <a href="repo-navigation.html">Repo navigation</a>
       <a href="new-project.html">Starting a project</a>
       <a href="knowledge.html">Knowledge base</a>
       <a href="dependencies.html">Dependencies</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Directing agents</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Directing agents</h2>
       <a href="agents.html">AI agents &amp; rules</a>
       <a href="worktrees.html">Worktrees &amp; parallel agents</a>
       <a href="specs.html">Specs &amp; targets</a>
       <a href="skills-playbooks.html">Skills &amp; playbooks</a>
       <a href="ai-budget.html">Know your AI budget</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>AI tools</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">AI tools</h2>
       <a href="claude.html">Claude &amp; Claude Code</a>
       <a href="codex.html">Codex UI &amp; CLI</a>
       <a href="gpt.html">GPT &amp; ChatGPT</a>
       <a href="glm.html">GLM &amp; open models</a>
       <a href="grok.html">Grok &amp; Grok Build</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Interest tracks</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Interest tracks</h2>
       <a href="game-dev.html">FPS &middot; Browser</a>
       <a href="game-dev-unity.html">FPS &middot; Unity</a>
       <a href="game-dev-learn.html">FPS &middot; Learn dev</a>
       <a href="web-dev.html">Web &amp; sites</a>
       <a href="app-dev.html">Apps</a>
       <a href="gen-media.html">Image &amp; video</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Mac desktop</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Mac desktop</h2>
       <a href="macos.html">macOS desktop</a>
       <a href="keyboard.html">Keyboard</a>
       <a href="apps.html" class="active">Apps &amp; browsers</a>
-    </nav>
-    <nav class="nav-group">
-      <h4>Reference</h4>
+    </section>
+    <section class="nav-group">
+      <h2 class="nav-heading">Reference</h2>
       <a href="cheatsheet.html">Cheat sheet</a>
       <a href="commands.html">Command catalog</a>
       <a href="glossary.html">Glossary</a>
       <a href="resources.html">Resource library</a>
       <a href="troubleshooting.html">Troubleshooting</a>
+    </section>
     </nav>
     <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
   <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
@@ -133,7 +136,7 @@
 
       <div class="trigger"><b>When you'll want this</b> Switching between browsers, notes, launchers, and references is breaking your development flow.</div>
 
-      <h2 id="configuration-boundary"><span class="hash">#</span>What Groundwork can configure</h2>
+      <h2 id="configuration-boundary"><span class="hash" aria-hidden="true">#</span>What Groundwork can configure</h2>
       <p>Groundwork should only automate settings that live in stable files, templates, or documented macOS defaults. Many Mac apps keep their real state in app databases, account sync, Keychain, iCloud, or per-device stores; those should stay in the app that owns them.</p>
       <table class="keytable">
         <tr><td><strong>Managed by Groundwork</strong></td><td>Shell, Git, tmux, Neovim, Ghostty, Karabiner merge config, selected macOS defaults, the profile-selected Chrome channel, Chrome password-manager policy, browser/Raycast extension checklists, and Obsidian vault/plugin seed files.</td></tr>
@@ -145,7 +148,7 @@
         <p>It would look automated for a moment and then drift. Raycast, Anybox, BetterDisplay, and password managers are allowed to change their private storage, encrypt it, sync it, or rewrite it on launch. Groundwork keeps those steps short and repeatable instead of reverse-engineering state that the app owns.</p>
       </div>
 
-      <h2 id="link-workflow"><span class="hash">#</span>One link workflow</h2>
+      <h2 id="link-workflow"><span class="hash" aria-hidden="true">#</span>One link workflow</h2>
       <p>You can choose another capable browser, launcher, or bookmark manager. If you use the installed Chrome, Raycast, and Anybox stack, give each tool one clear job instead of maintaining three competing libraries.</p>
       <div class="callout key">
         <span class="label">One owner for each job</span>
@@ -158,7 +161,7 @@
       </table>
       <p>The daily loop is short: save a page to Anybox with <code>as</code> or the browser extension, leave it in Unsorted when you are busy, and retrieve it with <code>ab</code>. Once a week, empty Unsorted, remove dead or duplicated links, and demote anything that no longer deserves space in Chrome or a Raycast Quicklink.</p>
 
-      <h2><span class="hash">#</span>Browsers</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Browsers</h2>
       <table class="keytable">
         <tr><td><strong>Chrome stable</strong></td><td>The managed default for Personal Current and Work Managed. Preview profiles retain it as a compatibility fallback.</td></tr>
         <tr><td><strong>Chrome Beta</strong></td><td>The managed primary browser for Personal Preview and Disposable Experimental on a desktop Mac. It installs beside stable Chrome.</td></tr>
@@ -192,7 +195,7 @@
         <tr><td><strong>iOS / iPadOS</strong></td><td>Install Bitwarden, sign in, then Settings → General → AutoFill &amp; Passwords: enable Bitwarden and disable Passwords if you want the same source of truth on mobile.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Raycast — the launcher</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Raycast — the launcher</h2>
       <p>Raycast is the single biggest quality-of-life app here. One keystroke opens a search box that launches apps, does math, manages windows, remembers your clipboard, and runs little commands — so your hands stay off the mouse. It's meant to take over <span class="keys"><kbd>⌘</kbd><kbd>Space</kbd></span> from Spotlight.</p>
       <p>From a shell, <code>open -a &lt;App&gt;</code> is the direct macOS path when the app name is already known. Raycast remains the better path when you want to search rather than remember the exact name.</p>
       <table class="keytable">
@@ -260,7 +263,7 @@
         <tr><td><strong>Prefer Link Icons in Icons view</strong></td><td>Off — only matters if icon view is enabled.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>Anybox — bookmarks</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Anybox — bookmarks</h2>
       <p>Anybox is the durable source of truth for saved links. It supports nested folders, nested tags, Smart Lists, Quick Find, and iCloud sync, so the library stays useful without depending on one browser's bookmark database.</p>
       <h3>Using it day to day</h3>
       <p>Three motions cover it: <strong>save</strong>, <strong>organize</strong>, <strong>recall</strong>.</p>
@@ -284,7 +287,7 @@
         <p>Anybox is bought once from the App Store — the setup can't purchase it for you. Buy and sign in there first; after that it updates and syncs on its own. There is no AI switch you need for this workflow; Anybox is the link library, not the AI layer.</p>
       </div>
 
-      <h2><span class="hash">#</span>BetterDisplay — resolutions and monitors</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>BetterDisplay — resolutions and monitors</h2>
       <p>BetterDisplay owns the display layer: menu-bar resolution changes, favorite display modes, refresh rates, brightness/DDC controls for supported monitors, and protection against layouts drifting when displays reconnect. Raycast moves windows; BetterDisplay changes the screens those windows live on.</p>
       <table class="keytable">
         <tr><td><strong>Resolution menu</strong></td><td>Switch between favorite scaled resolutions without digging through System Settings</td></tr>
@@ -298,7 +301,7 @@
         <p>BetterDisplay has a free tier and a paid Pro license. For work or contract teams, check the license before relying on Pro features.</p>
       </div>
 
-      <h2><span class="hash">#</span>Obsidian — notes</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Obsidian — notes</h2>
       <p>Obsidian is a notes app where every note is a plain markdown file you own. Notes link to each other with <code>[[double brackets]]</code>, building a web of ideas you can navigate visually. The setup points it at an iCloud vault so your notes follow you to every Mac and the mobile app.</p>
       <div class="callout note">
         <span class="label">Vim mode is on</span>
@@ -318,7 +321,7 @@
         <tr><td><strong>Claude Code over notes</strong></td><td>For AI chat over a vault, point Claude Code at the vault or the generated knowledge-wiki folder so changes happen through files you can review.</td></tr>
       </table>
 
-      <h2><span class="hash">#</span>The terminal window: Ghostty</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>The terminal window: Ghostty</h2>
       <p>Everything in the rest of this guide — the shell, tmux, Neovim — runs inside <strong>Ghostty</strong>, a fast, modern terminal app themed to match the rest of the setup. It's the window; <a href="tmux.html">tmux</a> does the splitting inside it. Worth knowing: <span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span> clears the screen.</p>
       <div class="callout note">
         <span class="label">Font choice</span>
@@ -334,7 +337,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
         <p>A fresh Ghostty launch opens in your home folder (<code>~</code>). New tabs, windows, and splits inherit the folder you are already working in, so quick side shells stay near the task. tmux owns project persistence and restoration; Ghostty stays a clean window around it.</p>
       </div>
 
-      <h2><span class="hash">#</span>Communication</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Communication</h2>
       <p>Rounding out the set, installed and ready to sign into:</p>
       <table class="keytable">
         <tr><td><strong>Slack</strong> &middot; <strong>Zoom</strong></td><td>Team chat and calls</td></tr>
@@ -342,7 +345,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
         <tr><td><strong>WhatsApp</strong></td><td>Personal messaging</td></tr>
       </table>
 
-      <h2 id="uninstalling-apps"><span class="hash">#</span>Uninstalling apps without leaving a mess</h2>
+      <h2 id="uninstalling-apps"><span class="hash" aria-hidden="true">#</span>Uninstalling apps without leaving a mess</h2>
       <p>Groundwork installs AppCleaner on personal Macs, but it is the fallback, not the universal first step. The installer that owns an app usually knows more about its login items, extensions, privileged helpers, and shared data than a generic cleaner can infer.</p>
       <ol>
         <li><strong>Vendor uninstaller first.</strong> If the app includes an uninstall command or removal app, use it.</li>
@@ -352,7 +355,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
       </ol>
       <p>Use <code>largest ~</code> before and after cleanup when you want evidence that the space changed. Apple’s Storage settings remain the safest overview for user files and system recommendations.</p>
 
-      <h2><span class="hash">#</span>First-time setup</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>First-time setup</h2>
       <div class="drill">
         <div class="num">1</div>
         <div class="body">
@@ -389,7 +392,7 @@ font-family = JetBrainsMono Nerd Font</code></pre>
         </div>
       </div>
 
-      <h2><span class="hash">#</span>Going deeper</h2>
+      <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://support.google.com/chrome/" target="_blank" rel="noopener">Chrome help</a> &middot; <a href="https://manual.raycast.com" target="_blank" rel="noopener">Raycast manual</a> &middot; <a href="macos.html">macOS desktop</a></li>
         <li><a href="https://anybox.app/getting-started" target="_blank" rel="noopener">Anybox Getting Started</a> &middot; <a href="https://manual.raycast.com/quicklinks" target="_blank" rel="noopener">Raycast Quicklinks</a> &middot; <a href="https://betterdisplay.pro/" target="_blank" rel="noopener">BetterDisplay</a> &middot; <a href="https://help.obsidian.md" target="_blank" rel="noopener">Obsidian help</a></li>

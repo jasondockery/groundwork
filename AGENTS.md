@@ -171,6 +171,10 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
 
 ## Mandatory skill triggers
 Load the skill before the first edit in its area.
+- **`skills/inclusive-product-foundation`** — any new or materially changed
+  user-facing CLI, documentation, interface, media, or persistent-data surface.
+  Use its dispatcher to load only the shared inclusion specialists that apply;
+  Groundwork keeps product-specific implementation and proof here.
 - **`skills/dependency-change`** — dependencies, runtime pins, actions, images,
   lockfiles, generated dependency artifacts, or update policy. Load the narrower
   Groundwork skill too when one is named below.

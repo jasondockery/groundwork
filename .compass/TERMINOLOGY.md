@@ -38,6 +38,26 @@ domain-specific states.
 - **Deployed acceptance** — bounded evidence against the actual deployed bytes
   and environment, bound to the deployed source identity.
 
+## Inclusive-product evidence
+
+- **Accessibility target** — the named standard and level an applicable
+  surface is intended to satisfy, such as WCAG 2.2 Level AA. A target is a
+  requirement, not evidence that conformance has been demonstrated.
+- **Automated accessibility gate** — machine-checkable evidence for the rules
+  and states the configured tool can observe. A passing gate is not a WCAG
+  conformance claim.
+- **Manual accessibility evaluation** — documented knowledgeable human
+  evaluation at the relevant keyboard, assistive-technology, visual,
+  cognitive, motion, zoom/reflow, and device boundaries.
+- **Conformance claim** — an assertion that an identified scope conforms to a
+  named standard and level, backed by the evaluation and documentation that
+  standard requires. Automated evidence alone is insufficient.
+- **Lab performance evidence** — a repeatable observation in a controlled
+  environment. It is not field or real-user evidence.
+- **Field performance evidence** — observed real-user behavior bound to the
+  declared population, percentile, device segments, period, and product
+  identity.
+
 ## Authority terms
 
 - **Field failure** — a defect first observed outside the normal local proof
