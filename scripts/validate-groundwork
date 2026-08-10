@@ -3100,6 +3100,12 @@ printf '%s\n' "$$" >"$GROUNDWORK_POLICY_PID_FILE"
 trap '' TERM
 while :; do sleep 1; done
 SH
+  policy_delayed_failure="$cleanup_fixture/policy-delayed-failure"
+  cat >"$policy_delayed_failure" <<'SH'
+#!/usr/bin/env bash
+sleep 0.05
+exit 1
+SH
   policy_grandchild="$cleanup_fixture/policy-grandchild"
   cat >"$policy_grandchild" <<'SH'
 #!/usr/bin/env bash
@@ -3124,22 +3130,32 @@ kill -TERM "$GROUNDWORK_POLICY_RUNNER_PID"
 trap '' TERM
 while :; do sleep 1; done
 SH
-  chmod +x "$policy_harness" "$policy_hostile" "$policy_grandchild" \
-    "$policy_failed_grandchild" "$policy_launch_interrupt"
+  chmod +x "$policy_harness" "$policy_hostile" "$policy_delayed_failure" \
+    "$policy_grandchild" "$policy_failed_grandchild" "$policy_launch_interrupt"
 
   policy_pid_file="$cleanup_fixture/policy.pid"
-  GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
-    "$policy_harness" "$policy_runner" "completed command" /usr/bin/true \
+  # Normal completion and failure use the full fixture meta-watchdog. They
+  # return immediately after the observed child exit, while avoiding a race
+  # between a two-tick hostile-test deadline and process startup on a loaded
+  # runner. Only deliberately hostile cases below accelerate the tick ceiling
+  # after they publish a readiness receipt.
+  "$policy_harness" "$policy_runner" "completed command" /usr/bin/true \
     >"$cleanup_fixture/policy-completed" 2>&1 \
     || fail "the fixture policy watchdog did not reap a completed command"
   set +e
-  GROUNDWORK_POLICY_COMMAND_DEADLINE_TICKS=2 \
-    "$policy_harness" "$policy_runner" "failed command" /usr/bin/false \
+  "$policy_harness" "$policy_runner" "failed command" /usr/bin/false \
     >"$cleanup_fixture/policy-failed" 2>&1
   cleanup_status=$?
   set -e
   [[ "$cleanup_status" -eq 1 ]] \
     || fail "the fixture policy watchdog changed command status 1 to $cleanup_status"
+  set +e
+  "$policy_harness" "$policy_runner" "delayed failed command" "$policy_delayed_failure" \
+    >"$cleanup_fixture/policy-delayed-failed" 2>&1
+  cleanup_status=$?
+  set -e
+  [[ "$cleanup_status" -eq 1 ]] \
+    || fail "the fixture policy watchdog changed a delayed command status 1 to $cleanup_status"
 
   rm -f -- "$policy_pid_file"
   set +e
