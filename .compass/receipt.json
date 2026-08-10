@@ -3,23 +3,23 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "94c7770e4b7d2e8652763ad16c4dba4eb181c8a4",
-    "tree": "054dcf341b37b04a3bbe8175202bc26ffb272708",
-    "fingerprintSha256": "24f7c2f58d2641614c0da9cefa567ba2983caf5b37520e2ff1cf19449bce8db0",
+    "commit": "ef18a2f81a5c6ca14b681e7352b5302ff93f8527",
+    "tree": "dc969c5df71c6a823d222599726e268bb14cdd2f",
+    "fingerprintSha256": "19ea84993a68a3d087504ed7103abea1ba94968141111402c7df344426306bd4",
     "dirty": false
   },
-  "artifactSha256": "ba5441a9975d6f0d3a72ffc764d84ecbb594a6fa21ab010682457ac6f2bb7e4c",
-  "artifactBytes": 79802,
+  "artifactSha256": "7581b219652f3f1650f405361c03cbfb4c7f659c646f030fec538481225e3a15",
+  "artifactBytes": 88719,
   "includedFiles": [
     {
       "path": "COMPASS.md",
-      "sha256": "70fdbc055b23b70b1c39a898a6873f684adb0b1dffc9fca56a1143ff47a67abb",
-      "bytes": 8355
+      "sha256": "550b34b43630aa5170b051ea7ba15e1ee8466ad73344302e8c81be663075567d",
+      "bytes": 11310
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "cf26f288f2f8f29e8aa89b4696672bf54861d9ffe5ae0f500067a0d28bed5efe",
-      "bytes": 4255
+      "sha256": "5d87836d137db9fff2a52b0109a436a44b75d3ce7718ab64ef3417c290d94b72",
+      "bytes": 6166
     },
     {
       "path": "scripts/check-projection.mjs",
@@ -88,8 +88,8 @@
     },
     {
       "path": "skills/performance-sensitive-change/SKILL.md",
-      "sha256": "732aeac54033c679900ba30e75dd6c5e2db97c9bbbb40763cd5a5e7ac2dcc141",
-      "bytes": 3131
+      "sha256": "339bd3fb63ad09bafaff28174b88c332b821bf6bd138028e9b833e0d8f06ef5b",
+      "bytes": 4953
     },
     {
       "path": "skills/performance-sensitive-change/agents/openai.yaml",
@@ -129,7 +129,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "face36ace31e22df4eb50ae96fd79a4685de4fb062768c256e21d35093640c31",
+    "receiptSha256": "337615e14aecaf29f9c7aaaede99ccf1c9c173310b7e5390aa589ecb2918a1ca",
     "command": "scripts/validate-compass"
   }
 }

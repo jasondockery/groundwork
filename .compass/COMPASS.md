@@ -9,6 +9,68 @@ users. Complexity must be earned by a demonstrated requirement.
 
 Evidence earns complexity; measurement keeps it.
 
+## Foundational identity and reference authority
+
+Foundational identity and reference concepts have one canonical authority.
+Preserve these separations:
+
+- Person or organization identity is not an authentication principal.
+- A business role is not an authorization grant.
+- A canonical entity is not an external or source-system identifier.
+- A reference system is not a context-specific selection.
+- Foundational authority is not an application-specific convenience model.
+- Identity remains separate from mutable names, labels, paths, locations,
+  revisions, provider identifiers, credentials, and presentation.
+
+A reference is a context-bound locator that resolves to identity, not a
+substitute for identity. Applications must not establish competing generic
+people, organization, user, role, or lookup-list foundations after the
+corresponding shared capability is selected.
+
+Keep the shared authority technology-neutral. Concrete schemas, persistence,
+commands, provider mechanics, and application fields remain with the product
+that owns them.
+
+## Optional capability and provider absence
+
+Selection is an architectural boundary, not merely a feature flag. An
+unselected capability or provider contributes zero implementation dependencies,
+binaries, runtime configuration, environment variables, credentials, secrets,
+workflows, infrastructure, network requests, persistent data, generated
+application authority, installation work, build work, runtime work, or consumer
+toolchain requirements.
+
+Absence must be observable through construction, distribution, verification,
+operation, removal, and recovery. A default, transitive, generated, dormant, or
+conditionally unused contribution is still a footprint.
+
+## Proven provider neutrality
+
+A supposedly generic provider seam is provisional until at least two real
+implementations prove the common lifecycle.
+
+First-provider mechanics remain provider-owned. Promote only lifecycle
+semantics demonstrated by both implementations into shared core, including
+selection, operation, failure, replacement, removal, and zero-footprint
+behavior. Similar names or a hypothetical second provider are not evidence of
+neutrality.
+
+## Native hot paths with stable interfaces
+
+Prefer native implementations for measured developer-tooling hot paths while
+retaining stable ecosystem-facing interfaces.
+
+Agents make rewrites cheaper. They do not make equivalence cheaper.
+
+Choose an external contract before choosing an implementation. A native
+experiment earns adoption only through measured improvement, complete
+differential equivalence, provenance-bound distribution, a tested rollback
+path, and an explicit accept or reject decision. Consumers own the language,
+toolchain, packaging, budgets, and rollout. An unselected source-build
+capability must not impose a compiler or language toolchain on consumers. The
+projected Compass checker remains dependency-free JavaScript; it is not a
+native-rewrite candidate.
+
 ## Fast by design
 
 Performance is product behavior. Account for user latency, developer waiting

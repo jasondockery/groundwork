@@ -26,6 +26,37 @@ description: Design or review work that may affect user latency, startup, build,
 8. Treat a budget regression as engineering work. Do not obtain green merely by
    raising the budget or deleting proof.
 
+## Native rewrite procedure
+
+Use this procedure when a measured developer-tooling hot path may move to a
+native implementation behind a stable ecosystem-facing interface.
+
+1. Record a representative measured baseline and an explicit accepted cost
+   target before selecting the implementation.
+2. Freeze the stable external interface before implementation selection so the
+   experiment cannot redefine success around its preferred mechanics.
+3. Build differential fixtures for stdout, stderr, exit status, file effects,
+   signals, timeout, cancellation, and every supported platform. Compare the
+   reference and candidate at the same boundary.
+4. Measure startup, p50 and p95 wall time, CPU, peak memory/RSS, I/O, artifact
+   size, dependency closure/weight, clean and incremental build time, and CI
+   duration/cost in a recorded environment and cache state.
+5. Bind every prebuilt binary to source, toolchain, target, digest, and
+   validation receipt provenance. Verify the bytes consumers actually receive.
+6. Impose no consumer compiler or language toolchain unless a source-build
+   capability is explicitly selected. Prebuilt use and source-build selection
+   are distinct contracts.
+7. Retain and test rollback to the reference implementation until equivalence
+   and field evidence justify its removal. A build-time switch that is no
+   longer exercised is not a rollback path.
+8. Record an explicit accept or reject decision for every experiment. Rejection
+   removes the experiment's unearned implementation and distribution footprint;
+   acceptance records the measurements, equivalence evidence, provenance,
+   rollback status, and remaining field boundary.
+
+Agents make implementation work cheaper, but they do not reduce the behavioral,
+platform, provenance, or field evidence required for equivalence.
+
 ## Web user experience
 
 For applicable public web surfaces, distinguish four kinds of evidence:

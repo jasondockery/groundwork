@@ -60,6 +60,37 @@ domain-specific states.
 
 ## Authority terms
 
+- **Foundational identity** — the stable canonical identity of a person,
+  organization, or other shared entity, separate from authentication,
+  authorization, mutable attributes, external identifiers, credentials, and
+  presentation.
+- **Reference** — a context-bound locator that resolves to canonical identity;
+  it does not replace or redefine that identity.
+- **Reference system** — canonical authority for the reusable identities and
+  meanings in a reference domain, independent of any one context's choices.
+- **Contextual selection** — a context-owned choice of references from a
+  reference system; it is not a competing reference authority.
+- **Selected capability** — a capability deliberately included by the owning
+  product through its explicit selection contract.
+- **Zero footprint** — the state in which an unselected capability or provider
+  contributes no implementation dependencies, binaries, runtime configuration,
+  environment variables, credentials, secrets, workflows, infrastructure,
+  network requests, persistent data, generated application authority,
+  installation work, build work, runtime work, or consumer toolchain
+  requirements.
+- **Native hot path** — a measured developer-tooling path for which a native
+  implementation is being considered behind a stable ecosystem-facing
+  interface.
+- **Equivalence proof** — differential evidence that candidate and reference
+  implementations have the same declared observable behavior on every
+  supported platform and lifecycle boundary.
+- **Provisional provider seam** — an apparent shared provider abstraction that
+  remains provider-owned until at least two real implementations prove its
+  common lifecycle, removal, and zero-footprint behavior.
+- **Rollback path** — a retained, tested way to restore the reference
+  implementation when equivalence, performance, distribution, or field
+  evidence fails.
+
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a
   release, or deployment.
