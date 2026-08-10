@@ -7,7 +7,7 @@ after the work is verified, never aspirationally.
 
 ## Current execution order
 
-Reconciled 2026-08-10 against `origin/main` at `40fe3f9`; `v1.14.0` is the
+Reconciled 2026-08-10 against `origin/main` at `256ada6`; `v1.14.0` is the
 current release tag. Detailed acceptance criteria live in the specs; this list
 is only sequence.
 
@@ -22,10 +22,11 @@ is only sequence.
    user-command schema.
 3. **Field-prove validator test economics.** Candidate selection, cadence,
    pending-state, wording, status, package-store, and Docker lifecycle matrices
-   now use validator-only direct runners and clocks. Every policy invocation has
-   a 20-second process-group watchdog; focused suites have whole-suite deadlines
-   below their CI safety timeouts; and routine `full` has a 300-second hard
-   deadline with bounded TERM/KILL cleanup. Real time and processes
+   now use validator-only shell-isolated direct runners and clocks. One named
+   hostile group proves the validator's 20-second fixture watchdog; policy
+   matrices do not repeatedly pay for process-group polling. Focused suites have
+   whole-suite deadlines below their CI safety timeouts; routine `full` has a
+   300-second hard deadline with bounded TERM/KILL cleanup. Real time and processes
    remain only for deadlines, signals, escalation, lock contention, descendant
    drain, and process-group disappearance; there is no production timing
    bypass. Keep this open until five representative final-tree receipts establish
@@ -36,10 +37,16 @@ is only sequence.
    Linux 175s, and full macOS 304s. Preserve the platform lane and optimize the
    honest misses in measured slices. The first slice replaces the static
    settings editor's fixed PTY sleeps (100s in the accepted local receipt) with
-   bounded semantic prompt and completion observation. Next, profile the update
-   policy watchdog (84s) and Docker tidy real-runtime proof (104s) before
-   changing either; do not raise targets or replace runtime contracts with
-   policy-only fixtures to obtain green timing.
+   bounded semantic prompt and completion observation. A clean exact-commit
+   Update receipt then measured 240s: its combined watchdog/matrix bucket was
+   88s and the real deadline/process-tree group was 59s. Splitting the receipt
+   boundary and moving only policy matrices to the shell-isolated direct runner
+   reduced the same focused suite to 152s on the modified tree: watchdog 1s,
+   read-only matrices 24s, and the retained real runtime group 60s. The suite
+   still honestly misses 90s, so keep profiling the remaining real-runtime and
+   launcher costs; next profile Docker tidy's real-runtime proof before changing
+   it. Do not raise targets or replace runtime contracts with policy-only
+   fixtures to obtain green timing.
 4. **Fail-closed CI change classification.** Only after suite and receipt
    contracts stabilize: keep every required job visible, widen unknown/shared
    runner/validator/workflow/template changes to all suites, and permit an

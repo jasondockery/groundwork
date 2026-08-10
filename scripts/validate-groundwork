@@ -795,11 +795,58 @@ assert_no_matches() {
 }
 
 # Policy matrices need the production command and its outputs, not its timing
-# semantics. This validator-only runner gives every fixture command a separate
-# process group and a 20-second meta-watchdog so a broken stub cannot hang the
-# suite. The checked-in production runner remains the sole runtime path for the
-# deadline, signal, lock, descendant-drain, and process-tree contracts.
+# or process-supervision semantics. Run those bounded fixture commands directly;
+# the focused suite's outer deadline still prevents an unbounded validator.
+# Named runtime groups separately prove real clocks, signals, process groups,
+# deadlines, descendant drain, locks, and TERM-to-KILL escalation.
 install_fixture_policy_runner() {
+  local target="$1"
+  mkdir -p "$(dirname "$target")"
+  cat >"$target" <<'SH'
+#!/usr/bin/env bash
+
+run_bounded_internal() {
+  local label="$1" seconds="$2" output="$3" status=0
+  shift 3
+  : "$seconds"
+  if [[ -n "${GROUNDWORK_TEST_RUNNER_125_MATCH:-}" &&
+    "$label" == *"$GROUNDWORK_TEST_RUNNER_125_MATCH"* ]]; then
+    return 125
+  fi
+  if [[ -n "$output" ]]; then
+    ("$@" </dev/null >"$output") || status=$?
+  else
+    ("$@" </dev/null) || status=$?
+  fi
+  return "$status"
+}
+
+run_bounded() {
+  local label="$1"
+  shift
+  echo "  Running: $label (fixture policy runner; Ctrl-C cancels)"
+  run_bounded_internal "$label" "${deadline:-1}" "" "$@"
+}
+
+run_bounded_capture() {
+  local label="$1" output="$2"
+  shift 2
+  run_bounded_internal "$label" "${observe_deadline:-1}" "$output" "$@"
+}
+
+exit_if_terminal_status() {
+  case "$1" in
+    125 | 129 | 130 | 143) exit "$1" ;;
+  esac
+}
+SH
+  chmod +x "$target"
+}
+
+# One validator-only hostile group proves the fixture meta-watchdog itself, so
+# a broken direct-runner stub cannot silently redefine process cleanup. Keep
+# this expensive boundary out of the policy matrices that it protects.
+install_fixture_watchdog_runner() {
   local target="$1"
   mkdir -p "$(dirname "$target")"
   cat >"$target" <<'SH'
@@ -1516,7 +1563,7 @@ SH
   cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
   cp home/dot_local/share/groundwork/lib/brew-output.sh \
     "$update_all_home/.local/share/groundwork/lib/brew-output.sh"
-  install_fixture_policy_runner \
+  install_fixture_watchdog_runner \
     "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
   install_fixture_policy_clock "$update_all_bin/date"
   cat >"$update_all_bin/groundwork-docker-tidy" <<'SH'
@@ -3036,7 +3083,7 @@ SH
     unset XDG_CACHE_HOME
   fi
 
-  check "groundwork-cleanup: read-only report, cadence, store discovery, partial repair"
+  check "groundwork-cleanup fixture setup"
   cleanup_fixture="$out_dir/package-maintenance-fixture"
   cleanup_home="$cleanup_fixture/home"
   cleanup_bin="$cleanup_home/.local/bin"
@@ -3074,7 +3121,7 @@ SH
   done
   cp home/dot_local/lib/groundwork/update-lock.sh \
     "$cleanup_home/.local/lib/groundwork/update-lock.sh"
-  install_fixture_policy_runner \
+  install_fixture_watchdog_runner \
     "$cleanup_home/.local/share/groundwork/lib/maintenance-runner.sh"
   install_fixture_policy_clock "$cleanup_bin/date"
 
@@ -3287,6 +3334,52 @@ SH
   done
   ! kill -0 "$policy_descendant" 2>/dev/null \
     || fail "the validator could not clean up the failed fixture's surviving group"
+
+  install_fixture_policy_runner \
+    "$cleanup_home/.local/share/groundwork/lib/maintenance-runner.sh"
+  install_fixture_policy_clock "$cleanup_bin/date"
+
+  check "validator-only policy runner is direct and shell-isolated"
+  policy_direct_bin="$cleanup_fixture/policy-direct-bin"
+  policy_direct_ps_marker="$cleanup_fixture/policy-direct-ps-called"
+  policy_direct_output="$cleanup_fixture/policy-direct-output"
+  mkdir -p "$policy_direct_bin"
+  cat >"$policy_direct_bin/ps" <<'SH'
+#!/usr/bin/env bash
+: >"$GROUNDWORK_POLICY_DIRECT_PS_MARKER"
+exit 99
+SH
+  cat >"$cleanup_fixture/policy-direct-harness" <<'SH'
+#!/usr/bin/env bash
+set -u
+runner="$1"
+output="$2"
+policy_state=before
+policy_mutate() {
+  policy_state=after
+  printf 'fixture output\n'
+  return 3
+}
+deadline=1
+observe_deadline=1
+# shellcheck disable=SC1090 # validator-owned generated runner
+source "$runner"
+status=0
+run_bounded_capture "direct policy command" "$output" policy_mutate || status=$?
+[[ "$status" -eq 3 ]]
+[[ "$policy_state" == before ]]
+SH
+  chmod +x "$policy_direct_bin/ps" "$cleanup_fixture/policy-direct-harness"
+  GROUNDWORK_POLICY_DIRECT_PS_MARKER="$policy_direct_ps_marker" \
+    PATH="$policy_direct_bin:$PATH" \
+    "$cleanup_fixture/policy-direct-harness" "$policy_runner" "$policy_direct_output" \
+    || fail "the direct policy runner lost status or leaked shell state"
+  grep -qxF 'fixture output' "$policy_direct_output" \
+    || fail "the direct policy runner did not preserve captured output"
+  test ! -e "$policy_direct_ps_marker" \
+    || fail "the direct policy runner inspected the process table"
+
+  check "groundwork-cleanup: read-only report, cadence, store discovery, partial repair"
 
   cp home/dot_local/bin/executable_groundwork-repos \
     "$cleanup_bin/groundwork-repos"
