@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dependency Change"
+  short_description: "Change dependencies through one authority"
+  default_prompt: "Use $dependency-change to update this dependency and prove its consumers."

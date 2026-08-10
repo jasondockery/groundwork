@@ -7,13 +7,29 @@ Groundwork aimed at an AI-native Mac, Linux, and headless developer environment.
 
 ## Sources of truth
 - Product thesis and AI-native operating principles: `AI_THESIS.md`.
+- Shared engineering doctrine and terminology: `.compass/COMPASS.md` and
+  `.compass/TERMINOLOGY.md`, projected from the receipt-bound Compass artifact.
 - Shared operational agent behavior: this file.
 - Human learning material: `docs/`.
 - Durable design decisions and the detail behind rules here: `specs/`.
-- Repeatable, task-specific procedures: `skills/`, loaded on demand.
+- Repeatable procedures: Compass-owned shared skills and Groundwork-owned local
+  skills under `skills/`, loaded on demand.
 - Do not create parallel `AI_RULES.md`, Cursor rules, or similar files unless the
   file is a thin adapter (root `CLAUDE.md` is one), a rendered template wrapper,
   or a tool-specific requirement that cannot live here.
+
+## Shared engineering contract
+Compass owns the universal engineering direction; Groundwork owns its product,
+platform, commands, budgets, and procedures. Read `.compass/COMPASS.md` for the
+deeper shared contract and `.compass/TERMINOLOGY.md` for canonical outcome and
+proof terms.
+
+- Start simple; complexity must be earned by evidence.
+- Treat user, developer, CI, compute, network, and storage time as resources.
+- Bound finite work and fail explicitly.
+- Test behavior at its natural execution boundary.
+- Use the cheapest reliable proof first.
+- Never hide a regression by raising a threshold without evidence.
 
 ## Where configuration belongs
 Groundwork configures the developer; each repo configures itself.
@@ -25,8 +41,10 @@ Groundwork configures the developer; each repo configures itself.
   appears.
 - Repo-specific skills and rules are committed in the repo that needs them, so
   teammates and CI agents get them too.
-- One canonical `skills/` tree; `.claude/skills`, `.agents/skills`, and
-  `.codex/skills` are symlinks so each tool discovers it natively.
+- One discovery tree under `skills/`: Compass-managed shared skill packages are
+  projected regular files, Groundwork-local skills remain repository-owned, and
+  `.claude/skills`, `.agents/skills`, and `.codex/skills` are repository-owned
+  symlink adapters so each tool discovers both sets natively.
 - Quick test: required for the work to be correct goes in the repo; a personal
   preference across all your work goes in Groundwork; specific to what
   Groundwork, Roost, or renovate-config need goes in those repos.
@@ -153,6 +171,18 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
 
 ## Mandatory skill triggers
 Load the skill before the first edit in its area.
+- **`skills/dependency-change`** — dependencies, runtime pins, actions, images,
+  lockfiles, generated dependency artifacts, or update policy. Load the narrower
+  Groundwork skill too when one is named below.
+- **`skills/field-failure-backpressure`** — failures first observed in hosted
+  CI, another platform, a generated consumer, release, deployment, or user
+  report. Groundwork-specific reproduction and suite commands remain local.
+- **`skills/performance-sensitive-change`** — work affecting latency, build or
+  test duration, CI resources, process cost, network, storage, or dependency
+  weight. Use `skills/command-efficiency` for Groundwork's command-level detail.
+- **`skills/verification-selection`** — proof selection, ready claims, artifact
+  publication, or choosing focused, full, hosted, or deployed evidence. Use
+  `skills/validate-groundwork` for this repository's exact suites and receipts.
 - **`skills/validate-groundwork`** — validation or proof selection, failed CI
   or workflow diagnosis, historical failure closure, exact-SHA receipts, or
   changes to validation behavior.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Field Failure Backpressure"
+  short_description: "Turn field failures into local prevention"
+  default_prompt: "Use $field-failure-backpressure to repair this field-discovered defect and prevent recurrence."

@@ -5,6 +5,10 @@ description: Select and classify the exact update set before acting, and report 
 
 # System Update Orchestration
 
+Compass's `dependency-change` skill owns the universal authority and consumer
+proof procedure. This Groundwork-local extension owns `update-all`, Homebrew,
+mise, chezmoi, package selection, retry, and machine receipt semantics.
+
 One rule governs everything here:
 
 > **Select and classify the exact update set before acting. Never run a broad

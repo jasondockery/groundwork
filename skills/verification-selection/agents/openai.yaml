@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verification Selection"
+  short_description: "Choose the cheapest proof that matches"
+  default_prompt: "Use $verification-selection to select proof matching this change and claim."

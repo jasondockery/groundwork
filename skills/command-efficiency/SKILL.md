@@ -5,6 +5,10 @@ description: Reason about what a command costs and pick the cheapest one that pr
 
 # Command Efficiency
 
+Compass's `performance-sensitive-change` skill owns the universal resource and
+measurement rule. This Groundwork-local extension owns command-level cost,
+checkout-history inputs, and concrete tool choices for this repository.
+
 The rule: **cheap by default, expensive only where correctness requires it, and never guess which is which.** A command's cost is an input you reason about, not ambient luck. Two failures anchor this skill: a `git log` that was correct locally but silently wrong under CI's shallow checkout, and a `find ~` that scanned an entire home directory when the target was known to be under `~/code`. The first is a wrong correctness contract; the second is a scope that was never narrowed.
 
 Groundwork already installs the cheap tools (`rg`, `fd`, `bat`, `dust`, `duf`, `eza`, `hyperfine`); the skill is knowing *when* each is actually cheaper and configuring the expensive tools correctly.

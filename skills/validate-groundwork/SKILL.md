@@ -10,6 +10,11 @@ description: >
 
 # Validate Groundwork
 
+Compass's `verification-selection` and `field-failure-backpressure` skills own
+the shared proof and field-failure procedures. This Groundwork-local extension
+owns the exact suite map, receipt contract, platform reproduction details, and
+commands below.
+
 List the canonical suites and their check families instead of guessing check
 combinations. Parameterized families remain symbolic here; the run receipt
 records each concrete check name that actually executed:

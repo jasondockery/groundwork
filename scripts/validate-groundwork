@@ -779,16 +779,6 @@ assert_recovery_hierarchy() {
   fi
 }
 
-assert_symlink_target() {
-  local path="$1" target="$2"
-  if [[ ! -L "$path" ]]; then
-    fail "$path must be a symlink to $target"
-  fi
-  if [[ "$(readlink "$path")" != "$target" ]]; then
-    fail "$path must point to $target"
-  fi
-}
-
 assert_no_matches() {
   local message="$1" status
   shift
@@ -11799,15 +11789,12 @@ PY
   grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
   assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
 
-  check "agent skill discovery"
-  # One canonical skills/ tree, reachable from every tool's NATIVE discovery
-  # path. Claude reads .claude/skills, Codex reads .agents/skills, and
-  # .codex/skills stays for tools using the older vendor directory. A tool whose
-  # native path is unwired can still be pointed at a skill by AGENTS.md, but it
-  # will not match or load one on its own — which is the whole point of a skill.
-  assert_symlink_target .claude/skills ../skills
-  assert_symlink_target .codex/skills ../skills
-  assert_symlink_target .agents/skills ../skills
+  check "Compass projection and Groundwork skill discovery"
+  node scripts/check-compass-adoption.mjs
+
+  check "agent skill policy"
+  # The Compass adoption checker owns byte-level projection conformance and
+  # proves every canonical and local skill through each native discovery path.
   if [[ -e .agents/rules || -e .agents/commands || -e .agents/agents ]]; then
     echo ".agents/ here is discovery only; canonical skills stay in skills/ and rules stay in AGENTS.md" >&2
     exit 1
@@ -11821,9 +11808,19 @@ PY
     .github/workflows scripts AGENTS.md README.md docs skills home specs
 
   check "Codex skill metadata"
+  compass_skill_metadata="$(node -e '
+    const receipt = require("./.compass/receipt.json")
+    process.stdout.write(receipt.includedFiles
+      .map((entry) => entry.path)
+      .filter((path) => path.endsWith("/agents/openai.yaml"))
+      .join("\n"))
+  ')"
   allowed_openai_metadata='^[[:space:]]*$|^[[:space:]]*#|^interface:[[:space:]]*$|^[[:space:]]+display_name:[[:space:]]*"[^"]+"[[:space:]]*$'
   for metadata in skills/*/agents/openai.yaml; do
     [[ -e "$metadata" ]] || continue
+    if grep -Fxq "$metadata" <<<"$compass_skill_metadata"; then
+      continue
+    fi
     if grep -vqE "$allowed_openai_metadata" "$metadata"; then
       echo "$metadata: only interface.display_name is allowed; keep descriptions and prompts in SKILL.md" >&2
       exit 1

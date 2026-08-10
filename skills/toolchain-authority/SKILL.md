@@ -5,6 +5,10 @@ description: Maintain Groundwork's Node and pnpm authority contract. Use before 
 
 # Toolchain authority
 
+Compass's `dependency-change` skill owns the shared dependency procedure. This
+Groundwork-local extension owns the Node, pnpm, Corepack, mise, CI, and rendered
+machine boundaries below.
+
 ## Preserve the two authorities
 
 - Change Node only in `.node-version`.

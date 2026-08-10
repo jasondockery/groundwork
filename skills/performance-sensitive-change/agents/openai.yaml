@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance-Sensitive Change"
+  short_description: "Measure and bound performance-sensitive work"
+  default_prompt: "Use $performance-sensitive-change to evaluate and improve this performance-sensitive change."
