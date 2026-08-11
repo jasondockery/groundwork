@@ -211,14 +211,15 @@ rgf() {
   local rg_args=(--column --line-number --no-heading --color=always --smart-case --hidden --glob '!.git')
 
   if [[ -n "$query" ]]; then
-    rg "${rg_args[@]}" "$query" |
+    # The explicit root keeps rg off piped stdin when this helper is scripted.
+    rg "${rg_args[@]}" "$query" . |
       fzf --ansi --delimiter : \
         --preview 'bat --color=always --style=numbers --highlight-line {2} {1}' \
         --preview-window 'right,60%,border-left,+{2}+3/3,~3' \
         --bind 'enter:become($EDITOR {1} +{2})'
   else
     fzf --ansi --disabled --prompt 'rg> ' --delimiter : \
-      --bind 'change:reload:[[ -n {q} ]] && rg --column --line-number --no-heading --color=always --smart-case --hidden --glob "!.git" {q} || true' \
+      --bind 'change:reload:[[ -n {q} ]] && rg --column --line-number --no-heading --color=always --smart-case --hidden --glob "!.git" {q} . || true' \
       --preview 'bat --color=always --style=numbers --highlight-line {2} {1}' \
       --preview-window 'right,60%,border-left,+{2}+3/3,~3' \
       --bind 'enter:become($EDITOR {1} +{2})'

@@ -729,7 +729,7 @@ if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/rg-files"; then
   echo "ripgrep hidden-aware discovery exposed .git internals or ignored dist output" >&2
   exit 1
 fi
-(cd "$fixture" && rg --no-config --column --line-number --no-heading --color=never --smart-case --hidden --glob '!.git' example) >"$tmp/rg-content"
+(cd "$fixture" && rg --no-config --column --line-number --no-heading --color=never --smart-case --hidden --glob '!.git' example .) >"$tmp/rg-content"
 grep -qF '.config/example.toml' "$tmp/rg-content"
 if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/rg-content"; then
   echo "ripgrep hidden-aware content search exposed .git internals or ignored dist output" >&2
@@ -840,6 +840,7 @@ grep -qxF -- '--hidden' "$tmp/rg-surface-args"
 grep -qxF -- '--glob' "$tmp/rg-surface-args"
 grep -qxF -- '!.git' "$tmp/rg-surface-args"
 grep -qxF -- 'example' "$tmp/rg-surface-args"
+grep -qxF -- '.' "$tmp/rg-surface-args"
 grep -qF -- '--hidden' "$tmp/fd-surface-args"
 grep -qF -- '--exclude .git' "$tmp/fd-surface-args"
 [[ "$(wc -l <"$tmp/eza-surface-args" | tr -d ' ')" -eq 3 ]]
