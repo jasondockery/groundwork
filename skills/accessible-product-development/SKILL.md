@@ -40,6 +40,42 @@ description: Design, implement, review, or prove any user-facing web, native, CL
 - Honor reduced-motion preferences and ensure motion is not required to use or
   understand the product.
 
+## Keep interaction geometry stable
+
+- An interactive element retains position and dimensions across loading,
+  hover, focus, current, pending, success, error, and value states unless the
+  user explicitly requested that specific reflow, expansion, collapse, reorder,
+  or relocation and the resulting change cannot retarget an active pointer or
+  displace logical focus. A refresh request does not authorize result movement.
+  Pointer-down and pointer-up must not resolve to different actions because
+  content moved.
+- Keep control identity and geometry stable by default. A status change does
+  not replace the action label; a label changes only when the action itself
+  changes. A toggle button using `aria-pressed` retains a stable label. Put
+  dynamic values in state text, descriptions, or selected menu items.
+- State indicators must not change layout-affecting font weight, padding, or
+  borders. When state text must vary, reserve space for the longest localized
+  value; use logical layout and test text expansion and right-to-left (RTL)
+  presentation.
+- Keep the prior complete asynchronous result while refreshing and reserve
+  representative geometry for content that has no prior result. Preserve
+  stable identity and keys, retain logical focus, and present errors and empty
+  states in the same region.
+- Do not insert, remove, or reorder enabled targets under an active pointer or
+  keyboard focus. Queue or reveal new results through user initiation, or
+  append them into predetermined stable positions.
+- A pending control keeps its accessible name, stable dimensions, and action
+  identity. Expose `aria-busy`; use `aria-disabled` when retaining focus is
+  important, and native `disabled` only when intentional removal from
+  interaction and focus order is correct. Announce status separately without
+  stealing focus. Retain a practical 44 by 44 CSS-pixel target where possible
+  without misrepresenting the distinct WCAG 2.2 AA floor of 24 by 24 CSS pixels
+  and its defined exceptions.
+- Related applications present identity, personal preferences, accessibility
+  settings, and account actions in a consistent and predictable location.
+  Capability changes must not unexpectedly relocate that surface or change its
+  stable interaction geometry; each product owns its routes and components.
+
 ## Keep the WCAG dimensions precise
 
 - **Resize Text:** text reaches 200% without loss of content or functionality.
@@ -75,4 +111,5 @@ is evidence, not a certificate.
 Reviewed 2026-08-10 against the W3C Recommendation
 [WCAG 2.2](https://www.w3.org/TR/WCAG22/), WAI
 [accessibility evaluation guidance](https://www.w3.org/WAI/test-evaluate/),
-and the [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/).
+the [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/), and its
+[button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/button/).

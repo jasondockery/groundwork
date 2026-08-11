@@ -59,13 +59,21 @@ platform, provenance, or field evidence required for equivalence.
 
 ## Web user experience
 
-For applicable public web surfaces, distinguish four kinds of evidence:
+For applicable public web surfaces, distinguish five kinds of evidence:
 
 - **Core Web Vitals field SLO:** at the 75th percentile, evaluated separately
   for mobile and desktop, target LCP at or below 2.5 seconds, INP at or below
   200 milliseconds, and CLS at or below 0.1.
 - **Lab measurement:** reproducible pre-release or exact-deployment evidence.
   It predicts and diagnoses behavior but is not real-user field evidence.
+- **Exact interaction-flow evidence:** interactive headers and active regions
+  require zero unexpected layout shift in exact lab and user-flow proof across
+  loading, hover, focus, current, pending, success, error, and value states.
+  Assert bounding-box invariants for every stable control and active region,
+  and capture every `LayoutShift` entry, including entries whose
+  `hadRecentInput` is true. Exercise representative asynchronous refresh, text
+  expansion, and right-to-left presentation instead of inferring stability
+  from a page-wide score.
 - **FCP and TTFB diagnostics:** 1.8 seconds or less is the good FCP target;
   0.8 seconds or less is a useful TTFB guide. Neither is a Core Web Vital, so a
   diagnostic miss does not independently redefine an otherwise accepted user
@@ -79,8 +87,14 @@ Measure exact deployed routes before claiming deployed performance. Add field
 monitoring after sufficient traffic exists; lack of pre-launch RUM is not a
 reason to fabricate field acceptance.
 
+Keep field, lab, automated, and manual evidence claims distinct. The public-web
+field target remains CLS at or below 0.1 at the 75th percentile, evaluated
+separately for mobile and desktop; it does not replace the zero-unexpected-shift
+requirement for exact interactive flows.
+
 Reviewed 2026-08-10 against the current
 [Core Web Vitals guidance](https://web.dev/articles/vitals),
+[CLS optimization guidance](https://web.dev/articles/optimize-cls),
 [FCP guidance](https://web.dev/articles/fcp), and
 [TTFB guidance](https://web.dev/articles/ttfb).
 

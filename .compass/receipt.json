@@ -3,23 +3,23 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "95a501c1ef104985beb734ffcc437885ef5644e2",
-    "tree": "e1de10d8c7287692af928084cef9e93941cbac48",
-    "fingerprintSha256": "0500da9da37455db3dc231ee50a57a4f69f18576b3d68ab2cd79e956e714e81e",
+    "commit": "33734612b4183f372945eff10bf2eec9c025e7b0",
+    "tree": "021756f1a1ba33493bd0d8c5a866ec7199f720e6",
+    "fingerprintSha256": "64d9fe5a9227a92d340a97a8264d9761de8d1426c5fbe3d864f402b2e9b414f2",
     "dirty": false
   },
-  "artifactSha256": "420ee28c2b3c2ae034414b7156c3a83fff782c4bc28f077b3dfee605010834aa",
-  "artifactBytes": 94187,
+  "artifactSha256": "8917f473688c74f149062db41ee9997ac18f609467ef9d810a127b7a53839617",
+  "artifactBytes": 101295,
   "includedFiles": [
     {
       "path": "COMPASS.md",
-      "sha256": "9c41536e6800945d7c6da7655609f11d4a7c3f48212c868201c8c83d9ab4b7f0",
-      "bytes": 12734
+      "sha256": "be4b3a2629529f3b412cb81fd1675d3bf54db009eca212d86e76655ba1fa7d68",
+      "bytes": 14189
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "ccf8cdbc10e604b0c07781d13d5a00b8b62e008667955d577fb1f4133cb58f13",
-      "bytes": 7152
+      "sha256": "b6ea836ffe403b9310f2192b401eb09540231bc5ed3f51e653a52bd19579ae40",
+      "bytes": 7733
     },
     {
       "path": "scripts/check-projection.mjs",
@@ -28,8 +28,8 @@
     },
     {
       "path": "skills/accessible-product-development/SKILL.md",
-      "sha256": "3b9e5efec1258dc5437d3f35afbd96147f0e8b3f6f8413d0aec62f2005b76ed6",
-      "bytes": 4240
+      "sha256": "d07f7bc359d622904c59b4555baa0d16940cc4a1bf33f7c411d184b47681f675",
+      "bytes": 6632
     },
     {
       "path": "skills/accessible-product-development/agents/openai.yaml",
@@ -88,8 +88,8 @@
     },
     {
       "path": "skills/performance-sensitive-change/SKILL.md",
-      "sha256": "339bd3fb63ad09bafaff28174b88c332b821bf6bd138028e9b833e0d8f06ef5b",
-      "bytes": 4953
+      "sha256": "955ecb5dc73c8798e59763d4bd43eaa3170169b3cb9659b9550fabce1c25b07c",
+      "bytes": 5855
     },
     {
       "path": "skills/performance-sensitive-change/agents/openai.yaml",
@@ -129,7 +129,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "c351e08ebee45d36ff18a00956ced2d6d5c01500942f5fc206aef9e406cb2058",
+    "receiptSha256": "7fd0090b7c004f5e64d0a864a5d64f60ce9d1ae18b6054080290c153f6027f10",
     "command": "scripts/validate-compass"
   }
 }

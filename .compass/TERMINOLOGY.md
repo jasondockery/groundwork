@@ -57,6 +57,14 @@ domain-specific states.
 - **Field performance evidence** — observed real-user behavior bound to the
   declared population, percentile, device segments, period, and product
   identity.
+- **Interaction stability** — preservation of an interactive element's
+  position, dimensions, action, accessible identity, and logical focus across
+  state changes unless the user requested that specific layout change and the
+  result cannot retarget an active pointer or displace logical focus.
+- **Unexpected layout shift** — a position or dimension change that was not
+  specifically requested by the user. Recent input alone does not make a shift
+  expected. Field aggregation and broad page budgets do not replace exact lab
+  and user-flow evidence for an active region.
 
 ## Authority terms
 

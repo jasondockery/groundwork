@@ -106,6 +106,31 @@ memory, storage, network transfer, cloud resources, and dependency weight.
 Correct obviously avoidable costs when they are introduced instead of deferring
 them to a generic optimization phase.
 
+## Stable interaction by default
+
+An interactive element retains its position and dimensions across loading,
+hover, focus, current, pending, success, error, and value states unless the
+user explicitly requested that specific reflow, expansion, collapse, reorder,
+or relocation and the resulting change cannot retarget an active pointer or
+displace logical focus. A refresh request does not authorize result movement.
+Pointer-down and pointer-up must not resolve to different actions because
+content moved. Do not insert, remove, or reorder enabled targets under an active
+pointer or keyboard focus.
+
+State communication must preserve stable control identity, geometry, and
+logical focus. A status change must not replace an action label; a label changes
+only when the action itself changes. Asynchronous refresh, localization, error,
+empty, and status presentation must reserve or reuse stable regions instead of
+making the user's current target move. Keep field, lab, automated, and manual
+evidence claims distinct; a broad field budget does not excuse an unexpected
+shift in an exact interaction flow.
+
+Related applications present identity, personal preferences, accessibility
+settings, and account actions in a consistent and predictable location.
+Capability changes must not unexpectedly relocate that surface or change its
+stable interaction geometry. Consumers own the route, component, and product
+mechanics that satisfy this shared expectation.
+
 ## Efficient by default
 
 Spend resources in proportion to user value. Avoid duplicated computation,
