@@ -213,8 +213,10 @@ PY
   rm -f "$tmp/fake-bin/ln"
 
   # Interruption reaches the bounded Yazi process group, restores terminal state,
-  # removes the isolated fixture, and never publishes a receipt.
+  # removes its isolated fixture without cleaning unrelated TMPDIR state, and
+  # never publishes a receipt.
   mkdir -p "$tmp/manual-signal-tmp"
+  printf 'unrelated\n' >"$tmp/manual-signal-tmp/unrelated"
   python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-signal-receipt.json" "$tmp/manual-signal-started" "$tmp/manual-signal-tmp" <<'PY'
 import os, pathlib, pty, signal, subprocess, sys, termios, time
 runner, fake_bin, receipt, started, tmpdir = sys.argv[1:]
@@ -265,8 +267,10 @@ else:
     raise SystemExit(f"manual Yazi signal fixture left descendant {sleep_pid} alive")
 PY
   [[ ! -e "$tmp/manual-signal-receipt.json" ]]
-  if find "$tmp/manual-signal-tmp" -mindepth 1 -print -quit | grep -q .; then
-    echo "manual runner left an isolated fixture after interruption" >&2
+  grep -qxF unrelated "$tmp/manual-signal-tmp/unrelated"
+  if find "$tmp/manual-signal-tmp" -maxdepth 1 -name 'groundwork-yazi-acceptance.*' -print -quit | grep -q .; then
+    echo "manual runner left its owned isolated fixture after interruption" >&2
+    find "$tmp/manual-signal-tmp" -maxdepth 1 -name 'groundwork-yazi-acceptance.*' -print >&2
     exit 1
   fi
 fi
@@ -780,8 +784,11 @@ cat
 EOF
 chmod +x "$tool_bin/fd" "$tool_bin/eza" "$tool_bin/fzf"
 
-if ! GROUNDWORK_REAL_FD="$fd_bin" \
-  GROUNDWORK_REAL_EZA="$eza_bin" \
+# The rendered-shell surface always exercises the dependency-free wrappers.
+# Real fd/eza behavior is proved above when installed and is mandatory in the
+# source-less Docker lane; using it here would hide the hosted-runner fallback.
+if ! GROUNDWORK_REAL_FD="" \
+  GROUNDWORK_REAL_EZA="" \
   GROUNDWORK_FD_ARGS="$tmp/fd-surface-args" \
   GROUNDWORK_EZA_ARGS="$tmp/eza-surface-args" \
   GROUNDWORK_FZF_ARGS="$tmp/fzf-surface-args" \
