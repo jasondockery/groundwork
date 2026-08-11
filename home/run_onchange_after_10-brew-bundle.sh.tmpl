@@ -137,7 +137,8 @@ if [[ "$retry_bundle" -eq 1 ]]; then
       | gw_brew_classify_stream "$bundle_log" "$bundle_receipt" append \
       || bundle_status=$?
 fi
-gw_brew_report_classification "Homebrew bundle" "$bundle_receipt" "$bundle_log_final"
+gw_brew_report_classification \
+  "Homebrew bundle" "$bundle_receipt" "$bundle_log_final" "$bundle_status"
 
 {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
 # Homebrew may quit always-on apps (Karabiner, Raycast, BetterDisplay,

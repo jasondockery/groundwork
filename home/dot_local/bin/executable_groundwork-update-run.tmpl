@@ -171,6 +171,21 @@ runner_receipt_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-update-receipt.XXXXX
 chmod 700 "$runner_receipt_dir"
 export GROUNDWORK_UPDATE_RECEIPT_DIR="$runner_receipt_dir"
 
+update_pending_dir="$HOME/.local/state/groundwork/update-all-pending"
+mark_update_pending() {
+  local stage="$1" message="$2" pending temporary
+  pending="$update_pending_dir/$stage"
+  temporary="${pending}.tmp.$$"
+  mkdir -p "$update_pending_dir"
+  printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$message" >"$temporary"
+  mv -f -- "$temporary" "$pending"
+}
+
+clear_update_pending() {
+  rm -f -- "$update_pending_dir/$1"
+  rmdir "$update_pending_dir" 2>/dev/null || true
+}
+
 # The launcher installs this runner and its lock helper before exec'ing it; the
 # FULL apply — configuration files and install hooks, the Homebrew bundle among
 # them — runs here, under the freshly synchronized implementation. A hang or
@@ -278,6 +293,8 @@ if command -v brew >/dev/null 2>&1; then
   upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
   upgrade_status=0
   echo "Groundwork: upgrading the exact packages declared in the managed Brewfile."
+  mark_update_pending "homebrew-upgrade" \
+    "Homebrew upgrade started, but completion has not been proven"
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
     brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
       2>&1 | gw_brew_classify_stream "$upgrade_log" "$upgrade_receipt" reset \
@@ -310,8 +327,15 @@ if command -v brew >/dev/null 2>&1; then
   mv -f -- "$upgrade_log" "$upgrade_log_final"
   runner_temp=""
   runner_temp_final=""
-  gw_brew_report_classification "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final"
-  [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
+  gw_brew_report_classification \
+    "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final" "$upgrade_status"
+  if [[ "$upgrade_status" -ne 0 ]]; then
+    failed_cask="$(awk -F '\t' '$1 == "failed-cask" { print $2; exit }' "$upgrade_receipt")"
+    pending_detail="Homebrew upgrade failed (exit $upgrade_status)"
+    [[ -z "$failed_cask" ]] || pending_detail="$pending_detail; failed cask: $failed_cask"
+    mark_update_pending "homebrew-upgrade" "$pending_detail"
+    exit "$upgrade_status"
+  fi
   {{- else }}
   # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades the exact
   # Groundwork-managed formula list.
@@ -324,15 +348,23 @@ if command -v brew >/dev/null 2>&1; then
   runner_temp_final="$upgrade_log_final"
   upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
   upgrade_status=0
+  mark_update_pending "homebrew-upgrade" \
+    "Homebrew upgrade started, but completion has not been proven"
   HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade "${managed_formulae[@]}" 2>&1 \
     | gw_brew_classify_stream "$upgrade_log" "$upgrade_receipt" reset \
     || upgrade_status=$?
   mv -f -- "$upgrade_log" "$upgrade_log_final"
   runner_temp=""
   runner_temp_final=""
-  gw_brew_report_classification "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final"
-  [[ "$upgrade_status" -eq 0 ]] || exit "$upgrade_status"
+  gw_brew_report_classification \
+    "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final" "$upgrade_status"
+  if [[ "$upgrade_status" -ne 0 ]]; then
+    mark_update_pending "homebrew-upgrade" \
+      "Homebrew upgrade failed (exit $upgrade_status)"
+    exit "$upgrade_status"
+  fi
   {{- end }}
+  clear_update_pending "homebrew-upgrade"
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
   {{- end }}

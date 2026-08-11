@@ -216,6 +216,17 @@
       <p>The final receipt uses Groundwork&apos;s meaning, not an upstream tool&apos;s choice of severity word. <strong>Current</strong> is a successful no-change result, <strong>Updated</strong> means the run changed managed state, <strong>Deferred</strong> waited for policy such as the five-day maturity floor, <strong>Skipped</strong> names an intentionally unattempted lane, and <strong>Review</strong> is an owner decision such as retiring an unmatched pnpm store generation. <strong>Warning</strong> remains an unexpected non-fatal condition, while <strong>Failed</strong> and <strong>Pending repair</strong> withhold a fresh success timestamp.</p>
       <p>Homebrew itself prefixes some ordinary no-change messages with <code>Warning:</code>. Groundwork collapses only the exact known <code>already installed</code> and <code>latest version is already installed</code> shapes into the Current count. It never broadly filters warning lines: unfamiliar wording stays in the transcript and is counted in the final Warning section. The complete unfiltered streams remain at <code>~/.local/state/groundwork/logs/homebrew-bundle-latest.log</code> and <code>~/.local/state/groundwork/logs/homebrew-upgrade-latest.log</code>.</p>
 
+      <h3>Homebrew finds an existing app inside the Caskroom</h3>
+      <p>An interrupted cask operation can leave an old app inside Homebrew&apos;s Caskroom. If the upgrade prints <code>Error: ... already an App at .../Caskroom/...</code> and then purges the new version, Groundwork reports the failed cask separately from warnings, keeps the update pending, and exits nonzero. It does not remove or reinstall the app automatically. Run the cask-specific commands Groundwork prints after reviewing the name:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">repair a half-installed cask</span></div>
+        <pre><code><span class="prompt">$ </span>brew remove --force --cask &lt;cask&gt;
+<span class="prompt">$ </span>brew install --cask &lt;cask&gt;
+<span class="prompt">$ </span>brew list --cask --versions &lt;cask&gt;
+<span class="prompt">$ </span>update-all</code></pre>
+      </div>
+      <p>This recovery does not use <code>--zap</code>; application data and preferences remain outside Groundwork&apos;s repair scope.</p>
+
       <h3>Homebrew warns: "The following taps are not trusted"</h3>
       <p>Homebrew now requires you to explicitly trust third-party taps before it will use their formulae and casks — a supply-chain protection, and the taps it lists are ones <em>you</em> (or a tool you ran) added; Groundwork adds none. Ignore the warning and those taps stay inert. To keep using something from one, prefer trusting just the formulae you actually use over whole-tap trust, which also covers everything the tap publishes in the future:</p>
       <div class="terminal">

@@ -1352,6 +1352,65 @@ SH
   grep -qx $'warning\t2' "$brew_output_fixture/receipt" \
     || fail "the Homebrew classifier did not count preserved warnings"
 
+  printf '\033[31mError: generic Homebrew failure\033[0m\n%s\n%s\n' \
+    "Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'." \
+    'Error: a second generic Homebrew failure' \
+    >"$brew_output_fixture/error-input"
+  gw_brew_classify_stream \
+    "$brew_output_fixture/error-raw" "$brew_output_fixture/error-receipt" reset \
+    <"$brew_output_fixture/error-input" >"$brew_output_fixture/error-visible"
+  cmp "$brew_output_fixture/error-input" "$brew_output_fixture/error-visible" \
+    || fail "Homebrew Error lines did not remain visible in the live transcript"
+  cmp "$brew_output_fixture/error-input" "$brew_output_fixture/error-raw" \
+    || fail "Homebrew Error lines were not preserved byte-for-byte in the raw log"
+  grep -qx $'error\t3' "$brew_output_fixture/error-receipt" \
+    || fail "plain and ANSI Homebrew errors were not normalized into one count"
+  grep -qx $'failed-cask\tbitwarden' "$brew_output_fixture/error-receipt" \
+    || fail "the classifier did not safely identify the Caskroom token"
+  gw_brew_report_classification \
+    "Homebrew hostile fixture" "$brew_output_fixture/error-receipt" \
+    "$brew_output_fixture/error-raw" 23 >"$brew_output_fixture/error-report"
+  grep -qF 'Result: failed (exit 23)' "$brew_output_fixture/error-report"
+  grep -qF 'Errors: 3 preserved above' "$brew_output_fixture/error-report"
+  grep -qF 'Failed cask: bitwarden' "$brew_output_fixture/error-report"
+  grep -qF 'brew remove --force --cask bitwarden' "$brew_output_fixture/error-report"
+
+  printf '%s\n' 'Error: Permission denied while linking a formula' \
+    >"$brew_output_fixture/generic-error-input"
+  gw_brew_classify_stream \
+    "$brew_output_fixture/generic-error-raw" \
+    "$brew_output_fixture/generic-error-receipt" reset \
+    <"$brew_output_fixture/generic-error-input" \
+    >"$brew_output_fixture/generic-error-visible"
+  gw_brew_report_classification \
+    "Homebrew generic failure" "$brew_output_fixture/generic-error-receipt" \
+    "$brew_output_fixture/generic-error-raw" 9 \
+    >"$brew_output_fixture/generic-error-report"
+  grep -qF 'Errors: 1 preserved above' "$brew_output_fixture/generic-error-report"
+  assert_not_contains 'Failed cask:|brew remove --force|brew install --cask' \
+    "$brew_output_fixture/generic-error-report" \
+    "a generic non-cask Homebrew error received force-removal advice"
+
+  printf '%s\n' \
+    "Error: hostile: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden\$(touch-owned)/2026.6.0/Bitwarden.app'." \
+    >"$brew_output_fixture/hostile-cask-input"
+  gw_brew_classify_stream \
+    "$brew_output_fixture/hostile-cask-raw" \
+    "$brew_output_fixture/hostile-cask-receipt" reset \
+    <"$brew_output_fixture/hostile-cask-input" \
+    >"$brew_output_fixture/hostile-cask-visible"
+  gw_brew_report_classification \
+    "Homebrew hostile cask token" "$brew_output_fixture/hostile-cask-receipt" \
+    "$brew_output_fixture/hostile-cask-raw" 8 \
+    >"$brew_output_fixture/hostile-cask-report"
+  grep -qx $'error\t1' "$brew_output_fixture/hostile-cask-receipt"
+  assert_not_contains '^failed-cask[[:space:]]' \
+    "$brew_output_fixture/hostile-cask-receipt" \
+    "an injection-like Caskroom token entered the typed receipt"
+  assert_not_contains 'Failed cask:|brew remove --force|brew install --cask' \
+    "$brew_output_fixture/hostile-cask-report" \
+    "an injection-like Caskroom token received executable recovery advice"
+
   check "update-all launcher handoff and runner transaction"
   update_all_fixture="$out_dir/update-all-fixture"
   update_all_home="$update_all_fixture/home"
@@ -1472,6 +1531,12 @@ case "${1:-}" in
       echo 'Warning: git 2.51.0 already installed'
       echo 'Warning: Not upgrading ghostty, the latest version is already installed'
       echo 'Warning: unfamiliar Homebrew condition remains actionable'
+    fi
+    if [[ "${BREW_CASKROOM_COLLISION:-0}" == 1 ]]; then
+      echo "'com.bitwarden.desktop'..."
+      echo "Application 'com.bitwarden.desktop' quit successfully."
+      echo "Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'." >&2
+      echo '==> Purging files for version 2026.7.0 of Cask bitwarden'
     fi
     ;;
   autoremove)
@@ -2258,6 +2323,86 @@ EOF
   assert_not_contains 'docker-desktop-(start|stop)|colima-(start|stop)' "$update_all_log" \
     "an already-available Docker lane changed backend lifecycle state"
 
+  # An interrupted/half-installed cask can quit the old app successfully, find
+  # an unexpected app inside the old Caskroom, emit Error:, then purge the new
+  # version. The Homebrew child status remains authoritative through the output
+  # classifier. The receipt names the error and cask separately from warnings,
+  # withholds the success timestamp, records a retry, and offers only owner-run
+  # recovery without --zap or an automatic force removal.
+  cp "$update_all_home/.config/homebrew/Brewfile" \
+    "$update_all_fixture/Brewfile.before-caskroom-collision"
+  cat >"$update_all_home/.config/homebrew/Brewfile" <<'EOF'
+brew "git"
+cask "bitwarden"
+EOF
+  printf 'previous-success\n' >"$update_all_stamp"
+  rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin BREW_CASKROOM_COLLISION=1 BREW_STAGE_STATUS=17 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-caskroom-collision" 2>&1
+  update_all_status=$?
+  set -e
+  mv "$update_all_fixture/Brewfile.before-caskroom-collision" \
+    "$update_all_home/.config/homebrew/Brewfile"
+  if [[ "$update_all_status" -ne 17 ]]; then
+    sed -n '1,200p' "$update_all_fixture/darwin-caskroom-collision" >&2
+    fail "a Caskroom collision changed Homebrew status 17 to $update_all_status"
+  fi
+  grep -qF 'Result: failed (exit 17)' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision omitted the authoritative failed result"
+  grep -qF 'Errors: 1 preserved above' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision was not counted separately from warnings"
+  grep -qF 'Failed cask: bitwarden' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision did not name bitwarden"
+  grep -qF 'brew remove --force --cask bitwarden' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision omitted owner-run force-remove recovery"
+  grep -qF 'brew install --cask bitwarden' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision omitted owner-run reinstall recovery"
+  grep -qF 'brew list --cask --versions bitwarden' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom collision omitted post-repair verification"
+  grep -qF "Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'." \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    || fail "the Caskroom Error was absent from the live update transcript"
+  assert_not_contains 'Groundwork update complete|--zap' \
+    "$update_all_fixture/darwin-caskroom-collision" \
+    "the failed Caskroom collision used destructive recovery or claimed success"
+  grep -qxF 'previous-success' "$update_all_stamp" \
+    || fail "the failed Caskroom collision replaced the previous success timestamp"
+  caskroom_pending="$update_all_home/.local/state/groundwork/update-all-pending/homebrew-upgrade"
+  test -f "$caskroom_pending" \
+    || fail "the failed Caskroom collision left no durable update retry"
+  grep -qF 'bitwarden' "$caskroom_pending" \
+    || fail "the Caskroom collision pending record omitted the failed cask"
+  caskroom_pending_temps=("${caskroom_pending}.tmp."*)
+  ((${#caskroom_pending_temps[@]} == 0)) \
+    || fail "the Homebrew upgrade pending record was not written atomically"
+  assert_not_contains 'mise upgrade|brew autoremove|brew cleanup|brew remove|brew install' \
+    "$update_all_log" \
+    "the failed Caskroom collision continued or executed owner-only recovery"
+  grep -qF "'com.bitwarden.desktop'..." "$raw_upgrade_log"
+  grep -qF "Application 'com.bitwarden.desktop' quit successfully." "$raw_upgrade_log"
+  grep -qF "already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'" \
+    "$raw_upgrade_log"
+  grep -qF 'Purging files for version 2026.7.0 of Cask bitwarden' "$raw_upgrade_log"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-caskroom-retry" 2>&1 \
+    || fail "a normal successful retry did not close the Caskroom collision"
+  test ! -e "$caskroom_pending" \
+    || fail "a successful Homebrew retry left the upgrade pending record"
+
   # A stopped selected backend is an explicit, reversible update-all repair.
   # Consent is required, noninteractive runs remain stopped, and Groundwork
   # restores the original state after success, ordinary failure, timeout, or a
@@ -2504,6 +2649,7 @@ EOF
   # Skipping maintenance never clears earlier work. Its failure guidance keeps
   # the full transaction and cadence-respecting maintenance-only retry primary.
   rm -f "$update_all_stamp"
+  mkdir -p "$update_all_home/.local/state/groundwork/update-all-pending"
   printf 'recorded Homebrew maintenance failure\n' \
     >"$update_all_home/.local/state/groundwork/update-all-pending/homebrew"
   set +e
@@ -2853,6 +2999,28 @@ EOF
   run_reminder "$reminder_dir/recovered-output"
   assert_not_contains "could not finish" "$reminder_dir/recovered-output" \
     "the reminder still reports a cleanup that a later clean run completed"
+
+  # A failed package upgrade shares the durable pending namespace but is not a
+  # cleanup lane. Its reminder must send the user back through update-all and
+  # must not suggest that groundwork-cleanup can complete the missing upgrade.
+  mkdir -p "$update_all_home/.local/state/groundwork/update-all-pending"
+  printf '2001-01-01T00:00:00Z Homebrew upgrade failed (exit 17); failed cask: bitwarden\n' \
+    >"$update_all_home/.local/state/groundwork/update-all-pending/homebrew-upgrade"
+  run_reminder "$reminder_dir/upgrade-pending-output"
+  grep -qF 'could not finish a required Homebrew upgrade' \
+    "$reminder_dir/upgrade-pending-output" \
+    || fail "a pending Homebrew upgrade was mislabeled as package maintenance"
+  grep -qF 'homebrew-upgrade: 2001-01-01T00:00:00Z Homebrew upgrade failed (exit 17); failed cask: bitwarden' \
+    "$reminder_dir/upgrade-pending-output" \
+    || fail "the Homebrew upgrade reminder omitted its durable failure detail"
+  grep -qF 'Run update-all again to retry the complete update transaction.' \
+    "$reminder_dir/upgrade-pending-output" \
+    || fail "the Homebrew upgrade reminder omitted its effective retry"
+  assert_not_contains 'groundwork-cleanup|retry maintenance without repeating upgrades' \
+    "$reminder_dir/upgrade-pending-output" \
+    "a Homebrew upgrade reminder recommended an ineffective cleanup-only repair"
+  rm -f "$update_all_home/.local/state/groundwork/update-all-pending/homebrew-upgrade"
+  rmdir "$update_all_home/.local/state/groundwork/update-all-pending" 2>/dev/null || true
 
   # Docker scratch maintenance has its own pending record and repair route; it
   # must not masquerade as package-manager maintenance or recommend the

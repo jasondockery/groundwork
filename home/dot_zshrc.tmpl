@@ -339,6 +339,7 @@ groundwork-update-reminder() {
   local legacy_pending="$state_dir/homebrew-cleanup-pending"
   local docker_pending="$state_dir/docker-tidy-pending"
   local now shown_epoch last_epoch age_days pending_note pending_file pending_stage
+  local upgrade_pending=0 manager_pending=0
   local -a pending_files
 
   now="$(date +%s 2>/dev/null)" || return
@@ -359,9 +360,25 @@ groundwork-update-reminder() {
     pending_file="$legacy_pending"
   fi
   if [[ -n "$pending_file" ]]; then
-    print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish package-manager maintenance."
     if [[ -d "$pending_dir" ]]; then
       pending_files=("$pending_dir"/*(N))
+      for pending_file in "${pending_files[@]}"; do
+        pending_stage="${pending_file:t}"
+        if [[ "$pending_stage" == "homebrew-upgrade" ]]; then
+          upgrade_pending=1
+        else
+          manager_pending=1
+        fi
+      done
+    else
+      manager_pending=1
+    fi
+    if (( upgrade_pending )); then
+      print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish a required Homebrew upgrade."
+    else
+      print -P "%F{yellow}Groundwork:%f the last %Bupdate-all%b could not finish package-manager maintenance."
+    fi
+    if [[ -d "$pending_dir" ]]; then
       for pending_file in "${pending_files[@]}"; do
         pending_note=""
         pending_stage="${pending_file:t}"
@@ -373,12 +390,18 @@ groundwork-update-reminder() {
       read -r pending_note <"$legacy_pending" 2>/dev/null
       print -r -- "  homebrew: ${pending_note:-legacy cleanup repair is pending}"
     fi
-    print "Run update-all again to retry the normal maintenance transaction."
-    print ""
-    print "To retry maintenance without repeating upgrades:"
-    print "  groundwork-cleanup --yes"
-    print ""
-    print 'See `groundwork-cleanup --help` for exceptional overrides.'
+    if (( upgrade_pending )); then
+      print "Run update-all again to retry the complete update transaction."
+    else
+      print "Run update-all again to retry the normal maintenance transaction."
+    fi
+    if (( manager_pending )); then
+      print ""
+      print "To retry maintenance without repeating upgrades:"
+      print "  groundwork-cleanup --yes"
+      print ""
+      print 'See `groundwork-cleanup --help` for exceptional overrides.'
+    fi
     if [[ -f "$docker_pending" ]]; then
       pending_note=""
       read -r pending_note <"$docker_pending" 2>/dev/null
