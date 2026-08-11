@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "$(uname -s)" != Darwin ]]; then
+  echo "skip: Homebrew interactive terminal proof requires macOS script(1)"
+  exit 0
+fi
+
+fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-brew-terminal.XXXXXX")"
+cleanup() {
+  rm -rf -- "$fixture"
+}
+trap cleanup EXIT
+
+cat >"$fixture/prompt-command" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -t 0 && -t 1 && -t 2 ]] || exit 91
+printf '\033[32m==> Preparing Docker Desktop\033[0m\r'
+printf '==> Replacing Docker Desktop\n'
+printf "%s\r\033[2K%s\n" \
+  "==> Unlinking Bash Completion '/opt/homebrew/etc/bash_completion.d/docker'" \
+  "==> Unlinking Fish Completion '/opt/homebrew/share/fish/vendor_completions.d/docker.fish'"
+printf 'ordered stdout marker\n'
+printf 'ordered stderr marker\n' >&2
+terminal_state="$(stty -g)"
+trap 'stty "$terminal_state"' EXIT
+stty -echo
+printf 'First password prompt: '
+IFS= read -r first
+printf '\n'
+printf 'Second password prompt: '
+IFS= read -r second
+printf '\n'
+stty "$terminal_state"
+trap - EXIT
+[[ "$first" == alpha && "$second" == bravo ]] || exit 92
+printf '\033[31m%s\033[0m\n' "Error: docker-desktop: It seems there is already an App at '/opt/homebrew/Caskroom/docker-desktop/4.85.0/Docker.app'."
+exit 23
+SH
+chmod +x "$fixture/prompt-command"
+
+python3 - "$repo" "$fixture" <<'PY'
+import errno
+import os
+import pathlib
+import pty
+import select
+import sys
+import time
+
+repo = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2])
+library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
+command = fixture / "prompt-command"
+log = fixture / "prompt.log"
+receipt = fixture / "prompt.tsv"
+
+shell = (
+    f"source {library!s}; "
+    "GROUNDWORK_BREW_POLL_SECONDS=0.05 "
+    f"gw_brew_run_logged {log!s} {receipt!s} reset 'Homebrew prompt fixture' -- {command!s}"
+)
+pid, master = pty.fork()
+if pid == 0:
+    os.execve("/bin/bash", ["/bin/bash", "-c", shell], os.environ.copy())
+
+captured = bytearray()
+sent_first = False
+sent_second = False
+deadline = time.monotonic() + 15
+while time.monotonic() < deadline:
+    readable, _, _ = select.select([master], [], [], 0.1)
+    if readable:
+        try:
+            chunk = os.read(master, 65536)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                chunk = b""
+            else:
+                raise
+        if not chunk:
+            break
+        captured.extend(chunk)
+        if not sent_first and b"First password prompt:" in captured:
+            os.write(master, b"alpha\n")
+            sent_first = True
+        if sent_first and not sent_second and b"Second password prompt:" in captured:
+            os.write(master, b"bravo\n")
+            sent_second = True
+    waited, status = os.waitpid(pid, os.WNOHANG)
+    if waited == pid:
+        break
+else:
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+    raise SystemExit("interactive Homebrew fixture exceeded its 15-second test deadline")
+
+if 'status' not in locals() or waited != pid:
+    _, status = os.waitpid(pid, 0)
+returncode = os.waitstatus_to_exitcode(status)
+if returncode != 23:
+    raise SystemExit(f"interactive Homebrew status changed from 23 to {returncode}\n{captured.decode(errors='replace')}")
+text = captured.decode(errors="replace")
+for expected in (
+    "attached directly to this terminal",
+    "First password prompt:",
+    "Second password prompt:",
+    "Error: docker-desktop:",
+):
+    if expected not in text:
+        raise SystemExit(f"interactive output omitted {expected!r}\n{text}")
+if "alpha" in text or "bravo" in text:
+    raise SystemExit("terminal input was echoed into the live Homebrew transcript")
+if text.index("ordered stdout marker") > text.index("ordered stderr marker"):
+    raise SystemExit("interactive Homebrew output reversed stdout/stderr order")
+PY
+
+python3 - "$fixture/prompt.log" "$fixture/prompt.tsv" <<'PY'
+import pathlib
+import sys
+
+log = pathlib.Path(sys.argv[1]).read_bytes()
+if b"\x1b" in log or b"\r" in log:
+    raise SystemExit("saved Homebrew log retained terminal control bytes")
+if b"Error: docker-desktop:" not in log:
+    raise SystemExit("saved Homebrew log omitted the child error")
+for expected in (
+    b"==> Unlinking Bash Completion '/opt/homebrew/etc/bash_completion.d/docker'",
+    b"==> Unlinking Fish Completion '/opt/homebrew/share/fish/vendor_completions.d/docker.fish'",
+):
+    if expected not in log:
+        raise SystemExit(f"saved Homebrew log omitted observed Docker transcript line {expected!r}")
+if b"                                        ==> Unlinking" in log:
+    raise SystemExit("saved Homebrew log converted cursor movement into shifting spaces")
+if b"alpha" in log or b"bravo" in log:
+    raise SystemExit("terminal input was persisted in the saved Homebrew log")
+receipt = pathlib.Path(sys.argv[2]).read_text().splitlines()
+if "error\t1" not in receipt or "failed-cask\tdocker-desktop" not in receipt:
+    raise SystemExit(f"unexpected Homebrew receipt: {receipt!r}")
+PY
+
+cat >"$fixture/quiet-command" <<'SH'
+#!/usr/bin/env bash
+sleep 2
+echo quiet-command-complete
+SH
+chmod +x "$fixture/quiet-command"
+
+python3 - "$repo" "$fixture" <<'PY'
+import errno
+import os
+import pathlib
+import pty
+import select
+import sys
+import time
+
+repo = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2])
+library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
+command = fixture / "quiet-command"
+log = fixture / "quiet.log"
+receipt = fixture / "quiet.tsv"
+shell = (
+    f"source {library!s}; "
+    "GROUNDWORK_BREW_STALL_SECONDS=1 GROUNDWORK_BREW_DEADLINE_SECONDS=8 "
+    "GROUNDWORK_BREW_POLL_SECONDS=0.05 "
+    f"gw_brew_run_logged {log!s} {receipt!s} reset 'Homebrew quiet fixture' -- {command!s}"
+)
+pid, master = pty.fork()
+if pid == 0:
+    os.execve("/bin/bash", ["/bin/bash", "-c", shell], os.environ.copy())
+
+captured = bytearray()
+deadline = time.monotonic() + 12
+status = None
+while time.monotonic() < deadline:
+    readable, _, _ = select.select([master], [], [], 0.1)
+    if readable:
+        try:
+            chunk = os.read(master, 65536)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                chunk = b""
+            else:
+                raise
+        captured.extend(chunk)
+    waited, candidate = os.waitpid(pid, os.WNOHANG)
+    if waited == pid:
+        status = candidate
+        break
+if status is None:
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+    raise SystemExit("quiet Homebrew fixture exceeded its test deadline")
+if os.waitstatus_to_exitcode(status) != 0:
+    raise SystemExit(captured.decode(errors="replace"))
+text = captured.decode(errors="replace")
+if "still running; no output for" not in text:
+    raise SystemExit(f"quiet child did not produce a stall diagnostic\n{text}")
+if "quiet-command-complete" not in text:
+    raise SystemExit(f"quiet child did not complete normally\n{text}")
+PY
+
+cat >"$fixture/timeout-command" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
+trap 'exit 0' TERM HUP
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/timeout-command"
+
+python3 - "$repo" "$fixture" <<'PY'
+import errno
+import os
+import pathlib
+import pty
+import select
+import signal
+import sys
+import time
+
+repo = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2])
+library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
+command = fixture / "timeout-command"
+log = fixture / "timeout.log"
+receipt = fixture / "timeout.tsv"
+child_pid_file = fixture / "timeout-child.pid"
+shell = (
+    f"source {library!s}; "
+    "GROUNDWORK_BREW_DEADLINE_SECONDS=2 GROUNDWORK_BREW_STALL_SECONDS=1 "
+    "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS=1 GROUNDWORK_BREW_POLL_SECONDS=0.05 "
+    f"GROUNDWORK_TEST_CHILD_PID={child_pid_file!s} "
+    f"gw_brew_run_logged {log!s} {receipt!s} reset 'Homebrew timeout fixture' -- {command!s}"
+)
+pid, master = pty.fork()
+if pid == 0:
+    os.execve("/bin/bash", ["/bin/bash", "-c", shell], os.environ.copy())
+
+captured = bytearray()
+deadline = time.monotonic() + 10
+status = None
+while time.monotonic() < deadline:
+    readable, _, _ = select.select([master], [], [], 0.1)
+    if readable:
+        try:
+            captured.extend(os.read(master, 65536))
+        except OSError as error:
+            if error.errno != errno.EIO:
+                raise
+    waited, candidate = os.waitpid(pid, os.WNOHANG)
+    if waited == pid:
+        status = candidate
+        break
+if status is None:
+    os.kill(pid, signal.SIGKILL)
+    os.waitpid(pid, 0)
+    raise SystemExit("Homebrew timeout fixture exceeded its test deadline")
+returncode = os.waitstatus_to_exitcode(status)
+if returncode != 124:
+    raise SystemExit(f"Homebrew timeout returned {returncode}, not 124\n{captured.decode(errors='replace')}")
+text = captured.decode(errors="replace")
+if "exceeded its 2s hard deadline; cancelling it" not in text:
+    raise SystemExit(f"Homebrew timeout was not explained\n{text}")
+
+child_pid = int(child_pid_file.read_text())
+for _ in range(20):
+    try:
+        os.kill(child_pid, 0)
+    except ProcessLookupError:
+        break
+    time.sleep(0.1)
+else:
+    raise SystemExit(f"timed-out Homebrew child {child_pid} survived bounded cancellation")
+PY
+
+echo "ok: interactive Homebrew output retains terminal ownership and bounded status"

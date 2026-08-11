@@ -1411,6 +1411,33 @@ SH
     "$brew_output_fixture/hostile-cask-report" \
     "an injection-like Caskroom token received executable recovery advice"
 
+  noninteractive_status=0
+  gw_brew_run_logged \
+    "$brew_output_fixture/noninteractive-log" \
+    "$brew_output_fixture/noninteractive-receipt" reset \
+    "Homebrew noninteractive fixture" -- \
+    /bin/bash -c 'printf "%s\n" "Error: exact child status"; exit 17' \
+    >"$brew_output_fixture/noninteractive-visible" 2>&1 \
+    || noninteractive_status=$?
+  [[ "$noninteractive_status" -eq 17 ]] \
+    || fail "the noninteractive Homebrew runner changed child exit 17 to $noninteractive_status"
+  grep -qxF 'Error: exact child status' "$brew_output_fixture/noninteractive-visible" \
+    || fail "the noninteractive Homebrew runner hid a child error"
+  grep -qx $'error\t1' "$brew_output_fixture/noninteractive-receipt" \
+    || fail "the noninteractive Homebrew runner did not classify a child error"
+
+  if GROUNDWORK_BREW_DEADLINE_SECONDS=0 gw_brew_run_logged \
+    "$brew_output_fixture/invalid-bound-log" \
+    "$brew_output_fixture/invalid-bound-receipt" reset \
+    "Homebrew invalid bound fixture" -- /usr/bin/true \
+    >"$brew_output_fixture/invalid-bound-visible" 2>&1; then
+    fail "the Homebrew runner accepted an invalid hard deadline"
+  fi
+  test ! -e "$brew_output_fixture/invalid-bound-log" \
+    || fail "an invalid Homebrew deadline mutated the log"
+  test ! -e "$brew_output_fixture/invalid-bound-receipt" \
+    || fail "an invalid Homebrew deadline mutated the receipt"
+
   check "update-all launcher handoff and runner transaction"
   update_all_fixture="$out_dir/update-all-fixture"
   update_all_home="$update_all_fixture/home"
@@ -5678,7 +5705,16 @@ SH
   static_linux_runner="$out_dir/static-linux-update-runner"
   render linux false amd64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
     "$static_linux_runner"
-  grep -qF 'HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade' "$static_linux_runner"
+  grep -qF "HOMEBREW_NO_AUTO_UPDATE=1 \\" "$static_linux_runner" \
+    || fail "the Linux Homebrew upgrade lost its no-auto-update policy"
+  grep -qF "gw_brew_run_logged \"\$upgrade_log\" \"\$upgrade_receipt\" reset \"Homebrew upgrade\" --" \
+    "$static_linux_runner" \
+    || fail "the Linux Homebrew upgrade bypassed the bounded runner"
+  grep -qF "brew upgrade \"\${managed_formulae[@]}\"" "$static_linux_runner" \
+    || fail "the Linux Homebrew upgrade lost its exact managed formula set"
+  assert_not_contains "gw_brew_classify_stream \"\\\$upgrade_log\"" \
+    "$static_linux_runner" \
+    "the Linux Homebrew upgrade bypassed the shared output runner"
   assert_not_contains 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS' "$static_linux_runner" \
     "macOS cask upgrade policy leaked into the Linux update runner"
   assert_not_contains '^[^#]*brew upgrade[^#]*--greedy' "$static_linux_runner" \
@@ -7414,13 +7450,18 @@ EOF
   grep -qF "HOMEBREW_CASK_OPTS=\"\$safe_cask_opts\"" "$chrome_current" \
     || fail "brew bundle must run under the --require-sha cask policy"
   grep -qF -- '--require-sha' "$chrome_current"
-  # The tee to the bundle log makes brew see a pipe; color must key on the
-  # run-wide GROUNDWORK_COLOR signal (with a TTY fallback for a direct apply)
-  # and force Homebrew's documented HOMEBREW_COLOR when it is on.
+  # Noninteractive runs still use a classified pipe, while interactive macOS
+  # runs keep Homebrew attached to a PTY. Color therefore keys on the run-wide
+  # GROUNDWORK_COLOR signal (with a TTY fallback for a direct apply).
   grep -qF 'GROUNDWORK_COLOR' "$chrome_current" \
-    || fail "the brew bundle stage must key color on the run-wide GROUNDWORK_COLOR signal, not its own piped stdout"
+    || fail "the brew bundle stage must key color on the run-wide GROUNDWORK_COLOR signal"
   grep -qF 'export HOMEBREW_COLOR=1' "$chrome_current" \
-    || fail "the brew bundle stage must force HOMEBREW_COLOR through the tee when the color signal is on"
+    || fail "the brew bundle stage must preserve Homebrew color when the color signal is on"
+  grep -qF "gw_brew_run_logged \"\$bundle_log\" \"\$bundle_receipt\" reset \"Homebrew bundle\" --" "$chrome_current" \
+    || fail "the brew bundle stage must preserve terminal ownership through the bounded Homebrew runner"
+  assert_not_contains "gw_brew_classify_stream \"\\\$bundle_log\"" \
+    "$chrome_current" \
+    "brew bundle bypassed the terminal-preserving Homebrew runner"
   # The user's own cask options are preserved, never replaced.
   grep -qF "user_cask_opts=\"\${HOMEBREW_CASK_OPTS-}\"" "$chrome_current" \
     || fail "the user's HOMEBREW_CASK_OPTS must be preserved, not overwritten"
@@ -12314,6 +12355,12 @@ PY
   # --require-sha.
   grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1' "$out_dir/darwin-beta/update-run"
   grep -q 'brew upgrade --require-sha' "$out_dir/darwin-beta/update-run"
+  grep -qF "gw_brew_run_logged \"\$upgrade_log\" \"\$upgrade_receipt\" reset \"Homebrew upgrade\" --" \
+    "$out_dir/darwin-beta/update-run" \
+    || fail "the macOS Homebrew upgrade must preserve terminal ownership through the bounded runner"
+  assert_not_contains "gw_brew_classify_stream \"\\\$upgrade_log\"" \
+    "$out_dir/darwin-beta/update-run" \
+    "the macOS Homebrew upgrade bypassed the terminal-preserving runner"
   assert_not_contains '^[^#]*brew upgrade[^#]*--greedy' "$out_dir/darwin-beta/update-run" \
     "update-all must not use any --greedy flag (unchecked or re-quarantined casks)"
   # The safe lane must never silently fall back when a checksum check fails:
@@ -13062,6 +13109,10 @@ SH
   run_bounded_internal "brew autoremove descendant-drain regression" 8 \
     "$platform_fixture/brew-output" "$platform_fixture/bin/brew" autoremove \
     || fail "a naturally draining Homebrew descendant failed on macOS"
+
+  check "Homebrew interactive terminal ownership"
+  "$repo/scripts/test-brew-terminal-output" \
+    || fail "interactive Homebrew output lost terminal ownership or bounded status"
 }
 
 validate_static() {

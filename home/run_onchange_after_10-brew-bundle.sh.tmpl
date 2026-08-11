@@ -42,10 +42,9 @@ export HOMEBREW_CURL_RETRIES=3
 # One failed package must not skip the recovery steps below (a dead cask
 # should never leave the launcher or keyboard driver down), but the script
 # still exits non-zero afterwards so chezmoi retries the bundle on the next
-# apply instead of recording it as done. Output is teed to a log so that
-# when Homebrew prints its own remediation block (circular formula
-# dependencies and similar known-broken states), groundwork-brew-repair can
-# offer to run exactly those commands and the bundle retries once.
+# apply instead of recording it as done. Interactive macOS work keeps a real
+# terminal while saving a normalized log, so password prompts stay visible and
+# groundwork-brew-repair can still offer Homebrew's exact remediation commands.
 brew_output_lib="$HOME/.local/share/groundwork/lib/brew-output.sh"
 if [[ ! -r "$brew_output_lib" ]]; then
   echo "Groundwork: Homebrew output classifier is missing: $brew_output_lib" >&2
@@ -75,12 +74,10 @@ bundle_log_exit() {
   exit "$status"
 }
 trap bundle_log_exit EXIT
-# The tee below makes brew see a pipe, which silently dropped color from the
-# longest stage of a refresh even on a real terminal. Key color on the
-# run-wide signal instead: update-all exports GROUNDWORK_COLOR before the
-# sync, and a direct `chezmoi apply` in a terminal gets the TTY fallback
-# (NO_COLOR still wins there; groundwork-brew-repair strips the codes when
-# it parses the log).
+# Key color on the run-wide signal: update-all exports GROUNDWORK_COLOR before
+# the sync, and a direct `chezmoi apply` in a terminal gets the TTY fallback.
+# NO_COLOR still wins there. Noninteractive runs use the classified pipe;
+# interactive macOS runs keep Homebrew's own PTY output intact.
 groundwork_color="${GROUNDWORK_COLOR:-}"
 if [[ -z "$groundwork_color" ]]; then
   if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -104,8 +101,8 @@ bundle_status=0
 user_cask_opts="${HOMEBREW_CASK_OPTS-}"
 safe_cask_opts="${user_cask_opts:+$user_cask_opts }--require-sha"
 HOMEBREW_CASK_OPTS="$safe_cask_opts" \
-  brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 \
-    | gw_brew_classify_stream "$bundle_log" "$bundle_receipt" reset \
+  gw_brew_run_logged "$bundle_log" "$bundle_receipt" reset "Homebrew bundle" -- \
+    brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" \
     || bundle_status=$?
 # The repair helper runs even when the bundle exited 0: Homebrew's per-cask
 # "cannot be upgraded as-is" warning does not fail the run, so it would
@@ -133,8 +130,8 @@ fi
 if [[ "$retry_bundle" -eq 1 ]]; then
   bundle_status=0
   HOMEBREW_CASK_OPTS="$safe_cask_opts" \
-    brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" 2>&1 \
-      | gw_brew_classify_stream "$bundle_log" "$bundle_receipt" append \
+    gw_brew_run_logged "$bundle_log" "$bundle_receipt" append "Homebrew bundle retry" -- \
+      brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" \
       || bundle_status=$?
 fi
 gw_brew_report_classification \
