@@ -125,11 +125,12 @@ making the user's current target move. Keep field, lab, automated, and manual
 evidence claims distinct; a broad field budget does not excuse an unexpected
 shift in an exact interaction flow.
 
-Related applications present identity, personal preferences, accessibility
-settings, and account actions in a consistent and predictable location.
-Capability changes must not unexpectedly relocate that surface or change its
-stable interaction geometry. Consumers own the route, component, and product
-mechanics that satisfy this shared expectation.
+When identity, personal preferences, accessibility settings, or account actions
+are available, related applications present each applicable surface in a
+consistent and predictable location. Adding or removing a capability must not
+unexpectedly relocate an existing surface or change its stable interaction
+geometry. Compass owns generic behavior and proof; products own routes,
+packages, components, persistence, and authentication mechanics.
 
 ## Efficient by default
 

@@ -65,16 +65,20 @@ description: Design, implement, review, or prove any user-facing web, native, CL
   keyboard focus. Queue or reveal new results through user initiation, or
   append them into predetermined stable positions.
 - A pending control keeps its accessible name, stable dimensions, and action
-  identity. Expose `aria-busy`; use `aria-disabled` when retaining focus is
-  important, and native `disabled` only when intentional removal from
-  interaction and focus order is correct. Announce status separately without
-  stealing focus. Retain a practical 44 by 44 CSS-pixel target where possible
-  without misrepresenting the distinct WCAG 2.2 AA floor of 24 by 24 CSS pixels
-  and its defined exceptions.
-- Related applications present identity, personal preferences, accessibility
-  settings, and account actions in a consistent and predictable location.
-  Capability changes must not unexpectedly relocate that surface or change its
-  stable interaction geometry; each product owns its routes and components.
+  identity. Expose `aria-busy` on the control or controlled region as
+  appropriate. Use `aria-disabled` when retaining focus is important and
+  enforce the unavailable state behaviorally; the attribute alone does not
+  prevent activation. Use native `disabled` only when removal from interaction
+  and focus order is intentional. Announce status separately without stealing
+  focus. Retain a practical 44 by 44 CSS-pixel target where possible without
+  misrepresenting the distinct WCAG 2.2 AA floor of 24 by 24 CSS pixels and its
+  defined exceptions.
+- When identity, personal preferences, accessibility settings, or account
+  actions are available, related applications present each applicable surface
+  in a consistent and predictable location. Adding or removing a capability
+  must not unexpectedly relocate an existing surface or change its stable
+  interaction geometry. Compass owns generic behavior and proof; products own
+  routes, packages, components, persistence, and authentication mechanics.
 
 ## Keep the WCAG dimensions precise
 
