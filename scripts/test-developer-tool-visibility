@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+report_failure() {
+  local status="$?"
+  printf 'test-developer-tool-visibility: line %s: %s (exit %s)\n' "$1" "$2" "$status" >&2
+  exit "$status"
+}
+trap 'report_failure "$LINENO" "$BASH_COMMAND"' ERR
+
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 require_runtime_tools=0
 source_bound_receipts=1
