@@ -67,6 +67,16 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 # shellcheck source=/dev/null
 source "$repo/home/dot_local/lib/groundwork/yazi-config.sh"
 groundwork_yazi_sha256 "$repo/home/.chezmoitemplates/yazi.toml" >/dev/null
+source_commit="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || {
+  echo "run-yazi-manual-acceptance: the Groundwork source is not an exact Git checkout; no receipt can be bound." >&2
+  exit 1
+}
+source_tree="$(git -C "$repo" rev-parse 'HEAD^{tree}' 2>/dev/null)" || {
+  echo "run-yazi-manual-acceptance: the Groundwork source tree cannot be identified; no receipt can be bound." >&2
+  exit 1
+}
+source_dirty=false
+[[ -z "$(git -C "$repo" status --porcelain=v1)" ]] || source_dirty=true
 
 receipt_dir="$(dirname "$receipt")"
 [[ -d "$receipt_dir" && ! -L "$receipt_dir" ]] || {
@@ -88,18 +98,18 @@ terminal_state="$(stty -g)"
 yazi_pid=""
 cleanup() {
   local cleanup_attempt
-  if [[ -n "$yazi_pid" ]] && kill -0 "$yazi_pid" 2>/dev/null; then
-    kill -TERM "$yazi_pid" 2>/dev/null || true
+  if [[ -n "$yazi_pid" ]] && kill -0 -- "-$yazi_pid" 2>/dev/null; then
+    kill -TERM -- "-$yazi_pid" 2>/dev/null || true
     cleanup_attempt=0
-    while kill -0 "$yazi_pid" 2>/dev/null && [[ "$cleanup_attempt" -lt 20 ]]; do
+    while kill -0 -- "-$yazi_pid" 2>/dev/null && [[ "$cleanup_attempt" -lt 20 ]]; do
       sleep 0.05
       cleanup_attempt=$((cleanup_attempt + 1))
     done
-    if kill -0 "$yazi_pid" 2>/dev/null; then
-      kill -KILL "$yazi_pid" 2>/dev/null || true
+    if kill -0 -- "-$yazi_pid" 2>/dev/null; then
+      kill -KILL -- "-$yazi_pid" 2>/dev/null || true
     fi
-    wait "$yazi_pid" 2>/dev/null || true
   fi
+  [[ -z "$yazi_pid" ]] || wait "$yazi_pid" 2>/dev/null || true
   stty "$terminal_state" 2>/dev/null || true
   rm -rf -- "$tmp"
   [[ -z "$receipt_tmp" ]] || rm -f -- "$receipt_tmp"
@@ -143,7 +153,7 @@ set +e
     XDG_DATA_HOME="$tmp/xdg-data" \
     XDG_STATE_HOME="$tmp/xdg-state" \
     YAZI_CONFIG_HOME="$tmp/config" \
-    perl -e 'alarm shift; exec @ARGV' 120 yazi
+    perl -MPOSIX -e 'POSIX::setpgid(0, 0) == 0 or die "setpgid: $!"; alarm shift; exec @ARGV' 120 yazi
 ) &
 yazi_pid=$!
 wait "$yazi_pid"
@@ -191,10 +201,6 @@ case "$yazi_version" in
     ;;
 esac
 completed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-source_commit="$(git -C "$repo" rev-parse HEAD)"
-source_tree="$(git -C "$repo" rev-parse 'HEAD^{tree}')"
-source_dirty=false
-[[ -z "$(git -C "$repo" status --porcelain=v1)" ]] || source_dirty=true
 runner_sha="$(groundwork_yazi_sha256 "$repo/scripts/run-yazi-manual-acceptance")"
 terminal_tty="$(tty 2>/dev/null || printf 'unknown\n')"
 receipt_tmp="$(mktemp "$receipt_dir/.yazi-acceptance.XXXXXX")"

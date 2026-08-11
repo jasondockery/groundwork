@@ -3,13 +3,21 @@ set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 require_runtime_tools=0
+source_bound_receipts=1
 
-if [[ "${1:-}" == --require-runtime-tools ]]; then
-  require_runtime_tools=1
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --require-runtime-tools) require_runtime_tools=1 ;;
+    --source-less-runtime-smoke) source_bound_receipts=0 ;;
+    *)
+      echo "usage: scripts/test-developer-tool-visibility [--require-runtime-tools --source-less-runtime-smoke]" >&2
+      exit 64
+      ;;
+  esac
   shift
-fi
-if [[ "$#" -ne 0 ]]; then
-  echo "usage: scripts/test-developer-tool-visibility [--require-runtime-tools]" >&2
+done
+if [[ "$source_bound_receipts" -eq 0 && "$require_runtime_tools" -ne 1 ]]; then
+  echo "test-developer-tool-visibility: --source-less-runtime-smoke requires --require-runtime-tools" >&2
   exit 64
 fi
 
@@ -18,26 +26,27 @@ tmp="$(cd "$tmp" && pwd -P)"
 trap 'rm -rf "$tmp"' EXIT
 
 manual_runner="$repo/scripts/run-yazi-manual-acceptance"
-bash "$manual_runner" --help >"$tmp/manual-help"
-grep -qF '120 seconds for Yazi' "$tmp/manual-help"
-if bash "$manual_runner" --unknown >"$tmp/manual-invalid-out" 2>"$tmp/manual-invalid-err"; then
-  echo "Yazi manual acceptance accepted an unknown argument" >&2
-  exit 1
-else
-  [[ "$?" -eq 64 ]]
-fi
-if bash "$manual_runner" --receipt "$tmp/manual-receipt.json" </dev/null >"$tmp/manual-nontty-out" 2>"$tmp/manual-nontty-err"; then
-  echo "Yazi manual acceptance ran without an interactive terminal" >&2
-  exit 1
-fi
-grep -qF 'an interactive terminal is required' "$tmp/manual-nontty-err"
-[[ ! -e "$tmp/manual-receipt.json" ]]
+if [[ "$source_bound_receipts" -eq 1 ]]; then
+  bash "$manual_runner" --help >"$tmp/manual-help"
+  grep -qF '120 seconds for Yazi' "$tmp/manual-help"
+  if bash "$manual_runner" --unknown >"$tmp/manual-invalid-out" 2>"$tmp/manual-invalid-err"; then
+    echo "Yazi manual acceptance accepted an unknown argument" >&2
+    exit 1
+  else
+    [[ "$?" -eq 64 ]]
+  fi
+  if bash "$manual_runner" --receipt "$tmp/manual-receipt.json" </dev/null >"$tmp/manual-nontty-out" 2>"$tmp/manual-nontty-err"; then
+    echo "Yazi manual acceptance ran without an interactive terminal" >&2
+    exit 1
+  fi
+  grep -qF 'an interactive terminal is required' "$tmp/manual-nontty-err"
+  [[ ! -e "$tmp/manual-receipt.json" ]]
 
-# A fake Yazi under a real PTY proves the runner isolates every home/XDG path,
-# restores terminal state after the child changes it, and writes only the
-# accepted external receipt.
-mkdir -p "$tmp/fake-bin"
-cat >"$tmp/fake-bin/yazi" <<'EOF'
+  # A fake Yazi under a real PTY proves the runner isolates every home/XDG path,
+  # restores terminal state after the child changes it, and writes only the
+  # accepted external receipt.
+  mkdir -p "$tmp/fake-bin"
+  cat >"$tmp/fake-bin/yazi" <<'EOF'
 #!/usr/bin/env bash
 if [[ "${1:-}" == --version ]]; then
   echo 'Yazi 99.0.0 (test)'
@@ -46,12 +55,14 @@ fi
 printf '%s\n' "$HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$YAZI_CONFIG_HOME" >"$GROUNDWORK_FAKE_YAZI_ENV"
 stty -echo
 if [[ -n "${GROUNDWORK_FAKE_YAZI_SLEEP:-}" ]]; then
-  : >"$GROUNDWORK_FAKE_YAZI_SLEEP"
-  sleep 30
+  sleep 30 &
+  sleep_pid=$!
+  printf '%s\n' "$sleep_pid" >"$GROUNDWORK_FAKE_YAZI_SLEEP"
+  wait "$sleep_pid"
 fi
 EOF
-chmod +x "$tmp/fake-bin/yazi"
-python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-pty-receipt.json" "$tmp/manual-env" <<'PY'
+  chmod +x "$tmp/fake-bin/yazi"
+  python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-pty-receipt.json" "$tmp/manual-env" <<'PY'
 import os, pathlib, pty, subprocess, sys, termios, time
 
 runner, fake_bin, receipt, env_output = sys.argv[1:]
@@ -83,7 +94,7 @@ if process.returncode != 0:
 if before[3] != after[3]:
     raise SystemExit("manual Yazi runner did not restore terminal local flags")
 PY
-python3 - "$tmp/manual-env" "$tmp/manual-pty-receipt.json" <<'PY'
+  python3 - "$tmp/manual-env" "$tmp/manual-pty-receipt.json" <<'PY'
 import json, pathlib, sys
 
 paths = pathlib.Path(sys.argv[1]).read_text().splitlines()
@@ -95,28 +106,28 @@ receipt = json.loads(pathlib.Path(sys.argv[2]).read_text())
 if receipt.get("result") != "accepted" or receipt.get("yaziVersion") != "Yazi 99.0.0 (test)":
     raise SystemExit("manual Yazi PTY receipt did not bind the isolated accepted run")
 PY
-"$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt.json"
-cp "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-moved.json"
-"$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-moved.json"
-ln -s "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-link.json"
-if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-link.json" >"$tmp/manual-receipt-link-out" 2>"$tmp/manual-receipt-link-err"; then
-  echo "Yazi receipt validator followed a direct receipt symlink" >&2
-  exit 1
-fi
-grep -qF 'regular non-symlink file' "$tmp/manual-receipt-link-err"
-python3 - "$tmp/manual-pty-receipt.json" "$tmp/manual-receipt-extra.json" <<'PY'
+  "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt.json"
+  cp "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-moved.json"
+  "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-moved.json"
+  ln -s "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-link.json"
+  if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-link.json" >"$tmp/manual-receipt-link-out" 2>"$tmp/manual-receipt-link-err"; then
+    echo "Yazi receipt validator followed a direct receipt symlink" >&2
+    exit 1
+  fi
+  grep -qF 'regular non-symlink file' "$tmp/manual-receipt-link-err"
+  python3 - "$tmp/manual-pty-receipt.json" "$tmp/manual-receipt-extra.json" <<'PY'
 import json, pathlib, sys
 value = json.loads(pathlib.Path(sys.argv[1]).read_text())
 value["unboundClaim"] = True
 pathlib.Path(sys.argv[2]).write_text(json.dumps(value))
 PY
-if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-receipt-extra.json" >"$tmp/manual-receipt-extra-out" 2>"$tmp/manual-receipt-extra-err"; then
-  echo "Yazi receipt validator accepted an unknown claim" >&2
-  exit 1
-fi
-grep -qF 'receipt fields must be exactly' "$tmp/manual-receipt-extra-err"
-"$repo/scripts/validate-yazi-manual-receipt" --ledger "$repo/data/yazi-manual-acceptance-receipts.json"
-python3 - "$repo/scripts/validate-yazi-manual-receipt" "$tmp" <<'PY'
+  if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-receipt-extra.json" >"$tmp/manual-receipt-extra-out" 2>"$tmp/manual-receipt-extra-err"; then
+    echo "Yazi receipt validator accepted an unknown claim" >&2
+    exit 1
+  fi
+  grep -qF 'receipt fields must be exactly' "$tmp/manual-receipt-extra-err"
+  "$repo/scripts/validate-yazi-manual-receipt" --ledger "$repo/data/yazi-manual-acceptance-receipts.json"
+  python3 - "$repo/scripts/validate-yazi-manual-receipt" "$tmp" <<'PY'
 import importlib.machinery, importlib.util, pathlib, sys
 loader = importlib.machinery.SourceFileLoader("receipt_validator", sys.argv[1])
 spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -135,10 +146,10 @@ else:
     raise SystemExit("ledger lookup followed a symlinked ancestor")
 PY
 
-# A redirected receipt ancestor is rejected before Yazi runs.
-mkdir -p "$tmp/manual-receipt-real"
-ln -s "$tmp/manual-receipt-real" "$tmp/manual-receipt-link"
-python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-receipt-link/receipt.json" <<'PY'
+  # A redirected receipt ancestor is rejected before Yazi runs.
+  mkdir -p "$tmp/manual-receipt-real"
+  ln -s "$tmp/manual-receipt-real" "$tmp/manual-receipt-link"
+  python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-receipt-link/receipt.json" <<'PY'
 import os, pty, subprocess, sys, time
 runner, fake_bin, receipt = sys.argv[1:]
 master, slave = pty.openpty()
@@ -157,12 +168,12 @@ os.close(master); os.close(slave)
 if process.returncode == 0:
     raise SystemExit("manual runner accepted a redirected receipt ancestor")
 PY
-[[ ! -e "$tmp/manual-receipt-real/receipt.json" ]]
+  [[ ! -e "$tmp/manual-receipt-real/receipt.json" ]]
 
-# Receipt publication uses a no-clobber hard link. Injecting a file at that
-# boundary must preserve the intruder and fail the accepted run.
-real_ln="$(command -v ln)"
-cat >"$tmp/fake-bin/ln" <<'EOF'
+  # Receipt publication uses a no-clobber hard link. Injecting a file at that
+  # boundary must preserve the intruder and fail the accepted run.
+  real_ln="$(command -v ln)"
+  cat >"$tmp/fake-bin/ln" <<'EOF'
 #!/usr/bin/env bash
 destination=""
 for destination in "$@"; do :; done
@@ -172,8 +183,8 @@ if [[ "$destination" == "$GROUNDWORK_RECEIPT_RACE_PATH" ]]; then
 fi
 exec "$GROUNDWORK_REAL_LN" "$@"
 EOF
-chmod +x "$tmp/fake-bin/ln"
-python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-race-receipt.json" "$real_ln" <<'PY'
+  chmod +x "$tmp/fake-bin/ln"
+  python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-race-receipt.json" "$real_ln" <<'PY'
 import os, pty, subprocess, sys, time
 runner, fake_bin, receipt, real_ln = sys.argv[1:]
 master, slave = pty.openpty()
@@ -194,17 +205,17 @@ os.close(master); os.close(slave)
 if process.returncode == 0:
     raise SystemExit("manual runner overwrote a receipt created during publication")
 PY
-grep -qxF intruder "$tmp/manual-race-receipt.json"
-if find "$tmp" -maxdepth 1 -name '.yazi-acceptance.*' -print -quit | grep -q .; then
-  echo "manual runner left a temporary receipt after no-clobber failure" >&2
-  exit 1
-fi
-rm -f "$tmp/fake-bin/ln"
+  grep -qxF intruder "$tmp/manual-race-receipt.json"
+  if find "$tmp" -maxdepth 1 -name '.yazi-acceptance.*' -print -quit | grep -q .; then
+    echo "manual runner left a temporary receipt after no-clobber failure" >&2
+    exit 1
+  fi
+  rm -f "$tmp/fake-bin/ln"
 
-# Interruption reaches the bounded Yazi process group, restores terminal state,
-# removes the isolated fixture, and never publishes a receipt.
-mkdir -p "$tmp/manual-signal-tmp"
-python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-signal-receipt.json" "$tmp/manual-signal-started" "$tmp/manual-signal-tmp" <<'PY'
+  # Interruption reaches the bounded Yazi process group, restores terminal state,
+  # removes the isolated fixture, and never publishes a receipt.
+  mkdir -p "$tmp/manual-signal-tmp"
+  python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-signal-receipt.json" "$tmp/manual-signal-started" "$tmp/manual-signal-tmp" <<'PY'
 import os, pathlib, pty, signal, subprocess, sys, termios, time
 runner, fake_bin, receipt, started, tmpdir = sys.argv[1:]
 master, slave = pty.openpty()
@@ -242,11 +253,22 @@ if process.returncode not in (130, -signal.SIGINT):
     raise SystemExit(f"manual Yazi signal fixture returned {process.returncode}")
 if before[3] != after[3]:
     raise SystemExit("manual Yazi signal fixture did not restore terminal local flags")
+sleep_pid = int(pathlib.Path(started).read_text())
+deadline = time.monotonic() + 2
+while time.monotonic() < deadline:
+    try:
+        os.kill(sleep_pid, 0)
+    except ProcessLookupError:
+        break
+    time.sleep(0.05)
+else:
+    raise SystemExit(f"manual Yazi signal fixture left descendant {sleep_pid} alive")
 PY
-[[ ! -e "$tmp/manual-signal-receipt.json" ]]
-if find "$tmp/manual-signal-tmp" -mindepth 1 -print -quit | grep -q .; then
-  echo "manual runner left an isolated fixture after interruption" >&2
-  exit 1
+  [[ ! -e "$tmp/manual-signal-receipt.json" ]]
+  if find "$tmp/manual-signal-tmp" -mindepth 1 -print -quit | grep -q .; then
+    echo "manual runner left an isolated fixture after interruption" >&2
+    exit 1
+  fi
 fi
 
 python3 - "$repo" <<'PY'
