@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source {{ joinPath .chezmoi.sourceDir "dot_local/lib/groundwork/yazi-config.sh" | quote }}
 managed_target="$HOME/.config/yazi/yazi.toml"
 effective_target="$(groundwork_yazi_effective_target)"
