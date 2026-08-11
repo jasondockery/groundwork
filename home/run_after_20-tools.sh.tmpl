@@ -12,6 +12,9 @@ unset _brew
 # dirs on PATH first so those `command -v` checks find what's already there.
 export PATH="$HOME/.local/bin:$PATH"
 
+{{- $terminalMultiplexer := "tmux" -}}
+{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
+{{ if or (eq $terminalMultiplexer "tmux") (eq $terminalMultiplexer "both") -}}
 tmux_plugin_dir="$HOME/.config/tmux/plugins"
 tmux_conf="$HOME/.config/tmux/tmux.conf"
 # An interrupted clone (Ctrl+C, power loss) can leave a partial tpm dir
@@ -41,6 +44,20 @@ if [[ "$tmux_plugins_missing" == true ]] && command -v tmux >/dev/null 2>&1 && [
   # live tmux client. Do not reload or kill the user's current tmux session here.
   "$tmux_plugin_dir/tpm/bin/install_plugins" || true
 fi
+{{- end }}
+
+{{ if or (eq $terminalMultiplexer "herdr") (eq $terminalMultiplexer "both") -}}
+if command -v herdr >/dev/null 2>&1; then
+  mkdir -p "$HOME/.local/share/groundwork/completions"
+  completion_tmp="$(mktemp "$HOME/.local/share/groundwork/completions/.herdr.XXXXXX")"
+  if herdr completion zsh >"$completion_tmp"; then
+    mv -f "$completion_tmp" "$HOME/.local/share/groundwork/completions/_herdr"
+  else
+    rm -f "$completion_tmp"
+    echo "Herdr completion generation failed; will retry on next chezmoi apply." >&2
+  fi
+fi
+{{- end }}
 
 if [[ ! -e "$HOME/.config/nvim/init.lua" ]]; then
   tmp_nvim="$(mktemp -d)"

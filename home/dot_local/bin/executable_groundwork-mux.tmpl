@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+{{- $terminalMultiplexer := "tmux" -}}
+{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
+selection={{ $terminalMultiplexer | quote }}
+
+usage() {
+  cat <<'EOF'
+groundwork-mux — inspect or start the configured terminal multiplexer.
+
+Usage:
+  groundwork-mux                    Start the configured primary multiplexer.
+  groundwork-mux status             Print the configured selection and roles.
+  groundwork-mux status --json      Print the stable machine-readable contract.
+  groundwork-mux --help
+
+Herdr is primary for the herdr and both selections. tmux is the fallback for
+both, but Groundwork never aliases it or automatically nests multiplexers.
+EOF
+}
+
+print_status_json() {
+  case "$selection" in
+    herdr)
+      printf '%s\n' '{"terminalMultiplexer":{"selection":"herdr","installed":["herdr"],"primary":"herdr","nesting":"disabled"}}'
+      ;;
+    tmux)
+      printf '%s\n' '{"terminalMultiplexer":{"selection":"tmux","installed":["tmux"],"primary":"tmux","nesting":"disabled"}}'
+      ;;
+    both)
+      printf '%s\n' '{"terminalMultiplexer":{"selection":"both","installed":["herdr","tmux"],"primary":"herdr","fallback":"tmux","nesting":"disabled"}}'
+      ;;
+    none)
+      printf '%s\n' '{"terminalMultiplexer":{"selection":"none","installed":[],"primary":null,"nesting":"disabled"}}'
+      ;;
+    *)
+      echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
+      return 1
+      ;;
+  esac
+}
+
+print_status() {
+  echo "Terminal multiplexer"
+  printf '  Selection  %s\n' "$selection"
+  case "$selection" in
+    herdr)
+      printf '  Installed  herdr\n  Primary    herdr\n  Fallback   none\n'
+      ;;
+    tmux)
+      printf '  Installed  tmux\n  Primary    tmux\n  Fallback   none\n'
+      ;;
+    both)
+      printf '  Installed  herdr, tmux\n  Primary    herdr\n  Fallback   tmux\n'
+      ;;
+    none)
+      printf '  Installed  none\n  Primary    none\n  Fallback   none\n'
+      ;;
+    *)
+      echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
+      return 1
+      ;;
+  esac
+  printf '  Nesting    disabled\n'
+}
+
+case "${1:-}" in
+  -h | --help)
+    [[ "$#" == 1 ]] || {
+      echo "groundwork-mux: --help accepts no other arguments." >&2
+      exit 64
+    }
+    usage
+    exit 0
+    ;;
+  status)
+    case "$#:${2:-}" in
+      1:)
+        print_status
+        ;;
+      2:--json)
+        print_status_json
+        ;;
+      *)
+        echo "groundwork-mux: usage: groundwork-mux status [--json]" >&2
+        exit 64
+        ;;
+    esac
+    exit 0
+    ;;
+esac
+
+if [[ -n "${TMUX:-}" || "${HERDR_ENV:-0}" == 1 ]]; then
+  echo "groundwork-mux: already inside a terminal multiplexer; automatic nesting is disabled." >&2
+  exit 1
+fi
+
+case "$selection" in
+  herdr | both)
+    command -v herdr >/dev/null 2>&1 || {
+      echo "groundwork-mux: Herdr is selected but not installed; run 'chezmoi apply' or 'brew install herdr'." >&2
+      exit 1
+    }
+    exec herdr "$@"
+    ;;
+  tmux)
+    command -v tmux >/dev/null 2>&1 || {
+      echo "groundwork-mux: tmux is selected but not installed; run 'chezmoi apply' or 'brew install tmux'." >&2
+      exit 1
+    }
+    exec tmux "$@"
+    ;;
+  none)
+    echo "groundwork-mux: no multiplexer is managed; choose one with groundwork-configure." >&2
+    exit 1
+    ;;
+  *)
+    echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
+    exit 1
+    ;;
+esac

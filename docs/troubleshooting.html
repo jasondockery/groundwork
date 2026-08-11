@@ -68,6 +68,7 @@
       <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
+      <a href="herdr.html">Herdr</a>
       <a href="tmux.html">tmux</a>
       <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
@@ -151,6 +152,7 @@
         <tr><td><strong>A command isn't found</strong></td><td>The shell hasn't picked up a newly-installed tool. Run <code>exec zsh</code> (reloads the shell) or open a new tab</td></tr>
         <tr><td><strong>A config edit did nothing</strong></td><td>You edited the file in your home folder, not the repo. Edit with <code>chezmoi edit</code>, or your change gets overwritten on next apply — see <a href="setup.html">Setup</a></td></tr>
         <tr><td><strong>Yazi config blocks apply</strong></td><td>Groundwork found an existing custom, changed, redirected, symlinked, or non-regular <code>yazi.toml</code> and left it untouched. Run <code>groundwork-yazi-config status</code>, use <code>groundwork-yazi-config diff</code> and <code>groundwork-yazi-config edit</code> to reconcile wanted settings in the exact source, or move an unowned file aside before applying. <code>groundwork-yazi-config remove --yes</code> removes only exact unchanged Groundwork-owned bytes.</td></tr>
+        <tr><td><strong>Herdr config blocks apply</strong></td><td>Groundwork found an unowned, changed, redirected, symlinked, or non-regular <code>~/.config/herdr/config.toml</code> and left it untouched. Run <code>groundwork-herdr-config status</code> and <code>diff</code>, then merge wanted settings through <code>groundwork-herdr-config edit</code> or move an unowned file aside. Removal deletes only exact receipt-matching Groundwork bytes.</td></tr>
         <tr><td><strong>Icons show as boxes □</strong></td><td>The terminal font isn't the Nerd Font. Groundwork installs <em>JetBrainsMono Nerd Font</em>; re-run <code>chezmoi apply</code>, restart Ghostty, and check with <code>ghostty +show-config | grep -i font-family</code></td></tr>
         <tr><td><strong>Ghostty opens in an old project</strong></td><td>A fresh app launch should open in <code>~</code>. This setup disables Ghostty window-state restore and lets tmux own project restoration. Re-run <code>chezmoi apply</code>, quit Ghostty, and launch it again</td></tr>
         <tr><td><strong>A tool looks unconfigured</strong></td><td>It needs its one-time setup step below (tmux plugins, Neovim sync, Karabiner permission…)</td></tr>

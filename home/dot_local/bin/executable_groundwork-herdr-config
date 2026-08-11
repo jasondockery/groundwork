@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prog="${0##*/}"
+usage() {
+  cat <<'EOF'
+Usage:
+  groundwork-herdr-config status
+  groundwork-herdr-config diff
+  groundwork-herdr-config edit
+  groundwork-herdr-config remove --yes
+
+Inspect, customize, or remove Groundwork's Herdr config ownership. Removal
+deletes only an unchanged config whose hash matches Groundwork's receipt. It
+does not uninstall Herdr, delete sessions, or touch agent configuration.
+EOF
+}
+
+action="${1:-}"
+case "$action" in
+  -h | --help)
+    [[ "$#" -eq 1 ]] || exit 64
+    usage
+    exit 0
+    ;;
+  status | diff | edit) [[ "$#" -eq 1 ]] || {
+    usage >&2
+    exit 64
+  } ;;
+  remove)
+    [[ "$#" -eq 2 && "$2" == --yes ]] || {
+      echo "$prog: removal requires the exact command 'groundwork-herdr-config remove --yes'." >&2
+      exit 64
+    }
+    ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac
+
+library="$HOME/.local/lib/groundwork/herdr-config.sh"
+[[ -r "$library" ]] || {
+  echo "$prog: managed helper is missing at $library; run 'chezmoi apply' to restore it." >&2
+  exit 1
+}
+# shellcheck source=/dev/null
+source "$library"
+
+if [[ "$action" == edit ]]; then
+  exec chezmoi edit --source-path .chezmoitemplates/herdr.toml
+fi
+
+target="$(groundwork_herdr_effective_target)"
+managed_target="$HOME/.config/herdr/config.toml"
+receipt="$HOME/.local/state/groundwork/herdr-config.sha256"
+[[ "$target" == "$managed_target" ]] || {
+  echo "$prog: an environment override selects $target; Groundwork owns $managed_target." >&2
+  exit 1
+}
+groundwork_herdr_require_plain_ancestor_chain "$target" || exit 1
+groundwork_herdr_require_plain_ancestor_chain "$receipt" || exit 1
+
+if [[ "$action" == diff ]]; then
+  source_home="$(chezmoi source-path 2>/dev/null)" || exit 1
+  desired="$source_home/.chezmoitemplates/herdr.toml"
+  [[ -f "$desired" && ! -L "$desired" ]] || {
+    echo "$prog: managed Herdr source is missing or redirected: $desired" >&2
+    exit 1
+  }
+  if [[ -e "$target" || -L "$target" ]]; then
+    [[ -f "$target" && ! -L "$target" ]] || exit 1
+    diff -u "$target" "$desired" || [[ "$?" -eq 1 ]]
+  else
+    diff -u /dev/null "$desired" || [[ "$?" -eq 1 ]]
+  fi
+  exit 0
+fi
+
+if [[ "$action" == status ]]; then
+  if [[ ! -e "$target" && ! -L "$target" ]]; then
+    echo "Herdr config: absent"
+    echo "Groundwork ownership: absent"
+    exit 0
+  fi
+  [[ -f "$target" && ! -L "$target" ]] || {
+    echo "Herdr config: present, not a regular file"
+    echo "Groundwork ownership: unproven"
+    exit 1
+  }
+  if recorded="$(groundwork_herdr_read_receipt "$receipt" 2>/dev/null)"; then
+    actual="$(groundwork_herdr_sha256 "$target")"
+    if [[ "$actual" == "$recorded" ]]; then
+      echo "Herdr config: present"
+      echo "Groundwork ownership: exact"
+      exit 0
+    fi
+    echo "Herdr config: present with changes"
+    echo "Groundwork ownership: receipt does not match"
+    exit 1
+  fi
+  echo "Herdr config: present"
+  echo "Groundwork ownership: no receipt"
+  exit 1
+fi
+
+groundwork_herdr_remove_owned "$target" "$receipt"
+echo "Removed Groundwork's unchanged Herdr config. Sessions and agent settings were untouched."

@@ -211,7 +211,7 @@ Load the skill before the first edit in its area.
   developer-file visibility, file pickers, repository navigation, worktrees,
   Lazygit, tmux session setup, or their teaching surface. Keep discovery
   read-only, ignore-aware, and independent of a hardcoded repository list.
-- **`skills/terminal-interaction`** — Ghostty or tmux selection, clipboard,
+- **`skills/terminal-interaction`** — Ghostty, Herdr, or tmux selection, clipboard,
   search, history, shell integration, or the docs that teach them.
 
 ## External material and provenance

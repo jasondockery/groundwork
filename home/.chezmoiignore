@@ -8,3 +8,9 @@ vscode-extensions.txt
 {{ if or (ne .chezmoi.os "darwin") (not $work) }}
 .colima/**
 {{ end }}
+{{- $terminalMultiplexer := "tmux" -}}
+{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
+{{ if and (ne $terminalMultiplexer "tmux") (ne $terminalMultiplexer "both") }}
+.config/tmux/**
+.config/sesh/**
+{{ end }}

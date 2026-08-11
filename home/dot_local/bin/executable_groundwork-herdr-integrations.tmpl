@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prog="${0##*/}"
+{{- $terminalMultiplexer := "tmux" -}}
+{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
+selection={{ $terminalMultiplexer | quote }}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  groundwork-herdr-integrations status
+  groundwork-herdr-integrations install --yes
+  groundwork-herdr-integrations uninstall --yes
+
+Inspect or explicitly install/remove Herdr's official Claude Code and Codex
+session-identity hooks for tools present on this machine. Install and uninstall
+delegate to Herdr's own bounded integration lifecycle; they never run during
+chezmoi apply. The exact --yes is required because agent configuration changes.
+EOF
+}
+
+action="${1:-}"
+case "$action" in
+  -h | --help) [[ "$#" -eq 1 ]] || exit 64; usage; exit 0 ;;
+  status) [[ "$#" -eq 1 ]] || { usage >&2; exit 64; } ;;
+  install | uninstall)
+    [[ "$#" -eq 2 && "$2" == --yes ]] || {
+      echo "$prog: $action requires the exact command '$prog $action --yes'." >&2
+      exit 64
+    }
+    ;;
+  *) usage >&2; exit 64 ;;
+esac
+
+case "$selection" in
+  herdr | both) ;;
+  *)
+    echo "$prog: Herdr is not selected (terminal_multiplexer=$selection)." >&2
+    echo "Change the selection with groundwork-configure before managing integrations." >&2
+    exit 1
+    ;;
+esac
+command -v herdr >/dev/null 2>&1 || {
+  echo "$prog: Herdr is selected but not installed; run 'chezmoi apply' first." >&2
+  exit 1
+}
+
+if [[ "$action" == status ]]; then
+  exec herdr integration status
+fi
+
+claude_selected=0
+codex_selected=0
+if [[ "$action" == install ]]; then
+  command -v claude >/dev/null 2>&1 && claude_selected=1
+  command -v codex >/dev/null 2>&1 && codex_selected=1
+else
+  # Uninstall remains available after the agent binary itself was removed.
+  [[ -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ]] && claude_selected=1
+  [[ -d "${CODEX_HOME:-$HOME/.codex}" ]] && codex_selected=1
+fi
+
+if ((claude_selected == 0 && codex_selected == 0)); then
+  echo "$prog: no selected Claude Code or Codex installation was detected; nothing changed."
+  exit 0
+fi
+
+for agent in claude codex; do
+  [[ "$agent" == claude && "$claude_selected" -eq 1 ]] || \
+    [[ "$agent" == codex && "$codex_selected" -eq 1 ]] || continue
+  printf '%s %s integration: %s\n' "$action" "$agent" "herdr integration $action $agent"
+done
+for agent in claude codex; do
+  [[ "$agent" == claude && "$claude_selected" -eq 1 ]] || \
+    [[ "$agent" == codex && "$codex_selected" -eq 1 ]] || continue
+  herdr integration "$action" "$agent"
+done
+herdr integration status

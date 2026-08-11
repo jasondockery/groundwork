@@ -127,10 +127,10 @@ config_digest_open="$(cksum <"$config_path")"
 # key                  label                 kind    clearable
 # Every mutable field is offered here even when bootstrap deliberately does not
 # ask it. home/.chezmoi.toml.tmpl preserves stored values on every platform.
-fields_key=(release_posture environment_role beta work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
-fields_label=("Release posture" "Environment role" "Xcode beta channel" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
-fields_kind=(posture role bool bool pw keyrepeat string string string string bool bool string string)
-fields_clear=(no no no no no no no no no yes no no yes yes)
+fields_key=(release_posture environment_role terminal_multiplexer beta work password_manager key_repeat code_dir name email_personal email_work game_dev xcode obsidian_vault_name signingkey)
+fields_label=("Release posture" "Environment role" "Terminal multiplexer" "Xcode beta channel" "Work machine" "Password manager" "Key repeat" "Code directory" "Git name" "Personal email" "Work email" "Game-dev tools" "Xcode" "Obsidian vault" "SSH signing key")
+fields_kind=(posture role multiplexer bool bool pw keyrepeat string string string string bool bool string string)
+fields_clear=(no no no no no no no no no no yes no no yes yes)
 
 posture_values=(current preview)
 posture_labels=("Stable channels for posture-managed apps (currently Chrome stable)" "Preview channels for posture-managed apps (currently Chrome Beta + stable fallback)")
@@ -139,6 +139,8 @@ role_labels=("Personal" "Managed" "Disposable")
 pw_values=(bitwarden 1password none)
 keyrepeat_values=(fast standard aggressive)
 keyrepeat_labels=("Fast (recommended)" "Standard (slower repeat)" "Aggressive (starts sooner)")
+multiplexer_values=(herdr tmux both none)
+multiplexer_labels=("Herdr (recommended for AI-native work)" "tmux (traditional and mature)" "Both (Herdr primary, tmux fallback, no automatic nesting)" "None (preserve user-managed tooling)")
 
 # All menu kinds differ only in their value/label lists, so they share one
 # prompt, one display path, and one receipt formatter. `pw` has no separate
@@ -158,6 +160,10 @@ load_choices() { # kind -> populates choice_values / choice_labels
     keyrepeat)
       choice_values=("${keyrepeat_values[@]}")
       choice_labels=("${keyrepeat_labels[@]}")
+      ;;
+    multiplexer)
+      choice_values=("${multiplexer_values[@]}")
+      choice_labels=("${multiplexer_labels[@]}")
       ;;
     pw)
       choice_values=("${pw_values[@]}")
@@ -265,7 +271,7 @@ display_of() { # key kind -> human display of the effective value
   v="$(current_value "$1")"
   case "$2" in
     bool) [[ "$v" == "true" ]] && echo "Yes" || echo "No" ;;
-    posture | keyrepeat) choice_display "$2" "$v" ;;
+    posture | keyrepeat | multiplexer) choice_display "$2" "$v" ;;
     *) [[ -z "$v" ]] && echo "(none)" || echo "$v" ;;
   esac
 }
@@ -306,7 +312,7 @@ edit_field() { # index
         esac
       done
       ;;
-    posture | role | keyrepeat | pw)
+    posture | role | keyrepeat | multiplexer | pw)
       load_choices "$kind"
       for ((j = 0; j < ${#choice_values[@]}; j++)); do printf '  %d. %s\n' "$((j + 1))" "${choice_labels[j]}"; done
       while true; do
@@ -413,7 +419,7 @@ print_receipt() { # structured, from the pending registry — no grepped TOML
 fmt() { # value kind -> display
   case "$2" in
     bool) [[ "$1" == "true" ]] && echo "Yes" || echo "No" ;;
-    posture | role | keyrepeat) choice_display "$2" "$1" ;;
+    posture | role | keyrepeat | multiplexer) choice_display "$2" "$1" ;;
     *) [[ -z "$1" ]] && echo "(none)" || echo "$1" ;;
   esac
 }

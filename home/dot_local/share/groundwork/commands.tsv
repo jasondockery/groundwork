@@ -8,10 +8,24 @@ maintenance	groundwork-cleanup	command	Advanced read-only report: Homebrew/npm c
 maintenance	groundwork-cleanup --yes	command	Run supported Homebrew and npm maintenance now, plus exact-pinned trusted pnpm stores when the machine-wide cadence or pending repair says due.
 maintenance	groundwork-cleanup --yes --force	command	Exceptional override: attempt normal Homebrew and npm maintenance and every eligible pnpm candidate immediately, ignoring pnpm cadence. Routine retries use update-all, or groundwork-cleanup --yes when upgrades should not repeat. Repository dependency installations such as node_modules are not modified; Homebrew may remove installed orphan formula dependencies, while requested formulae/casks remain.
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	Acknowledge one pending homebrew, npm, pnpm, or maintenance-helper reminder that cannot be repaired because its manager was intentionally removed. Clears only Groundwork's reminder, performs no cleanup, and preserves an audit note.
-daily	groundwork-configure	command	Canonical settings editor for mutable preferences, including environment role, stable versus preview release posture, and Xcode beta. Xcode beta appears only while Xcode is enabled; disabling Xcode stages both fields in one receipt. Other settings change only when selected, with preview and confirmation; accepting applies the selected desired state immediately. "chezmoi init" establishes or regenerates the machine baseline.
+daily	groundwork-configure	command	Canonical settings editor for mutable preferences, including environment role, release posture, terminal multiplexer (Herdr/tmux/both/none), and Xcode beta. Existing tmux users stay on tmux until they change it. Other settings change only when selected, with preview and confirmation; accepting applies the selected desired state immediately.
+daily	groundwork-mux	command	Start the configured primary multiplexer. Herdr is primary for Herdr/Both, tmux for tmux, None refuses, and an existing Herdr/tmux environment refuses automatic nesting.
+daily	groundwork-mux status --json	command	Print the stable machine-readable terminalMultiplexer selection, installed set, primary/fallback roles, and disabled-nesting contract.
+herdr	groundwork-herdr-config status	command	Read-only report of the effective Herdr config and Groundwork's exact ownership receipt.
+herdr	groundwork-herdr-config diff	command	Compare the effective Herdr config with Groundwork's exact source template.
+herdr	groundwork-herdr-config edit	command	Edit Groundwork's Herdr source template through chezmoi; apply after review.
+herdr	groundwork-herdr-config remove --yes	command	Remove only an unchanged receipt-matching Groundwork Herdr config; preserve the binary, sessions, agent settings, and user changes.
+herdr	groundwork-herdr-integrations status	command	Inspect Herdr's official agent integration state.
+herdr	groundwork-herdr-integrations install --yes	command	Explicitly install Herdr's official Claude Code and Codex hooks for agent tools detected on this machine; never runs during chezmoi apply.
+herdr	groundwork-herdr-integrations uninstall --yes	command	Explicitly delegate removal of detected Claude Code/Codex hooks to Herdr's supported integration lifecycle.
+herdr	herdr status	command	Inspect the Herdr server and client state.
+herdr	herdr integration status	command	Show installed Herdr agent integration versions and state.
+herdr	Ctrl+b then q	key	Detach the Herdr client while the live server and pane processes continue.
+herdr	Ctrl+b then ?	key	Show Herdr's active keybindings.
+herdr	Ctrl+b then [	key	Enter Herdr copy mode.
 daily	groundwork-platform	command	Report the current platform as darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported.
 daily	groundwork-distro [--family]	command	On Linux or WSL, report the distribution ID; --family reports its bootstrap family (debian, fedora, arch, opensuse, or unknown).
-daily	groundwork-profile show	command	Show the bootstrap seed, saved environment role, application release posture, Xcode and Xcode-beta status, headless state, and detected operating-system channel.
+daily	groundwork-profile show	command	Show the bootstrap seed, saved environment role, application release posture, terminal multiplexer selection, Xcode and Xcode-beta status, headless state, and detected operating-system channel.
 daily	groundwork-profile set <current|preview>	command	Focused shortcut into groundwork-configure's guarded preview-and-confirm transaction for stable versus preview release posture. Confirming applies the selected desired state immediately; update-all owns later upgrades and maintenance.
 daily	groundwork-profile edit	command	Open the chezmoi config when the role, preset, or another profile field needs direct review.
 tmux	Ctrl+a then Shift+Y	key	Copy the last completed command and its output into a tmux buffer (and the clipboard when supported); a platform + directory line is prepended so pasted output tells an agent where it ran. Review for secrets before pasting into an AI tool.

@@ -68,6 +68,7 @@
       <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
+      <a href="herdr.html">Herdr</a>
       <a href="tmux.html">tmux</a>
       <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
@@ -165,13 +166,20 @@
         <tr><td><code>groundwork-configure</code></td><td>Canonical editor for mutable preferences and saved baseline answers, including environment role, stable-versus-preview release posture, Xcode beta, work machine, password manager, code directory, and identity. Xcode beta appears only while Xcode is enabled; disabling Xcode stages both fields in the receipt. It otherwise changes only what you pick, previews the dotfile diff, and applies only after confirmation — promoting the config atomically under a lock with a timestamped backup, then reconciling the selected desired state immediately. Plain <code>chezmoi init</code> only establishes or regenerates the bootstrap baseline.</td></tr>
         <tr><td><code>groundwork-platform</code></td><td>Report whether this environment is macOS, native Linux, WSL2, unsupported WSL1, an unverified WSL kernel, or unsupported.</td></tr>
         <tr><td><code>groundwork-distro --family</code></td><td>On Linux or WSL, report the distribution&apos;s bootstrap family without pretending a derivative is its parent. Run without the flag for the distribution&apos;s own ID.</td></tr>
-        <tr><td><code>groundwork-profile show</code></td><td>Show the historical bootstrap seed, saved environment role, release posture, Xcode and Xcode-beta status, resolved Chrome primary/fallback channel, whether this profile is headless, and the detected operating-system channel. Groundwork reports the OS channel and never changes the default-browser association.</td></tr>
+        <tr><td><code>groundwork-profile show</code></td><td>Show the historical bootstrap seed, saved environment role, release posture, terminal multiplexer selection, Xcode and Xcode-beta status, resolved Chrome primary/fallback channel, whether this profile is headless, and the detected operating-system channel. Groundwork reports the OS channel and never changes the default-browser association.</td></tr>
         <tr><td><code>groundwork-profile set current|preview</code></td><td>Focused shortcut into <code>groundwork-configure</code>&apos;s preview-and-confirm transaction for release posture. Confirming applies the selected desired state immediately; <code>update-all</code> owns subsequent upgrades and maintenance.</td></tr>
         <tr><td><code>groundwork-profile edit</code></td><td>Open the chezmoi config when you need to review the stored role, preset, or another profile field directly. Prefer <code>groundwork-configure</code> for the guided setup-answer flow.</td></tr>
         <tr><td><code>groundwork-yazi-config status</code></td><td>Report whether Yazi's effective <code>yazi.toml</code> is absent, exactly Groundwork-owned, changed, unowned, or non-regular. Read-only.</td></tr>
         <tr><td><code>groundwork-yazi-config diff</code></td><td>Preview the effective Yazi config against Groundwork's exact source template without changing either file.</td></tr>
         <tr><td><code>groundwork-yazi-config edit</code></td><td>Open Groundwork's exact Yazi source template through chezmoi. Run <code>chezmoi apply</code> afterward to apply the reviewed source.</td></tr>
         <tr><td><code>groundwork-yazi-config remove --yes</code></td><td>Remove only an unchanged <code>yazi.toml</code> that matches Groundwork's exact ownership receipt. Other Yazi files and user changes are preserved; <code>chezmoi apply</code> restores the managed file.</td></tr>
+        <tr><td><code>groundwork-mux</code></td><td>Start the selected primary multiplexer. Herdr is primary for Herdr and Both; tmux is primary for tmux; None refuses. The command never aliases tmux and refuses automatic nesting.</td></tr>
+        <tr><td><code>groundwork-mux status --json</code></td><td>Print the stable <code>terminalMultiplexer</code> contract: selection, installed set, primary and optional fallback, and disabled nesting.</td></tr>
+        <tr><td><code>groundwork-herdr-config status|diff|edit</code></td><td>Inspect Groundwork&apos;s ownership, compare the applied Herdr config, or edit its exact chezmoi source.</td></tr>
+        <tr><td><code>groundwork-herdr-config remove --yes</code></td><td>Remove only an unchanged, receipt-matching Groundwork Herdr config. The binary, sessions, and agent settings stay untouched.</td></tr>
+        <tr><td><code>groundwork-herdr-integrations status</code></td><td>Show Herdr&apos;s official integration status for agent session identity and recovery.</td></tr>
+        <tr><td><code>groundwork-herdr-integrations install --yes</code></td><td>Explicitly install Herdr&apos;s official Claude Code and Codex hooks for agent tools found on this machine. This never runs during <code>chezmoi apply</code>.</td></tr>
+        <tr><td><code>groundwork-herdr-integrations uninstall --yes</code></td><td>Delegate exact Claude Code/Codex hook removal to Herdr&apos;s supported integration lifecycle.</td></tr>
         <tr><td><code>chezmoi diff</code></td><td>Preview managed-file changes before applying them.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply this repo to your home directory.</td></tr>
         <tr><td><code>chezmoi update --init</code></td><td>Pull the Groundwork repo and apply it. <code>--init</code> also refreshes the setup answers when new questions were added — answers you already gave are kept, only new questions are asked. This syncs config; it does not upgrade already-installed tools to latest.</td></tr>

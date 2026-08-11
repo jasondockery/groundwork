@@ -9,6 +9,20 @@ groundwork-cleanup --yes	command	executable	all	all	-	commands.html
 groundwork-cleanup --yes --force	command	executable	all	all	-	commands.html
 groundwork-cleanup --yes --clear-pending <stage>	command	executable	all	all	-	troubleshooting.html
 groundwork-configure	command	executable	all	all	-	setup.html
+groundwork-mux	command	executable	all	all	-	herdr.html
+groundwork-mux status --json	command	executable	all	all	-	herdr.html
+groundwork-herdr-config status	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-config diff	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-config edit	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-config remove --yes	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-integrations status	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-integrations install --yes	command	executable	all	all	herdr	herdr.html
+groundwork-herdr-integrations uninstall --yes	command	executable	all	all	herdr	herdr.html
+herdr status	command	external-command	all	all	herdr	herdr.html
+herdr integration status	command	external-command	all	all	herdr	herdr.html
+Ctrl+b then q	key	herdr-binding	all	all	herdr	herdr.html
+Ctrl+b then ?	key	herdr-binding	all	all	herdr	herdr.html
+Ctrl+b then [	key	herdr-binding	all	all	herdr	herdr.html
 groundwork-platform	command	executable	all	all	-	platforms.html
 groundwork-distro [--family]	command	executable	linux-wsl	all	-	platforms.html
 groundwork-profile show	command	executable	all	all	-	platforms.html

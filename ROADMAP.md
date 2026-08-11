@@ -839,6 +839,27 @@ with the git.html / cheat-sheet / command-catalog docs (`b8fec14`).
 - [ ] `plan-clean` / `clean` with race protection and the recovery receipt.
 - [ ] Integrate branch health into `groundwork-repos`.
 
+## Herdr/tmux multiplexer acceptance
+
+Groundwork supports four explicit states: Herdr, tmux, both with Herdr primary,
+or neither. Source fixtures prove package/config selection, ownership-safe apply
+and removal, and no automatic nesting on macOS and Linux. Keep this audit open
+until the installed runtime behavior is exercised on both supported platforms.
+
+- [x] Fresh-install selection, legacy-tmux preservation, Homebrew selection,
+      ownership-safe Herdr config, explicit integration lifecycle, completion,
+      launcher, docs, and hostile source/render fixtures.
+- [ ] macOS manual acceptance with a Homebrew Herdr install: launch, active
+      config warning check, detach/reattach with a live process, Claude/Codex
+      hook install/status/uninstall, server-restart recovery, choice changes,
+      and removal without deleting sessions or user-owned config.
+- [ ] Linux manual acceptance on one supported Homebrew bottle architecture
+      with the same matrix. Record exact Herdr/Homebrew/OS versions and keep the
+      result platform-scoped; source rendering alone is not runtime parity.
+- [ ] Promote the manual runtime checks into a bounded automated lane only when
+      Herdr exposes a stable noninteractive acceptance seam. Do not add a second
+      package source or an unbounded pseudo-terminal driver just to claim it.
+
 ## Terminal copy model: Ghostty + tmux coherence (Slice B)
 
 Full design in `specs/terminal-copy-model.md`: keyboard-first, mouse-assisted —

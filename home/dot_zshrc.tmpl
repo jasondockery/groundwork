@@ -57,6 +57,7 @@ fi
 # chezmoi owns and would revert). Must precede antidote: ez-compinit runs
 # compinit during plugin load, and fpath additions after that are invisible.
 [[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
+[[ -d "$HOME/.local/share/groundwork/completions" ]] && fpath=("$HOME/.local/share/groundwork/completions" $fpath)
 
 for _antidote in "${HOMEBREW_PREFIX:-}/share/antidote/antidote.zsh" /usr/local/share/antidote/antidote.zsh "$HOME/.local/share/antidote/antidote.zsh"; do
   if [[ -f "$_antidote" ]]; then

@@ -39,6 +39,7 @@ ALLOWED_CATEGORIES = {
     "project",
     "shell",
     "git",
+    "herdr",
     "tmux",
     "mac",
     "dev",
@@ -53,6 +54,7 @@ ALLOWED_ORIGINS = {
     "shell-alias",
     "shell-binding",
     "shell-function",
+    "herdr-binding",
     "tmux-binding",
     "tmux-builtin",
     "tmux-plugin",
@@ -310,6 +312,7 @@ def read_metadata(
                 "shell-alias": "alias",
                 "shell-binding": "key",
                 "shell-function": "function",
+                "herdr-binding": "key",
                 "tmux-binding": "key",
                 "tmux-builtin": "key",
                 "tmux-plugin": "key",
@@ -712,6 +715,9 @@ def contains_key_tokens(haystack: str, needle: tuple[str, ...]) -> bool:
 
 
 def key_candidates(item: str) -> list[tuple[str, ...]]:
+    if item.startswith("Ctrl+b then "):
+        tail = normalized_key_tokens(item.removeprefix("Ctrl+b then "))
+        return [("ctrl", "b", "then", *tail), ("prefix", *tail)]
     if item.startswith("Ctrl+a then "):
         tail = item.removeprefix("Ctrl+a then ")
         tail_tokens = normalized_key_tokens(tail)

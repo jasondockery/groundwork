@@ -68,6 +68,7 @@
       <h2 class="nav-heading">Foundations</h2>
       <a href="command-line.html">Command line &amp; Unix</a>
       <a href="shell.html">Shell &amp; CLI</a>
+      <a href="herdr.html">Herdr</a>
       <a href="tmux.html">tmux</a>
       <a href="tmux-repository-windows.html">tmux repo windows</a>
       <a href="neovim.html">Neovim</a>
@@ -249,7 +250,7 @@
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">profile.sh</span></div>
         <pre><code><span class="prompt">$ </span>groundwork-platform         <span class="comment"># darwin, linux, wsl2, wsl1, wsl-unknown, unsupported</span>
 <span class="prompt">$ </span>groundwork-distro --family  <span class="comment"># Linux/WSL bootstrap family</span>
-<span class="prompt">$ </span>groundwork-profile show     <span class="comment"># bootstrap seed, role, posture, Xcode/beta, headless, OS channel</span></code></pre>
+<span class="prompt">$ </span>groundwork-profile show     <span class="comment"># seed, role, posture, multiplexer, Xcode/beta, headless, OS channel</span></code></pre>
       </div>
       <p>To change a machine setting or mutable preference, run <code>groundwork-configure</code>. It owns independent environment role and stable-versus-preview posture plus dependent Xcode beta alongside the saved baseline answers, changes only what you select, previews the resulting <code>chezmoi diff</code>, and applies the selected desired state only after confirmation. Use <code>groundwork-profile set current|preview</code> as the narrower release-posture shortcut. <code>groundwork-profile edit</code> opens the stored config directly for exceptional review.</p>
 

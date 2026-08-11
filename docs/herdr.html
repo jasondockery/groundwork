@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Herdr is Groundwork&#x27;s recommended multiplexer for new AI-native installations: project workspaces, tabs, panes, agent visibility, and resumable sessions in…">
+<title>Herdr · Groundwork</title>
+<meta property="og:site_name" content="Groundwork">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jasondockery.github.io/groundwork/herdr.html">
+<meta property="og:title" content="Herdr · Groundwork">
+<meta property="og:description" content="Herdr is Groundwork&#x27;s recommended multiplexer for new AI-native installations: project workspaces, tabs, panes, agent visibility, and resumable sessions in…">
+<meta property="og:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Herdr · Groundwork">
+<meta name="twitter:description" content="Herdr is Groundwork&#x27;s recommended multiplexer for new AI-native installations: project workspaces, tabs, panes, agent visibility, and resumable sessions in…">
+<meta name="twitter:image" content="https://jasondockery.github.io/groundwork/assets/social-card.png">
+<link rel="canonical" href="https://jasondockery.github.io/groundwork/herdr.html">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem("fg-theme");
+    if (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar"><span class="name">Groundwork</span><button class="icon-btn" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Open navigation">☰ menu</button></div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="layout">
+  <aside id="site-sidebar" class="sidebar">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="mark">AI-native</span><span class="name">Groundwork</span></a>
+      <a class="repo-link" href="https://github.com/jasondockery/groundwork" target="_blank" rel="noopener" aria-label="View Groundwork on GitHub">GitHub</a>
+      <button class="icon-btn nav-close" data-nav-toggle aria-controls="site-sidebar" aria-expanded="false" aria-label="Close navigation">close menu</button>
+    </div>
+    <nav class="site-nav" aria-label="Documentation">
+    <section class="nav-group"><h2 class="nav-heading">Start here</h2><a href="index.html">Overview</a><a href="why.html">Why Groundwork</a><a href="path.html">The path</a><a href="agentic-engineering.html">Vibe &rarr; agentic</a><a href="getting-started.html">Getting started</a><a href="practice.html">Practice plan</a><a href="groundwork-twelve.html">Groundwork Twelve</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Set up</h2><a href="setup.html">Setup &amp; chezmoi</a><a href="platforms.html">Platforms</a><a href="customizing.html">Customizing</a><a href="development.html">Development</a><a href="installed.html">What&apos;s installed</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Foundations</h2><a href="command-line.html">Command line &amp; Unix</a><a href="shell.html">Shell &amp; CLI</a><a href="herdr.html" class="active">Herdr</a><a href="tmux.html">tmux</a><a href="tmux-repository-windows.html">tmux repo windows</a><a href="neovim.html">Neovim</a><a href="git.html">Git</a><a href="lazygit.html">lazygit</a><a href="data.html">Data &amp; storage</a><a href="editors-ai.html">Editors &amp; AI</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Daily workflow</h2><a href="workflow.html">Everyday workflow</a><a href="repo-navigation.html">Repo navigation</a><a href="new-project.html">Starting a project</a><a href="knowledge.html">Knowledge base</a><a href="dependencies.html">Dependencies</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Directing agents</h2><a href="agents.html">AI agents &amp; rules</a><a href="worktrees.html">Worktrees &amp; parallel agents</a><a href="specs.html">Specs &amp; targets</a><a href="skills-playbooks.html">Skills &amp; playbooks</a><a href="ai-budget.html">Know your AI budget</a></section>
+    <section class="nav-group"><h2 class="nav-heading">AI tools</h2><a href="claude.html">Claude &amp; Claude Code</a><a href="codex.html">Codex UI &amp; CLI</a><a href="gpt.html">GPT &amp; ChatGPT</a><a href="glm.html">GLM &amp; open models</a><a href="grok.html">Grok &amp; Grok Build</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Interest tracks</h2><a href="game-dev.html">FPS &middot; Browser</a><a href="game-dev-unity.html">FPS &middot; Unity</a><a href="game-dev-learn.html">FPS &middot; Learn dev</a><a href="web-dev.html">Web &amp; sites</a><a href="app-dev.html">Apps</a><a href="gen-media.html">Image &amp; video</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Mac desktop</h2><a href="macos.html">macOS desktop</a><a href="keyboard.html">Keyboard</a><a href="apps.html">Apps &amp; browsers</a></section>
+    <section class="nav-group"><h2 class="nav-heading">Reference</h2><a href="cheatsheet.html">Cheat sheet</a><a href="commands.html">Command catalog</a><a href="glossary.html">Glossary</a><a href="resources.html">Resource library</a><a href="troubleshooting.html">Troubleshooting</a></section>
+    </nav>
+    <button class="icon-btn theme-toggle" data-theme-toggle><span data-theme-label>◑ Latte</span></button>
+    <p class="sidebar-meta">Built by <a href="https://www.linkedin.com/in/jasondockery/" target="_blank" rel="noopener">Jason Dockery</a></p>
+  </aside>
+  <main id="main" class="main">
+    <div class="content">
+      <p class="eyebrow">AI-native multiplexer</p>
+      <h1>Herdr: keep agents, terminals, and projects visible.</h1>
+      <p class="lead">Herdr is Groundwork&apos;s recommended multiplexer for new AI-native installations: project workspaces, tabs, panes, agent visibility, and resumable sessions in one terminal. tmux remains a supported mature choice, and existing users keep their selection until they change it.</p>
+
+      <div class="quickref"><div class="qr-label">Groundwork&apos;s Herdr baseline · prefix is Ctrl+b</div><div class="quickref-grid">
+        <div class="qr"><span class="keys"><code>groundwork-mux</code></span> <span class="act">start the selected primary</span></div>
+        <div class="qr"><span class="keys"><code>groundwork-mux status --json</code></span> <span class="act">inspect the saved contract</span></div>
+        <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>b</kbd> <kbd>q</kbd></span> <span class="act">detach; processes keep running</span></div>
+        <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>b</kbd> <kbd>?</kbd></span> <span class="act">show active keybindings</span></div>
+        <div class="qr"><span class="keys"><kbd>Ctrl</kbd><kbd>b</kbd> <kbd>[</kbd></span> <span class="act">copy mode</span></div>
+        <div class="qr"><span class="keys"><code>herdr status</code></span> <span class="act">inspect client and server</span></div>
+        <div class="qr"><span class="keys"><code>herdr integration status</code></span> <span class="act">inspect agent hooks</span></div>
+      </div></div>
+
+      <h2><span class="hash" aria-hidden="true">#</span>Choose deliberately</h2>
+      <table class="keytable">
+        <tr><td><strong>Herdr</strong></td><td>Recommended for a new AI-native setup. Groundwork installs Herdr and owns an explicit, conservative config.</td></tr>
+        <tr><td><strong>tmux</strong></td><td>The traditional, mature workflow documented on the <a href="tmux.html">tmux page</a>.</td></tr>
+        <tr><td><strong>Both</strong></td><td>Herdr is primary; tmux remains available as a fallback. <code>groundwork-mux</code> starts Herdr and refuses to nest either multiplexer.</td></tr>
+        <tr><td><strong>None</strong></td><td>Groundwork does not install or manage a multiplexer. Existing binaries and configuration remain user-owned and are not silently removed.</td></tr>
+      </table>
+      <p>Review or change the stored choice with <code>groundwork-configure</code>. A legacy Groundwork machine without this field stays on tmux during migration. Changing the choice updates Groundwork&apos;s desired package/config state; it does not silently uninstall packages or delete sessions.</p>
+
+      <h2><span class="hash" aria-hidden="true">#</span>What Groundwork manages</h2>
+      <ul>
+        <li>Homebrew installation on supported macOS and Linux profiles, with no vendor curl installer.</li>
+        <li>Visible upgrades through <code>update-all</code>, using the same selected Homebrew surface as installation.</li>
+        <li><code>~/.config/herdr/config.toml</code> through an exact hash receipt and atomic, ownership-safe apply.</li>
+        <li>A <code>Ctrl+b</code> prefix, current-directory following, agent session resume, plain SSH behavior, no automatic nesting, no persisted pane history, and sound disabled.</li>
+        <li>Zsh completion generated by the installed Herdr binary.</li>
+        <li><code>groundwork-mux</code> as a stable launcher. It is separate, never an alias for <code>tmux</code> or <code>herdr</code>.</li>
+      </ul>
+      <div class="callout note"><span class="label">Privacy boundary</span><p>Pane history stays off because terminal output can include secrets. Normal detach keeps the live Herdr server and its processes running; a complete server restart restores layout, not arbitrary processes. Native agent resume needs a current agent integration.</p></div>
+
+      <h2><span class="hash" aria-hidden="true">#</span>Claude Code and Codex integrations</h2>
+      <p>Groundwork does not silently edit agent settings during <code>chezmoi apply</code>. After Herdr is selected, inspect detected integrations, then explicitly install the official hooks for Claude Code and Codex present on this machine:</p>
+      <div class="terminal"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">agent hooks</span></div><pre><code><span class="prompt">$ </span>groundwork-herdr-integrations status
+<span class="prompt">$ </span>groundwork-herdr-integrations install --yes
+<span class="prompt">$ </span>groundwork-herdr-integrations uninstall --yes</code></pre></div>
+      <p>The explicit commands delegate to Herdr&apos;s supported integration lifecycle and show final status. Claude and Codex keep their own configuration authority; Groundwork does not copy hook policy into those files.</p>
+
+      <h2><span class="hash" aria-hidden="true">#</span>Persistence and recovery</h2>
+      <table class="keytable">
+        <tr><td>Close a client</td><td>Detach with <kbd>Ctrl</kbd><kbd>b</kbd> then <kbd>q</kbd>. The live server and pane processes continue.</td></tr>
+        <tr><td>Return</td><td>Run <code>groundwork-mux</code> or <code>herdr</code>; Herdr attaches to the default background session.</td></tr>
+        <tr><td>Server stopped</td><td>Herdr restores saved workspace/layout state. Arbitrary processes do not survive; supported agents can resume when their integrations reported a native session.</td></tr>
+        <tr><td>Config changed</td><td>Run <code>herdr server reload-config</code>. If startup warns about a value, compare the effective file with <code>groundwork-herdr-config diff</code>.</td></tr>
+      </table>
+
+      <h2><span class="hash" aria-hidden="true">#</span>Customize or remove safely</h2>
+      <p>An existing unowned or changed <code>config.toml</code> blocks apply with recovery guidance; it is never overwritten.</p>
+      <table class="keytable">
+        <tr><td><code>groundwork-herdr-config status</code></td><td>Read-only ownership and drift report.</td></tr>
+        <tr><td><code>groundwork-herdr-config diff</code></td><td>Compare the effective file with Groundwork&apos;s exact source.</td></tr>
+        <tr><td><code>groundwork-herdr-config edit</code></td><td>Edit the source through chezmoi, then apply it.</td></tr>
+        <tr><td><code>groundwork-herdr-config remove --yes</code></td><td>Remove only an unchanged, receipt-matching Groundwork config. Sessions, agent settings, and the binary stay untouched.</td></tr>
+      </table>
+      <p>To stop managing the binary too, first choose tmux or None with <code>groundwork-configure</code>, review <code>brew uses --installed herdr</code>, then run <code>brew uninstall herdr</code> yourself. Groundwork does not infer that deleting a package or its session data is safe.</p>
+
+      <h2><span class="hash" aria-hidden="true">#</span>Acceptance boundary</h2>
+      <p>Automated Groundwork fixtures prove macOS/Linux package selection, rendered config, atomic ownership, conflict refusal, symlink safety, idempotence, explicit removal, primary selection, and nesting refusal. Because the current proof host does not have Herdr installed, launch, detach/reattach, agent-hook behavior, and server-restart recovery remain named manual acceptance on both platforms rather than an overclaimed automated result.</p>
+      <div class="page-nav"><a href="shell.html"><span class="dir">← Prev</span>Shell &amp; CLI</a><a href="tmux.html"><span class="dir">Next →</span>tmux fallback</a></div>
+    </div>
+  </main>
+</div>
+<footer>Groundwork &middot; <a href="https://github.com/jasondockery/groundwork">source</a></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

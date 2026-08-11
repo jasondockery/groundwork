@@ -1,0 +1,28 @@
+# Groundwork's deliberately small Herdr baseline. `groundwork-herdr-config edit`
+# opens this source; user-owned configuration is never overwritten silently.
+onboarding = false
+
+[terminal]
+shell_mode = "auto"
+new_cwd = "follow"
+
+[keys]
+prefix = "ctrl+b"
+
+[session]
+resume_agents_on_restore = true
+
+[remote]
+# SSH configuration remains user/repository authority. Herdr uses plain ssh.
+manage_ssh_config = false
+
+[experimental]
+allow_nested = false
+# Pane output can contain secrets. Live detach preserves it without writing it.
+pane_history = false
+
+[ui]
+sidebar_start_collapsed = false
+
+[ui.sound]
+enabled = false

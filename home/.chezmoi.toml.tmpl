@@ -89,6 +89,26 @@ preset, which is exactly what re-seeds them from the new starting value. */ -}}
 {{- if and (hasKey . "release_posture") (has (toString .release_posture) (list "current" "preview")) -}}
 {{- $releasePosture = toString .release_posture -}}
 {{- end -}}
+{{- /* Terminal multiplexer selection. A fresh installation is invited to pick
+Herdr (the recommended AI-native path), tmux, both, or neither. Existing
+Groundwork installations predate this field but already manage tmux, so the
+presence of profile_preset is the migration marker: seed those machines to
+tmux without prompting or silently changing their established workflow. */ -}}
+{{- $terminalMultiplexer := "herdr" -}}
+{{- $validMultiplexers := list "herdr" "tmux" "both" "none" -}}
+{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) $validMultiplexers) -}}
+{{- $terminalMultiplexer = toString .terminal_multiplexer -}}
+{{- else if hasKey . "profile_preset" -}}
+{{- $terminalMultiplexer = "tmux" -}}
+{{- else -}}
+{{- $muxByNum := dict "1" "herdr" "2" "tmux" "3" "both" "4" "none" -}}
+{{- $muxChoice := promptChoiceOnce . "terminal_multiplexer" "Terminal multiplexer — type 1-4:\n  1. Herdr (recommended) — AI-native workspaces, panes, and agent recovery\n  2. tmux — traditional, mature terminal multiplexer\n  3. Both — Herdr primary, tmux retained as a fallback\n  4. None — preserve user-managed multiplexer tooling\nGroundwork never nests them automatically (Enter keeps the default: 1)" (list "1" "2" "3" "4") "1" -}}
+{{- if hasKey $muxByNum $muxChoice -}}
+{{- $terminalMultiplexer = index $muxByNum $muxChoice -}}
+{{- else if has $muxChoice $validMultiplexers -}}
+{{- $terminalMultiplexer = $muxChoice -}}
+{{- end -}}
+{{- end -}}
 {{- /* Key repeat. Two independent knobs, both integers written to NSGlobalDomain:
 KeyRepeat is the interval BETWEEN repeats and InitialKeyRepeat is the delay
 BEFORE repeating starts; for both, a lower number is faster. They are described
@@ -174,6 +194,7 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     profile_preset = {{ $profilePreset | quote }}
     environment_role = {{ $environmentRole | quote }}
     release_posture = {{ $releasePosture | quote }}
+    terminal_multiplexer = {{ $terminalMultiplexer | quote }}
     game_dev = {{ $gameDev }}
     xcode = {{ $xcode }}
     beta = {{ $beta }}

@@ -5541,6 +5541,10 @@ EOF
 }
 
 validate_static_configuration() {
+  check "Herdr/tmux selection and ownership"
+  test -x scripts/test-terminal-multiplexer
+  scripts/test-terminal-multiplexer
+
   check "Yazi ownership and hidden-filesystem visibility"
   test -x scripts/test-developer-tool-visibility
   test -x scripts/run-yazi-manual-acceptance
@@ -5648,7 +5652,7 @@ SH
     execute-template --init \
     --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
     --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
-    --promptChoice password_manager=none \
+    --promptChoice password_manager=none,terminal_multiplexer=herdr \
     <home/.chezmoi.toml.tmpl >"$out_dir/wsl2-init" 2>&1 \
     || fail "chezmoi config template must render on a WSL2 kernel"
   grep -qF 'sourceDir' "$out_dir/wsl2-init"
@@ -5659,7 +5663,7 @@ SH
     execute-template --init \
     --promptBool work=false,headless=true,reset_existing_configs=false,game_dev=false,xcode=false \
     --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
-    --promptChoice password_manager=none \
+    --promptChoice password_manager=none,terminal_multiplexer=herdr \
     <home/.chezmoi.toml.tmpl >"$out_dir/wsl2-old-init" 2>&1 \
     || fail "chezmoi config template must render on an older microsoft-standard WSL2 kernel"
   grep -qF 'sourceDir' "$out_dir/wsl2-old-init"
@@ -5824,7 +5828,7 @@ SH
       execute-template --init \
       --promptBool work=false,headless=false,reset_existing_configs=false,game_dev=false,xcode=false \
       --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
-      --promptChoice password_manager=none,key_repeat=fast \
+      --promptChoice password_manager=none,key_repeat=fast,terminal_multiplexer=herdr \
       <home/.chezmoi.toml.tmpl 2>&1
   }
   preset_out="$(_profile_render '{"work":false,"chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
@@ -5862,7 +5866,7 @@ SH
       execute-template --init \
       --promptBool work=false,headless=false,reset_existing_configs=false,game_dev=false,xcode=false \
       --promptString name=Test,email_personal=test@example.com,email_work=,code_dir=~/code,signingkey=,obsidian_vault_name= \
-      --promptChoice password_manager=none \
+      --promptChoice password_manager=none,terminal_multiplexer=herdr \
       <home/.chezmoi.toml.tmpl 2>&1
   }
   # Digit domain: a fresh or `--prompt` run returns the menu number.
@@ -6109,10 +6113,10 @@ KRXS
   gc_rc=0
   bash "$gc_bin" --release-posture sideways >/dev/null 2>&1 || gc_rc=$?
   [[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject an invalid release posture with exit 64"
-  grep -qE '^fields_key=\(release_posture environment_role beta work ' "$gc_bin" \
+  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta work ' "$gc_bin" \
     || fail "groundwork-configure must expose independent posture/role and dependent Xcode beta settings"
-  grep -qE '^fields_kind=\(posture role bool bool ' "$gc_bin" \
-    || fail "release posture, environment role, and Xcode beta must use the matching guarded field types"
+  grep -qE '^fields_kind=\(posture role multiplexer bool bool ' "$gc_bin" \
+    || fail "release posture, environment role, terminal multiplexer, and Xcode beta must use the matching guarded field types"
   grep -qE '^role_values=\(personal managed disposable\)$' "$gc_bin" \
     || fail "groundwork-configure must keep every supported environment role reachable"
   grep -qF 'pending_origin=()' "$gc_bin" \
@@ -6203,7 +6207,7 @@ KRXS
         'email_personal = "test@example.com"' 'email_work = ""' 'code_dir = "~/code"' \
         'reset_existing_configs = false' 'password_manager = "bitwarden"' 'signingkey = ""' \
         'obsidian_vault_name = "test"' 'install_chrome = false' 'profile_preset = "personal-current"' \
-        'environment_role = "personal"' 'release_posture = "current"' 'game_dev = false' \
+        'environment_role = "personal"' 'release_posture = "current"' 'terminal_multiplexer = "tmux"' 'game_dev = false' \
         'xcode = true' 'beta = false' 'key_repeat = "fast"'
     } >"$gc_dir/xdg/chezmoi/chezmoi.toml"
     # Derive the Apply entry's number from the field registry instead of hardcoding
@@ -11615,6 +11619,7 @@ sourceDir = "$repo/home"
     obsidian_vault_name = "v"
     password_manager = "none"
     profile_preset = "personal-preview"
+    terminal_multiplexer = "tmux"
     reset_existing_configs = false
     signingkey = ""
     work = false
@@ -11634,10 +11639,12 @@ EOF
     || fail "a stored Xcode beta preference was discarded during regeneration"
   grep -qF 'install_chrome = false' "$interview_out" \
     || fail "the obsolete install_chrome field must survive regeneration as ignored compatibility input"
+  grep -qF 'terminal_multiplexer = "tmux"' "$interview_out" \
+    || fail "a stored terminal multiplexer selection was discarded during regeneration"
   # ...and a config that never answered still takes the documented default.
   interview_fresh_in="$out_dir/interview-fresh.toml"
   interview_fresh_out="$out_dir/interview-fresh-rendered.toml"
-  grep -vE 'profile_preset|key_repeat|beta' "$interview_in" >"$interview_fresh_in"
+  grep -vE 'profile_preset|key_repeat|beta|terminal_multiplexer' "$interview_in" >"$interview_fresh_in"
   chezmoi --config "$interview_fresh_in" --source "$repo/home" \
     --persistent-state "$out_dir/interview-fresh-state.boltdb" --cache "$out_dir/interview-fresh-cache" \
     init --config-path "$interview_fresh_out" </dev/null \
@@ -11648,12 +11655,26 @@ EOF
     || fail "an unanswered key_repeat must fall back to the documented default"
   grep -qF 'beta = false' "$interview_fresh_out" \
     || fail "a fresh install must default the mutable Xcode beta preference to false"
+  grep -qF 'terminal_multiplexer = "herdr"' "$interview_fresh_out" \
+    || fail "a fresh install must recommend Herdr while preserving an explicit choice"
+  # A real older Groundwork config has profile_preset but predates the new
+  # multiplexer field. It must migrate silently to its established tmux
+  # workflow instead of taking the fresh-install recommendation.
+  interview_legacy_in="$out_dir/interview-legacy.toml"
+  interview_legacy_out="$out_dir/interview-legacy-rendered.toml"
+  grep -v 'terminal_multiplexer' "$interview_in" >"$interview_legacy_in"
+  chezmoi --config "$interview_legacy_in" --source "$repo/home" \
+    --persistent-state "$out_dir/interview-legacy-state.boltdb" --cache "$out_dir/interview-legacy-cache" \
+    init --config-path "$interview_legacy_out" </dev/null \
+    || fail "the chezmoi interview could not migrate a pre-multiplexer config"
+  grep -qF 'terminal_multiplexer = "tmux"' "$interview_legacy_out" \
+    || fail "a pre-field stored config must retain the established tmux workflow"
   # groundwork-configure offers every mutable field on every platform, which is
   # honest because the template preserves stored answers that bootstrap does not ask.
   # If that preservation is ever removed, the editor starts printing "Proposed
   # changes" receipts for values that never move — so the two are asserted
   # together, right here, rather than in separate places that can drift apart.
-  grep -qE '^fields_key=\(release_posture environment_role beta work .*\bkey_repeat\b' home/dot_local/bin/executable_groundwork-configure \
+  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta work .*\bkey_repeat\b' home/dot_local/bin/executable_groundwork-configure \
     || fail "groundwork-configure must own mutable role/release preferences and preserve existing baseline settings"
   # Role and posture are stored separately from the preset PRECISELY so they can
   # diverge (specs/environment-profiles-and-release-posture.md): a managed
@@ -12532,7 +12553,7 @@ EOF
     local posture="$1" work="$2" headless="$3" output="$4"
     local role="$5" preset="$6"
     local xcode="${7:-false}" beta="${8:-false}"
-    local data="{${base_data%%,\"profile_preset\"*},\"profile_preset\":\"${preset}\",\"environment_role\":\"${role}\",\"release_posture\":\"${posture}\",\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}"
+    local data="{${base_data%%,\"profile_preset\"*},\"profile_preset\":\"${preset}\",\"environment_role\":\"${role}\",\"release_posture\":\"${posture}\",\"terminal_multiplexer\":\"herdr\",\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}"
     chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
       --override-data "$data" execute-template \
       <home/dot_local/bin/executable_groundwork-profile.tmpl >"$output"
@@ -12578,6 +12599,7 @@ STUB
   profile_out "$profile_dir/xcode-beta-inactive" show | grep -Fq 'Xcode beta        inactive (stored enabled)'
   profile_out "$profile_dir/personal-current" show | grep -Fq 'Xcode beta        disabled'
   profile_out "$profile_dir/personal-current" show | grep -Fq 'Release posture   current'
+  profile_out "$profile_dir/personal-current" show | grep -Fq 'Multiplexer       herdr'
   profile_out "$profile_dir/managed" show | grep -Fq 'Role              managed'
   profile_out "$profile_dir/disposable" show | grep -Fq 'Role              disposable'
   # A managed machine must say policy outranks the profile, never imply a bypass.
