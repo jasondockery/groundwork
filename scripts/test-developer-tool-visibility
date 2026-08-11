@@ -729,6 +729,12 @@ if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/rg-files"; then
   echo "ripgrep hidden-aware discovery exposed .git internals or ignored dist output" >&2
   exit 1
 fi
+(cd "$fixture" && rg --no-config --column --line-number --no-heading --color=never --smart-case --hidden --glob '!.git' EXAMPLE) >"$tmp/rg-content"
+grep -qF '.env.example' "$tmp/rg-content"
+if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/rg-content"; then
+  echo "ripgrep hidden-aware content search exposed .git internals or ignored dist output" >&2
+  exit 1
+fi
 
 fd_bin="$(command -v fd || command -v fdfind || true)"
 if [[ -n "$fd_bin" ]]; then
@@ -766,6 +772,12 @@ fi
 tool_bin="$tmp/tool-bin"
 mkdir -p "$tool_bin" "$tmp/shell-home/.config/ripgrep"
 cp "$repo/home/dot_config/ripgrep/config" "$tmp/shell-home/.config/ripgrep/config"
+real_rg="$(command -v rg)"
+cat >"$tool_bin/rg" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >>"$GROUNDWORK_RG_ARGS"
+exec "$GROUNDWORK_REAL_RG" --no-config "$@"
+EOF
 cat >"$tool_bin/fd" <<'EOF'
 #!/usr/bin/env bash
 printf '%q ' "$@" >>"$GROUNDWORK_FD_ARGS"
@@ -789,12 +801,14 @@ cat >"$tool_bin/fzf" <<'EOF'
 printf '%q ' "$@" >"$GROUNDWORK_FZF_ARGS"
 cat
 EOF
-chmod +x "$tool_bin/fd" "$tool_bin/eza" "$tool_bin/fzf"
+chmod +x "$tool_bin/rg" "$tool_bin/fd" "$tool_bin/eza" "$tool_bin/fzf"
 
 # The rendered-shell surface always exercises the dependency-free wrappers.
-# Real fd/eza behavior is proved above when installed and is mandatory in the
-# source-less Docker lane; using it here would hide the hosted-runner fallback.
-if ! GROUNDWORK_REAL_FD="" \
+# Real rg/fd/eza behavior is proved above when installed and is mandatory in
+# the source-less Docker lane; using it here would hide the hosted fallback.
+if ! GROUNDWORK_REAL_RG="$real_rg" \
+  GROUNDWORK_RG_ARGS="$tmp/rg-surface-args" \
+  GROUNDWORK_REAL_FD="" \
   GROUNDWORK_REAL_EZA="" \
   GROUNDWORK_FD_ARGS="$tmp/fd-surface-args" \
   GROUNDWORK_EZA_ARGS="$tmp/eza-surface-args" \
@@ -822,6 +836,10 @@ if grep -qF 'README.md' "$tmp/lt-src-surface"; then
   exit 1
 fi
 grep -qF '.env.example' "$tmp/rgf-surface"
+grep -qxF -- '--hidden' "$tmp/rg-surface-args"
+grep -qxF -- '--glob' "$tmp/rg-surface-args"
+grep -qxF -- '!.git' "$tmp/rg-surface-args"
+grep -qxF -- 'EXAMPLE' "$tmp/rg-surface-args"
 grep -qF -- '--hidden' "$tmp/fd-surface-args"
 grep -qF -- '--exclude .git' "$tmp/fd-surface-args"
 [[ "$(wc -l <"$tmp/eza-surface-args" | tr -d ' ')" -eq 3 ]]
