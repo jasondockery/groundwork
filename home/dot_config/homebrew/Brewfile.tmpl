@@ -10,8 +10,7 @@
 {{- if hasKey . "beta" }}{{- $beta = .beta -}}{{- end -}}
 {{- $pwManager := "none" -}}
 {{- if hasKey . "password_manager" }}{{- $pwManager = .password_manager -}}{{- end -}}
-{{- $terminalMultiplexer := "tmux" -}}
-{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end -}}
+{{- $terminalMultiplexer := includeTemplate "terminal-multiplexer-selection" (dict "root" . "missing" "tmux") | trim -}}
 # Core
 brew "git"
 brew "gh"

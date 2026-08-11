@@ -1,0 +1,11 @@
+{{- $root := .root -}}
+{{- $missing := .missing -}}
+{{- if hasKey $root "terminal_multiplexer" -}}
+{{- $selection := toString (get $root "terminal_multiplexer") -}}
+{{- if not (has $selection (list "herdr" "tmux" "both" "none")) -}}
+{{- fail (printf "Groundwork: invalid terminal_multiplexer value %q; expected herdr, tmux, both, or none. Run groundwork-configure or correct the chezmoi config." $selection) -}}
+{{- end -}}
+{{- $selection -}}
+{{- else -}}
+{{- $missing -}}
+{{- end -}}

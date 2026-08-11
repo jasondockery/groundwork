@@ -10,7 +10,7 @@ maintenance	groundwork-cleanup --yes --force	command	Exceptional override: attem
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	Acknowledge one pending homebrew, npm, pnpm, or maintenance-helper reminder that cannot be repaired because its manager was intentionally removed. Clears only Groundwork's reminder, performs no cleanup, and preserves an audit note.
 daily	groundwork-configure	command	Canonical settings editor for mutable preferences, including environment role, release posture, terminal multiplexer (Herdr/tmux/both/none), and Xcode beta. Existing tmux users stay on tmux until they change it. Other settings change only when selected, with preview and confirmation; accepting applies the selected desired state immediately.
 daily	groundwork-mux	command	Start the configured primary multiplexer. Herdr is primary for Herdr/Both, tmux for tmux, None refuses, and an existing Herdr/tmux environment refuses automatic nesting.
-daily	groundwork-mux status --json	command	Print the stable machine-readable terminalMultiplexer selection, installed set, primary/fallback roles, and disabled-nesting contract.
+daily	groundwork-mux status --json	command	Print schema-versioned terminal-multiplexer state: desired managed set, live Herdr/tmux executable availability, primary/fallback roles, and disabled nesting.
 herdr	groundwork-herdr-config status	command	Read-only report of the effective Herdr config and Groundwork's exact ownership receipt.
 herdr	groundwork-herdr-config diff	command	Compare the effective Herdr config with Groundwork's exact source template.
 herdr	groundwork-herdr-config edit	command	Edit Groundwork's Herdr source template through chezmoi; apply after review.

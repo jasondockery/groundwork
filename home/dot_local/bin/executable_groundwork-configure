@@ -140,7 +140,7 @@ pw_values=(bitwarden 1password none)
 keyrepeat_values=(fast standard aggressive)
 keyrepeat_labels=("Fast (recommended)" "Standard (slower repeat)" "Aggressive (starts sooner)")
 multiplexer_values=(herdr tmux both none)
-multiplexer_labels=("Herdr (recommended for AI-native work)" "tmux (traditional and mature)" "Both (Herdr primary, tmux fallback, no automatic nesting)" "None (preserve user-managed tooling)")
+multiplexer_labels=("Herdr (recommended; AGPL-3.0-or-later or commercial license)" "tmux (traditional and mature)" "Both (Herdr primary; Herdr licensing applies; tmux fallback; no automatic nesting)" "None (preserve user-managed tooling)")
 
 # All menu kinds differ only in their value/label lists, so they share one
 # prompt, one display path, and one receipt formatter. `pw` has no separate

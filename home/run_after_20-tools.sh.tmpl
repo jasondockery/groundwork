@@ -1,3 +1,4 @@
+{{- $terminalMultiplexer := includeTemplate "terminal-multiplexer-selection" (dict "root" . "missing" "tmux") | trim -}}
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -12,8 +13,6 @@ unset _brew
 # dirs on PATH first so those `command -v` checks find what's already there.
 export PATH="$HOME/.local/bin:$PATH"
 
-{{- $terminalMultiplexer := "tmux" -}}
-{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
 {{ if or (eq $terminalMultiplexer "tmux") (eq $terminalMultiplexer "both") -}}
 tmux_plugin_dir="$HOME/.config/tmux/plugins"
 tmux_conf="$HOME/.config/tmux/tmux.conf"

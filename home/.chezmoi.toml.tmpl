@@ -94,19 +94,19 @@ Herdr (the recommended AI-native path), tmux, both, or neither. Existing
 Groundwork installations predate this field but already manage tmux, so the
 presence of profile_preset is the migration marker: seed those machines to
 tmux without prompting or silently changing their established workflow. */ -}}
+{{- $storedTerminalMultiplexer := includeTemplate "terminal-multiplexer-selection" (dict "root" . "missing" "__groundwork_missing__") | trim -}}
 {{- $terminalMultiplexer := "herdr" -}}
-{{- $validMultiplexers := list "herdr" "tmux" "both" "none" -}}
-{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) $validMultiplexers) -}}
-{{- $terminalMultiplexer = toString .terminal_multiplexer -}}
+{{- if ne $storedTerminalMultiplexer "__groundwork_missing__" -}}
+{{- $terminalMultiplexer = $storedTerminalMultiplexer -}}
 {{- else if hasKey . "profile_preset" -}}
 {{- $terminalMultiplexer = "tmux" -}}
 {{- else -}}
 {{- $muxByNum := dict "1" "herdr" "2" "tmux" "3" "both" "4" "none" -}}
-{{- $muxChoice := promptChoiceOnce . "terminal_multiplexer" "Terminal multiplexer — type 1-4:\n  1. Herdr (recommended) — AI-native workspaces, panes, and agent recovery\n  2. tmux — traditional, mature terminal multiplexer\n  3. Both — Herdr primary, tmux retained as a fallback\n  4. None — preserve user-managed multiplexer tooling\nGroundwork never nests them automatically (Enter keeps the default: 1)" (list "1" "2" "3" "4") "1" -}}
+{{- $muxChoice := promptChoiceOnce . "terminal_multiplexer" "Terminal multiplexer — type 1-4:\n  1. Herdr (recommended) — AI-native workspaces, panes, and agent recovery; AGPL-3.0-or-later or commercial license\n  2. tmux — traditional, mature terminal multiplexer\n  3. Both — Herdr primary, tmux retained as a fallback; Herdr licensing applies\n  4. None — preserve user-managed multiplexer tooling\nHerdr license: https://github.com/ogulcancelik/herdr#license\nGroundwork never nests them automatically (Enter keeps the default: 1)" (list "1" "2" "3" "4") "1" -}}
 {{- if hasKey $muxByNum $muxChoice -}}
 {{- $terminalMultiplexer = index $muxByNum $muxChoice -}}
-{{- else if has $muxChoice $validMultiplexers -}}
-{{- $terminalMultiplexer = $muxChoice -}}
+{{- else -}}
+{{- fail (printf "Groundwork: unexpected terminal multiplexer prompt value %q" $muxChoice) -}}
 {{- end -}}
 {{- end -}}
 {{- /* Key repeat. Two independent knobs, both integers written to NSGlobalDomain:

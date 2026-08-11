@@ -96,16 +96,18 @@ PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-herdr" --session demo | grep -qxF '
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" --session demo | grep -qxF 'herdr:--session demo'
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-tmux" new -s demo | grep -qxF 'tmux:new -s demo'
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-herdr" status --json \
-  | grep -qxF '{"terminalMultiplexer":{"selection":"herdr","installed":["herdr"],"primary":"herdr","nesting":"disabled"}}'
+  | grep -qxF '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"herdr","managed":["herdr"],"available":{"herdr":true,"tmux":true},"primary":"herdr","fallback":null,"nesting":"disabled"}}'
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" status --json \
-  | grep -qxF '{"terminalMultiplexer":{"selection":"both","installed":["herdr","tmux"],"primary":"herdr","fallback":"tmux","nesting":"disabled"}}'
+  | grep -qxF '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"both","managed":["herdr","tmux"],"available":{"herdr":true,"tmux":true},"primary":"herdr","fallback":"tmux","nesting":"disabled"}}'
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" status >"$tmp/status-human.out"
 grep -qF 'Selection  both' "$tmp/status-human.out"
+grep -qF 'Managed    herdr, tmux' "$tmp/status-human.out"
+grep -qF 'Available  herdr=true, tmux=true' "$tmp/status-human.out"
 grep -qF 'Primary    herdr' "$tmp/status-human.out"
 grep -qF 'Fallback   tmux' "$tmp/status-human.out"
 grep -qF 'Nesting    disabled' "$tmp/status-human.out"
 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-none" status --json \
-  | grep -qxF '{"terminalMultiplexer":{"selection":"none","installed":[],"primary":null,"nesting":"disabled"}}'
+  | grep -qxF '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"none","managed":[],"available":{"herdr":true,"tmux":true},"primary":null,"fallback":null,"nesting":"disabled"}}'
 HERDR_ENV=1 PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" status --json \
   | grep -qF '"selection":"both"'
 if PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" status --json extra >"$tmp/status-extra.out" 2>"$tmp/status-extra.err"; then
@@ -113,6 +115,18 @@ if PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-both" status --json extra >"$tmp
   exit 1
 fi
 grep -qF 'usage: groundwork-mux status [--json]' "$tmp/status-extra.err"
+
+# Desired management and executable availability are separate observations.
+# A failed install must not be reported as installed, while an unselected
+# leftover remains visible for deliberate owner cleanup.
+mkdir -p "$tmp/tmux-only-bin"
+cp "$tmp/bin/tmux" "$tmp/tmux-only-bin/tmux"
+PATH="$tmp/tmux-only-bin:/usr/bin:/bin" "$tmp/launcher-herdr" status --json >"$tmp/selected-missing.json"
+grep -qF '"managed":["herdr"]' "$tmp/selected-missing.json"
+grep -qF '"available":{"herdr":false,"tmux":true}' "$tmp/selected-missing.json"
+PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-none" status --json >"$tmp/unselected-present.json"
+grep -qF '"managed":[]' "$tmp/unselected-present.json"
+grep -qF '"available":{"herdr":true,"tmux":true}' "$tmp/unselected-present.json"
 if PATH="$tmp/bin:/usr/bin:/bin" "$tmp/launcher-none" >"$tmp/none.out" 2>"$tmp/none.err"; then
   echo "none selection launched a multiplexer" >&2
   exit 1
@@ -150,6 +164,33 @@ chezmoi --config "$empty_config" --source "$repo" --destination "$tmp/home" \
   execute-template <"$repo/home/dot_local/bin/executable_groundwork-mux.tmpl" >"$tmp/legacy-launcher"
 grep -qxF 'selection="tmux"' "$tmp/legacy-launcher"
 
+# Missing remains the one legacy-tmux migration signal. Every explicitly
+# invalid stored value must fail in the shared helper before any consumer can
+# silently reinterpret it.
+invalid_data="{${base},\"terminal_multiplexer\":\"tmuux\",\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}"
+invalid_consumers=(
+  home/.chezmoi.toml.tmpl
+  home/.chezmoiignore
+  home/dot_config/homebrew/Brewfile.tmpl
+  home/run_after_20-tools.sh.tmpl
+  home/run_after_09-herdr-config-ownership.sh.tmpl
+  home/dot_local/bin/executable_groundwork-mux.tmpl
+  home/dot_local/bin/executable_groundwork-herdr-integrations.tmpl
+  home/dot_local/bin/executable_groundwork-profile.tmpl
+)
+for invalid_source in "${invalid_consumers[@]}"; do
+  invalid_name="$(printf '%s' "$invalid_source" | tr '/.' '__')"
+  if chezmoi --config "$empty_config" --source "$repo" --destination "$tmp/home" \
+    --override-data "$invalid_data" execute-template --init \
+    <"$repo/$invalid_source" >"$tmp/$invalid_name.out" 2>"$tmp/$invalid_name.err"; then
+    echo "$invalid_source accepted an explicitly invalid multiplexer selection" >&2
+    exit 1
+  fi
+  grep -qF 'invalid terminal_multiplexer value "tmuux"' "$tmp/$invalid_name.err"
+done
+grep -qF 'github.com/ogulcancelik/herdr#license' "$repo/home/.chezmoi.toml.tmpl"
+grep -qF 'AGPL-3.0-or-later or commercial license' "$repo/home/dot_local/bin/executable_groundwork-configure"
+
 # Agent hooks are explicit, literal-consent operations and delegate only the
 # two supported tools detected on PATH. No apply hook invokes them.
 render herdr darwin "$repo/home/dot_local/bin/executable_groundwork-herdr-integrations.tmpl" "$tmp/integrations"
@@ -158,6 +199,9 @@ mkdir -p "$tmp/integration-bin" "$tmp/integration-home/.claude" "$tmp/integratio
 cat >"$tmp/integration-bin/herdr" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$HERDR_TEST_LOG"
+if [[ "$*" == "integration install codex" && "${HERDR_FAIL_CODEX:-0}" == 1 ]]; then
+  exit 9
+fi
 [[ "$*" != "integration status" ]] || printf 'status ok\n'
 SH
 cat >"$tmp/integration-bin/claude" <<'SH'
@@ -181,6 +225,20 @@ HOME="$tmp/integration-home" HERDR_TEST_LOG="$tmp/integration.log" PATH="$tmp/in
 grep -qxF 'integration install claude' "$tmp/integration.log"
 grep -qxF 'integration install codex' "$tmp/integration.log"
 grep -qxF 'integration status' "$tmp/integration.log"
+: >"$tmp/integration.log"
+if HOME="$tmp/integration-home" HERDR_TEST_LOG="$tmp/integration.log" HERDR_FAIL_CODEX=1 PATH="$tmp/integration-bin:/usr/bin:/bin" \
+  "$tmp/integrations" install --yes >"$tmp/integration-partial.out" 2>"$tmp/integration-partial.err"; then
+  echo "partial integration install reported success" >&2
+  exit 1
+fi
+grep -qxF 'integration install claude' "$tmp/integration.log"
+grep -qxF 'integration install codex' "$tmp/integration.log"
+grep -qxF 'integration status' "$tmp/integration.log"
+grep -qF 'completed for: claude' "$tmp/integration-partial.err"
+grep -qF 'failed for: codex' "$tmp/integration-partial.err"
+grep -qF "rerun 'groundwork-herdr-integrations install --yes'" "$tmp/integration-partial.err"
+HOME="$tmp/integration-home" HERDR_TEST_LOG="$tmp/integration.log" PATH="$tmp/integration-bin:/usr/bin:/bin" \
+  "$tmp/integrations" install --yes >"$tmp/integration-repair.out"
 assert_hook="$repo/home/run_after_09-herdr-config-ownership.sh.tmpl"
 assert_absent 'integration install' "$assert_hook"
 

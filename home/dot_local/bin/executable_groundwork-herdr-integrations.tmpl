@@ -1,9 +1,8 @@
+{{- $terminalMultiplexer := includeTemplate "terminal-multiplexer-selection" (dict "root" . "missing" "tmux") | trim -}}
 #!/usr/bin/env bash
 set -euo pipefail
 
-prog="${0##*/}"
-{{- $terminalMultiplexer := "tmux" -}}
-{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
+prog="groundwork-herdr-integrations"
 selection={{ $terminalMultiplexer | quote }}
 
 usage() {
@@ -71,9 +70,24 @@ for agent in claude codex; do
     [[ "$agent" == codex && "$codex_selected" -eq 1 ]] || continue
   printf '%s %s integration: %s\n' "$action" "$agent" "herdr integration $action $agent"
 done
+failed_agents=""
+succeeded_agents=""
 for agent in claude codex; do
   [[ "$agent" == claude && "$claude_selected" -eq 1 ]] || \
     [[ "$agent" == codex && "$codex_selected" -eq 1 ]] || continue
-  herdr integration "$action" "$agent"
+  if herdr integration "$action" "$agent"; then
+    succeeded_agents="${succeeded_agents}${succeeded_agents:+, }$agent"
+  else
+    failed_agents="${failed_agents}${failed_agents:+, }$agent"
+    printf '%s: Herdr %s failed for %s; continuing to report final integration status.\n' "$prog" "$action" "$agent" >&2
+  fi
 done
-herdr integration status
+status_rc=0
+herdr integration status || status_rc=$?
+if [[ -n "$failed_agents" ]]; then
+  [[ -z "$succeeded_agents" ]] || printf '%s: completed for: %s\n' "$prog" "$succeeded_agents" >&2
+  printf '%s: failed for: %s\n' "$prog" "$failed_agents" >&2
+  printf "%s: rerun '%s %s --yes' to repair the partial state; successful integrations are idempotent.\n" "$prog" "$prog" "$action" >&2
+  exit 1
+fi
+exit "$status_rc"

@@ -1,9 +1,12 @@
+{{- $terminalMultiplexer := includeTemplate "terminal-multiplexer-selection" (dict "root" . "missing" "tmux") | trim -}}
 #!/usr/bin/env bash
 set -euo pipefail
 
-{{- $terminalMultiplexer := "tmux" -}}
-{{- if and (hasKey . "terminal_multiplexer") (has (toString .terminal_multiplexer) (list "herdr" "tmux" "both" "none")) }}{{- $terminalMultiplexer = toString .terminal_multiplexer -}}{{- end }}
 selection={{ $terminalMultiplexer | quote }}
+herdr_available=false
+tmux_available=false
+command -v herdr >/dev/null 2>&1 && herdr_available=true
+command -v tmux >/dev/null 2>&1 && tmux_available=true
 
 usage() {
   cat <<'EOF'
@@ -12,7 +15,7 @@ groundwork-mux — inspect or start the configured terminal multiplexer.
 Usage:
   groundwork-mux                    Start the configured primary multiplexer.
   groundwork-mux status             Print the configured selection and roles.
-  groundwork-mux status --json      Print the stable machine-readable contract.
+  groundwork-mux status --json      Print schema-versioned desired/live state.
   groundwork-mux --help
 
 Herdr is primary for the herdr and both selections. tmux is the fallback for
@@ -23,16 +26,16 @@ EOF
 print_status_json() {
   case "$selection" in
     herdr)
-      printf '%s\n' '{"terminalMultiplexer":{"selection":"herdr","installed":["herdr"],"primary":"herdr","nesting":"disabled"}}'
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"herdr","managed":["herdr"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
       ;;
     tmux)
-      printf '%s\n' '{"terminalMultiplexer":{"selection":"tmux","installed":["tmux"],"primary":"tmux","nesting":"disabled"}}'
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"tmux","managed":["tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"tmux","fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
       ;;
     both)
-      printf '%s\n' '{"terminalMultiplexer":{"selection":"both","installed":["herdr","tmux"],"primary":"herdr","fallback":"tmux","nesting":"disabled"}}'
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"both","managed":["herdr","tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":"tmux","nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
       ;;
     none)
-      printf '%s\n' '{"terminalMultiplexer":{"selection":"none","installed":[],"primary":null,"nesting":"disabled"}}'
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"none","managed":[],"available":{"herdr":%s,"tmux":%s},"primary":null,"fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
       ;;
     *)
       echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
@@ -46,22 +49,23 @@ print_status() {
   printf '  Selection  %s\n' "$selection"
   case "$selection" in
     herdr)
-      printf '  Installed  herdr\n  Primary    herdr\n  Fallback   none\n'
+      printf '  Managed    herdr\n  Primary    herdr\n  Fallback   none\n'
       ;;
     tmux)
-      printf '  Installed  tmux\n  Primary    tmux\n  Fallback   none\n'
+      printf '  Managed    tmux\n  Primary    tmux\n  Fallback   none\n'
       ;;
     both)
-      printf '  Installed  herdr, tmux\n  Primary    herdr\n  Fallback   tmux\n'
+      printf '  Managed    herdr, tmux\n  Primary    herdr\n  Fallback   tmux\n'
       ;;
     none)
-      printf '  Installed  none\n  Primary    none\n  Fallback   none\n'
+      printf '  Managed    none\n  Primary    none\n  Fallback   none\n'
       ;;
     *)
       echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
       return 1
       ;;
   esac
+  printf '  Available  herdr=%s, tmux=%s\n' "$herdr_available" "$tmux_available"
   printf '  Nesting    disabled\n'
 }
 
