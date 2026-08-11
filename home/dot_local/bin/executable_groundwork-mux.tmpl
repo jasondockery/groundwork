@@ -26,16 +26,16 @@ EOF
 print_status_json() {
   case "$selection" in
     herdr)
-      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"herdr","managed":["herdr"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"herdr","managed":["herdr"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":null,"nesting":"disabled"}%s\n' "$herdr_available" "$tmux_available" '}'
       ;;
     tmux)
-      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"tmux","managed":["tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"tmux","fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"tmux","managed":["tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"tmux","fallback":null,"nesting":"disabled"}%s\n' "$herdr_available" "$tmux_available" '}'
       ;;
     both)
-      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"both","managed":["herdr","tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":"tmux","nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"both","managed":["herdr","tmux"],"available":{"herdr":%s,"tmux":%s},"primary":"herdr","fallback":"tmux","nesting":"disabled"}%s\n' "$herdr_available" "$tmux_available" '}'
       ;;
     none)
-      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"none","managed":[],"available":{"herdr":%s,"tmux":%s},"primary":null,"fallback":null,"nesting":"disabled"}}\n' "$herdr_available" "$tmux_available"
+      printf '{"schema":"groundwork.terminal-multiplexer-status","schemaVersion":1,"terminalMultiplexer":{"selection":"none","managed":[],"available":{"herdr":%s,"tmux":%s},"primary":null,"fallback":null,"nesting":"disabled"}%s\n' "$herdr_available" "$tmux_available" '}'
       ;;
     *)
       echo "groundwork-mux: invalid stored multiplexer selection: $selection" >&2
