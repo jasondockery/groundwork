@@ -99,6 +99,13 @@ list_suite_checks() {
   ' "${BASH_SOURCE[0]}"
 }
 
+canonical_check_observations_match() {
+  local requested="$1" rows="$2" expected="$3" observed="$4"
+  list_suite_checks "$requested" | sed 's/^  - //' >"$expected"
+  cut -f 1 "$rows" >"$observed"
+  cmp -s "$expected" "$observed"
+}
+
 list_suites() {
   local listed_suite entry function owners
   for entry in "${suite_registry[@]}"; do
@@ -469,6 +476,7 @@ report_and_cleanup() {
   local reason title validation_finished_epoch total_duration platform_name
   local platform_label platform_arch budget_state report_failed tree_changed
   local passed_count skipped_count failed_count source_observation_complete tree_summary
+  local canonical_checks_expected canonical_checks_observed
   if [[ "$status" -ne 0 && -z "$fail_reason" ]]; then
     fail_reason="line $failed_line exited $status: $failed_command"
     echo "validate-groundwork: $current_check failed at line $failed_line: $failed_command (exit $status)" >&2
@@ -523,6 +531,17 @@ PY
   if [[ "$tree_changed" == "true" ]]; then
     status=1
     fail_reason="the working tree changed during validation; this receipt is invalid"
+  fi
+
+  if [[ "$status" -eq 0 ]]; then
+    canonical_checks_expected="$out_dir/canonical-checks-expected"
+    canonical_checks_observed="$out_dir/canonical-checks-observed"
+    if ! canonical_check_observations_match "$suite" "$timing_rows" \
+      "$canonical_checks_expected" "$canonical_checks_observed"; then
+      status=1
+      fail_reason="the successful suite did not observe every canonical check exactly once"
+      diff -u "$canonical_checks_expected" "$canonical_checks_observed" >&2 || true
+    fi
   fi
 
   if [[ "$status" -ne 0 ]] && ! awk -F '\t' '$3 == "failed" { found = 1 } END { exit !found }' "$timing_rows"; then
@@ -1084,6 +1103,8 @@ line_number() {
 }
 
 validate_static_foundation() {
+  local canonical_rows canonical_expected canonical_observed
+
   check "repository Node/pnpm authority contract"
   node tools/check-toolchain.mjs
 
@@ -1142,6 +1163,22 @@ validate_static_foundation() {
   grep -qF 'GROUNDWORK_FULL_COMPOSITION=1 GROUNDWORK_SUPPRESS_SUMMARY=1' \
     scripts/validate-groundwork \
     || fail "the full suite must compose focused CLI entry points in isolated subprocesses"
+
+  canonical_rows="$validator_cli_fixture/canonical-rows"
+  canonical_expected="$validator_cli_fixture/canonical-expected"
+  canonical_observed="$validator_cli_fixture/canonical-observed"
+  while IFS= read -r canonical_name; do
+    canonical_name="${canonical_name#  - }"
+    printf '%s\t0\tpassed\t\t\n' "$canonical_name"
+  done < <(list_suite_checks static) >"$canonical_rows"
+  canonical_check_observations_match static "$canonical_rows" \
+    "$canonical_expected" "$canonical_observed" \
+    || fail "a complete canonical runtime check inventory was rejected"
+  sed '$d' "$canonical_rows" >"$validator_cli_fixture/canonical-rows-missing"
+  if canonical_check_observations_match static "$validator_cli_fixture/canonical-rows-missing" \
+    "$canonical_expected" "$canonical_observed"; then
+    fail "a successful suite could omit a canonical runtime check"
+  fi
 
   validation_child="$validator_cli_fixture/signal-child"
   validation_child_ready="$validator_cli_fixture/signal-child.ready"
@@ -13086,6 +13123,9 @@ validate_platform_native_processes() {
     fi
     skip_current_check requires-macos-native-host \
       "macOS native process and filesystem primitives require macOS"
+    check "Homebrew interactive terminal ownership"
+    skip_current_check requires-macos-native-host \
+      "Homebrew interactive terminal ownership requires macOS"
     return
   fi
 

@@ -39,6 +39,7 @@ ALLOWED_PLATFORM_SKIPS = {
     },
     "macOS representative rendered apply smoke": {"requires-macos-native-host"},
     "macOS native process and filesystem primitives": {"requires-macos-native-host"},
+    "Homebrew interactive terminal ownership": {"requires-macos-native-host"},
 }
 
 
