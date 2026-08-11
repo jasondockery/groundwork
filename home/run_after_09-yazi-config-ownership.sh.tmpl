@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source {{ joinPath .chezmoi.sourceDir "dot_local/lib/groundwork/yazi-config.sh" | quote }}
+managed_target="$HOME/.config/yazi/yazi.toml"
+effective_target="$(groundwork_yazi_effective_target)"
+if [[ "$effective_target" != "$managed_target" ]]; then
+  echo "Groundwork Yazi config: YAZI_CONFIG_HOME or XDG_CONFIG_HOME selects $effective_target." >&2
+  echo "Groundwork manages $managed_target. Reconcile the override before applying so the managed file is the effective file." >&2
+  exit 1
+fi
+
+groundwork_yazi_apply_owned \
+  "$managed_target" \
+  {{ joinPath .chezmoi.sourceDir ".chezmoitemplates/yazi.toml" | quote }} \
+  "$HOME/.local/state/groundwork/yazi-config.sha256"

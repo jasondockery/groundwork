@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Validate one Yazi operator receipt or the durable repository ledger."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+
+SHA256 = re.compile(r"[0-9a-f]{64}")
+COMMIT = re.compile(r"[0-9a-f]{40}")
+TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+
+
+def fail(message: str) -> None:
+    raise ValueError(message)
+
+
+def load(path: pathlib.Path) -> dict[str, object]:
+    if path.is_symlink() or not path.is_file():
+        fail(f"must be a regular non-symlink file: {path}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"cannot read {path}: {error}")
+    if not isinstance(value, dict):
+        fail(f"{path} must contain an object")
+    return value
+
+
+def exact_object(value: object, fields: set[str], label: str) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != fields:
+        fail(f"{label} fields must be exactly {sorted(fields)!r}")
+    return value
+
+
+def safe_string(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        fail(f"{label} must be a nonempty control-free string")
+    return value
+
+
+def validate_receipt(path: pathlib.Path) -> dict[str, object]:
+    receipt = exact_object(
+        load(path),
+        {
+            "checks",
+            "completedAt",
+            "managedConfigSha256",
+            "operatorAttested",
+            "platform",
+            "result",
+            "schemaVersion",
+            "source",
+            "terminal",
+            "yaziExecutable",
+            "yaziVersion",
+        },
+        "receipt",
+    )
+    if receipt["schemaVersion"] != 2 or receipt["result"] != "accepted" or receipt["operatorAttested"] is not True:
+        fail("receipt must be an operator-attested accepted schemaVersion 2 result")
+    checks = exact_object(
+        receipt["checks"],
+        {"hiddenInitiallyVisible", "periodHidesHiddenEntries", "periodRestoresHiddenEntries"},
+        "receipt.checks",
+    )
+    if set(checks.values()) != {True}:
+        fail("every Yazi interaction check must be true")
+    platform = exact_object(receipt["platform"], {"machine", "system"}, "receipt.platform")
+    if safe_string(platform["system"], "receipt.platform.system") not in {"darwin", "linux"}:
+        fail("receipt platform must be darwin or linux")
+    safe_string(platform["machine"], "receipt.platform.machine")
+    source = exact_object(
+        receipt["source"],
+        {"commit", "dirty", "fixtureVersion", "runnerSha256", "tree"},
+        "receipt.source",
+    )
+    if not COMMIT.fullmatch(str(source["commit"])) or not COMMIT.fullmatch(str(source["tree"])):
+        fail("receipt source commit and tree must be exact Git object identities")
+    if not isinstance(source["dirty"], bool) or source["fixtureVersion"] != 1:
+        fail("receipt source must record dirty boolean and fixtureVersion 1")
+    if not SHA256.fullmatch(str(source["runnerSha256"])):
+        fail("receipt runner digest must be SHA-256")
+    executable = exact_object(receipt["yaziExecutable"], {"path", "sha256"}, "receipt.yaziExecutable")
+    safe_string(executable["path"], "receipt.yaziExecutable.path")
+    if not SHA256.fullmatch(str(executable["sha256"])):
+        fail("receipt Yazi executable digest must be SHA-256")
+    terminal = exact_object(receipt["terminal"], {"term", "tty"}, "receipt.terminal")
+    safe_string(terminal["term"], "receipt.terminal.term")
+    safe_string(terminal["tty"], "receipt.terminal.tty")
+    if not SHA256.fullmatch(str(receipt["managedConfigSha256"])):
+        fail("receipt managed config digest must be SHA-256")
+    if not TIMESTAMP.fullmatch(str(receipt["completedAt"])):
+        fail("receipt completedAt must be UTC RFC3339 seconds")
+    safe_string(receipt["yaziVersion"], "receipt.yaziVersion")
+    return receipt
+
+
+def repository_file(root: pathlib.Path, value: object) -> pathlib.Path:
+    relative = safe_string(value, "ledger.receiptPath")
+    candidate = pathlib.PurePosixPath(relative)
+    if candidate.is_absolute() or ".." in candidate.parts or str(candidate) != relative:
+        fail("ledger receiptPath must be normalized and repository-relative")
+    path = root.joinpath(*candidate.parts)
+    current = root
+    for part in candidate.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            fail(f"ledger receiptPath may not traverse a symlink: {relative}")
+    if path.is_symlink() or not path.is_file():
+        fail(f"ledger receipt is missing or redirected: {relative}")
+    try:
+        path.resolve(strict=True).relative_to(root.resolve(strict=True))
+    except (OSError, ValueError):
+        fail(f"ledger receipt escapes the repository: {relative}")
+    return path
+
+
+def validate_ledger(root: pathlib.Path, path: pathlib.Path) -> int:
+    ledger = exact_object(load(path), {"receipts", "schemaVersion"}, "ledger")
+    if ledger["schemaVersion"] != 1 or not isinstance(ledger["receipts"], list):
+        fail("ledger must use schemaVersion 1 with a receipts array")
+    seen: set[str] = set()
+    for index, item in enumerate(ledger["receipts"]):
+        record = exact_object(item, {"receiptPath", "receiptSha256", "sourceCommit"}, f"ledger.receipts[{index}]")
+        receipt_path = repository_file(root, record["receiptPath"])
+        digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+        if digest != record["receiptSha256"] or not SHA256.fullmatch(str(record["receiptSha256"])):
+            fail(f"ledger receipt digest mismatch: {record['receiptPath']}")
+        receipt = validate_receipt(receipt_path)
+        if receipt["source"]["dirty"] is not False or receipt["source"]["commit"] != record["sourceCommit"]:
+            fail(f"ledger admits a dirty or differently bound receipt: {record['receiptPath']}")
+        if str(record["receiptPath"]) in seen:
+            fail(f"duplicate ledger receipt path: {record['receiptPath']}")
+        seen.add(str(record["receiptPath"]))
+    return len(seen)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--receipt", type=pathlib.Path)
+    parser.add_argument("--ledger", type=pathlib.Path)
+    args = parser.parse_args()
+    if (args.receipt is None) == (args.ledger is None):
+        parser.error("choose exactly one of --receipt or --ledger")
+    root = pathlib.Path(__file__).resolve().parent.parent
+    try:
+        if args.receipt is not None:
+            validate_receipt(args.receipt.absolute())
+            print(f"Yazi manual receipt: valid ({args.receipt})")
+        else:
+            count = validate_ledger(root, args.ledger.resolve())
+            print(f"Yazi manual receipt ledger: {count} durable receipts")
+    except ValueError as error:
+        print(f"Yazi manual receipt: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

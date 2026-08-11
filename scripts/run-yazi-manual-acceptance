@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/run-yazi-manual-acceptance --receipt <new-json-path>
+
+Run a bounded, disposable Yazi interaction check. Confirm that developer
+dotfiles are initially visible, period hides them, and period restores them.
+The runner writes a receipt only after Yazi exits normally and the operator
+answers yes. It never changes the user's Yazi configuration.
+
+Deadline: 120 seconds for Yazi, then 120 seconds for the confirmation.
+Cancellation: quit Yazi, press Ctrl+C, or let the deadline expire.
+After stop: the temporary fixture is removed; only an accepted receipt remains.
+EOF
+}
+
+receipt=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --receipt)
+      [[ "$#" -ge 2 && -n "$2" ]] || {
+        usage >&2
+        exit 64
+      }
+      receipt="$2"
+      shift 2
+      ;;
+    -h | --help)
+      [[ "$#" -eq 1 ]] || {
+        usage >&2
+        exit 64
+      }
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 64
+      ;;
+  esac
+done
+
+[[ -n "$receipt" ]] || {
+  usage >&2
+  exit 64
+}
+[[ -t 0 && -t 1 ]] || {
+  echo "run-yazi-manual-acceptance: an interactive terminal is required." >&2
+  exit 1
+}
+command -v yazi >/dev/null 2>&1 || {
+  echo "run-yazi-manual-acceptance: yazi is not installed or not on PATH." >&2
+  exit 1
+}
+command -v perl >/dev/null 2>&1 || {
+  echo "run-yazi-manual-acceptance: perl is required for the 120-second deadline." >&2
+  exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+  echo "run-yazi-manual-acceptance: python3 is required to write the JSON receipt." >&2
+  exit 1
+}
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=/dev/null
+source "$repo/home/dot_local/lib/groundwork/yazi-config.sh"
+groundwork_yazi_sha256 "$repo/home/.chezmoitemplates/yazi.toml" >/dev/null
+
+receipt_dir="$(dirname "$receipt")"
+[[ -d "$receipt_dir" && ! -L "$receipt_dir" ]] || {
+  echo "run-yazi-manual-acceptance: receipt parent must be an existing non-symlink directory: $receipt_dir" >&2
+  exit 1
+}
+[[ ! -e "$receipt" && ! -L "$receipt" ]] || {
+  echo "run-yazi-manual-acceptance: refusing to overwrite receipt: $receipt" >&2
+  exit 1
+}
+groundwork_yazi_require_plain_ancestor_chain "$receipt" || {
+  echo "run-yazi-manual-acceptance: receipt ancestors must be existing non-symlink directories." >&2
+  exit 1
+}
+
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-yazi-acceptance.XXXXXX")"
+receipt_tmp=""
+terminal_state="$(stty -g)"
+yazi_pid=""
+cleanup() {
+  local cleanup_attempt
+  if [[ -n "$yazi_pid" ]] && kill -0 "$yazi_pid" 2>/dev/null; then
+    kill -TERM "$yazi_pid" 2>/dev/null || true
+    cleanup_attempt=0
+    while kill -0 "$yazi_pid" 2>/dev/null && [[ "$cleanup_attempt" -lt 20 ]]; do
+      sleep 0.05
+      cleanup_attempt=$((cleanup_attempt + 1))
+    done
+    if kill -0 "$yazi_pid" 2>/dev/null; then
+      kill -KILL "$yazi_pid" 2>/dev/null || true
+    fi
+    wait "$yazi_pid" 2>/dev/null || true
+  fi
+  stty "$terminal_state" 2>/dev/null || true
+  rm -rf -- "$tmp"
+  [[ -z "$receipt_tmp" ]] || rm -f -- "$receipt_tmp"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+mkdir -p \
+  "$tmp/home" \
+  "$tmp/config" \
+  "$tmp/xdg-cache" \
+  "$tmp/xdg-config" \
+  "$tmp/xdg-data" \
+  "$tmp/xdg-state" \
+  "$tmp/project/.github/workflows" \
+  "$tmp/project/.config"
+cp "$repo/home/.chezmoitemplates/yazi.toml" "$tmp/config/yazi.toml"
+printf 'readme\n' >"$tmp/project/README.md"
+printf 'name: ci\n' >"$tmp/project/.github/workflows/ci.yml"
+printf 'example = true\n' >"$tmp/project/.config/example.toml"
+printf 'EXAMPLE=1\n' >"$tmp/project/.env.example"
+
+cat <<'EOF'
+Yazi manual acceptance
+
+1. Confirm README.md, .github, .config, and .env.example are initially visible.
+2. Press period once and confirm those hidden entries disappear.
+3. Press period again and confirm they return.
+4. Press q to quit.
+
+The Yazi stage stops after 120 seconds if it is not closed.
+EOF
+
+set +e
+(
+  cd "$tmp/project"
+  exec env HOME="$tmp/home" \
+    XDG_CACHE_HOME="$tmp/xdg-cache" \
+    XDG_CONFIG_HOME="$tmp/xdg-config" \
+    XDG_DATA_HOME="$tmp/xdg-data" \
+    XDG_STATE_HOME="$tmp/xdg-state" \
+    YAZI_CONFIG_HOME="$tmp/config" \
+    perl -e 'alarm shift; exec @ARGV' 120 yazi
+) &
+yazi_pid=$!
+wait "$yazi_pid"
+yazi_status=$?
+yazi_pid=""
+set -e
+if [[ "$yazi_status" -ne 0 ]]; then
+  if [[ "$yazi_status" -eq 142 ]]; then
+    echo "run-yazi-manual-acceptance: Yazi exceeded its 120-second deadline; no receipt written." >&2
+  else
+    echo "run-yazi-manual-acceptance: Yazi exited with status $yazi_status; no receipt written." >&2
+  fi
+  exit "$yazi_status"
+fi
+
+printf 'Did all three visibility checks pass? [y/N] '
+answer=""
+if ! IFS= read -r -t 120 answer; then
+  echo >&2
+  echo "run-yazi-manual-acceptance: confirmation timed out; no receipt written." >&2
+  exit 124
+fi
+case "$answer" in
+  y | Y | yes | Yes | YES) ;;
+  *)
+    echo "run-yazi-manual-acceptance: acceptance declined; no receipt written." >&2
+    exit 1
+    ;;
+esac
+
+config_sha="$(groundwork_yazi_sha256 "$tmp/config/yazi.toml")"
+yazi_path="$(type -P yazi)"
+yazi_path="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=True))' "$yazi_path")"
+[[ -f "$yazi_path" && ! -L "$yazi_path" ]] || {
+  echo "run-yazi-manual-acceptance: resolved Yazi executable is not a regular file: $yazi_path" >&2
+  exit 1
+}
+yazi_sha="$(groundwork_yazi_sha256 "$yazi_path")"
+yazi_version="$(HOME="$tmp/home" XDG_CACHE_HOME="$tmp/xdg-cache" XDG_CONFIG_HOME="$tmp/xdg-config" XDG_DATA_HOME="$tmp/xdg-data" XDG_STATE_HOME="$tmp/xdg-state" TERM="${TERM:-unknown}" "$yazi_path" --version | head -n 1)"
+case "$yazi_version" in
+  *"Yazi "*) yazi_version="Yazi ${yazi_version##*Yazi }" ;;
+  *)
+    echo "run-yazi-manual-acceptance: could not record a safe Yazi version; no receipt written." >&2
+    exit 1
+    ;;
+esac
+completed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+source_commit="$(git -C "$repo" rev-parse HEAD)"
+source_tree="$(git -C "$repo" rev-parse 'HEAD^{tree}')"
+source_dirty=false
+[[ -z "$(git -C "$repo" status --porcelain=v1)" ]] || source_dirty=true
+runner_sha="$(groundwork_yazi_sha256 "$repo/scripts/run-yazi-manual-acceptance")"
+terminal_tty="$(tty 2>/dev/null || printf 'unknown\n')"
+receipt_tmp="$(mktemp "$receipt_dir/.yazi-acceptance.XXXXXX")"
+python3 - "$receipt_tmp" "$config_sha" "$yazi_version" "$completed_at" \
+  "$source_commit" "$source_tree" "$source_dirty" "$runner_sha" \
+  "$yazi_path" "$yazi_sha" "${TERM:-unknown}" "$terminal_tty" <<'PY'
+import json, pathlib, platform, sys
+
+path = pathlib.Path(sys.argv[1])
+if len(sys.argv[2]) != 64 or any(character not in "0123456789abcdef" for character in sys.argv[2]):
+    raise SystemExit("invalid managed config SHA-256")
+if any(ord(character) < 32 or ord(character) == 127 for character in sys.argv[3]):
+    raise SystemExit("unsafe control character in Yazi version")
+receipt = {
+    "schemaVersion": 2,
+    "result": "accepted",
+    "checks": {
+        "hiddenInitiallyVisible": True,
+        "periodHidesHiddenEntries": True,
+        "periodRestoresHiddenEntries": True,
+    },
+    "platform": {"system": platform.system().lower(), "machine": platform.machine()},
+    "managedConfigSha256": sys.argv[2],
+    "yaziVersion": sys.argv[3],
+    "completedAt": sys.argv[4],
+    "operatorAttested": True,
+    "source": {
+        "commit": sys.argv[5],
+        "tree": sys.argv[6],
+        "dirty": sys.argv[7] == "true",
+        "runnerSha256": sys.argv[8],
+        "fixtureVersion": 1,
+    },
+    "yaziExecutable": {"path": sys.argv[9], "sha256": sys.argv[10]},
+    "terminal": {"term": sys.argv[11], "tty": sys.argv[12]},
+}
+path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if ! ln "$receipt_tmp" "$receipt"; then
+  echo "run-yazi-manual-acceptance: receipt path appeared during publication; no file was overwritten: $receipt" >&2
+  exit 1
+fi
+rm -f -- "$receipt_tmp"
+receipt_tmp=""
+echo "Yazi manual acceptance: passed"
+echo "Receipt: $receipt"

@@ -261,7 +261,7 @@
 <span class="prompt">$ </span>rg -t md heading     <span class="comment"># only markdown files</span>
 <span class="prompt">$ </span>rga api_key          <span class="comment"># include hidden + ignored files, still skip .git</span></code></pre>
       </div>
-      <p>For fuzzy content search, use <code>rgf</code>. It runs ripgrep, opens the matches in <code>fzf</code>, previews with <code>bat</code>, and opens the selected line in your editor.</p>
+      <p>Plain <code>rg</code> keeps its familiar upstream hidden-file behavior. Use <code>rgh</code> when developer dotfiles should participate while normal ignore rules and the <code>.git</code> internals exclusion remain intact. For fuzzy content search, use <code>rgf</code>. It applies that same hidden-aware boundary, opens the matches in <code>fzf</code>, previews with <code>bat</code>, and opens the selected line in your editor. <code>rga</code> is the deliberately broader read-only inspection path for ignored content; it still excludes <code>.git</code>.</p>
       <div class="terminal small">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">rg + fzf</span></div>
         <pre><code><span class="prompt">$ </span>rgf button
@@ -273,7 +273,8 @@
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">fd</span></div>
         <pre><code><span class="prompt">$ </span>fd config
-<span class="prompt">$ </span>fd -e png            <span class="comment"># files ending in .png</span></code></pre>
+<span class="prompt">$ </span>fd -e png            <span class="comment"># files ending in .png</span>
+<span class="prompt">$ </span>fdh settings         <span class="comment"># include hidden paths; keep ignores; exclude .git</span></code></pre>
       </div>
 
       <h3>zoxide — jumping to folders</h3>
@@ -285,11 +286,11 @@
       </div>
 
       <h3>fzf — fuzzy-finding anything</h3>
-      <p>A fuzzy picker wired into the shell. Groundwork points its file picker at <code>rg --files</code>, so fuzzy file selection respects the same ignore rules as ripgrep. Three keystrokes are worth memorizing:</p>
+      <p>A fuzzy picker wired into the shell. Groundwork points its file picker at hidden-aware <code>rg --files</code>, so project configuration such as <code>.github</code> and <code>.env.example</code> participates while ignore rules and <code>.git</code> internals stay excluded. Three keystrokes are worth memorizing:</p>
       <table class="keytable">
         <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>R</kbd></span></td><td>Search your command history — start typing, pick, Enter</td></tr>
-        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a file path into the line you're typing, with a bat preview; opens as a floating popup inside tmux</td></tr>
-        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a folder and <code>cd</code> into it</td></tr>
+        <tr><td><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span></td><td>Insert a visible or hidden project file into the line you're typing, with a bat preview; opens as a floating popup inside tmux</td></tr>
+        <tr><td><span class="keys"><kbd>Alt</kbd><kbd>C</kbd></span></td><td>Fuzzy-pick a visible or hidden project folder and <code>cd</code> into it</td></tr>
       </table>
 
       <h3>yazi — browsing the folder landscape</h3>
@@ -298,9 +299,11 @@
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">yazi</span></div>
         <pre><code><span class="prompt">$ </span>y
 <span class="comment"># arrow keys or hjkl to move, Enter to open in the editor, O to pick an opener
+# developer dotfiles start visible; period toggles them
 # q quits into the folder you were browsing; Q quits back where you started</span></code></pre>
       </div>
-      <p>Groundwork manages <code>~/.config/yazi/yazi.toml</code> so the preview pane gets most of the width — the panes are for navigating, the preview is for reading. The preview is still a glance, not a reader: press <kbd>Enter</kbd> to open the file in the editor, or <kbd>O</kbd> and choose <em>Read with bat</em> for a highlighted, scrollable view that drops you back into Yazi when you quit it.</p>
+      <p>Groundwork manages <code>~/.config/yazi/yazi.toml</code> so developer dotfiles are visible on entry and the preview pane gets most of the width. Press the built-in period key to hide those entries, then press it again to restore them. The preview is still a glance, not a reader: press <kbd>Enter</kbd> to open the file in the editor, or <kbd>O</kbd> and choose <em>Read with bat</em> for a highlighted, scrollable view that drops you back into Yazi when you quit it.</p>
+      <p>The first managed apply adopts only an absent file or the exact earlier Groundwork version. An existing custom file, redirected parent, symlink, non-regular path, or post-apply edit stops with a recovery message instead of being overwritten. Inspect ownership with <code>groundwork-yazi-config status</code>, preview source differences with <code>groundwork-yazi-config diff</code>, and open the exact source with <code>groundwork-yazi-config edit</code>. Run <code>chezmoi apply</code> after editing. <code>groundwork-yazi-config remove --yes</code> removes only unchanged receipt-owned <code>yazi.toml</code> bytes and leaves other Yazi files alone.</p>
       <p>Image, PDF, and video previews render inline in Ghostty, which speaks the Kitty graphics protocol. Yazi already uses the <code>fd</code>, <code>rg</code>, <code>fzf</code>, and <code>bat</code> that Groundwork installs; for richer previews of more formats you can optionally add <code>poppler</code> (PDF) and <code>ffmpeg</code> (video thumbnails).</p>
 
       <h3 id="largest">largest: find space, then clean by owner</h3>

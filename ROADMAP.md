@@ -68,6 +68,32 @@ Owner action (a human enables this when ready, not code work):
       with green CI is the sanctioned solo workflow until then — see PLAYBOOK →
       Working On `main`.
 
+## Developer-tool operability audit
+
+- [x] Manage Yazi's effective Unix/XDG configuration with developer dotfiles
+      initially visible, the built-in period toggle intact, exact source
+      diff/edit commands, fail-closed conflict handling, atomic apply/removal,
+      full ancestor-chain rejection, and macOS/Linux applied parity. Hidden-aware
+      `rg`, `fd`, `fzf`, and `eza` surfaces preserve ignores and exclude `.git`.
+- [ ] Field-accept Yazi's managed effective configuration on macOS and Linux:
+      developer dotfiles visible initially, the built-in period key hiding and
+      restoring them, exact ownership/conflict behavior, idempotent reapply,
+      and removal of only Groundwork-owned bytes. Static and isolated apply
+      proof owns file semantics; a bounded operator receipt owns interactive
+      rendering until a supported Yazi automation seam exists. Admitted
+      receipts must be schema-validated, exact-clean-source-bound, and recorded
+      by digest in `data/yazi-manual-acceptance-receipts.json`; the ledger is
+      currently empty, so both platform acceptances remain open.
+- [ ] Complete the separately owned machine-readable inventory tranche. It
+      must discover every installer seam, retain genuinely package-specific
+      ownership prose and dispositions, and bind each evidence claim to behavior
+      the referenced command actually exercises. Do not fold the unfinished
+      inventory into the urgent Yazi repair.
+- [ ] Adopt only a future valid Compass authority-model and operable-tools
+      successor in their own projection commit and proof boundary. Superseded
+      `043568a`, `681c872`, and `f3e135d` identities remain historical evidence;
+      they do not block independent Groundwork commits or releases.
+
 ## Review-derived product backlog (2026-07-31)
 
 The automatic-maintenance review also surfaced useful work outside that safety

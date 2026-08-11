@@ -5,6 +5,9 @@
 # highlighted, scrollable view without leaving the flow.
 
 [mgr]
+# Developer configuration usually lives in dotfiles. Start with it visible;
+# Yazi's built-in period key still toggles hidden files at any time.
+show_hidden = true
 # parent : current : preview
 ratio = [1, 2, 5]
 

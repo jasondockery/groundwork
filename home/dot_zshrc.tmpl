@@ -33,13 +33,13 @@ export PAGER="less"
 # Matches the rg/fzf/LazyVim default so / behaves the same in every tool.
 export LESS="-iR"
 export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
-export FZF_DEFAULT_COMMAND="rg --files"
+export FZF_DEFAULT_COMMAND="rg --files --hidden --glob '!.git'"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-export FZF_ALT_C_COMMAND="fd --type d"
+export FZF_ALT_C_COMMAND="fd --type d --hidden --exclude .git"
 export FZF_DEFAULT_OPTS="--height 40% --layout reverse --border"
 # Ctrl+T previews files with bat; Alt+C previews folders as a short tree.
 export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:200 {}' --preview-window 'right,55%,border-left'"
-export FZF_ALT_C_OPTS="--preview 'eza --tree --level=2 --group-directories-first --color=always {}'"
+export FZF_ALT_C_OPTS="--preview 'eza --tree --all --git-ignore --ignore-glob=.git --level=2 --group-directories-first --color=always {}'"
 # Inside tmux, the Ctrl+T and Alt+C pickers open in a floating popup instead of
 # squashing the pane; fzf's key bindings read this and ignore it outside tmux.
 export FZF_TMUX_OPTS="-p 80%,60%"
@@ -185,16 +185,30 @@ alias vim="nvim"
 alias vi="nvim"
 alias ls="eza --group-directories-first"
 alias ll="eza -lah --git --group-directories-first"
-alias lt="eza --tree --level=2 --group-directories-first"
-alias ltt="eza --tree --level=3 --group-directories-first"
 alias cat="bat"
 alias lg="lazygit"
-alias rga="rg -uu"
+
+lt() {
+  emulate -L zsh
+  (( $# > 0 )) || set -- .
+  command eza --tree --all --git-ignore --ignore-glob=.git --level=2 --group-directories-first "$@"
+}
+
+ltt() {
+  emulate -L zsh
+  (( $# > 0 )) || set -- .
+  command eza --tree --all --git-ignore --ignore-glob=.git --level=3 --group-directories-first "$@"
+}
+
+# Hidden-aware discovery keeps normal ignore rules and always excludes .git.
+alias fdh="fd --hidden --exclude .git"
+alias rgh="rg --hidden --glob '!.git'"
+alias rga="rg --hidden --no-ignore --glob '!.git'"
 
 rgf() {
   emulate -L zsh
   local query="${*:-}"
-  local rg_args=(--column --line-number --no-heading --color=always --smart-case)
+  local rg_args=(--column --line-number --no-heading --color=always --smart-case --hidden --glob '!.git')
 
   if [[ -n "$query" ]]; then
     rg "${rg_args[@]}" "$query" |
@@ -204,7 +218,7 @@ rgf() {
         --bind 'enter:become($EDITOR {1} +{2})'
   else
     fzf --ansi --disabled --prompt 'rg> ' --delimiter : \
-      --bind 'change:reload:[[ -n {q} ]] && rg --column --line-number --no-heading --color=always --smart-case {q} || true' \
+      --bind 'change:reload:[[ -n {q} ]] && rg --column --line-number --no-heading --color=always --smart-case --hidden --glob "!.git" {q} || true' \
       --preview 'bat --color=always --style=numbers --highlight-line {2} {1}' \
       --preview-window 'right,60%,border-left,+{2}+3/3,~3' \
       --bind 'enter:become($EDITOR {1} +{2})'

@@ -207,6 +207,10 @@ Load the skill before the first edit in its area.
   contract, alongside `interactive-cli-ux`. Preserve existing keys and valid
   stored values; a question the interview skips on this platform must still carry
   its stored answer through unchanged.
+- **`skills/developer-workspace-navigation`** — Yazi, fzf, fd/ripgrep/eza
+  developer-file visibility, file pickers, repository navigation, worktrees,
+  Lazygit, tmux session setup, or their teaching surface. Keep discovery
+  read-only, ignore-aware, and independent of a hardcoded repository list.
 - **`skills/terminal-interaction`** — Ghostty or tmux selection, clipboard,
   search, history, shell integration, or the docs that teach them.
 

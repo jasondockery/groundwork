@@ -14,6 +14,10 @@ groundwork-distro [--family]	command	executable	linux-wsl	all	-	platforms.html
 groundwork-profile show	command	executable	all	all	-	platforms.html
 groundwork-profile set <current|preview>	command	executable	all	all	-	platforms.html
 groundwork-profile edit	command	executable	all	all	-	platforms.html
+groundwork-yazi-config status	command	executable	all	all	yazi	shell.html
+groundwork-yazi-config diff	command	executable	all	all	yazi	customizing.html
+groundwork-yazi-config edit	command	executable	all	all	yazi	customizing.html
+groundwork-yazi-config remove --yes	command	executable	all	all	yazi	customizing.html
 Ctrl+a then Shift+Y	key	tmux-binding	all	all	tmux	tmux.html
 Ctrl+a then Ctrl+y	key	tmux-binding	all	all	tmux	tmux.html
 Ctrl+a then z	key	tmux-builtin	all	all	tmux	tmux.html
@@ -84,8 +88,8 @@ gh auth login	command	external-command	all	all	gh	git.html
 gh auth setup-git	command	external-command	all	all	gh	git.html
 ll	alias	shell-alias	all	all	-	shell.html
 ls	alias	shell-alias	all	all	-	shell.html
-lt	alias	shell-alias	all	all	-	shell.html
-ltt	alias	shell-alias	all	all	-	shell.html
+lt	function	shell-function	all	all	-	shell.html
+ltt	function	shell-function	all	all	-	shell.html
 lg	alias	shell-alias	all	all	lazygit	lazygit.html
 vim / vi	alias	shell-alias	all	all	neovim	neovim.html
 cat	alias	shell-alias	all	all	-	shell.html
@@ -101,8 +105,10 @@ pwd	command	external-command	all	all	-	shell.html
 open .	command	external-command	macos	desktop	-	shell.html
 rg <text>	command	external-command	all	all	ripgrep	shell.html
 rga <text>	alias	shell-alias	all	all	ripgrep	shell.html
+rgh <text>	alias	shell-alias	all	all	ripgrep	shell.html
 rgf [text]	function	shell-function	all	all	ripgrep	shell.html
 fd <name>	command	external-command	all	all	fd	shell.html
+fdh <name>	alias	shell-alias	all	all	fd	shell.html
 Ctrl+R	key	shell-binding	all	all	atuin	shell.html
 atuin ai inline	command	external-command	all	all	atuin	shell.html
 defaultbrowser	command	external-command	macos	desktop	-	apps.html

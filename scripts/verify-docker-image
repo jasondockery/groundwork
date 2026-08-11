@@ -537,7 +537,7 @@ else
   build_may_have_created_tag=0
 fi
 
-smoke_command='rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && echo OK'
+smoke_command='rg --version && nvim --version && tmux -V && mise --version && uv --version && zoxide --version && atuin --version && starship --version && lazygit --version && delta --version && eza --version && sesh --version && cd /opt/groundwork && scripts/test-developer-tool-visibility --require-runtime-tools && echo OK'
 create_status=0
 verify_capture "create verification container $container_name" "$observe_deadline" \
   "$docker_executable" container create --rm --cidfile "$container_cidfile" \

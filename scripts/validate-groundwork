@@ -5514,6 +5514,11 @@ EOF
 }
 
 validate_static_configuration() {
+  check "Yazi ownership and hidden-filesystem visibility"
+  test -x scripts/test-developer-tool-visibility
+  test -x scripts/run-yazi-manual-acceptance
+  scripts/test-developer-tool-visibility
+
   check "platform support contract"
   # groundwork-platform reports exactly darwin/linux/wsl2/wsl1/wsl-unknown/
   # unsupported. Default WSL2 kernels carry microsoft-standard (older ones

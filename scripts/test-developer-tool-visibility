@@ -1,0 +1,806 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+require_runtime_tools=0
+
+if [[ "${1:-}" == --require-runtime-tools ]]; then
+  require_runtime_tools=1
+  shift
+fi
+if [[ "$#" -ne 0 ]]; then
+  echo "usage: scripts/test-developer-tool-visibility [--require-runtime-tools]" >&2
+  exit 64
+fi
+
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-tool-visibility.XXXXXX")"
+tmp="$(cd "$tmp" && pwd -P)"
+trap 'rm -rf "$tmp"' EXIT
+
+manual_runner="$repo/scripts/run-yazi-manual-acceptance"
+bash "$manual_runner" --help >"$tmp/manual-help"
+grep -qF '120 seconds for Yazi' "$tmp/manual-help"
+if bash "$manual_runner" --unknown >"$tmp/manual-invalid-out" 2>"$tmp/manual-invalid-err"; then
+  echo "Yazi manual acceptance accepted an unknown argument" >&2
+  exit 1
+else
+  [[ "$?" -eq 64 ]]
+fi
+if bash "$manual_runner" --receipt "$tmp/manual-receipt.json" </dev/null >"$tmp/manual-nontty-out" 2>"$tmp/manual-nontty-err"; then
+  echo "Yazi manual acceptance ran without an interactive terminal" >&2
+  exit 1
+fi
+grep -qF 'an interactive terminal is required' "$tmp/manual-nontty-err"
+[[ ! -e "$tmp/manual-receipt.json" ]]
+
+# A fake Yazi under a real PTY proves the runner isolates every home/XDG path,
+# restores terminal state after the child changes it, and writes only the
+# accepted external receipt.
+mkdir -p "$tmp/fake-bin"
+cat >"$tmp/fake-bin/yazi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == --version ]]; then
+  echo 'Yazi 99.0.0 (test)'
+  exit 0
+fi
+printf '%s\n' "$HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$YAZI_CONFIG_HOME" >"$GROUNDWORK_FAKE_YAZI_ENV"
+stty -echo
+if [[ -n "${GROUNDWORK_FAKE_YAZI_SLEEP:-}" ]]; then
+  : >"$GROUNDWORK_FAKE_YAZI_SLEEP"
+  sleep 30
+fi
+EOF
+chmod +x "$tmp/fake-bin/yazi"
+python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-pty-receipt.json" "$tmp/manual-env" <<'PY'
+import os, pathlib, pty, subprocess, sys, termios, time
+
+runner, fake_bin, receipt, env_output = sys.argv[1:]
+master, slave = pty.openpty()
+before = termios.tcgetattr(slave)
+env = os.environ.copy()
+env["PATH"] = fake_bin + os.pathsep + env["PATH"]
+env["GROUNDWORK_FAKE_YAZI_ENV"] = env_output
+process = subprocess.Popen(
+    ["bash", runner, "--receipt", receipt],
+    stdin=slave,
+    stdout=slave,
+    stderr=slave,
+    env=env,
+    close_fds=True,
+)
+os.write(master, b"yes\n")
+deadline = time.monotonic() + 15
+while process.poll() is None and time.monotonic() < deadline:
+    time.sleep(0.05)
+if process.poll() is None:
+    process.kill()
+    raise SystemExit("manual Yazi PTY fixture timed out")
+after = termios.tcgetattr(slave)
+os.close(master)
+os.close(slave)
+if process.returncode != 0:
+    raise SystemExit(f"manual Yazi PTY fixture exited {process.returncode}")
+if before[3] != after[3]:
+    raise SystemExit("manual Yazi runner did not restore terminal local flags")
+PY
+python3 - "$tmp/manual-env" "$tmp/manual-pty-receipt.json" <<'PY'
+import json, pathlib, sys
+
+paths = pathlib.Path(sys.argv[1]).read_text().splitlines()
+if len(paths) != 6 or len(set(paths)) != 6:
+    raise SystemExit("manual Yazi runner did not provide six isolated home/XDG roots")
+if not all("groundwork-yazi-acceptance." in path for path in paths):
+    raise SystemExit(f"manual Yazi runner exposed a real home/XDG path: {paths!r}")
+receipt = json.loads(pathlib.Path(sys.argv[2]).read_text())
+if receipt.get("result") != "accepted" or receipt.get("yaziVersion") != "Yazi 99.0.0 (test)":
+    raise SystemExit("manual Yazi PTY receipt did not bind the isolated accepted run")
+PY
+"$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt.json"
+cp "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-moved.json"
+"$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-moved.json"
+ln -s "$tmp/manual-pty-receipt.json" "$tmp/manual-pty-receipt-link.json"
+if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-pty-receipt-link.json" >"$tmp/manual-receipt-link-out" 2>"$tmp/manual-receipt-link-err"; then
+  echo "Yazi receipt validator followed a direct receipt symlink" >&2
+  exit 1
+fi
+grep -qF 'regular non-symlink file' "$tmp/manual-receipt-link-err"
+python3 - "$tmp/manual-pty-receipt.json" "$tmp/manual-receipt-extra.json" <<'PY'
+import json, pathlib, sys
+value = json.loads(pathlib.Path(sys.argv[1]).read_text())
+value["unboundClaim"] = True
+pathlib.Path(sys.argv[2]).write_text(json.dumps(value))
+PY
+if "$repo/scripts/validate-yazi-manual-receipt" --receipt "$tmp/manual-receipt-extra.json" >"$tmp/manual-receipt-extra-out" 2>"$tmp/manual-receipt-extra-err"; then
+  echo "Yazi receipt validator accepted an unknown claim" >&2
+  exit 1
+fi
+grep -qF 'receipt fields must be exactly' "$tmp/manual-receipt-extra-err"
+"$repo/scripts/validate-yazi-manual-receipt" --ledger "$repo/data/yazi-manual-acceptance-receipts.json"
+python3 - "$repo/scripts/validate-yazi-manual-receipt" "$tmp" <<'PY'
+import importlib.machinery, importlib.util, pathlib, sys
+loader = importlib.machinery.SourceFileLoader("receipt_validator", sys.argv[1])
+spec = importlib.util.spec_from_loader(loader.name, loader)
+module = importlib.util.module_from_spec(spec)
+loader.exec_module(module)
+root = pathlib.Path(sys.argv[2]) / "ledger-root"
+(root / "real").mkdir(parents=True)
+(root / "real" / "receipt.json").write_text("{}")
+(root / "link").symlink_to(root / "real", target_is_directory=True)
+try:
+    module.repository_file(root, "link/receipt.json")
+except ValueError as error:
+    if "may not traverse a symlink" not in str(error):
+        raise
+else:
+    raise SystemExit("ledger lookup followed a symlinked ancestor")
+PY
+
+# A redirected receipt ancestor is rejected before Yazi runs.
+mkdir -p "$tmp/manual-receipt-real"
+ln -s "$tmp/manual-receipt-real" "$tmp/manual-receipt-link"
+python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-receipt-link/receipt.json" <<'PY'
+import os, pty, subprocess, sys, time
+runner, fake_bin, receipt = sys.argv[1:]
+master, slave = pty.openpty()
+env = os.environ.copy()
+env["PATH"] = fake_bin + os.pathsep + env["PATH"]
+env["GROUNDWORK_FAKE_YAZI_ENV"] = os.devnull
+process = subprocess.Popen(["bash", runner, "--receipt", receipt], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
+os.write(master, b"yes\n")
+deadline = time.monotonic() + 10
+while process.poll() is None and time.monotonic() < deadline:
+    time.sleep(0.05)
+if process.poll() is None:
+    process.kill()
+    raise SystemExit("redirected receipt fixture timed out")
+os.close(master); os.close(slave)
+if process.returncode == 0:
+    raise SystemExit("manual runner accepted a redirected receipt ancestor")
+PY
+[[ ! -e "$tmp/manual-receipt-real/receipt.json" ]]
+
+# Receipt publication uses a no-clobber hard link. Injecting a file at that
+# boundary must preserve the intruder and fail the accepted run.
+real_ln="$(command -v ln)"
+cat >"$tmp/fake-bin/ln" <<'EOF'
+#!/usr/bin/env bash
+destination=""
+for destination in "$@"; do :; done
+if [[ "$destination" == "$GROUNDWORK_RECEIPT_RACE_PATH" ]]; then
+  printf 'intruder\n' >"$destination"
+  exit 1
+fi
+exec "$GROUNDWORK_REAL_LN" "$@"
+EOF
+chmod +x "$tmp/fake-bin/ln"
+python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-race-receipt.json" "$real_ln" <<'PY'
+import os, pty, subprocess, sys, time
+runner, fake_bin, receipt, real_ln = sys.argv[1:]
+master, slave = pty.openpty()
+env = os.environ.copy()
+env["PATH"] = fake_bin + os.pathsep + env["PATH"]
+env["GROUNDWORK_FAKE_YAZI_ENV"] = os.devnull
+env["GROUNDWORK_RECEIPT_RACE_PATH"] = receipt
+env["GROUNDWORK_REAL_LN"] = real_ln
+process = subprocess.Popen(["bash", runner, "--receipt", receipt], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
+os.write(master, b"yes\n")
+deadline = time.monotonic() + 15
+while process.poll() is None and time.monotonic() < deadline:
+    time.sleep(0.05)
+if process.poll() is None:
+    process.kill()
+    raise SystemExit("receipt publication race fixture timed out")
+os.close(master); os.close(slave)
+if process.returncode == 0:
+    raise SystemExit("manual runner overwrote a receipt created during publication")
+PY
+grep -qxF intruder "$tmp/manual-race-receipt.json"
+if find "$tmp" -maxdepth 1 -name '.yazi-acceptance.*' -print -quit | grep -q .; then
+  echo "manual runner left a temporary receipt after no-clobber failure" >&2
+  exit 1
+fi
+rm -f "$tmp/fake-bin/ln"
+
+# Interruption reaches the bounded Yazi process group, restores terminal state,
+# removes the isolated fixture, and never publishes a receipt.
+mkdir -p "$tmp/manual-signal-tmp"
+python3 - "$manual_runner" "$tmp/fake-bin" "$tmp/manual-signal-receipt.json" "$tmp/manual-signal-started" "$tmp/manual-signal-tmp" <<'PY'
+import os, pathlib, pty, signal, subprocess, sys, termios, time
+runner, fake_bin, receipt, started, tmpdir = sys.argv[1:]
+master, slave = pty.openpty()
+before = termios.tcgetattr(slave)
+env = os.environ.copy()
+env["PATH"] = fake_bin + os.pathsep + env["PATH"]
+env["GROUNDWORK_FAKE_YAZI_ENV"] = os.devnull
+env["GROUNDWORK_FAKE_YAZI_SLEEP"] = started
+env["TMPDIR"] = tmpdir
+process = subprocess.Popen(
+    ["bash", runner, "--receipt", receipt],
+    stdin=slave,
+    stdout=slave,
+    stderr=slave,
+    env=env,
+    close_fds=True,
+)
+deadline = time.monotonic() + 10
+while not pathlib.Path(started).exists() and process.poll() is None and time.monotonic() < deadline:
+    time.sleep(0.05)
+if not pathlib.Path(started).exists():
+    process.kill()
+    raise SystemExit("manual Yazi signal fixture did not start")
+process.send_signal(signal.SIGINT)
+deadline = time.monotonic() + 10
+while process.poll() is None and time.monotonic() < deadline:
+    time.sleep(0.05)
+if process.poll() is None:
+    process.kill()
+    process.wait()
+    raise SystemExit("manual Yazi signal fixture did not close")
+after = termios.tcgetattr(slave)
+os.close(master); os.close(slave)
+if process.returncode not in (130, -signal.SIGINT):
+    raise SystemExit(f"manual Yazi signal fixture returned {process.returncode}")
+if before[3] != after[3]:
+    raise SystemExit("manual Yazi signal fixture did not restore terminal local flags")
+PY
+[[ ! -e "$tmp/manual-signal-receipt.json" ]]
+if find "$tmp/manual-signal-tmp" -mindepth 1 -print -quit | grep -q .; then
+  echo "manual runner left an isolated fixture after interruption" >&2
+  exit 1
+fi
+
+python3 - "$repo" <<'PY'
+import pathlib
+import re
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1])
+yazi = tomllib.loads((root / "home/.chezmoitemplates/yazi.toml").read_text())
+if yazi.get("mgr", {}).get("show_hidden") is not True:
+    raise SystemExit("managed yazi.toml must set [mgr] show_hidden = true")
+
+zsh = (root / "home/dot_zshrc.tmpl").read_text()
+required_shell = [
+    'FZF_DEFAULT_COMMAND="rg --files --hidden --glob \'!.git\'"',
+    'FZF_ALT_C_COMMAND="fd --type d --hidden --exclude .git"',
+    'alias ll="eza -lah --git --group-directories-first"',
+    "lt() {",
+    "ltt() {",
+    '(( $# > 0 )) || set -- .',
+    'alias fdh="fd --hidden --exclude .git"',
+    'alias rgh="rg --hidden --glob \'!.git\'"',
+    "--smart-case --hidden --glob '!.git'",
+]
+for fragment in required_shell:
+    if fragment not in zsh:
+        raise SystemExit(f"missing hidden-aware shell contract: {fragment}")
+for line in zsh.splitlines():
+    if "--hidden" in line and re.search(r"(?:^|[ ;|])(rm|rmdir|unlink|trash|delete)(?:[ ;|]|$)", line):
+        raise SystemExit(f"hidden discovery leaked into a destructive command: {line}")
+PY
+
+empty_config="$tmp/empty-config.toml"
+: >"$empty_config"
+base_data='"name":"CI User","email_personal":"ci@example.com","email_work":"","code_dir":"~/code","reset_existing_configs":false,"password_manager":"none","signingkey":"","obsidian_vault_name":"ci","game_dev":false,"profile_preset":"personal-current","environment_role":"personal","release_posture":"current","work":false,"headless":false,"xcode":false,"beta":false'
+
+render() { # os source output
+  local os="$1" source="$2" output="$3" os_release='{}'
+  [[ "$os" != linux ]] || os_release='{"ID":"ubuntu"}'
+  chezmoi --config "$empty_config" --source "$repo" --destination "$tmp/render-home" \
+    --override-data "{${base_data},\"chezmoi\":{\"os\":\"$os\",\"arch\":\"arm64\",\"osRelease\":$os_release}}" \
+    execute-template <"$source" >"$output"
+}
+
+render darwin "$repo/home/dot_zshrc.tmpl" "$tmp/zsh-darwin"
+render linux "$repo/home/dot_zshrc.tmpl" "$tmp/zsh-linux"
+zsh -n "$tmp/zsh-darwin"
+zsh -n "$tmp/zsh-linux"
+for rendered in "$tmp/zsh-darwin" "$tmp/zsh-linux"; do
+  grep -qF 'FZF_DEFAULT_COMMAND="rg --files --hidden --glob '\''!.git'\''"' "$rendered"
+  grep -qF 'FZF_ALT_C_COMMAND="fd --type d --hidden --exclude .git"' "$rendered"
+  grep -qF 'alias ll="eza -lah --git --group-directories-first"' "$rendered"
+  grep -qF 'lt() {' "$rendered"
+  grep -qF 'ltt() {' "$rendered"
+  grep -qF 'alias fdh="fd --hidden --exclude .git"' "$rendered"
+  grep -qF 'alias rgh="rg --hidden --glob '\''!.git'\''"' "$rendered"
+done
+grep -E 'FZF_(DEFAULT|CTRL_T|ALT_C)_COMMAND=|FZF_ALT_C_OPTS=|^alias (ls|ll|fdh|rgh)=|^(lt|ltt)\(\)|command eza|local rg_args=|change:reload:' "$tmp/zsh-darwin" >"$tmp/visibility-darwin"
+grep -E 'FZF_(DEFAULT|CTRL_T|ALT_C)_COMMAND=|FZF_ALT_C_OPTS=|^alias (ls|ll|fdh|rgh)=|^(lt|ltt)\(\)|command eza|local rg_args=|change:reload:' "$tmp/zsh-linux" >"$tmp/visibility-linux"
+diff -u "$tmp/visibility-darwin" "$tmp/visibility-linux"
+
+apply_yazi() { # os destination
+  local os="$1" destination="$2" os_release='{}'
+  [[ "$os" != linux ]] || os_release='{"ID":"ubuntu"}'
+  env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$destination" \
+    chezmoi --config "$empty_config" --source "$repo" --destination "$destination" \
+    --override-data "{${base_data},\"chezmoi\":{\"os\":\"$os\",\"arch\":\"arm64\",\"osRelease\":$os_release}}" \
+    apply --no-tty --source-path home/run_after_09-yazi-config-ownership.sh.tmpl
+}
+
+# shellcheck source=/dev/null
+source "$repo/home/dot_local/lib/groundwork/yazi-config.sh"
+desired="$repo/home/.chezmoitemplates/yazi.toml"
+
+for os in darwin linux; do
+  destination="$tmp/applied-$os"
+  mkdir -p "$destination"
+  apply_yazi "$os" "$destination"
+  python3 - "$destination/.config/yazi/yazi.toml" <<'PY'
+import pathlib, sys, tomllib
+config = tomllib.loads(pathlib.Path(sys.argv[1]).read_text())
+if config.get("mgr", {}).get("show_hidden") is not True:
+    raise SystemExit("applied Yazi config does not initially show hidden files")
+PY
+  applied_receipt="$destination/.local/state/groundwork/yazi-config.sha256"
+  grep -Eq '^sha256:[0-9a-f]{64}$' "$applied_receipt"
+  first_target_hash="$(groundwork_yazi_sha256 "$destination/.config/yazi/yazi.toml")"
+  first_receipt="$(cat "$applied_receipt")"
+  apply_yazi "$os" "$destination"
+  [[ "$(cat "$applied_receipt")" == "$first_receipt" ]]
+  second_target_hash="$(groundwork_yazi_sha256 "$destination/.config/yazi/yazi.toml")"
+  [[ "$second_target_hash" == "$first_target_hash" ]]
+done
+cmp "$tmp/applied-darwin/.config/yazi/yazi.toml" "$tmp/applied-linux/.config/yazi/yazi.toml"
+
+conflict_home="$tmp/applied-conflict"
+mkdir -p "$conflict_home/.config/yazi"
+printf '[mgr]\nshow_hidden = false\n' >"$conflict_home/.config/yazi/yazi.toml"
+conflict_before="$(groundwork_yazi_sha256 "$conflict_home/.config/yazi/yazi.toml")"
+if apply_yazi darwin "$conflict_home" >"$tmp/conflict-apply-out" 2>"$tmp/conflict-apply-err"; then
+  echo "isolated chezmoi apply overwrote an unowned Yazi configuration" >&2
+  exit 1
+fi
+grep -qF 'unowned or changed file blocks adoption' "$tmp/conflict-apply-err"
+[[ "$(groundwork_yazi_sha256 "$conflict_home/.config/yazi/yazi.toml")" == "$conflict_before" ]]
+[[ ! -e "$conflict_home/.local/state/groundwork/yazi-config.sha256" ]]
+
+custom_xdg_home="$tmp/applied-custom-xdg"
+mkdir -p "$custom_xdg_home"
+if HOME="$custom_xdg_home" XDG_CONFIG_HOME="$custom_xdg_home/custom-config/" \
+  chezmoi --config "$empty_config" --source "$repo" --destination "$custom_xdg_home" \
+  --override-data "{${base_data},\"chezmoi\":{\"os\":\"linux\",\"arch\":\"arm64\",\"osRelease\":{\"ID\":\"ubuntu\"}}}" \
+  apply --no-tty --source-path home/run_after_09-yazi-config-ownership.sh.tmpl \
+  >"$tmp/custom-xdg-out" 2>"$tmp/custom-xdg-err"; then
+  echo "isolated chezmoi apply accepted a custom XDG Yazi target" >&2
+  exit 1
+fi
+grep -qF 'Reconcile the override before applying' "$tmp/custom-xdg-err"
+[[ ! -e "$custom_xdg_home/.config/yazi/yazi.toml" ]]
+[[ ! -e "$custom_xdg_home/custom-config/yazi/yazi.toml" ]]
+
+# Ownership lifecycle: all parent redirections fail before mutation, complete
+# receipts are exact, legacy migration is explicit, and remove quarantines
+# before hashing so changed bytes cannot be deleted by a pathname race.
+/bin/bash -c 'source "$1"; groundwork_yazi_hash_is_valid 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef; ! groundwork_yazi_hash_is_valid ""' \
+  _ "$repo/home/dot_local/lib/groundwork/yazi-config.sh"
+portable_bin="$tmp/portable-bin"
+mkdir -p "$portable_bin"
+ln -s "$(command -v sha256sum)" "$portable_bin/sha256sum" 2>/dev/null || true
+ln -s "$(command -v awk)" "$portable_bin/awk"
+if [[ -x "$portable_bin/sha256sum" ]]; then
+  /bin/bash -c 'PATH="$1"; source "$2"; groundwork_yazi_sha256 "$3" >/dev/null' \
+    _ "$portable_bin" "$repo/home/dot_local/lib/groundwork/yazi-config.sh" "$desired"
+fi
+
+ownership_home="$tmp/ownership-home"
+target="$ownership_home/.config/yazi/yazi.toml"
+receipt="$ownership_home/.local/state/groundwork/yazi-config.sha256"
+mkdir -p "$ownership_home"
+groundwork_yazi_apply_owned "$target" "$desired" "$receipt"
+receipt_once="$(cat "$receipt")"
+groundwork_yazi_apply_owned "$target" "$desired" "$receipt"
+[[ "$(cat "$receipt")" == "$receipt_once" ]]
+
+printf '\n# user change\n' >>"$target"
+changed_hash="$(groundwork_yazi_sha256 "$target")"
+if groundwork_yazi_apply_owned "$target" "$desired" "$receipt" >"$tmp/drift-out" 2>"$tmp/drift-err"; then
+  echo "changed Yazi config was accepted for overwrite" >&2
+  exit 1
+fi
+grep -qF 'unowned or changed file blocks adoption' "$tmp/drift-err"
+[[ "$(groundwork_yazi_sha256 "$target")" == "$changed_hash" ]]
+
+rm -f "$receipt"
+printf '[mgr]\nshow_hidden = false\n' >"$target"
+if groundwork_yazi_apply_owned "$target" "$desired" "$receipt" >"$tmp/unowned-out" 2>"$tmp/unowned-err"; then
+  echo "unowned Yazi config was accepted for overwrite" >&2
+  exit 1
+fi
+grep -qF 'unowned or changed file blocks adoption' "$tmp/unowned-err"
+
+sed '/# Developer configuration usually lives in dotfiles/,+2d' "$desired" >"$target"
+[[ "$(groundwork_yazi_sha256 "$target")" == "$GROUNDWORK_YAZI_LEGACY_SHA256" ]]
+groundwork_yazi_apply_owned "$target" "$desired" "$receipt"
+
+rm -f "$target" "$receipt"
+ln -s "$tmp/symlink-destination" "$target"
+if groundwork_yazi_apply_owned "$target" "$desired" "$receipt" >"$tmp/symlink-out" 2>"$tmp/symlink-err"; then
+  echo "symlinked Yazi config was accepted for overwrite" >&2
+  exit 1
+fi
+grep -qF 'is a symlink' "$tmp/symlink-err"
+rm -f "$target"
+
+assert_parent_symlink_rejected() { # slug target receipt setup-parent redirected
+  local slug="$1" candidate_target="$2" candidate_receipt="$3" setup_parent="$4" redirected="$5"
+  mkdir -p "$redirected"
+  ln -s "$redirected" "$setup_parent"
+  if groundwork_yazi_apply_owned "$candidate_target" "$desired" "$candidate_receipt" >"$tmp/$slug.out" 2>"$tmp/$slug.err"; then
+    echo "Yazi apply accepted symlinked parent: $slug" >&2
+    exit 1
+  fi
+  grep -qF 'is a symlink' "$tmp/$slug.err"
+  [[ -z "$(find "$redirected" -mindepth 1 -print -quit)" ]]
+}
+
+parent_home="$tmp/parent-config"
+mkdir -p "$parent_home"
+assert_parent_symlink_rejected config \
+  "$parent_home/.config/yazi/yazi.toml" \
+  "$parent_home/.local/state/groundwork/yazi-config.sha256" \
+  "$parent_home/.config" "$parent_home/redirected"
+
+parent_home="$tmp/parent-yazi"
+mkdir -p "$parent_home/.config"
+assert_parent_symlink_rejected yazi \
+  "$parent_home/.config/yazi/yazi.toml" \
+  "$parent_home/.local/state/groundwork/yazi-config.sha256" \
+  "$parent_home/.config/yazi" "$parent_home/redirected"
+
+parent_home="$tmp/parent-state"
+mkdir -p "$parent_home/.config" "$parent_home/.local"
+assert_parent_symlink_rejected state \
+  "$parent_home/.config/yazi/yazi.toml" \
+  "$parent_home/.local/state/groundwork/yazi-config.sha256" \
+  "$parent_home/.local/state" "$parent_home/redirected"
+[[ ! -e "$parent_home/.config/yazi/yazi.toml" ]]
+
+parent_home="$tmp/parent-receipt-dir"
+mkdir -p "$parent_home/.config" "$parent_home/.local/state"
+assert_parent_symlink_rejected receipt-dir \
+  "$parent_home/.config/yazi/yazi.toml" \
+  "$parent_home/.local/state/groundwork/yazi-config.sha256" \
+  "$parent_home/.local/state/groundwork" "$parent_home/redirected"
+[[ ! -e "$parent_home/.config/yazi/yazi.toml" ]]
+
+receipt_victim="$tmp/receipt-victim"
+printf 'keep me\n' >"$receipt_victim"
+mkdir -p "$(dirname "$target")" "$(dirname "$receipt")"
+ln -s "$receipt_victim" "$receipt"
+if groundwork_yazi_apply_owned "$target" "$desired" "$receipt" >"$tmp/receipt-symlink-out" 2>"$tmp/receipt-symlink-err"; then
+  echo "symlinked Yazi ownership receipt was accepted" >&2
+  exit 1
+fi
+grep -qF 'ownership receipt is a symlink' "$tmp/receipt-symlink-err"
+grep -qxF 'keep me' "$receipt_victim"
+[[ ! -e "$target" ]]
+rm -f "$receipt"
+
+groundwork_yazi_apply_owned "$target" "$desired" "$receipt"
+valid_receipt="$(cat "$receipt")"
+printf '%s\n\njunk\n' "$valid_receipt" >"$receipt"
+if groundwork_yazi_remove_owned "$target" "$receipt" >"$tmp/receipt-junk-out" 2>"$tmp/receipt-junk-err"; then
+  echo "Yazi removal accepted a receipt with trailing junk" >&2
+  exit 1
+fi
+grep -qF 'no valid ownership receipt exists' "$tmp/receipt-junk-err"
+[[ -e "$target" ]]
+printf '%s\n' "$valid_receipt" >"$receipt"
+
+eval "$(declare -f groundwork_yazi_sha256 | sed '1s/groundwork_yazi_sha256/groundwork_yazi_sha256_original/')"
+GROUNDWORK_YAZI_RACE_INJECTED=0
+# shellcheck disable=SC2329 # Invoked indirectly by the sourced lifecycle helper.
+groundwork_yazi_sha256() {
+  if [[ "$1" == *"/.groundwork-yazi-remove."* && "$GROUNDWORK_YAZI_RACE_INJECTED" -eq 0 ]]; then
+    printf '\n# raced user change\n' >>"$1"
+    GROUNDWORK_YAZI_RACE_INJECTED=1
+  fi
+  groundwork_yazi_sha256_original "$1"
+}
+if groundwork_yazi_remove_owned "$target" "$receipt" >"$tmp/remove-race-out" 2>"$tmp/remove-race-err"; then
+  echo "Yazi removal deleted bytes changed after atomic quarantine" >&2
+  exit 1
+fi
+grep -qF 'has user changes; refusing to remove it' "$tmp/remove-race-err"
+grep -qF '# raced user change' "$target"
+[[ -e "$receipt" ]]
+unset -f groundwork_yazi_sha256
+eval "$(declare -f groundwork_yazi_sha256_original | sed '1s/groundwork_yazi_sha256_original/groundwork_yazi_sha256/')"
+unset -f groundwork_yazi_sha256_original
+
+# Apply also quarantines the prior owned file before attempting no-clobber
+# publication. A target appearing at that boundary is preserved, and the prior
+# owned bytes remain recoverable from the named quarantine.
+apply_race_home="$tmp/apply-race-home"
+apply_race_target="$apply_race_home/.config/yazi/yazi.toml"
+apply_race_receipt="$apply_race_home/.local/state/groundwork/yazi-config.sha256"
+mkdir -p "$apply_race_home/.config" "$apply_race_home/.local/state"
+groundwork_yazi_apply_owned "$apply_race_target" "$desired" "$apply_race_receipt"
+GROUNDWORK_YAZI_APPLY_RACE_TARGET="$apply_race_target"
+# shellcheck disable=SC2329 # Invoked indirectly by the sourced lifecycle helper.
+ln() {
+  if [[ "${2:-}" == "$GROUNDWORK_YAZI_APPLY_RACE_TARGET" ]]; then
+    printf 'intruder\n' >"$GROUNDWORK_YAZI_APPLY_RACE_TARGET"
+    return 1
+  fi
+  command ln "$@"
+}
+if groundwork_yazi_apply_owned "$apply_race_target" "$desired" "$apply_race_receipt" >"$tmp/apply-race-out" 2>"$tmp/apply-race-err"; then
+  echo "Yazi apply overwrote a target created during publication" >&2
+  exit 1
+fi
+unset -f ln
+grep -qxF intruder "$apply_race_target"
+apply_quarantine="$(find "$apply_race_home/.config/yazi" -path '*/.groundwork-yazi-apply.*/yazi.toml' -print -quit)"
+[[ -n "$apply_quarantine" ]]
+cmp "$desired" "$apply_quarantine"
+grep -Eq '^sha256:[0-9a-f]{64}$' "$apply_race_receipt"
+
+# A receipt-write failure withdraws the newly linked bytes and restores the
+# prior owned file instead of stranding the old file in quarantine.
+record_failure_home="$tmp/record-failure-home"
+record_failure_target="$record_failure_home/.config/yazi/yazi.toml"
+record_failure_receipt="$record_failure_home/.local/state/groundwork/yazi-config.sha256"
+mkdir -p "$record_failure_home/.config" "$record_failure_home/.local/state"
+groundwork_yazi_apply_owned "$record_failure_target" "$desired" "$record_failure_receipt"
+record_failure_hash="$(groundwork_yazi_sha256 "$record_failure_target")"
+record_failure_receipt_before="$(cat "$record_failure_receipt")"
+eval "$(declare -f groundwork_yazi_record | sed '1s/groundwork_yazi_record/groundwork_yazi_record_original/')"
+# shellcheck disable=SC2329 # Invoked indirectly by the sourced lifecycle helper.
+groundwork_yazi_record() { return 1; }
+if groundwork_yazi_apply_owned "$record_failure_target" "$desired" "$record_failure_receipt" >"$tmp/record-failure-out" 2>"$tmp/record-failure-err"; then
+  echo "Yazi apply reported success after receipt creation failed" >&2
+  exit 1
+fi
+unset -f groundwork_yazi_record
+eval "$(declare -f groundwork_yazi_record_original | sed '1s/groundwork_yazi_record_original/groundwork_yazi_record/')"
+unset -f groundwork_yazi_record_original
+grep -qF 'previous owned file was restored' "$tmp/record-failure-err"
+[[ "$(groundwork_yazi_sha256 "$record_failure_target")" == "$record_failure_hash" ]]
+[[ "$(cat "$record_failure_receipt")" == "$record_failure_receipt_before" ]]
+if find "$(dirname "$record_failure_target")" -name '.groundwork-yazi-apply.*' -print -quit | grep -q .; then
+  echo "Yazi apply left a quarantine after restoring a receipt-write failure" >&2
+  exit 1
+fi
+
+# The full ancestor chain is part of the ownership boundary, including HOME.
+home_real="$tmp/symlink-home-real"
+home_link="$tmp/symlink-home"
+mkdir -p "$home_real/.config" "$home_real/.local/state"
+ln -s "$home_real" "$home_link"
+if groundwork_yazi_apply_owned "$home_link/.config/yazi/yazi.toml" "$desired" "$home_link/.local/state/groundwork/yazi-config.sha256" >"$tmp/home-link-apply-out" 2>"$tmp/home-link-apply-err"; then
+  echo "Yazi apply followed a symlinked HOME ancestor" >&2
+  exit 1
+fi
+grep -qF 'path ancestor is a symlink' "$tmp/home-link-apply-err"
+[[ ! -e "$home_real/.config/yazi/yazi.toml" ]]
+groundwork_yazi_apply_owned "$home_real/.config/yazi/yazi.toml" "$desired" "$home_real/.local/state/groundwork/yazi-config.sha256"
+if groundwork_yazi_remove_owned "$home_link/.config/yazi/yazi.toml" "$home_link/.local/state/groundwork/yazi-config.sha256" >"$tmp/home-link-remove-out" 2>"$tmp/home-link-remove-err"; then
+  echo "Yazi removal followed a symlinked HOME ancestor" >&2
+  exit 1
+fi
+grep -qF 'path ancestor is a symlink' "$tmp/home-link-remove-err"
+[[ -e "$home_real/.config/yazi/yazi.toml" && -e "$home_real/.local/state/groundwork/yazi-config.sha256" ]]
+
+cp "$desired" "$target"
+groundwork_yazi_record "$target" "$desired" "$receipt"
+printf 'user keymap\n' >"$(dirname "$target")/keymap.toml"
+groundwork_yazi_remove_owned "$target" "$receipt"
+[[ ! -e "$target" && ! -e "$receipt" ]]
+grep -qxF 'user keymap' "$(dirname "$target")/keymap.toml"
+
+# The installed recovery command parses intent before touching state.
+helper_home="$tmp/helper-home"
+mkdir -p "$helper_home/.local/lib/groundwork" "$helper_home/.config/yazi"
+cp "$repo/home/dot_local/lib/groundwork/yazi-config.sh" "$helper_home/.local/lib/groundwork/yazi-config.sh"
+helper="$repo/home/dot_local/bin/executable_groundwork-yazi-config"
+env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" --help >"$tmp/helper-help"
+grep -qF 'groundwork-yazi-config remove --yes' "$tmp/helper-help"
+printf '[mgr]\nshow_hidden = false\n' >"$helper_home/.config/yazi/yazi.toml"
+custom_before="$(groundwork_yazi_sha256 "$helper_home/.config/yazi/yazi.toml")"
+if HOME="$helper_home" XDG_CONFIG_HOME="$helper_home/custom-config/" "$helper" remove --yes >"$tmp/helper-custom-out" 2>"$tmp/helper-custom-err"; then
+  echo "Yazi helper accepted a custom XDG target" >&2
+  exit 1
+fi
+grep -qF 'reconcile the override before changing ownership' "$tmp/helper-custom-err"
+[[ "$(groundwork_yazi_sha256 "$helper_home/.config/yazi/yazi.toml")" == "$custom_before" ]]
+if env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" unknown >"$tmp/helper-unknown-out" 2>"$tmp/helper-unknown-err"; then
+  echo "unknown Yazi helper argument succeeded" >&2
+  exit 1
+else
+  [[ "$?" -eq 64 ]]
+fi
+cp "$desired" "$helper_home/.config/yazi/yazi.toml"
+# shellcheck disable=SC2016 # The isolated bash expands its own HOME and $1.
+env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" bash -c 'source "$HOME/.local/lib/groundwork/yazi-config.sh"; groundwork_yazi_record "$HOME/.config/yazi/yazi.toml" "$1" "$HOME/.local/state/groundwork/yazi-config.sha256"' _ "$desired"
+before_remove="$(groundwork_yazi_sha256 "$helper_home/.config/yazi/yazi.toml")"
+if env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" remove >"$tmp/helper-remove-out" 2>"$tmp/helper-remove-err"; then
+  echo "Yazi helper removed configuration without --yes" >&2
+  exit 1
+else
+  [[ "$?" -eq 64 ]]
+fi
+[[ "$(groundwork_yazi_sha256 "$helper_home/.config/yazi/yazi.toml")" == "$before_remove" ]]
+env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" status | grep -qF 'Groundwork ownership: exact'
+
+# Status cannot trust a receipt through a redirected state ancestor.
+mv "$helper_home/.local/state" "$helper_home/redirected-state"
+ln -s "$helper_home/redirected-state" "$helper_home/.local/state"
+if env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" status >"$tmp/helper-status-redirected" 2>&1; then
+  echo "Yazi status trusted a receipt through a redirected state ancestor" >&2
+  exit 1
+fi
+grep -qF 'path ancestor is a symlink' "$tmp/helper-status-redirected"
+if grep -qF 'Groundwork ownership: exact' "$tmp/helper-status-redirected"; then
+  echo "Yazi status reported exact ownership through a redirected receipt" >&2
+  exit 1
+fi
+rm "$helper_home/.local/state"
+mv "$helper_home/redirected-state" "$helper_home/.local/state"
+
+# The installed command exposes a real source edit and applied-target preview
+# seam instead of teaching chezmoi edit against a hook-owned target.
+mkdir -p "$tmp/helper-bin"
+cat >"$tmp/helper-bin/chezmoi" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == source-path ]]; then
+  printf '%s\n' "$GROUNDWORK_TEST_CHEZMOI_SOURCE"
+  exit 0
+fi
+printf '%s\n' "$*" >"$GROUNDWORK_TEST_CHEZMOI_ARGS"
+EOF
+chmod +x "$tmp/helper-bin/chezmoi"
+GROUNDWORK_TEST_CHEZMOI_SOURCE="$repo/home" \
+  GROUNDWORK_TEST_CHEZMOI_ARGS="$tmp/helper-edit-args" \
+  PATH="$tmp/helper-bin:$PATH" \
+  env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" diff >"$tmp/helper-diff-exact"
+[[ ! -s "$tmp/helper-diff-exact" ]]
+printf '\n# local change\n' >>"$helper_home/.config/yazi/yazi.toml"
+GROUNDWORK_TEST_CHEZMOI_SOURCE="$repo/home" \
+  GROUNDWORK_TEST_CHEZMOI_ARGS="$tmp/helper-edit-args" \
+  PATH="$tmp/helper-bin:$PATH" \
+  env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" diff >"$tmp/helper-diff-changed"
+grep -qF '# local change' "$tmp/helper-diff-changed"
+GROUNDWORK_TEST_CHEZMOI_SOURCE="$repo/home" \
+  GROUNDWORK_TEST_CHEZMOI_ARGS="$tmp/helper-edit-args" \
+  PATH="$tmp/helper-bin:$PATH" \
+  env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" edit
+grep -qxF 'edit --source-path .chezmoitemplates/yazi.toml' "$tmp/helper-edit-args"
+cp "$desired" "$helper_home/.config/yazi/yazi.toml"
+groundwork_yazi_record "$helper_home/.config/yazi/yazi.toml" "$desired" "$helper_home/.local/state/groundwork/yazi-config.sha256"
+printf 'user keymap\n' >"$helper_home/.config/yazi/keymap.toml"
+env -u XDG_CONFIG_HOME -u YAZI_CONFIG_HOME HOME="$helper_home" "$helper" remove --yes >"$tmp/helper-remove-success"
+[[ ! -e "$helper_home/.config/yazi/yazi.toml" ]]
+grep -qxF 'user keymap' "$helper_home/.config/yazi/keymap.toml"
+
+# Hostile project: developer dotfiles are visible, while .git internals and
+# ignored build output stay excluded. These are read-only discovery commands.
+fixture="$tmp/project"
+mkdir -p "$fixture/.github/workflows" "$fixture/.config" "$fixture/dist" "$fixture/src/nested"
+printf 'readme\n' >"$fixture/README.md"
+printf 'name: ci\n' >"$fixture/.github/workflows/ci.yml"
+printf 'example = true\n' >"$fixture/.config/example.toml"
+printf 'EXAMPLE=1\n' >"$fixture/.env.example"
+printf 'source\n' >"$fixture/src/only.txt"
+printf 'nested\n' >"$fixture/src/nested/file.txt"
+printf 'ignored\n' >"$fixture/dist/output.js"
+printf 'dist/\n' >"$fixture/.gitignore"
+git -C "$fixture" init -q
+
+(cd "$fixture" && rg --no-config --files --hidden --glob '!.git' | sort) >"$tmp/rg-files"
+for visible in README.md .github/workflows/ci.yml .config/example.toml .env.example; do
+  grep -qxF "$visible" "$tmp/rg-files"
+done
+if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/rg-files"; then
+  echo "ripgrep hidden-aware discovery exposed .git internals or ignored dist output" >&2
+  exit 1
+fi
+
+fd_bin="$(command -v fd || command -v fdfind || true)"
+if [[ -n "$fd_bin" ]]; then
+  (cd "$fixture" && "$fd_bin" --type f --hidden --exclude .git . | sed 's#^\./##' | sort) >"$tmp/fd-files"
+  for visible in README.md .github/workflows/ci.yml .config/example.toml .env.example; do
+    grep -qxF "$visible" "$tmp/fd-files"
+  done
+  if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$tmp/fd-files"; then
+    echo "fd hidden-aware discovery exposed .git internals or ignored dist output" >&2
+    exit 1
+  fi
+elif [[ "$require_runtime_tools" -eq 1 ]]; then
+  echo "fd or fdfind is required for the runtime visibility proof" >&2
+  exit 1
+fi
+
+eza_bin="$(command -v eza || true)"
+if [[ -n "$eza_bin" ]]; then
+  (cd "$fixture" && "$eza_bin" --tree --all --git-ignore --ignore-glob=.git --level=4 --color=never .) >"$tmp/eza-tree"
+  grep -qF '.github' "$tmp/eza-tree"
+  grep -qF '.config' "$tmp/eza-tree"
+  grep -qF '.env.example' "$tmp/eza-tree"
+  if grep -Eq '(^|[[:space:]├└─])\.git($|[[:space:]/])|(^|[[:space:]├└─])dist($|[[:space:]/])' "$tmp/eza-tree"; then
+    echo "eza hidden-aware tree exposed .git internals or ignored dist output" >&2
+    exit 1
+  fi
+elif [[ "$require_runtime_tools" -eq 1 ]]; then
+  echo "eza is required for the runtime visibility proof" >&2
+  exit 1
+fi
+
+# Source the actual rendered zsh and invoke every taught hidden-aware surface.
+# Wrappers only fill hosted runners that lack fd/eza; the Docker lane requires
+# and delegates to the real binaries.
+tool_bin="$tmp/tool-bin"
+mkdir -p "$tool_bin" "$tmp/shell-home/.config/ripgrep"
+cp "$repo/home/dot_config/ripgrep/config" "$tmp/shell-home/.config/ripgrep/config"
+cat >"$tool_bin/fd" <<'EOF'
+#!/usr/bin/env bash
+printf '%q ' "$@" >>"$GROUNDWORK_FD_ARGS"
+printf '\n' >>"$GROUNDWORK_FD_ARGS"
+if [[ -n "${GROUNDWORK_REAL_FD:-}" ]]; then exec "$GROUNDWORK_REAL_FD" "$@"; fi
+find . -type f -not -path './.git/*' -not -path './dist/*' -print
+EOF
+cat >"$tool_bin/eza" <<'EOF'
+#!/usr/bin/env bash
+printf '%q ' "$@" >>"$GROUNDWORK_EZA_ARGS"
+printf '\n' >>"$GROUNDWORK_EZA_ARGS"
+if [[ -n "${GROUNDWORK_REAL_EZA:-}" ]]; then exec "$GROUNDWORK_REAL_EZA" "$@"; fi
+path=.
+for argument in "$@"; do
+  [[ "$argument" == -* || "$argument" == .git ]] || path="$argument"
+done
+find "$path" -not -path '*/.git/*' -not -path '*/dist/*' -print
+EOF
+cat >"$tool_bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+printf '%q ' "$@" >"$GROUNDWORK_FZF_ARGS"
+cat
+EOF
+chmod +x "$tool_bin/fd" "$tool_bin/eza" "$tool_bin/fzf"
+
+if ! GROUNDWORK_REAL_FD="$fd_bin" \
+  GROUNDWORK_REAL_EZA="$eza_bin" \
+  GROUNDWORK_FD_ARGS="$tmp/fd-surface-args" \
+  GROUNDWORK_EZA_ARGS="$tmp/eza-surface-args" \
+  GROUNDWORK_FZF_ARGS="$tmp/fzf-surface-args" \
+  zsh -f "$repo/scripts/.developer-tool-surface-test.zsh" \
+  "$tmp/zsh-darwin" "$tool_bin" "$tmp/shell-home" "$fixture" "$tmp" 2>"$tmp/zsh-surface-err"; then
+  cat "$tmp/zsh-surface-err" >&2
+  exit 1
+fi
+
+for output in "$tmp/rgh-surface" "$tmp/fdh-surface"; do
+  for visible in README.md .github/workflows/ci.yml .config/example.toml .env.example; do
+    grep -qF "$visible" "$output"
+  done
+  if grep -Eq '(^|/)\.git(/|$)|(^|/)dist(/|$)' "$output"; then
+    echo "rendered shell discovery exposed .git internals or ignored dist output" >&2
+    exit 1
+  fi
+done
+grep -qF '.github' "$tmp/lt-surface"
+grep -qF '.config' "$tmp/ltt-surface"
+grep -qF 'only.txt' "$tmp/lt-src-surface"
+if grep -qF 'README.md' "$tmp/lt-src-surface"; then
+  echo "lt src rendered the current directory in addition to the requested path" >&2
+  exit 1
+fi
+grep -qF '.env.example' "$tmp/rgf-surface"
+grep -qF -- '--hidden' "$tmp/fd-surface-args"
+grep -qF -- '--exclude .git' "$tmp/fd-surface-args"
+[[ "$(wc -l <"$tmp/eza-surface-args" | tr -d ' ')" -eq 3 ]]
+sed -n '1p' "$tmp/eza-surface-args" | grep -Eq '(^| )\.($| )'
+sed -n '2p' "$tmp/eza-surface-args" | grep -Eq '(^| )src($| )'
+if sed -n '2p' "$tmp/eza-surface-args" | grep -Eq '(^| )\.($| )'; then
+  echo "lt src forwarded both dot and the requested path" >&2
+  exit 1
+fi
+grep -qF -- '--ansi' "$tmp/fzf-surface-args"
+
+if [[ "$require_runtime_tools" -eq 1 ]]; then
+  [[ -n "$fd_bin" && -n "$eza_bin" ]]
+  command -v fzf >/dev/null 2>&1
+  fzf --version >/dev/null
+fi
+
+echo "Yazi ownership and developer filesystem visibility: passed"

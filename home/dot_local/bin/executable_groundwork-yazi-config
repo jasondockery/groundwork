@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+prog="${0##*/}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  groundwork-yazi-config status
+  groundwork-yazi-config diff
+  groundwork-yazi-config edit
+  groundwork-yazi-config remove --yes
+
+Inspect or remove Groundwork's Yazi configuration ownership. Removal succeeds
+only when yazi.toml still matches Groundwork's exact ownership receipt. It never
+deletes a changed, unowned, non-regular, or symlinked file.
+
+`diff` previews the applied target against Groundwork's source template. `edit`
+opens that exact source with chezmoi; run `chezmoi apply` afterward to apply it.
+Run `chezmoi apply` to restore the managed configuration after removal.
+EOF
+}
+
+action="${1:-}"
+confirm=0
+case "$action" in
+  -h | --help)
+    [[ "$#" -eq 1 ]] || {
+      usage >&2
+      exit 64
+    }
+    usage
+    exit 0
+    ;;
+  status | diff | edit)
+    [[ "$#" -eq 1 ]] || {
+      usage >&2
+      exit 64
+    }
+    ;;
+  remove)
+    [[ "$#" -eq 2 && "$2" == --yes ]] || {
+      echo "$prog: removal requires the exact command 'groundwork-yazi-config remove --yes'." >&2
+      usage >&2
+      exit 64
+    }
+    confirm=1
+    ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac
+
+library="$HOME/.local/lib/groundwork/yazi-config.sh"
+[[ -r "$library" ]] || {
+  echo "$prog: managed helper library is missing at $library; run 'chezmoi apply' to restore it." >&2
+  exit 1
+}
+# shellcheck source=/dev/null
+source "$library"
+
+if [[ "$action" == edit ]]; then
+  exec chezmoi edit --source-path .chezmoitemplates/yazi.toml
+fi
+
+target="$(groundwork_yazi_effective_target)"
+managed_target="$HOME/.config/yazi/yazi.toml"
+receipt="$HOME/.local/state/groundwork/yazi-config.sha256"
+
+if [[ "$target" != "$managed_target" ]]; then
+  echo "$prog: YAZI_CONFIG_HOME or XDG_CONFIG_HOME selects $target." >&2
+  echo "$prog: Groundwork owns $managed_target; reconcile the override before changing ownership." >&2
+  exit 1
+fi
+groundwork_yazi_require_plain_ancestor_chain "$target" || exit 1
+groundwork_yazi_require_plain_ancestor_chain "$receipt" || exit 1
+groundwork_yazi_require_plain_directories "$HOME/.config" "$HOME/.config/yazi" || exit 1
+
+if [[ "$action" == diff ]]; then
+  source_home="$(chezmoi source-path 2>/dev/null)" || {
+    echo "$prog: cannot locate the chezmoi source; run 'chezmoi init' and retry." >&2
+    exit 1
+  }
+  desired="$source_home/.chezmoitemplates/yazi.toml"
+  [[ -f "$desired" && ! -L "$desired" ]] || {
+    echo "$prog: managed Yazi source is missing or redirected: $desired" >&2
+    exit 1
+  }
+  if [[ -e "$target" || -L "$target" ]]; then
+    [[ -f "$target" && ! -L "$target" ]] || {
+      echo "$prog: effective Yazi target is not a regular file: $target" >&2
+      exit 1
+    }
+    diff -u "$target" "$desired" || [[ "$?" -eq 1 ]]
+  else
+    diff -u /dev/null "$desired" || [[ "$?" -eq 1 ]]
+  fi
+  exit 0
+fi
+
+if [[ "$action" == status ]]; then
+  if [[ ! -e "$target" && ! -L "$target" ]]; then
+    echo "Yazi config: absent"
+    echo "Groundwork ownership: absent"
+    exit 0
+  fi
+  if [[ -L "$target" || ! -f "$target" ]]; then
+    echo "Yazi config: present, not a regular file"
+    echo "Groundwork ownership: unproven"
+    exit 1
+  fi
+  if recorded="$(groundwork_yazi_read_receipt "$receipt" 2>/dev/null)"; then
+    actual="$(groundwork_yazi_sha256 "$target")"
+    if [[ "$actual" == "$recorded" ]]; then
+      echo "Yazi config: present"
+      echo "Groundwork ownership: exact"
+      exit 0
+    fi
+    echo "Yazi config: present with changes"
+    echo "Groundwork ownership: receipt does not match"
+    exit 1
+  fi
+  echo "Yazi config: present"
+  echo "Groundwork ownership: no receipt"
+  exit 1
+fi
+
+[[ "$confirm" -eq 1 ]]
+groundwork_yazi_remove_owned "$target" "$receipt"
+echo "Removed Groundwork's unchanged Yazi configuration. Other Yazi files were untouched."
+echo "Restore it with: chezmoi apply"
