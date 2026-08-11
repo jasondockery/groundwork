@@ -328,6 +328,12 @@ skip_current_check() {
   finish_current_check_timing skipped "$current_check_skip_reason" "$current_check_skip_code"
 }
 
+skip_platform_only_check() {
+  local name="$1" skip_code="$2" reason="$3"
+  check "$name"
+  skip_current_check "$skip_code" "$reason"
+}
+
 fail() {
   fail_reason="$1"
   echo "$1" >&2
@@ -481,7 +487,7 @@ report_and_cleanup() {
     fail_reason="line $failed_line exited $status: $failed_command"
     echo "validate-groundwork: $current_check failed at line $failed_line: $failed_command (exit $status)" >&2
   fi
-  if [[ "$status" -eq 0 && "$suite" == "platform-macos" ]]; then
+  if [[ "$status" -eq 0 ]]; then
     finish_current_check_timing passed
   else
     finish_current_check_timing failed
@@ -533,7 +539,7 @@ PY
     fail_reason="the working tree changed during validation; this receipt is invalid"
   fi
 
-  if [[ "$status" -eq 0 ]]; then
+  if [[ "$status" -eq 0 && "$suite" == "platform-macos" ]]; then
     canonical_checks_expected="$out_dir/canonical-checks-expected"
     canonical_checks_observed="$out_dir/canonical-checks-observed"
     if ! canonical_check_observations_match "$suite" "$timing_rows" \
@@ -13095,7 +13101,6 @@ validate_platform_native_processes() {
   local platform_apply_destination platform_fixture platform_home process_start
   local modified canonical_sh deadline observe_deadline heartbeat cancel_grace
   local poll_seconds orphan_grace
-  local homebrew_terminal_check="Homebrew interactive terminal ownership"
 
   check "macOS representative rendered apply smoke"
   if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -13124,8 +13129,8 @@ validate_platform_native_processes() {
     fi
     skip_current_check requires-macos-native-host \
       "macOS native process and filesystem primitives require macOS"
-    check "$homebrew_terminal_check"
-    skip_current_check requires-macos-native-host \
+    skip_platform_only_check "Homebrew interactive terminal ownership" \
+      requires-macos-native-host \
       "Homebrew interactive terminal ownership requires macOS"
     return
   fi
