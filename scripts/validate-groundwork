@@ -11647,7 +11647,7 @@ EOF
   grep -vE 'profile_preset|key_repeat|beta|terminal_multiplexer' "$interview_in" >"$interview_fresh_in"
   chezmoi --config "$interview_fresh_in" --source "$repo/home" \
     --persistent-state "$out_dir/interview-fresh-state.boltdb" --cache "$out_dir/interview-fresh-cache" \
-    init --config-path "$interview_fresh_out" </dev/null \
+    init --no-tty --promptDefaults --config-path "$interview_fresh_out" </dev/null \
     || fail "the chezmoi interview could not regenerate a config with no stored preset"
   grep -qF 'profile_preset = "personal-current"' "$interview_fresh_out" \
     || fail "an unanswered profile_preset must fall back to the documented default"
