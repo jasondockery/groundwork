@@ -3,23 +3,23 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "ef18a2f81a5c6ca14b681e7352b5302ff93f8527",
-    "tree": "dc969c5df71c6a823d222599726e268bb14cdd2f",
-    "fingerprintSha256": "19ea84993a68a3d087504ed7103abea1ba94968141111402c7df344426306bd4",
+    "commit": "95a501c1ef104985beb734ffcc437885ef5644e2",
+    "tree": "e1de10d8c7287692af928084cef9e93941cbac48",
+    "fingerprintSha256": "0500da9da37455db3dc231ee50a57a4f69f18576b3d68ab2cd79e956e714e81e",
     "dirty": false
   },
-  "artifactSha256": "7581b219652f3f1650f405361c03cbfb4c7f659c646f030fec538481225e3a15",
-  "artifactBytes": 88719,
+  "artifactSha256": "420ee28c2b3c2ae034414b7156c3a83fff782c4bc28f077b3dfee605010834aa",
+  "artifactBytes": 94187,
   "includedFiles": [
     {
       "path": "COMPASS.md",
-      "sha256": "550b34b43630aa5170b051ea7ba15e1ee8466ad73344302e8c81be663075567d",
-      "bytes": 11310
+      "sha256": "9c41536e6800945d7c6da7655609f11d4a7c3f48212c868201c8c83d9ab4b7f0",
+      "bytes": 12734
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "5d87836d137db9fff2a52b0109a436a44b75d3ce7718ab64ef3417c290d94b72",
-      "bytes": 6166
+      "sha256": "ccf8cdbc10e604b0c07781d13d5a00b8b62e008667955d577fb1f4133cb58f13",
+      "bytes": 7152
     },
     {
       "path": "scripts/check-projection.mjs",
@@ -38,8 +38,8 @@
     },
     {
       "path": "skills/dependency-change/SKILL.md",
-      "sha256": "c63869d76105fe582fb55eebe5dcde657ff37d4a038f050be3592aed31fea9e1",
-      "bytes": 1815
+      "sha256": "d116dace49983c8baa46f5d0ebcbd26d0f935cd8814ade8c0fdc64c43b7321ae",
+      "bytes": 3505
     },
     {
       "path": "skills/dependency-change/agents/openai.yaml",
@@ -129,7 +129,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "337615e14aecaf29f9c7aaaede99ccf1c9c173310b7e5390aa589ecb2918a1ca",
+    "receiptSha256": "c351e08ebee45d36ff18a00956ced2d6d5c01500942f5fc206aef9e406cb2058",
     "command": "scripts/validate-compass"
   }
 }

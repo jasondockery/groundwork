@@ -25,4 +25,33 @@ description: Change dependencies, runtime pins, actions, images, lockfiles, gene
 7. Record the authority changed, generated outputs, exact target, proof, and any
    owner-controlled migration or release decision.
 
+## Selected-provider dependency closure
+
+Treat provider authority and dependency presence as separate claims.
+
+1. Prove that every unselected provider has zero consumer-owned adapter,
+   configuration, credential or secret, workflow, infrastructure, deployment
+   command or destination, network behavior, persistent state, and import.
+2. Inventory the complete direct and transitive closure of each selected
+   provider. Bind every permitted transitive implementation package to an exact
+   SBOM entry, version, digest, license, advisory status, source provenance, and
+   validation receipt.
+3. Do not infer provider selection from a package namespace. A provider-named
+   transitive package is permitted only as declared selected-provider closure;
+   every byte remains supply-chain footprint and receives normal vulnerability,
+   license, provenance, and update review.
+4. Inspect the exact deployed artifact and reject client or SDK code for an
+   unselected provider. Exercise the runtime boundary with network-denial proof
+   so dormant configuration or an unused import cannot hide provider behavior.
+5. Remove the selected provider in a clean fixture and prove that its complete
+   direct and transitive closure disappears along with its configuration,
+   artifacts, build work, and runtime work.
+6. Fail closed on any added, removed, or changed permitted-closure entry until
+   the exact SBOM, digest, license, advisory, deployed-artifact, runtime, and
+   removal evidence passes again.
+
+There is no temporary conformance exception. Repository policy may report a
+failure or pending repair, but it cannot issue a green Compass result for an
+unproven provider boundary or closure.
+
 Repository-specific package-manager commands and update exceptions remain local.

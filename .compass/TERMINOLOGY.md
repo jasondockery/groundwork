@@ -72,12 +72,25 @@ domain-specific states.
   reference system; it is not a competing reference authority.
 - **Selected capability** — a capability deliberately included by the owning
   product through its explicit selection contract.
-- **Zero footprint** — the state in which an unselected capability or provider
+- **Zero footprint** — the literal state in which an unselected capability
   contributes no implementation dependencies, binaries, runtime configuration,
   environment variables, credentials, secrets, workflows, infrastructure,
   network requests, persistent data, generated application authority,
   installation work, build work, runtime work, or consumer toolchain
   requirements.
+- **Provider authority and behavior** — consumer-owned means to integrate,
+  configure, credential, deploy to, communicate with, persist state for, or
+  operate a provider. A transitive package name does not confer this authority.
+- **Selected-provider dependency closure** — the complete direct and transitive
+  package set required by a deliberately selected provider, bound to exact
+  supply-chain evidence and removed with that provider.
+- **Transitive implementation package** — a package present only because it is
+  in a selected provider's declared dependency closure; it is not independently
+  selected and creates no consumer-owned authority or behavior for a provider
+  named by its namespace.
+- **Supply-chain footprint** — every dependency byte that must remain visible
+  through inventory, provenance, license, advisory, artifact, and removal
+  evidence even when it creates no provider authority or runtime behavior.
 - **Native hot path** — a measured developer-tooling path for which a native
   implementation is being considered behind a stable ecosystem-facing
   interface.
@@ -86,7 +99,8 @@ domain-specific states.
   supported platform and lifecycle boundary.
 - **Provisional provider seam** — an apparent shared provider abstraction that
   remains provider-owned until at least two real implementations prove its
-  common lifecycle, removal, and zero-footprint behavior.
+  common lifecycle, removal, unselected-provider authority and behavior, and
+  governed dependency closure.
 - **Rollback path** — a retained, tested way to restore the reference
   implementation when equivalence, performance, distribution, or field
   evidence fails.

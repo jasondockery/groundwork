@@ -31,18 +31,45 @@ Keep the shared authority technology-neutral. Concrete schemas, persistence,
 commands, provider mechanics, and application fields remain with the product
 that owns them.
 
-## Optional capability and provider absence
+## Optional capability and provider boundaries
 
 Selection is an architectural boundary, not merely a feature flag. An
-unselected capability or provider contributes zero implementation dependencies,
-binaries, runtime configuration, environment variables, credentials, secrets,
-workflows, infrastructure, network requests, persistent data, generated
-application authority, installation work, build work, runtime work, or consumer
-toolchain requirements.
+unselected capability contributes zero implementation dependencies, binaries,
+runtime configuration, environment variables, credentials, secrets, workflows,
+infrastructure, network requests, persistent data, generated application
+authority, installation work, build work, runtime work, or consumer toolchain
+requirements.
 
-Absence must be observable through construction, distribution, verification,
-operation, removal, and recovery. A default, transitive, generated, dormant, or
-conditionally unused contribution is still a footprint.
+Capability absence must be observable through construction, distribution,
+verification, operation, removal, and recovery. A default, transitive,
+generated, dormant, or conditionally unused capability contribution is still a
+footprint.
+
+Provider conformance has two independent requirements.
+
+First, an unselected provider contributes zero consumer-owned authority or
+behavior: no adapter, configuration, credentials or secrets, workflows,
+infrastructure, deployment commands or destinations, network behavior,
+persistent state, or consumer-owned imports. A package namespace alone neither
+selects a provider nor authorizes its behavior.
+
+Second, a selected provider's governed dependency closure may include
+explicitly declared transitive implementation packages even when a package
+namespace names another provider. Every such byte remains supply-chain
+footprint; it is not zero footprint and does not confer authority for the named
+provider.
+
+Bind the complete selected-provider closure to an exact transitive SBOM,
+version, digest, license, advisory status, and validation receipt. Prove no
+consumer-owned authority or behavior for an unselected provider, no network
+requests to it, and no client or SDK code for it in the deployed artifact.
+Removing the selected provider removes its complete transitive closure.
+Permitted closure changes fail closed until the new closure and deployed bytes
+pass the same evidence.
+
+A temporary exception cannot convert either failed provider requirement into
+conformance. Changing these semantics requires a new Compass identity and new
+consumer projections.
 
 ## Proven provider neutrality
 
@@ -51,9 +78,9 @@ implementations prove the common lifecycle.
 
 First-provider mechanics remain provider-owned. Promote only lifecycle
 semantics demonstrated by both implementations into shared core, including
-selection, operation, failure, replacement, removal, and zero-footprint
-behavior. Similar names or a hypothetical second provider are not evidence of
-neutrality.
+selection, operation, failure, replacement, removal, unselected-provider
+authority and behavior, and governed dependency closure. Similar names or a
+hypothetical second provider are not evidence of neutrality.
 
 ## Native hot paths with stable interfaces
 
