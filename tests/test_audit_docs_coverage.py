@@ -104,6 +104,39 @@ class ExplicitSurfaceTests(unittest.TestCase):
         self.assertFalse(audit.item_is_mentioned("Ctrl+a then ?", "key", prefix_only))
         self.assertFalse(audit.item_is_mentioned("Ctrl+a then [", "key", prefix_only))
 
+    def test_multiplexer_key_coverage_stays_in_its_owner_section(self) -> None:
+        document = audit.parse_html(
+            "<div><nav>Herdr tmux</nav>"
+            "<h2>tmux</h2>"
+            "<p><span class='keys'><kbd>prefix</kbd><kbd>?</kbd></span></p>"
+            "<h2>Herdr</h2>"
+            "<p><span class='keys'><kbd>prefix</kbd><kbd>d</kbd></span></p>"
+            "</div>"
+        )
+        self.assertTrue(
+            audit.item_is_mentioned("Ctrl+a then ?", "key", document, section="tmux")
+        )
+        self.assertFalse(
+            audit.item_is_mentioned("Ctrl+a then ?", "key", document, section="herdr")
+        )
+        self.assertTrue(
+            audit.item_is_mentioned("Ctrl+a then d", "key", document, section="herdr")
+        )
+        self.assertFalse(
+            audit.item_is_mentioned("Ctrl+a then d", "key", document, section="tmux")
+        )
+
+        explicit_owner = audit.parse_html(
+            "<h2>Shell</h2>"
+            "<p>Inside tmux, press "
+            "<kbd>Ctrl</kbd><kbd>a</kbd><kbd>Ctrl</kbd><kbd>a</kbd> to send it.</p>"
+        )
+        self.assertTrue(
+            audit.item_is_mentioned(
+                "Ctrl+a then Ctrl+a", "key", explicit_owner, section="tmux"
+            )
+        )
+
     def test_short_copy_key_requires_kbd_in_copy_mode_context(self) -> None:
         prose_only = audit.parse_html("<p>In copy mode, y copies the selection.</p>")
         explicit = audit.parse_html(

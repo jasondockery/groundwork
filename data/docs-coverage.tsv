@@ -72,9 +72,9 @@ herdr	groundwork-herdr-integrations status	command	executable	home/dot_local/sha
 herdr	groundwork-herdr-integrations uninstall --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
 herdr	herdr integration status	command	external-command	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
 herdr	herdr status	command	external-command	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
-herdr	Ctrl+a then ?	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	yes	no	all; requires herdr
-herdr	Ctrl+a then [	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	yes	no	all; requires herdr
-herdr	Ctrl+a then d	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	yes	no	all; requires herdr
+herdr	Ctrl+a then ?	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
+herdr	Ctrl+a then [	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
+herdr	Ctrl+a then d	key	herdr-binding	home/dot_local/share/groundwork/commands.tsv	herdr.html	no	no	all; requires herdr
 mac	betterdisplaycli	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop; requires betterdisplay
 mac	browser-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
 mac	defaultbrowser	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
@@ -184,4 +184,4 @@ tmux	tmux copy-mode-vi: Ctrl+v	key	tmux-binding	home/dot_config/tmux/tmux.conf.t
 tmux	tmux copy-mode-vi: drag	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
 tmux	tmux copy-mode-vi: v	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
 tmux	tmux copy-mode-vi: y	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	yes	no	all; requires tmux
-tmux	tmux right-click	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	yes	all; requires tmux
+tmux	tmux right-click	key	tmux-binding	home/dot_config/tmux/tmux.conf.tmpl	tmux.html	no	no	all; requires tmux
