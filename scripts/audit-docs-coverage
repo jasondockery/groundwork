@@ -671,7 +671,7 @@ TOKEN_RE = re.compile(
 KEY_TOKEN_RE = re.compile(
     r"--?[A-Za-z0-9][A-Za-z0-9-]*|"
     r"[A-Za-z0-9][A-Za-z0-9._-]*|"
-    r"[$|&<>,-]"
+    r"[\[\]?$|&<>,;-]"
 )
 
 
@@ -717,13 +717,18 @@ def contains_key_tokens(haystack: str, needle: tuple[str, ...]) -> bool:
 def key_candidates(item: str) -> list[tuple[str, ...]]:
     if item.startswith("Ctrl+b then "):
         tail = normalized_key_tokens(item.removeprefix("Ctrl+b then "))
-        return [("ctrl", "b", "then", *tail), ("prefix", *tail)]
+        return [
+            ("ctrl", "b", "then", *tail),
+            ("ctrl", "b", *tail),
+            ("prefix", *tail),
+        ]
     if item.startswith("Ctrl+a then "):
         tail = item.removeprefix("Ctrl+a then ")
         tail_tokens = normalized_key_tokens(tail)
         without_shift = tuple(token for token in tail_tokens if token != "shift")
         candidates = [
             ("ctrl", "a", "then", *tail_tokens),
+            ("ctrl", "a", *tail_tokens),
             ("prefix", *tail_tokens),
             ("prefix", *without_shift),
         ]
@@ -731,6 +736,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "h", "j", "k", "l"),
+                    ("ctrl", "a", "h", "j", "k", "l"),
                     ("prefix", "h", "j", "k", "l"),
                 ]
             )
@@ -738,6 +744,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "H", "J", "K", "L"),
+                    ("ctrl", "a", "H", "J", "K", "L"),
                     ("prefix", "H", "J", "K", "L"),
                 ]
             )
@@ -745,6 +752,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "<", ">"),
+                    ("ctrl", "a", "<", ">"),
                     ("prefix", "<", ">"),
                 ]
             )
@@ -752,6 +760,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "|", "-"),
+                    ("ctrl", "a", "|", "-"),
                     ("prefix", "|", "-"),
                 ]
             )

@@ -31,6 +31,12 @@ focus_pane_left = ["prefix+h", "ctrl+alt+h"]
 focus_pane_down = ["prefix+j", "ctrl+alt+j"]
 focus_pane_up = ["prefix+k", "ctrl+alt+k"]
 focus_pane_right = ["prefix+l", "ctrl+alt+l"]
+# Herdr 0.8 reserves Shift+h/j/k/l for pane swaps. Groundwork uses those
+# chords for resizing, so remove the defaults before registering commands.
+swap_pane_left = []
+swap_pane_down = []
+swap_pane_up = []
+swap_pane_right = []
 rename_pane = "prefix+shift+p"
 
 # Herdr tabs carry the tmux window shortcuts; workspaces carry session intent.
@@ -47,25 +53,25 @@ rename_workspace = "prefix+$"
 [[keys.command]]
 key = "prefix+shift+h"
 type = "shell"
-command = "\"$HERDR_BIN_PATH\" pane resize --current --direction left --amount 5"
+command = "\"$HERDR_BIN_PATH\" pane resize --pane \"$HERDR_ACTIVE_PANE_ID\" --direction left --amount 5"
 description = "resize the active pane left"
 
 [[keys.command]]
 key = "prefix+shift+j"
 type = "shell"
-command = "\"$HERDR_BIN_PATH\" pane resize --current --direction down --amount 5"
+command = "\"$HERDR_BIN_PATH\" pane resize --pane \"$HERDR_ACTIVE_PANE_ID\" --direction down --amount 5"
 description = "resize the active pane down"
 
 [[keys.command]]
 key = "prefix+shift+k"
 type = "shell"
-command = "\"$HERDR_BIN_PATH\" pane resize --current --direction up --amount 5"
+command = "\"$HERDR_BIN_PATH\" pane resize --pane \"$HERDR_ACTIVE_PANE_ID\" --direction up --amount 5"
 description = "resize the active pane up"
 
 [[keys.command]]
 key = "prefix+shift+l"
 type = "shell"
-command = "\"$HERDR_BIN_PATH\" pane resize --current --direction right --amount 5"
+command = "\"$HERDR_BIN_PATH\" pane resize --pane \"$HERDR_ACTIVE_PANE_ID\" --direction right --amount 5"
 description = "resize the active pane right"
 
 [[keys.command]]

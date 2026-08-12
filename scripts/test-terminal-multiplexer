@@ -95,6 +95,10 @@ expected_keys = {
     "focus_pane_down": ["prefix+j", "ctrl+alt+j"],
     "focus_pane_up": ["prefix+k", "ctrl+alt+k"],
     "focus_pane_right": ["prefix+l", "ctrl+alt+l"],
+    "swap_pane_left": [],
+    "swap_pane_down": [],
+    "swap_pane_up": [],
+    "swap_pane_right": [],
     "rename_pane": "prefix+shift+p",
     "new_tab": "prefix+c",
     "rename_tab": "prefix+comma",
@@ -112,7 +116,7 @@ assert keys["command"] == [
     {
         "key": f"prefix+shift+{key}",
         "type": "shell",
-        "command": f'"$HERDR_BIN_PATH" pane resize --current --direction {direction} --amount 5',
+        "command": f'"$HERDR_BIN_PATH" pane resize --pane "$HERDR_ACTIVE_PANE_ID" --direction {direction} --amount 5',
         "description": f"resize the active pane {direction}",
     }
     for key, direction in (("h", "left"), ("j", "down"), ("k", "up"), ("l", "right"))
@@ -138,6 +142,46 @@ assert config["ui"] == {
     "pane_gaps": False,
     "sound": {"enabled": False},
 }
+PY
+
+# Run every configured resize command through its real /bin/sh boundary. A
+# stub Herdr binary records argv so this proves the detached command targets
+# the pane Herdr exported, preserves paths with spaces, and never falls back to
+# whichever pane a detached client happens to consider current.
+python3 - "$repo/home/.chezmoitemplates/herdr.toml" "$tmp" <<'PY'
+import os
+import pathlib
+import stat
+import subprocess
+import sys
+import tomllib
+
+config_path = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2]) / "herdr command fixture"
+fixture.mkdir()
+herdr = fixture / "herdr stub"
+herdr.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" >\"$GROUNDWORK_HERDR_ARGV\"\n")
+herdr.chmod(herdr.stat().st_mode | stat.S_IXUSR)
+argv_path = fixture / "argv"
+active_pane = "pane-active-fixture"
+
+with config_path.open("rb") as source:
+    commands = tomllib.load(source)["keys"]["command"]
+
+resize_commands = [command for command in commands if "pane resize" in command["command"]]
+assert len(resize_commands) == 4
+for command, direction in zip(resize_commands, ("left", "down", "up", "right"), strict=True):
+    environment = dict(os.environ)
+    environment.update({
+        "HERDR_BIN_PATH": str(herdr),
+        "HERDR_ACTIVE_PANE_ID": active_pane,
+        "GROUNDWORK_HERDR_ARGV": str(argv_path),
+    })
+    subprocess.run(["/bin/sh", "-c", command["command"]], check=True, env=environment)
+    assert argv_path.read_text().splitlines() == [
+        "pane", "resize", "--pane", active_pane,
+        "--direction", direction, "--amount", "5",
+    ]
 PY
 
 # The launcher keeps Herdr primary for `both`, never aliases tmux, and refuses
