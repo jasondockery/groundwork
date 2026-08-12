@@ -177,6 +177,7 @@ gw_brew_classify_cask_metadata() {
         (.installed | type) == "string" and
         (.version | type) == "string" and
         (.sha256 | type) == "string" and
+        has("auto_updates") and
         ((.auto_updates | type) == "boolean" or .auto_updates == null) and
         (.pinned | type) == "boolean" and
         (.outdated | type) == "boolean" and
