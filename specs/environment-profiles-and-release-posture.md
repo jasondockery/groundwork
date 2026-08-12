@@ -359,12 +359,17 @@ PLAN-004  --plan does not write the last-update-all timestamp, so it never
 selected profile — not every package the user ever installed through
 Homebrew.**
 
-The Homebrew lane now parses the exact formulae and checksum-safe casks from the
-rendered Groundwork Brewfile before refreshing metadata, then reuses that list
-for its retry. It no longer runs an unqualified `brew upgrade`, so software a
-user installed independently is not mutated merely because Homebrew knows it.
-The profile-selected Chrome casks remain outside that list because Google owns
-their updates. Broader catalog-backed plan and receipt work remains open.
+The Homebrew lane parses the exact formulae and checksum-safe casks from the
+rendered Groundwork Brewfile before refreshing metadata. On macOS it then binds
+the cask decision to one matching `brew info --json=v2` snapshot. Ordinary,
+outdated casks enter the automatic command; self-updating casks and replacements
+whose uninstall metadata removes launchd services or privileged helper files
+remain owner-run Review items. A retry reuses only the accepted automatic set.
+It no longer runs an unqualified `brew upgrade`, so software a user installed
+independently is not mutated merely because Homebrew knows it. Chezmoi's
+Brewfile hook is install-only for existing packages, and the profile-selected
+Chrome casks remain outside the checksum-safe list because Google owns their
+updates. Broader catalog-backed plan and receipt work remains open.
 
 ## Execution model
 

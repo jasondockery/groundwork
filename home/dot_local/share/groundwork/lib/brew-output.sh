@@ -142,6 +142,96 @@ gw_brew_classify_transcript() {
   ' "$transcript"
 }
 
+# Classify one Homebrew metadata snapshot before update-all starts a cask
+# replacement. Self-updating casks and casks whose uninstall stanza removes
+# launchd services or privileged files stay owner-run: those replacements can
+# stop for a password, an application dialog, or a helper teardown. The output
+# is a typed TSV consumed without eval or command construction:
+#
+#   token  eligible|current|review|excluded  reason  installed  available
+gw_brew_classify_cask_metadata() {
+  local metadata_file="$1" expected_tokens_file="$2" classification_file="$3"
+  local observed_tokens="${classification_file}.observed.$$"
+  local expected_sorted="${classification_file}.expected.$$"
+  local observed_sorted="${classification_file}.observed-sorted.$$"
+
+  if [[ ! -r "$metadata_file" || ! -r "$expected_tokens_file" ]]; then
+    echo "Groundwork: Homebrew cask metadata inputs are missing." >&2
+    return 1
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Groundwork: jq is required to classify Homebrew casks safely." >&2
+    return 1
+  fi
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' \
+    "$expected_tokens_file"; then
+    echo "Groundwork: the managed cask token set is malformed." >&2
+    return 1
+  fi
+
+  if ! jq -e '
+      (.casks | type) == "array" and
+      all(.casks[];
+        (.token | type) == "string" and
+        (.token | test("^[A-Za-z0-9@+._-]+$")) and
+        (.installed | type) == "string" and
+        (.version | type) == "string" and
+        (.sha256 | type) == "string" and
+        ((.auto_updates | type) == "boolean" or .auto_updates == null) and
+        (.pinned | type) == "boolean" and
+        (.outdated | type) == "boolean" and
+        (.deprecated | type) == "boolean" and
+        (.disabled | type) == "boolean" and
+        (.artifacts | type) == "array")
+    ' "$metadata_file" >/dev/null; then
+    echo "Groundwork: Homebrew returned incomplete or malformed cask metadata; no cask upgrade was attempted." >&2
+    return 1
+  fi
+
+  if ! jq -r '.casks[].token' "$metadata_file" >"$observed_tokens"; then
+    rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+    return 1
+  fi
+  LC_ALL=C sort "$expected_tokens_file" >"$expected_sorted"
+  LC_ALL=C sort "$observed_tokens" >"$observed_sorted"
+  if [[ -n "$(uniq -d "$observed_sorted")" ]] \
+    || ! cmp -s "$expected_sorted" "$observed_sorted"; then
+    echo "Groundwork: Homebrew cask metadata did not match the exact managed token set; no cask upgrade was attempted." >&2
+    rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+    return 1
+  fi
+
+  if ! jq -r '
+      .casks[] |
+      . as $c |
+      ([ $c.artifacts[]? |
+          select(has("uninstall")) |
+          .uninstall[]? |
+          keys[] ] |
+        any(. == "launchctl" or . == "delete")) as $privileged_replacement |
+      (if $c.auto_updates and $privileged_replacement then
+         "self-updating+privileged-replacement"
+       elif $c.auto_updates then "self-updating"
+       elif $privileged_replacement then "privileged-replacement"
+       else "ordinary" end) as $ownership |
+      (if $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
+       elif $c.pinned then ["excluded", "pinned"]
+       elif $c.disabled then ["excluded", "disabled"]
+       elif $c.deprecated then ["excluded", "deprecated"]
+       elif $c.version == "latest" then ["excluded", "latest"]
+       elif $c.sha256 == "no_check" then ["excluded", "no-checksum"]
+       elif $ownership != "ordinary" then ["review", $ownership]
+       elif $c.outdated then ["eligible", "ordinary"]
+       else ["current", "ordinary"] end) as $decision |
+      [ $c.token, $decision[0], $decision[1], $c.installed, $c.version ] | @tsv
+    ' "$metadata_file" >"$classification_file"; then
+    rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted" "$classification_file"
+    echo "Groundwork: Homebrew cask classification failed; no cask upgrade was attempted." >&2
+    return 1
+  fi
+  rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+}
+
 gw_brew_run_logged() {
   local normalized_log="$1" receipt_file="$2" mode="$3" label="$4"
   shift 4

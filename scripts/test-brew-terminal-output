@@ -30,9 +30,14 @@ stty -echo
 printf 'First password prompt: '
 IFS= read -r first
 printf '\n'
-printf 'Second password prompt: '
-IFS= read -r second
-printf '\n'
+# sudo and Homebrew's privileged helpers may open the controlling terminal
+# directly instead of consuming stdin. Model that separately from the first
+# ordinary prompt so a PTY that only forwards stdin cannot satisfy this proof.
+exec 3<>/dev/tty
+printf 'Second password prompt: ' >&3
+IFS= read -r second <&3
+printf '\n' >&3
+exec 3>&-
 stty "$terminal_state"
 trap - EXIT
 [[ "$first" == alpha && "$second" == bravo ]] || exit 92

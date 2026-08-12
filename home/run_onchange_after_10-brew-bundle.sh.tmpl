@@ -39,6 +39,12 @@ export HOMEBREW_VERBOSE_USING_DOTS=1
 # retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry are
 # handled after the fact by groundwork-brew-refetch below.
 export HOMEBREW_CURL_RETRIES=3
+# Applying managed files installs anything missing but deliberately does not
+# upgrade already-installed packages. update-all owns upgrades after it has
+# classified the exact candidate set; this keeps a routine chezmoi apply from
+# entering a privileged application replacement merely because the Brewfile
+# changed.
+#
 # One failed package must not skip the recovery steps below (a dead cask
 # should never leave the launcher or keyboard driver down), but the script
 # still exits non-zero afterwards so chezmoi retries the bundle on the next
@@ -102,7 +108,7 @@ user_cask_opts="${HOMEBREW_CASK_OPTS-}"
 safe_cask_opts="${user_cask_opts:+$user_cask_opts }--require-sha"
 HOMEBREW_CASK_OPTS="$safe_cask_opts" \
   gw_brew_run_logged "$bundle_log" "$bundle_receipt" reset "Homebrew bundle" -- \
-    brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" \
+    brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
     || bundle_status=$?
 # The repair helper runs even when the bundle exited 0: Homebrew's per-cask
 # "cannot be upgraded as-is" warning does not fail the run, so it would
@@ -131,7 +137,7 @@ if [[ "$retry_bundle" -eq 1 ]]; then
   bundle_status=0
   HOMEBREW_CASK_OPTS="$safe_cask_opts" \
     gw_brew_run_logged "$bundle_log" "$bundle_receipt" append "Homebrew bundle retry" -- \
-      brew bundle --verbose --file="$HOME/.config/homebrew/Brewfile" \
+      brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
       || bundle_status=$?
 fi
 gw_brew_report_classification \

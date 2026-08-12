@@ -131,6 +131,7 @@ runner_exit() {
     rm -f -- "$runner_receipt_dir/homebrew-bundle.tsv" \
       "$runner_receipt_dir/homebrew-upgrade.tsv" \
       "$runner_receipt_dir/package-maintenance.tsv" 2>/dev/null || true
+    rm -f -- "$runner_receipt_dir"/homebrew-cask-* 2>/dev/null || true
     rmdir "$runner_receipt_dir" 2>/dev/null || true
   fi
   exit "$status"
@@ -215,6 +216,7 @@ fi
 chezmoi apply
 
 brew_lane_status="skipped"
+brew_cask_review_count=0
 if command -v brew >/dev/null 2>&1; then
   brew_output_lib="$HOME/.local/share/groundwork/lib/brew-output.sh"
   if [[ ! -r "$brew_output_lib" ]]; then
@@ -265,6 +267,62 @@ if command -v brew >/dev/null 2>&1; then
   # Use the metadata snapshot that just refreshed. A user-customized Homebrew
   # auto-update interval must not start a second, unwrapped update here.
   {{- if eq .chezmoi.os "darwin" }}
+  eligible_casks=()
+  if ((${#managed_casks[@]} > 0)); then
+    cask_metadata="$(mktemp "$runner_receipt_dir/homebrew-cask-metadata.XXXXXX")"
+    cask_expected="$(mktemp "$runner_receipt_dir/homebrew-cask-expected.XXXXXX")"
+    cask_classification="$(mktemp "$runner_receipt_dir/homebrew-cask-classification.XXXXXX")"
+    chmod 600 "$cask_metadata" "$cask_expected" "$cask_classification"
+    runner_temp="$cask_metadata"
+    printf '%s\n' "${managed_casks[@]}" >"$cask_expected"
+    if ! brew info --json=v2 --cask "${managed_casks[@]}" >"$cask_metadata"; then
+      rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+      runner_temp=""
+      echo "Groundwork: Homebrew cask metadata could not be read; no cask upgrade was attempted." >&2
+      exit 1
+    fi
+    if ! gw_brew_classify_cask_metadata \
+      "$cask_metadata" "$cask_expected" "$cask_classification"; then
+      rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+      runner_temp=""
+      exit 1
+    fi
+    while IFS=$'\t' read -r cask_token cask_disposition cask_reason \
+      cask_installed cask_available cask_extra; do
+      if [[ -n "$cask_extra" || ! "$cask_token" =~ ^[A-Za-z0-9@+._-]+$ ]]; then
+        echo "Groundwork: the classified Homebrew cask receipt is malformed; no cask upgrade was attempted." >&2
+        rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+        runner_temp=""
+        exit 1
+      fi
+      case "$cask_disposition" in
+        eligible)
+          eligible_casks+=("$cask_token")
+          ;;
+        current) ;;
+        review)
+          brew_cask_review_count=$((brew_cask_review_count + 1))
+          printf 'Groundwork review: %s %s -> %s was not upgraded automatically (%s).\n' \
+            "$cask_token" "$cask_installed" "$cask_available" "$cask_reason"
+          printf '  Quit it if running, then run: brew upgrade --cask --require-sha %s\n' "$cask_token"
+          ;;
+        excluded)
+          brew_cask_review_count=$((brew_cask_review_count + 1))
+          printf 'Groundwork review: %s was excluded from automatic upgrade (%s).\n' \
+            "$cask_token" "$cask_reason"
+          ;;
+        *)
+          echo "Groundwork: the classified Homebrew cask disposition is unknown; no cask upgrade was attempted." >&2
+          rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+          runner_temp=""
+          exit 1
+          ;;
+      esac
+    done <"$cask_classification"
+    rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+    runner_temp=""
+  fi
+
   # --require-sha: refuse to upgrade a cask that ships no checksum. Every cask
   # in the checksum-safe Brewfile is versioned and checksummed (the AI CLIs
   # included — `claude-code@latest` is a faster release CHANNEL, not Homebrew's
@@ -275,9 +333,10 @@ if command -v brew >/dev/null 2>&1; then
   #
   # No --greedy-latest: it only adds `version :latest` casks, and Groundwork
   # installs none — it was a no-op justified by a wrong comment.
-  # NO_UPGRADE_AUTO_UPDATES_CASKS still leaves self-updating GUI apps to their
-  # own channels, so they are not re-downloaded and re-quarantined behind fresh
-  # Gatekeeper prompts.
+  # Self-updating and privileged-replacement casks are removed from the exact
+  # candidate list above. The environment flag is retained as defense in depth;
+  # explicit tokens can otherwise override Homebrew's ordinary auto-update
+  # exclusion.
   # Keep interactive cask work attached to a real terminal so cursor output and
   # password prompts remain coherent. The saved normalized log still gives the
   # repair helper Homebrew's own remediation hints. The per-cask "cannot be
@@ -299,7 +358,7 @@ if command -v brew >/dev/null 2>&1; then
     "Homebrew upgrade started, but completion has not been proven"
   HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
     gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" reset "Homebrew upgrade" -- \
-      brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
+      brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
       || upgrade_status=$?
   repair_status=0
   "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
@@ -323,7 +382,7 @@ if command -v brew >/dev/null 2>&1; then
     upgrade_status=0
     HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
       gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" append "Homebrew upgrade retry" -- \
-        brew upgrade --require-sha "${managed_formulae[@]}" "${managed_casks[@]}" \
+        brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
         || upgrade_status=$?
   fi
   mv -f -- "$upgrade_log" "$upgrade_log_final"
@@ -960,17 +1019,25 @@ if [[ "$brew_current_count" -gt 0 ]]; then
   printf '\nCurrent\n  Homebrew                %s known no-change message(s) summarized\n' \
     "$brew_current_count"
 fi
-if [[ "$owner_review_count" -gt 0 ]]; then
-  printf '\nReview\n  Package state           %s owner-review item(s) · run groundwork-cleanup\n' \
-    "$owner_review_count"
+if [[ "$owner_review_count" -gt 0 || "$brew_cask_review_count" -gt 0 ]]; then
+  printf '\nReview\n'
+  if [[ "$brew_cask_review_count" -gt 0 ]]; then
+    printf '  Homebrew casks          %s owner-run upgrade(s) named above\n' \
+      "$brew_cask_review_count"
+  fi
+  if [[ "$owner_review_count" -gt 0 ]]; then
+    printf '  Package state           %s owner-review item(s) · run groundwork-cleanup\n' \
+      "$owner_review_count"
+  fi
 fi
 if [[ "$brew_warning_count" -gt 0 ]]; then
   printf '\nWarning\n  Homebrew                %s unknown warning(s) preserved in the transcript and raw logs\n' \
     "$brew_warning_count"
 fi
 result_suffix=""
-if [[ "$owner_review_count" -gt 0 ]]; then
-  result_suffix="$result_suffix · $owner_review_count OWNER-REVIEW ITEM(S)"
+total_owner_review_count=$((owner_review_count + brew_cask_review_count))
+if [[ "$total_owner_review_count" -gt 0 ]]; then
+  result_suffix="$result_suffix · $total_owner_review_count OWNER-REVIEW ITEM(S)"
 fi
 if [[ "$brew_warning_count" -gt 0 ]]; then
   result_suffix="$result_suffix · $brew_warning_count WARNING(S)"

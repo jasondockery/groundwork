@@ -1481,6 +1481,79 @@ SH
   test ! -e "$brew_output_fixture/invalid-bound-receipt" \
     || fail "an invalid Homebrew deadline mutated the receipt"
 
+  cat >"$brew_output_fixture/cask-expected" <<'EOF'
+ordinary-outdated
+ordinary-current
+docker-desktop
+self-current
+privileged-only
+pinned-cask
+latest-cask
+unchecked-cask
+disabled-cask
+deprecated-cask
+EOF
+  cat >"$brew_output_fixture/cask-metadata.json" <<'EOF'
+{
+  "formulae": [],
+  "casks": [
+    {"token":"ordinary-outdated","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"ordinary-current","installed":"1.1","version":"1.1","sha256":"sha","auto_updates":null,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"docker-desktop","installed":"4.85.0,235549","version":"4.86.0,236216","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["com.docker.helper"],"delete":["/Library/PrivilegedHelperTools/com.docker.vmnetd"]}]}]},
+    {"token":"self-current","installed":"2.0","version":"2.0","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"privileged-only","installed":"3.0","version":"3.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["example.helper"]}]}]},
+    {"token":"pinned-cask","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":true,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"latest-cask","installed":"0","version":"latest","sha256":"sha","auto_updates":false,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"unchecked-cask","installed":"1.0","version":"1.1","sha256":"no_check","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"disabled-cask","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":true,"artifacts":[]},
+    {"token":"deprecated-cask","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":true,"disabled":false,"artifacts":[]}
+  ]
+}
+EOF
+  gw_brew_classify_cask_metadata \
+    "$brew_output_fixture/cask-metadata.json" \
+    "$brew_output_fixture/cask-expected" \
+    "$brew_output_fixture/cask-classification.tsv" \
+    || fail "valid Homebrew cask metadata did not classify"
+  cat >"$brew_output_fixture/cask-classification.expected" <<'EOF'
+ordinary-outdated	eligible	ordinary	1.0	1.1
+ordinary-current	current	ordinary	1.1	1.1
+docker-desktop	review	self-updating+privileged-replacement	4.85.0,235549	4.86.0,236216
+self-current	current	self-updating	2.0	2.0
+privileged-only	review	privileged-replacement	3.0	3.1
+pinned-cask	excluded	pinned	1.0	1.1
+latest-cask	excluded	latest	0	latest
+unchecked-cask	excluded	no-checksum	1.0	1.1
+disabled-cask	excluded	disabled	1.0	1.1
+deprecated-cask	excluded	deprecated	1.0	1.1
+EOF
+  diff -u "$brew_output_fixture/cask-classification.expected" \
+    "$brew_output_fixture/cask-classification.tsv" \
+    || fail "Homebrew cask metadata decisions changed"
+
+  jq 'del(.casks[0].auto_updates)' "$brew_output_fixture/cask-metadata.json" \
+    >"$brew_output_fixture/cask-metadata-malformed.json"
+  if gw_brew_classify_cask_metadata \
+    "$brew_output_fixture/cask-metadata-malformed.json" \
+    "$brew_output_fixture/cask-expected" \
+    "$brew_output_fixture/cask-malformed.tsv" >/dev/null 2>&1; then
+    fail "incomplete Homebrew cask metadata was accepted"
+  fi
+  printf '%s\n' ordinary-outdated >"$brew_output_fixture/cask-wrong-set"
+  if gw_brew_classify_cask_metadata \
+    "$brew_output_fixture/cask-metadata.json" \
+    "$brew_output_fixture/cask-wrong-set" \
+    "$brew_output_fixture/cask-wrong-set.tsv" >/dev/null 2>&1; then
+    fail "Homebrew metadata outside the exact managed cask set was accepted"
+  fi
+  printf '%s\n' 'docker-desktop;touch-owned' >"$brew_output_fixture/cask-hostile-set"
+  if gw_brew_classify_cask_metadata \
+    "$brew_output_fixture/cask-metadata.json" \
+    "$brew_output_fixture/cask-hostile-set" \
+    "$brew_output_fixture/cask-hostile.tsv" >/dev/null 2>&1; then
+    fail "an injection-like managed cask token was accepted"
+  fi
+
   check "update-all launcher handoff and runner transaction"
   update_all_fixture="$out_dir/update-all-fixture"
   update_all_home="$update_all_fixture/home"
@@ -1590,6 +1663,26 @@ case "${1:-}" in
     [[ "${BREW_CACHE_FAIL:-0}" == "0" ]] || exit 1
     printf '%s\n' "${BREW_CACHE_DIR:-$HOME/absent-brew-cache}"
     exit 0
+    ;;
+  info)
+    [[ "${2:-}" == "--json=v2" && "${3:-}" == "--cask" ]] || exit 64
+    [[ "${BREW_INFO_STATUS:-0}" == "0" ]] || exit "$BREW_INFO_STATUS"
+    shift 3
+    printf '{"formulae":[],"casks":['
+    separator=''
+    for token in "$@"; do
+      printf '%s' "$separator"
+      separator=,
+      case "$token" in
+        docker-desktop)
+          printf '%s' '{"token":"docker-desktop","installed":"4.85.0,235549","version":"4.86.0,236216","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["com.docker.helper"],"delete":["/Library/PrivilegedHelperTools/com.docker.vmnetd"]}]}]}'
+          ;;
+        *)
+          printf '{"token":"%s","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]}' "$token"
+          ;;
+      esac
+    done
+    printf ']}\n'
     ;;
   upgrade)
     printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
@@ -2392,6 +2485,67 @@ EOF
   test -f "$update_all_stamp"
   assert_not_contains 'docker-desktop-(start|stop)|colima-(start|stop)' "$update_all_log" \
     "an already-available Docker lane changed backend lifecycle state"
+
+  # The production Docker Desktop transcript stopped after Homebrew entered its
+  # privileged launchctl teardown. A cask that owns its updater or removes
+  # privileged helpers is therefore review-only in update-all: the exact token
+  # never reaches the automatic brew upgrade command, while an ordinary cask
+  # from the same managed set still does.
+  cp "$update_all_home/.config/homebrew/Brewfile" \
+    "$update_all_fixture/Brewfile.before-privileged-cask"
+  cat >"$update_all_home/.config/homebrew/Brewfile" <<'EOF'
+brew "git"
+cask "ghostty"
+cask "docker-desktop"
+EOF
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-privileged-cask-review" 2>&1 \
+    || fail "a review-only privileged cask failed the otherwise safe update"
+  grep -qxF 'brew upgrade --require-sha git ghostty auto=1 casks=1 hb-color=unset' \
+    "$update_all_log" \
+    || fail "the safe cask did not retain its automatic update lane"
+  assert_not_contains '^brew upgrade .*docker-desktop' "$update_all_log" \
+    "Docker Desktop entered automatic privileged replacement"
+  grep -qF 'docker-desktop 4.85.0,235549 -> 4.86.0,236216 was not upgraded automatically (self-updating+privileged-replacement)' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    || fail "the Docker Desktop review omitted the exact observed versions and reason"
+  grep -qF 'Quit it if running, then run: brew upgrade --cask --require-sha docker-desktop' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    || fail "the Docker Desktop review omitted owner-run recovery"
+  grep -qF 'Homebrew casks          1 owner-run upgrade(s) named above' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    || fail "the final receipt omitted the deferred privileged cask"
+  grep -qF 'SUCCESS · 1 OWNER-REVIEW ITEM(S)' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    || fail "a safe privileged-cask deferral was not summarized as owner review"
+  test -f "$update_all_stamp" \
+    || fail "a safe privileged-cask deferral withheld an otherwise complete update"
+  mv "$update_all_fixture/Brewfile.before-privileged-cask" \
+    "$update_all_home/.config/homebrew/Brewfile"
+
+  # Missing or malformed metadata fails before brew upgrade, preserves the old
+  # success timestamp, and cannot silently widen the candidate set.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    FAKE_PLATFORM=darwin BREW_INFO_STATUS=19 \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-cask-metadata-failure" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "a failed cask metadata observation was reported as success"
+  assert_not_contains '^brew upgrade' "$update_all_log" \
+    "update-all mutated packages after cask metadata became unknown"
+  grep -qF 'no cask upgrade was attempted' \
+    "$update_all_fixture/darwin-cask-metadata-failure"
+  grep -qxF 'previous-success' "$update_all_stamp"
 
   # An interrupted/half-installed cask can quit the old app successfully, find
   # an unexpected app inside the old Caskroom, emit Error:, then purge the new
@@ -7506,6 +7660,10 @@ EOF
     || fail "the brew bundle stage must preserve Homebrew color when the color signal is on"
   grep -qF "gw_brew_run_logged \"\$bundle_log\" \"\$bundle_receipt\" reset \"Homebrew bundle\" --" "$chrome_current" \
     || fail "the brew bundle stage must preserve terminal ownership through the bounded Homebrew runner"
+  grep -qF 'brew bundle install --no-upgrade --verbose' "$chrome_current" \
+    || fail "chezmoi apply must install missing Brewfile entries without upgrading existing casks"
+  [[ "$(grep -cF 'brew bundle install --no-upgrade --verbose' "$chrome_current")" -eq 2 ]] \
+    || fail "the initial Homebrew bundle and its retry must share the install-only policy"
   assert_not_contains "gw_brew_classify_stream \"\\\$bundle_log\"" \
     "$chrome_current" \
     "brew bundle bypassed the terminal-preserving Homebrew runner"
@@ -11858,7 +12016,8 @@ EOF
   grep -qF $'tmux\tCtrl+a then Shift+Y\tkey\t' home/dot_local/share/groundwork/commands.tsv
   # Brew bundle streams progress so long fetches do not read as hangs and invite
   # a Ctrl+C.
-  grep -qF 'brew bundle --verbose --file' home/run_onchange_after_10-brew-bundle.sh.tmpl
+  grep -qF 'brew bundle install --no-upgrade --verbose --file' \
+    home/run_onchange_after_10-brew-bundle.sh.tmpl
   grep -qF 'tpm/bin/install_plugins" ]]' home/run_after_20-tools.sh.tmpl
   test -x home/dot_local/bin/executable_groundwork-brew-repair
   grep -qF 'groundwork-brew-repair' home/run_onchange_after_10-brew-bundle.sh.tmpl
