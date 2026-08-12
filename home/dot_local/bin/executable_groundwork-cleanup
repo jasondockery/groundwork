@@ -517,11 +517,18 @@ add_store_selection() {
     return 0
   fi
   # pnpm reports where the store WOULD live, which is not a claim that it
-  # exists. A store that was never created has nothing to prune, so skip it
-  # quietly and never create it — reporting it for review said "this path is
-  # suspect" about an ordinary, correct answer. A path that DOES exist but
-  # cannot be resolved is still a real refusal.
+  # exists. Quietly skip that ordinary state only after the lexical path proves
+  # it is an exact v<number> child of a configured trusted root. `-e` is also
+  # false for a dangling symlink, so test that case separately; neither a
+  # dangling link nor an arbitrary absent path may bypass the trust boundary.
   if [[ ! -e "$store" ]]; then
+    if [[ -L "$store" ]]; then
+      append_review "$repo" "$package_manager returned a dangling store symlink; no store was touched: $store"
+    elif trusted_store_base "$store" >/dev/null; then
+      return 0
+    else
+      append_review "$repo" "$package_manager returned a nonexistent store outside the trusted v<number> layout; no store was touched: $store"
+    fi
     return 0
   fi
   canonical="$(canonical_dir "$store" || true)"
