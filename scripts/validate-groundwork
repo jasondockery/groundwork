@@ -9128,7 +9128,7 @@ SH
     colima_rendered="$out_dir/colima-$colima_arch.yaml"
     PATH="$colima_fixture_bin:$PATH" \
       render darwin false "$colima_arch" \
-        home/dot_colima/_templates/default.yaml.tmpl "$colima_rendered"
+      home/dot_colima/_templates/default.yaml.tmpl "$colima_rendered"
     grep -qE '^runtime:[[:space:]]*docker$' "$colima_rendered" \
       || fail "the rendered Colima template ($colima_arch) does not pin runtime: docker"
     grep -qE '^vmType:[[:space:]]*vz$' "$colima_rendered" \
