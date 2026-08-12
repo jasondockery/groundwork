@@ -516,9 +516,24 @@ add_store_selection() {
     append_review "$repo" "$package_manager resolved pnpm $version; launcher drift, no store was touched"
     return 0
   fi
+  # pnpm reports where the store WOULD live, which is not a claim that it
+  # exists. Quietly skip that ordinary state only after the lexical path proves
+  # it is an exact v<number> child of a configured trusted root. `-e` is also
+  # false for a dangling symlink, so test that case separately; neither a
+  # dangling link nor an arbitrary absent path may bypass the trust boundary.
+  if [[ ! -e "$store" ]]; then
+    if [[ -L "$store" ]]; then
+      append_review "$repo" "$package_manager returned a dangling store symlink; no store was touched: $store"
+    elif trusted_store_base "$store" >/dev/null; then
+      return 0
+    else
+      append_review "$repo" "$package_manager returned a nonexistent store outside the trusted v<number> layout; no store was touched: $store"
+    fi
+    return 0
+  fi
   canonical="$(canonical_dir "$store" || true)"
   if [[ -z "$canonical" ]]; then
-    append_review "$repo" "$package_manager returned a store path that could not be canonicalized: $store"
+    append_review "$repo" "$package_manager returned an existing store path that could not be canonicalized: $store"
     return 0
   fi
   printf '%s\t%s\t%s\t%s\n' "$canonical" "$repo" "$version" "$package_manager" >>"$store_selections"
