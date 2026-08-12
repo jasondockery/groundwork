@@ -13544,7 +13544,7 @@ LAUNCHER_BAD
   fi
   rm -rf "$shallow_dir"
 
-  check "discovery generator lastmod: committed date vs today for dirty/untracked"
+  check "discovery generator lastmod: date sources, and drift named on --check"
   # Black-box all three date paths in a throwaway repo: a clean committed page
   # keeps its actual commit date, while dirty and untracked pages get today.
   # Pages carry the description the generator would compute, so it stays
@@ -13591,6 +13591,29 @@ expected = {
 if len(entries) != len(actual) or actual != expected:
     raise SystemExit(f"unexpected sitemap lastmod mapping: {actual!r}; expected {expected!r}")
 PY
+    # A stale sitemap must say which page's date moved. The usual cause is a
+    # squash merge dating the commit that lands the pages after the run that
+    # stamped them; without the page list that is indistinguishable from a
+    # regeneration someone simply forgot.
+    python3 - <<'PY'
+import pathlib
+
+sitemap = pathlib.Path("docs/sitemap.xml")
+sitemap.write_text(
+    sitemap.read_text().replace(
+        "<lastmod>2020-01-01</lastmod>", "<lastmod>2019-12-31</lastmod>", 1
+    )
+)
+PY
+    if python3 scripts/generate-discovery --check >drift-out 2>&1; then
+      echo "generate-discovery --check passed on a drifted lastmod" >&2
+      exit 1
+    fi
+    grep -qF 'a.html: 2019-12-31 -> 2020-01-01' drift-out || {
+      echo "generate-discovery did not name the drifted page and its dates" >&2
+      cat drift-out >&2
+      exit 1
+    }
   ); then
     rm -rf "$datefx_dir"
     exit 1

@@ -43,6 +43,9 @@ LEAD_RE = re.compile(r'<p class="lead">(.*?)</p>', re.S)
 FIRST_P_RE = re.compile(r'<div class="content">.*?<p[^>]*>(.*?)</p>', re.S)
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.S)
 TAG_RE = re.compile(r"<[^>]+>")
+# Reads the sitemap this generator wrote, to report which pages' lastmod moved.
+# Diagnosis only: the freshness verdict never depends on parsing it back.
+SITEMAP_ENTRY_RE = re.compile(r"<loc>([^<]*)</loc>\s*<lastmod>([^<]*)</lastmod>")
 
 
 def page_description(text: str) -> str:
@@ -162,6 +165,20 @@ def commit_date_map() -> dict[str, str]:
     return dates
 
 
+def lastmod_drift(recorded: str, computed: str, page_names: dict[str, str]) -> list[str]:
+    """Pages whose lastmod differs between the sitemap on disk and the one just
+    computed, as `page: recorded -> computed`. Pages added or removed are left
+    out: the file list already names sitemap.xml, and only a date move needs
+    explaining."""
+    was = dict(SITEMAP_ENTRY_RE.findall(recorded))
+    now = dict(SITEMAP_ENTRY_RE.findall(computed))
+    return [
+        f"{page_names.get(loc, loc)}: {was[loc]} -> {date}"
+        for loc, date in now.items()
+        if loc in was and was[loc] != date
+    ]
+
+
 def is_site_page(path: pathlib.Path) -> bool:
     # Verification stubs (Search Console's google*.html and similar) live in
     # docs/ but are not pages: no Groundwork head, and they must never
@@ -241,6 +258,7 @@ def main() -> int:
         sitemap_lines.append("  </url>")
     sitemap_lines.append("</urlset>")
     sitemap = "\n".join(sitemap_lines) + "\n"
+    page_names = {url_of(page): page.name for page, _title, _desc in entries}
 
     llms_lines = [f"# {SITE}", "", f"> {SUMMARY}", ""]
     llms_lines.append(
@@ -260,10 +278,14 @@ def main() -> int:
         llms_lines.append(f"- [{title}]({url_of(page)}): {desc}")
     llms = "\n".join(llms_lines) + "\n"
 
+    drift: list[str] = []
     for name, content in (("sitemap.xml", sitemap), ("llms.txt", llms)):
         path = DOCS / name
-        if not path.exists() or path.read_text() != content:
+        recorded = path.read_text() if path.exists() else ""
+        if recorded != content:
             changed.append(f"docs/{name}")
+            if name == "sitemap.xml":
+                drift = lastmod_drift(recorded, content, page_names)
             if not check:
                 path.write_text(content)
 
@@ -271,6 +293,14 @@ def main() -> int:
         print("discovery artifacts stale; run scripts/generate-discovery:")
         for c in sorted(set(changed)):
             print(f"  {c}")
+        if drift:
+            # Date-only drift is usually not a docs edit: the commit that landed
+            # the pages is dated after the run that stamped them, which a squash
+            # merge or a rebase onto a later day produces on its own. Naming the
+            # pages separates that from a genuinely missed regeneration.
+            print("lastmod drift (page: recorded -> computed):")
+            for line in drift:
+                print(f"  {line}")
         return 1
     if changed:
         print(f"updated: {len(set(changed))} file(s)")
