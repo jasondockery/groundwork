@@ -1718,6 +1718,28 @@ case "${1:-}" in
     fi
     exit "${BREW_UPGRADE_STATUS:-${BREW_STAGE_STATUS:-0}}"
     ;;
+  shellenv)
+    # Records that the hook took its environment from THIS Homebrew. A fixture
+    # whose log lacks this line drove the machine's real Homebrew instead.
+    printf 'brew-shellenv\n' >>"$GROUNDWORK_TEST_LOG"
+    printf 'export PATH=%s:${PATH}\n' "$(cd "$(dirname "$0")" && pwd)"
+    exit 0
+    ;;
+  bundle)
+    printf 'brew-bundle\n' >>"$GROUNDWORK_TEST_LOG"
+    # A sequence gives each successive call its own status so the RETRY path can
+    # be cancelled while the first attempt merely fails.
+    if [[ -n "${BREW_BUNDLE_STATUS_SEQUENCE:-}" ]]; then
+      brew_bundle_count_file="${BREW_BUNDLE_COUNT_FILE:-$HOME/.brew-bundle-count}"
+      brew_bundle_call="$(cat "$brew_bundle_count_file" 2>/dev/null || echo 0)"
+      brew_bundle_call=$((brew_bundle_call + 1))
+      printf '%s' "$brew_bundle_call" >"$brew_bundle_count_file"
+      brew_bundle_status="$(printf '%s' "$BREW_BUNDLE_STATUS_SEQUENCE" \
+        | awk -v n="$brew_bundle_call" '{ print ($n == "" ? 0 : $n) }')"
+      exit "${brew_bundle_status:-0}"
+    fi
+    exit "${BREW_BUNDLE_STATUS:-0}"
+    ;;
   autoremove)
     if [[ "${ASSERT_UPDATE_LOCK_DURING_MAINTENANCE:-0}" == "1" ]]; then
       test -s "$HOME/.local/state/groundwork/update-all.lock/pid"
@@ -2569,6 +2591,96 @@ EOF
   done
   rm -f "$update_all_home/.brew-upgrade-count"
   rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+
+  # The Brewfile install hook runs the same attached Homebrew stage as the
+  # upgrade lane, so it owes the same proof. Render it against this fixture home
+  # and actually RUN it: an ordering assertion can show the guard sits above the
+  # repair call, but only an execution shows that a cancelled bundle stops.
+  # The hook runs UNMODIFIED. GROUNDWORK_BREW_BIN is its explicit seam for
+  # selecting a controlled Homebrew; without it the hook would pick the
+  # machine's real one. Every case below asserts the stub is what answered.
+  render darwin false arm64 home/run_onchange_after_10-brew-bundle.sh.tmpl \
+    "$update_all_fixture/darwin-bundle-hook"
+  chmod +x "$update_all_fixture/darwin-bundle-hook"
+  # The browser lane runs after a successful bundle and needs its own manifest.
+  cat >"$update_all_home/.config/homebrew/Brewfile.browser" <<'EOF'
+cask "google-chrome"
+EOF
+  for cancel_status in 124 125 129 130 143; do
+    rm -f "$update_all_home/.brew-bundle-count"
+    : >"$update_all_log"
+    bundle_output="$update_all_fixture/darwin-bundle-cancel-$cancel_status"
+    bundle_exit=0
+    HOME="$update_all_home" PATH="$update_all_bin:$update_all_path" \
+      GROUNDWORK_TEST_LOG="$update_all_log" \
+      NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+      GROUNDWORK_BREW_BIN="$update_all_bin/brew" \
+      BREW_BUNDLE_STATUS="$cancel_status" REPAIR_STATUS=0 \
+      "$update_all_fixture/darwin-bundle-hook" >"$bundle_output" 2>&1 || bundle_exit=$?
+    [[ "$bundle_exit" -eq "$cancel_status" ]] \
+      || fail "a Homebrew bundle cancelled with $cancel_status surfaced as exit $bundle_exit"
+    grep -qxF 'brew-shellenv' "$update_all_log" \
+      || fail "the cancelled bundle case took its environment from the machine's real Homebrew, not the fixture stub"
+    grep -qxF 'brew-bundle' "$update_all_log" \
+      || fail "the cancelled bundle case never reached brew bundle"
+    assert_not_contains '^brew-repair$' "$update_all_log" \
+      "a cancelled Homebrew bundle ($cancel_status) still ran the repair prompt"
+    assert_not_contains '^brew-refetch$' "$update_all_log" \
+      "a cancelled Homebrew bundle ($cancel_status) still re-fetched artifacts"
+    assert_not_contains '^apps-start$' "$update_all_log" \
+      "a cancelled Homebrew bundle ($cancel_status) continued into app relaunch"
+    [[ "$(grep -cxF 'brew-bundle' "$update_all_log")" -eq 1 ]] \
+      || fail "a cancelled Homebrew bundle ($cancel_status) retried the bundle"
+    grep -qF 'cancelled' "$bundle_output" \
+      || fail "a cancelled Homebrew bundle ($cancel_status) did not say so"
+  done
+
+  # The retry lane too: a first attempt that merely FAILS may reach repair and
+  # retry, but a cancelled retry must stop there.
+  for cancel_status in 124 125 130; do
+    rm -f "$update_all_home/.brew-bundle-count"
+    : >"$update_all_log"
+    bundle_output="$update_all_fixture/darwin-bundle-retry-cancel-$cancel_status"
+    bundle_exit=0
+    HOME="$update_all_home" PATH="$update_all_bin:$update_all_path" \
+      GROUNDWORK_TEST_LOG="$update_all_log" \
+      NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+      GROUNDWORK_BREW_BIN="$update_all_bin/brew" \
+      BREW_BUNDLE_STATUS_SEQUENCE="1 $cancel_status" REPAIR_STATUS=0 \
+      "$update_all_fixture/darwin-bundle-hook" >"$bundle_output" 2>&1 || bundle_exit=$?
+    [[ "$bundle_exit" -eq "$cancel_status" ]] \
+      || fail "a cancelled Homebrew bundle RETRY ($cancel_status) surfaced as exit $bundle_exit"
+    grep -qxF 'brew-shellenv' "$update_all_log" \
+      || fail "the cancelled bundle retry case did not run against the fixture stub"
+    [[ "$(grep -cxF 'brew-repair' "$update_all_log")" -eq 1 ]] \
+      || fail "the cancelled bundle retry case did not run repair exactly once before retrying"
+    [[ "$(grep -cxF 'brew-bundle' "$update_all_log")" -eq 2 ]] \
+      || fail "the cancelled bundle retry case did not retry the bundle exactly once"
+    assert_not_contains '^apps-start$' "$update_all_log" \
+      "a cancelled Homebrew bundle retry ($cancel_status) continued into app relaunch"
+  done
+
+  # Control: an ORDINARY bundle failure must still reach repair and retry. The
+  # guard has to be selective about cancellation, not a blanket early exit.
+  rm -f "$update_all_home/.brew-bundle-count"
+  : >"$update_all_log"
+  bundle_exit=0
+  HOME="$update_all_home" PATH="$update_all_bin:$update_all_path" \
+    GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_BREW_BIN="$update_all_bin/brew" \
+    BREW_BUNDLE_STATUS_SEQUENCE="1 0" REPAIR_STATUS=0 \
+    "$update_all_fixture/darwin-bundle-hook" \
+    >"$update_all_fixture/darwin-bundle-ordinary-failure" 2>&1 || bundle_exit=$?
+  [[ "$bundle_exit" -eq 0 ]] \
+    || fail "an ordinary bundle failure repaired and retried but still exited $bundle_exit"
+  grep -qxF 'brew-shellenv' "$update_all_log" \
+    || fail "the ordinary bundle failure case did not run against the fixture stub"
+  grep -qxF 'brew-repair' "$update_all_log" \
+    || fail "an ordinary bundle failure skipped the repair helper"
+  [[ "$(grep -cxF 'brew-bundle' "$update_all_log")" -eq 2 ]] \
+    || fail "an ordinary bundle failure did not retry after a successful repair"
+  rm -f "$update_all_home/.brew-bundle-count"
 
   # The production Docker Desktop transcript stopped after Homebrew entered its
   # privileged launchctl teardown. A cask that owns its updater or removes
