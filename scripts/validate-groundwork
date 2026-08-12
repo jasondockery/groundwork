@@ -3685,7 +3685,8 @@ SH
     "$cleanup_code/repo-c" "$cleanup_code/repo-offline" \
     "$cleanup_code/repo-version-fail" "$cleanup_code/repo-custom" \
     "$cleanup_code/repo-control" "$cleanup_code/repo-escape" \
-    "$cleanup_code/repo-prerelease" "$cleanup_code/false-marker/.git" \
+    "$cleanup_code/repo-prerelease" "$cleanup_code/repo-absent-store" \
+    "$cleanup_code/false-marker/.git" \
     "$cleanup_code/no-pin" \
     "$cleanup_home/Library/pnpm/store/v9/files" \
     "$cleanup_fixture/stores/v11/files" "$cleanup_fixture/stores/v10/files" \
@@ -3704,7 +3705,7 @@ SH
     "$cleanup_fixture/stores/"$'v12\033unsafe'
   ln -s "$cleanup_fixture/external-generation" "$cleanup_fixture/stores/v99"
   for cleanup_repo in repo-a repo-b repo-c repo-offline repo-version-fail repo-custom \
-    repo-control repo-escape repo-prerelease no-pin; do
+    repo-control repo-escape repo-prerelease repo-absent-store no-pin; do
     git -C "$cleanup_code/$cleanup_repo" init -q
   done
   cp home/dot_local/lib/groundwork/update-lock.sh \
@@ -3988,6 +3989,7 @@ EOF
   printf '{"packageManager":"pnpm@9.9.9"}\n' >"$cleanup_code/repo-offline/package.json"
   printf '{"packageManager":"pnpm@12.0.0"}\n' >"$cleanup_code/repo-version-fail/package.json"
   printf '{"packageManager":"pnpm@11.3.0"}\n' >"$cleanup_code/repo-custom/package.json"
+  printf '{"packageManager":"pnpm@11.2.0"}\n' >"$cleanup_code/repo-absent-store/package.json"
   printf '%s\n' '{"packageManager":"pnpm@11.2.0\nforged"}' \
     >"$cleanup_code/repo-control/package.json"
   printf '%s\n' '{"packageManager":"pnpm@11.2.0\u001b[31m"}' \
@@ -4085,6 +4087,13 @@ case "\$PWD" in
   */repo-custom)
     version=11.3.0
     store="$cleanup_fixture/custom-store/v11"
+    ;;
+  */repo-absent-store)
+    # pnpm names where the store WOULD be. This one is deliberately never
+    # created, which is the ordinary state of a machine that has not run an
+    # install for this generation yet.
+    version=11.2.0
+    store="$cleanup_fixture/stores/v-not-created"
     ;;
   */repo-conflict)
     version=10.1.0
@@ -4289,6 +4298,12 @@ SH
     || fail "relative trusted-root diagnostics changed with the launch directory"
   grep -qF 'pnpm v9 store' "$cleanup_fixture/report" \
     || fail "an unmatched whole store generation must be reported, never deleted"
+  # A store pnpm merely NAMES is not a suspect path. Reporting it for review
+  # told the user something was wrong with an ordinary, correct answer.
+  assert_not_contains 'v-not-created' "$cleanup_fixture/report" \
+    "a store path that simply has not been created yet was reported for review"
+  test ! -e "$cleanup_fixture/stores/v-not-created" \
+    || fail "read-only maintenance created a pnpm store directory that did not exist"
   assert_not_contains 'false marker queried' "$cleanup_log" \
     "a false .git marker was trusted as a repository"
   test ! -s "$cleanup_log" || fail "the read-only cleanup report invoked a mutating command"
@@ -9053,6 +9068,43 @@ EOF
 }
 
 validate_docker() {
+  check "Colima instance template and unattended start"
+  # Colima reads this template as the WHOLE configuration for a new instance,
+  # so an omitted key is an empty value, not a fallback to Colima's default. A
+  # missing runtime produced `unsupported container runtime ''` on a real work
+  # machine and failed the Docker maintenance lane. Both architectures render
+  # from the same file, so both must carry it.
+  for colima_arch in arm64 amd64; do
+    colima_rendered="$out_dir/colima-$colima_arch.yaml"
+    render darwin false "$colima_arch" home/dot_colima/_templates/default.yaml.tmpl \
+      "$colima_rendered"
+    grep -qE '^runtime:[[:space:]]*docker$' "$colima_rendered" \
+      || fail "the rendered Colima template ($colima_arch) does not pin runtime: docker, so a new instance starts with an empty runtime"
+    grep -qE '^vmType:[[:space:]]*vz$' "$colima_rendered" \
+      || fail "the rendered Colima template ($colima_arch) lost its vz virtualization choice"
+    # A YAML document Colima cannot parse is the same outage by another route.
+    if command -v python3 >/dev/null 2>&1; then
+      python3 -c 'import sys,yaml;yaml.safe_load(open(sys.argv[1]))' "$colima_rendered" 2>/dev/null \
+        || python3 - "$colima_rendered" <<'PY'
+import sys
+# PyYAML is not guaranteed here; fall back to asserting the pinned scalars
+# survive as top-level keys rather than skipping the shape check entirely.
+text = open(sys.argv[1]).read().splitlines()
+top = [line.split(":", 1)[0] for line in text if line and not line[0].isspace() and ":" in line]
+for required in ("runtime", "vmType", "mountType", "cpu", "memory"):
+    if required not in top:
+        raise SystemExit(f"rendered Colima template lost top-level {required}")
+PY
+    fi
+  done
+  # The unattended maintenance start states the runtime too: it must not depend
+  # on a stored instance runtime or on a template the user may have edited.
+  colima_start_runner="$out_dir/colima-start-runner"
+  render darwin false arm64 home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    "$colima_start_runner"
+  grep -qF 'colima start --runtime docker' "$colima_start_runner" \
+    || fail "the Docker maintenance lane starts Colima without stating its runtime"
+
   check "docker helper suite setup"
   # One scriptable docker stub serves the doctor, the tidy, the cache tidy, and
   # the build wrapper. Its state is plain TSV files a test writes per case —

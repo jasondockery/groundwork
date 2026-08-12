@@ -7,6 +7,11 @@
 # vz is Apple's virtualization framework (faster, lower energy than qemu),
 # virtiofs is the fastest bind-mount option, and Rosetta accelerates the
 # rare amd64-only image on Apple Silicon instead of falling back to QEMU.
+# Pinned explicitly, not left to fall back. Colima reads this file as the whole
+# configuration for a new instance, so an omitted runtime is read as an empty
+# one and `colima start` fails with "unsupported container runtime ''" rather
+# than defaulting to docker.
+runtime: docker
 vmType: vz
 mountType: virtiofs
 mountInotify: true

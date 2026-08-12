@@ -516,9 +516,17 @@ add_store_selection() {
     append_review "$repo" "$package_manager resolved pnpm $version; launcher drift, no store was touched"
     return 0
   fi
+  # pnpm reports where the store WOULD live, which is not a claim that it
+  # exists. A store that was never created has nothing to prune, so skip it
+  # quietly and never create it — reporting it for review said "this path is
+  # suspect" about an ordinary, correct answer. A path that DOES exist but
+  # cannot be resolved is still a real refusal.
+  if [[ ! -e "$store" ]]; then
+    return 0
+  fi
   canonical="$(canonical_dir "$store" || true)"
   if [[ -z "$canonical" ]]; then
-    append_review "$repo" "$package_manager returned a store path that could not be canonicalized: $store"
+    append_review "$repo" "$package_manager returned an existing store path that could not be canonicalized: $store"
     return 0
   fi
   printf '%s\t%s\t%s\t%s\n' "$canonical" "$repo" "$version" "$package_manager" >>"$store_selections"

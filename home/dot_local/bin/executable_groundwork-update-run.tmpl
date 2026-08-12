@@ -791,7 +791,11 @@ start_docker_backend() {
         docker desktop start --timeout "$docker_start_deadline"
       ;;
     colima)
-      run_bounded_internal "start Colima" "$docker_start_deadline" "" colima start
+      # --runtime docker is stated here as well as in the template: this start
+      # is unattended maintenance, and it must not depend on an existing
+      # instance's stored runtime or on a template a user may have edited.
+      run_bounded_internal "start Colima" "$docker_start_deadline" "" \
+        colima start --runtime docker
       ;;
     *) return 1 ;;
   esac
