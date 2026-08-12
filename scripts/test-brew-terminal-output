@@ -283,4 +283,208 @@ else:
     raise SystemExit(f"timed-out Homebrew child {child_pid} survived bounded cancellation")
 PY
 
+# Ctrl-C is the cancellation the field actually reaches for, and it has to work
+# through two layers that both fight it: script(1) disables signal generation on
+# the real terminal, and bash forces SIGINT to SIG_IGN in an asynchronous child
+# in a way that survives exec and cannot be reset from inside the child.
+#
+# The fixtures refuse SIGHUP so a collapsing pseudo-terminal cannot pass for
+# cancellation — that substitution is exactly how this suite stayed green while
+# the field defect was live. The grandchild models brew's own backgrounded
+# helpers (sudo, installer, hdiutil): it inherits the same ignored interrupt and
+# outlives the session leader Ctrl-C stops, and it refuses SIGTERM so only a
+# real TERM-to-KILL escalation against the whole group can close it.
+cat >"$fixture/interrupt-command" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+trap '' HUP
+echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
+(
+  trap '' HUP TERM INT
+  echo "$BASHPID" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
+  while :; do sleep 1; done
+) &
+echo "interrupt-fixture-ready"
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/interrupt-command"
+
+# The hard deadline owes the same guarantees as Ctrl-C. Here even the session
+# leader refuses HUP, INT, and TERM, so the deadline path is proven to escalate
+# to KILL across the entire nested group rather than relying on cooperation.
+cat >"$fixture/stubborn-command" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+trap '' HUP INT TERM
+(
+  trap '' HUP INT TERM
+  echo "$BASHPID" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
+  while :; do sleep 1; done
+) &
+echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
+echo "stubborn-fixture-ready"
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/stubborn-command"
+
+# One driver for both cases. It records the caller's complete terminal mode and
+# a distinctive caller trap before the attached stage, and reports both back
+# afterwards, so the assertions can prove the pane and the caller's own
+# cancellation behavior were returned exactly as they were borrowed.
+cat >"$fixture/cancel-driver" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+# shellcheck source=/dev/null
+. "$GW_LIBRARY"
+trap 'echo CALLER_INT_TRAP_FIRED' INT
+trap 'echo CALLER_TERM_TRAP_FIRED' TERM
+before="$(stty -g)"
+gw_brew_run_logged "$GW_LOG" "$GW_RECEIPT" reset "$GW_LABEL" -- "$GW_COMMAND"
+status=$?
+after="$(stty -g)"
+if [[ "$before" == "$after" ]]; then
+  printf '\nGW_STTY=identical\n'
+else
+  printf '\nGW_STTY=changed\n  before=%s\n  after=%s\n' "$before" "$after"
+fi
+printf 'GW_TRAP_INT=%s\n' "$(trap -p INT | tr -d '\n')"
+printf 'GW_TRAP_TERM=%s\n' "$(trap -p TERM | tr -d '\n')"
+exit "$status"
+SH
+chmod +x "$fixture/cancel-driver"
+
+python3 - "$repo" "$fixture" <<'PY'
+import errno
+import os
+import pathlib
+import pty
+import select
+import signal
+import sys
+import time
+
+repo = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2])
+library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
+
+
+def drive(case, environment, ready_marker, interrupt, expected_status, budget):
+    """Run one cancellation case under a real controlling terminal."""
+    child_pid_file = fixture / f"{case}-child.pid"
+    grandchild_pid_file = fixture / f"{case}-grandchild.pid"
+    for stale in (child_pid_file, grandchild_pid_file):
+        if stale.exists():
+            stale.unlink()
+    passed = dict(os.environ)
+    passed.update(
+        {
+            "GW_LIBRARY": str(library),
+            "GW_LOG": str(fixture / f"{case}.log"),
+            "GW_RECEIPT": str(fixture / f"{case}.tsv"),
+            "GW_LABEL": f"Homebrew {case} fixture",
+            "GW_COMMAND": str(fixture / f"{case}-command"),
+            "GROUNDWORK_TEST_CHILD_PID": str(child_pid_file),
+            "GROUNDWORK_TEST_GRANDCHILD_PID": str(grandchild_pid_file),
+        }
+    )
+    passed.update(environment)
+    pid, master = pty.fork()
+    if pid == 0:
+        os.execve(str(fixture / "cancel-driver"), [str(fixture / "cancel-driver")], passed)
+
+    captured = bytearray()
+    sent = not interrupt
+    status = None
+    deadline = time.monotonic() + budget
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([master], [], [], 0.1)
+        if readable:
+            try:
+                captured.extend(os.read(master, 65536))
+            except OSError as error:
+                if error.errno != errno.EIO:
+                    raise
+        if not sent and ready_marker.encode() in captured:
+            # Let script(1) finish taking the terminal before the interrupt lands.
+            time.sleep(0.5)
+            os.write(master, b"\x03")
+            sent = True
+        waited, candidate = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = candidate
+            break
+    text = captured.decode(errors="replace")
+    if status is None:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        raise SystemExit(f"{case}: cancellation did not complete within the test budget\n{text}")
+
+    returncode = os.waitstatus_to_exitcode(status)
+    if returncode != expected_status:
+        raise SystemExit(
+            f"{case}: exit {returncode}, expected {expected_status}. update-all "
+            f"distinguishes cancellation from an ordinary Homebrew failure by this "
+            f"status; a wrong one sends it into repair and retry against a terminal "
+            f"the user just asked to have back\n{text}"
+        )
+    if "GW_STTY=identical" not in text:
+        raise SystemExit(
+            f"{case}: the caller's terminal mode was not restored exactly as borrowed; "
+            f"script(1) disables signal generation, so a pane left this way ignores "
+            f"Ctrl-C and Ctrl-Z entirely\n{text}"
+        )
+    for signal_name in ("INT", "TERM"):
+        if f"CALLER_{signal_name}_TRAP_FIRED" not in text.split(f"GW_TRAP_{signal_name}=")[-1]:
+            raise SystemExit(
+                f"{case}: the caller's own {signal_name} trap did not survive the "
+                f"attached stage; the rest of the transaction would run with the "
+                f"cancellation behavior it declared silently removed\n{text}"
+            )
+    for name, pid_file in (("leader", child_pid_file), ("grandchild", grandchild_pid_file)):
+        recorded = int(pid_file.read_text())
+        for _ in range(40):
+            try:
+                os.kill(recorded, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(recorded, signal.SIGKILL)
+            raise SystemExit(
+                f"{case}: Homebrew {name} {recorded} survived cancellation; the "
+                f"nested process group was not closed\n{text}"
+            )
+    return text
+
+
+drive(
+    "interrupt",
+    {
+        "GROUNDWORK_BREW_POLL_SECONDS": "0.05",
+        "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS": "2",
+    },
+    "interrupt-fixture-ready",
+    interrupt=True,
+    expected_status=130,
+    budget=40,
+)
+
+deadline_text = drive(
+    "stubborn",
+    {
+        "GROUNDWORK_BREW_DEADLINE_SECONDS": "3",
+        "GROUNDWORK_BREW_STALL_SECONDS": "1",
+        "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS": "1",
+        "GROUNDWORK_BREW_POLL_SECONDS": "0.05",
+    },
+    "stubborn-fixture-ready",
+    interrupt=False,
+    expected_status=124,
+    budget=40,
+)
+if "exceeded its 3s hard deadline" not in deadline_text:
+    raise SystemExit(f"the hard deadline was not explained to the user\n{deadline_text}")
+PY
+
 echo "ok: interactive Homebrew output retains terminal ownership and bounded status"
+echo "ok: Ctrl-C and the hard deadline close the nested process group, restore the terminal, and preserve caller traps"

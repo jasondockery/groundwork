@@ -233,6 +233,207 @@ gw_brew_classify_cask_metadata() {
   rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
 }
 
+# script(1) puts the REAL terminal into raw mode with signal generation off and
+# restores it only on its own clean exit. Every cancellation path that kills
+# script therefore has to put the caller's terminal back itself, or the pane is
+# left with Ctrl-C and Ctrl-Z permanently inert — a shell that looks alive and
+# answers nothing. The snapshot is a global so the update runner's EXIT trap can
+# restore it too, whatever stage the transaction died in.
+#
+# Always empty at load, never seeded from the environment: this value is fed
+# straight to stty, so an inherited or stale one would let a caller outside this
+# library reprogram the terminal through Groundwork's own EXIT handler before any
+# snapshot was ever taken.
+GW_BREW_TTY_STATE=""
+
+# Fail closed: a terminal whose mode could not be read must not be handed to
+# script(1), because nothing would be able to give it back.
+gw_brew_tty_snapshot() {
+  if ! GW_BREW_TTY_STATE="$(stty -g </dev/tty 2>/dev/null)" \
+    || [[ -z "$GW_BREW_TTY_STATE" ]]; then
+    GW_BREW_TTY_STATE=""
+    echo "Groundwork: could not read this terminal's mode; refusing to start an attached Homebrew stage that could not restore it." >&2
+    return 1
+  fi
+  return 0
+}
+
+# A failed restore keeps the snapshot: the state is still the truth about how
+# this pane was borrowed, and a later attempt can still put it back. Clearing it
+# would throw away the only record of what "restored" means.
+gw_brew_tty_restore() {
+  [[ -n "${GW_BREW_TTY_STATE:-}" ]] || return 0
+  if ! stty "$GW_BREW_TTY_STATE" </dev/tty 2>/dev/null; then
+    echo "Groundwork: could not restore this terminal's mode. Run 'stty sane' in this pane to recover it." >&2
+    return 125
+  fi
+  GW_BREW_TTY_STATE=""
+  return 0
+}
+
+# script(1) calls login_tty(), so the command it runs becomes a session leader
+# on the nested pseudo-terminal: its own session, its own process group, no
+# relation to this shell's. Signalling script alone leaves brew and its sudo,
+# installer, and hdiutil descendants running with no terminal attached.
+#
+# The group is NOT discovered by scanning the process table. Between fork and
+# login_tty() the child is briefly still in this shell's group, so a scan can
+# read the caller's own pgid and aim cancellation at the update runner. Instead
+# the nested shell reports its own group as its very first action — after
+# login_tty it is the session and group leader, so its pid IS the pgid. That is
+# a fact the group leader knows about itself, available before the workload
+# starts, with no window in which the answer is wrong.
+#
+# This validates that receipt: a real group, never the caller's, never 0 or 1.
+gw_brew_verify_pgid() {
+  local file="$1" outer="$2" value
+  value="$(gw_brew_read_integer "$file" 2 4194304)" || return 1
+  [[ "$value" != "$outer" ]] || return 1
+  printf '%s' "$value"
+}
+
+# Only used to TERM script(1) itself as a backstop when the nested group is
+# already gone; the group receipt above is the authority for cancellation.
+gw_brew_script_pid() {
+  ps -axo pid=,ppid=,comm= 2>/dev/null \
+    | awk -v parent="$1" '$2 == parent && $3 ~ /(^|\/)script$/ { print $1; exit }'
+}
+
+# Read a typed integer receipt without laundering it. Deleting non-digits would
+# turn "12x34" into a plausible pid and "1e9" into 19 — a malformed receipt must
+# fail closed, never be repaired into something that looks valid. The WHOLE file
+# is the value: trailing content means the writer did not produce what this
+# contract describes, so "123\njunk" is rejected rather than truncated to 123.
+# Leading zeros are refused too, so one syntax maps to one value.
+gw_brew_read_integer() {
+  local file="$1" minimum="$2" maximum="$3" contents=""
+  [[ -f "$file" && -r "$file" ]] || return 1
+  # A sentinel preserves the real bytes: plain command substitution strips ALL
+  # trailing newlines, so "123\n\n" would pass a check the contract forbids.
+  contents="$(
+    cat -- "$file" 2>/dev/null
+    printf 'x'
+  )" || return 1
+  contents="${contents%x}"
+  contents="${contents%$'\n'}"
+  # Cap the digit count before any arithmetic: bash evaluates a huge literal
+  # rather than treating it as out of range.
+  [[ "${#contents}" -le 10 ]] || return 1
+  [[ "$contents" =~ ^(0|[1-9][0-9]*)$ ]] || return 1
+  [[ "$contents" -ge "$minimum" && "$contents" -le "$maximum" ]] || return 1
+  printf '%s' "$contents"
+}
+
+# A pgid of 0 or 1 is never signalled: those would mean "this process group"
+# (which would include the update runner itself) or init.
+#
+# A zombie is not a running member. It holds a table slot until its parent reaps
+# it but cannot execute anything, and `kill -0` cannot tell it apart from a live
+# process. Counting zombies as alive would turn ordinary teardown into a false
+# "group did not close" report and a spurious failure.
+gw_brew_group_alive() {
+  local pgid="${1:-}" listing
+  [[ "$pgid" =~ ^[0-9]+$ && "$pgid" -gt 1 ]] || return 1
+  if listing="$(ps -axo pgid=,stat= 2>/dev/null)" && [[ -n "$listing" ]]; then
+    printf '%s\n' "$listing" \
+      | awk -v pgid="$pgid" '
+          $1 == pgid && $2 !~ /^Z/ { found = 1; exit }
+          END { exit !found }'
+    return $?
+  fi
+  # Only if the process table could not be read at all.
+  kill -0 "-$pgid" 2>/dev/null
+}
+
+# Close the nested process group, TERM before KILL. Used both to cancel and to
+# sweep afterwards: brew's own descendants are backgrounded the same way this
+# supervisor backgrounds script(1), so they inherit the same ignored SIGINT and
+# can outlive the session leader that Ctrl-C did stop. A cancelled upgrade must
+# not leave an installer running against a terminal nobody is watching.
+# Escalation only counts if closure is confirmed. KILL is not instantaneous and
+# is not guaranteed — a process wedged in an uninterruptible device wait
+# survives it — so the group is re-checked after the signal and an unclosed
+# group is reported, never assumed shut.
+gw_brew_cancel_group() {
+  local pgid="$1" grace="$2" poll="$3" stopped_at
+  gw_brew_group_alive "$pgid" || return 0
+  kill -TERM "-$pgid" 2>/dev/null || true
+  stopped_at="$(date +%s)"
+  while gw_brew_group_alive "$pgid" \
+    && [[ "$(date +%s)" -lt $((stopped_at + grace)) ]]; do
+    sleep "$poll"
+  done
+  gw_brew_group_alive "$pgid" || return 0
+  kill -KILL "-$pgid" 2>/dev/null || true
+  stopped_at="$(date +%s)"
+  while gw_brew_group_alive "$pgid" \
+    && [[ "$(date +%s)" -lt $((stopped_at + grace)) ]]; do
+    sleep "$poll"
+  done
+  if gw_brew_group_alive "$pgid"; then
+    printf 'Groundwork: Homebrew process group %s did not close after SIGKILL; processes remain.\n' \
+      "$pgid" >&2
+    # shellcheck disable=SC2016 # Literal awk syntax shown to the user, not expanded here.
+    printf 'Groundwork: inspect them with: ps -axo pid,pgid,state,command | awk '\''$2 == %s'\''\n' \
+      "$pgid" >&2
+    return 125
+  fi
+  return 0
+}
+
+# The watchdog is the part that gets backgrounded, because it is the part that
+# may safely ignore SIGINT. It observes progress, prints the stall diagnostic,
+# and enforces the hard deadline against the nested process group. It records
+# the nested pgid as soon as that group exists so the supervisor can sweep for
+# orphans afterwards — once cancellation has run there is nothing left to ask.
+gw_brew_watchdog() {
+  local supervisor="$1" transcript="$2" label="$3" deadline="$4" stall="$5"
+  local grace="$6" poll="$7" marker="$8" outer_pgid="$9"
+  local started now last_progress next_stall size previous_size=0
+  local script_pid="" pty_pgid=""
+  started="$(date +%s)"
+  last_progress="$started"
+  next_stall=$((started + stall))
+  while :; do
+    [[ -n "$script_pid" ]] || script_pid="$(gw_brew_script_pid "$supervisor")"
+    if [[ -z "$pty_pgid" ]]; then
+      pty_pgid="$(gw_brew_verify_pgid "${marker}.pgid" "$outer_pgid")" || pty_pgid=""
+    fi
+    now="$(date +%s)"
+    size="$(wc -c <"$transcript" 2>/dev/null | tr -d '[:space:]')"
+    if [[ "$size" =~ ^[0-9]+$ && "$size" -ne "$previous_size" ]]; then
+      previous_size="$size"
+      last_progress="$now"
+      next_stall=$((now + stall))
+    elif [[ "$now" -ge "$next_stall" ]]; then
+      printf '\r\nGroundwork: %s is still running; no output for %ss. Password input remains attached here.\r\n' \
+        "$label" "$((now - last_progress))" >/dev/tty
+      printf 'Groundwork: press Ctrl-C here to cancel it.\r\n' >/dev/tty
+      # Deliberately NOT the supervisor pid: bash defers a trapped signal while
+      # it waits for the foreground script(1), so signalling the supervisor
+      # would appear to do nothing while Homebrew kept running. The nested group
+      # is the thing actually doing the work, so name that.
+      if [[ -n "$pty_pgid" ]]; then
+        printf 'Groundwork: if Ctrl-C does not take, from another terminal run: kill -TERM -- -%s\r\n' \
+          "$pty_pgid" >/dev/tty
+      fi
+      printf 'Groundwork: inspect with: ps -axo pid,ppid,pgid,%%cpu,etime,state,command | rg '\''brew|sudo|installer|hdiutil|docker'\''\r\n' >/dev/tty
+      next_stall=$((now + stall))
+    fi
+    if [[ "$now" -ge $((started + deadline)) ]]; then
+      printf '\r\nGroundwork: %s exceeded its %ss hard deadline; cancelling it.\r\n' \
+        "$label" "$deadline" >/dev/tty
+      printf 'timed-out\n' >"$marker"
+      gw_brew_cancel_group "$pty_pgid" "$grace" "$poll"
+      if [[ -n "$script_pid" ]]; then
+        kill -TERM "$script_pid" 2>/dev/null || true
+      fi
+      return 0
+    fi
+    sleep "$poll"
+  done
+}
+
 gw_brew_run_logged() {
   local normalized_log="$1" receipt_file="$2" mode="$3" label="$4"
   shift 4
@@ -270,50 +471,155 @@ gw_brew_run_logged() {
   esac
 
   if [[ "$(uname -s)" == Darwin && -t 0 && -t 1 && -t 2 && -x /usr/bin/script ]]; then
-    local transcript started now last_progress next_stall size previous_size=0
-    local child timed_out=0 stopped_at
+    local transcript marker status_file watchdog timed_out=0 pty_pgid="" recorded
     transcript="$(mktemp "${normalized_log}.pty.XXXXXX")" || return 1
-    chmod 600 "$transcript"
+    marker="$(mktemp "${normalized_log}.cancel.XXXXXX")" || return 1
+    status_file="$(mktemp "${normalized_log}.status.XXXXXX")" || return 1
+    chmod 600 "$transcript" "$marker" "$status_file"
+
+    # Everything that can refuse the stage is settled BEFORE the terminal
+    # snapshot and the trap swap, so no early exit can leave the caller with
+    # borrowed traps or a half-taken terminal. After this point there is exactly
+    # one way out, at the bottom of the branch.
+    #
+    # Without a trustworthy caller pgid the race guard cannot exclude this
+    # shell's own group, and cancellation could aim at the update runner itself.
+    local outer_pgid
+    outer_pgid="$(ps -o pgid= -p $$ 2>/dev/null | tr -d '[:space:]')"
+    if [[ ! "$outer_pgid" =~ ^[1-9][0-9]*$ ]]; then
+      rm -f -- "$transcript" "$marker" "$status_file"
+      echo "Groundwork: could not read this shell's process group; refusing to start an attached Homebrew stage that could not be cancelled safely." >&2
+      return 125
+    fi
+
     printf 'Groundwork: %s is attached directly to this terminal; password prompts stay visible.\n' "$label" >/dev/tty
     printf 'Groundwork: hard deadline %ss; quiet for %ss triggers a diagnostic, not cancellation.\n' "$deadline" "$stall" >/dev/tty
-    started="$(date +%s)"
-    last_progress="$started"
-    next_stall=$((started + stall))
-    /usr/bin/script -q -e -F "$transcript" "$@" </dev/tty >/dev/tty 2>/dev/tty &
-    child=$!
-    while kill -0 "$child" 2>/dev/null; do
-      now="$(date +%s)"
-      size="$(wc -c <"$transcript" | tr -d '[:space:]')"
-      if [[ "$size" =~ ^[0-9]+$ && "$size" -ne "$previous_size" ]]; then
-        previous_size="$size"
-        last_progress="$now"
-        next_stall=$((now + stall))
-      elif [[ "$now" -ge "$next_stall" ]]; then
-        printf '\r\nGroundwork: %s is still running; no output for %ss. Password input remains attached here.\r\n' \
-          "$label" "$((now - last_progress))" >/dev/tty
-        printf 'Groundwork: inspect from another terminal with: ps -axo pid,ppid,%%cpu,etime,state,command | rg '\''brew|sudo|installer|hdiutil|docker'\''\r\n' >/dev/tty
-        next_stall=$((now + stall))
-      fi
-      if [[ "$now" -ge $((started + deadline)) ]]; then
-        printf '\r\nGroundwork: %s exceeded its %ss hard deadline; cancelling it.\r\n' "$label" "$deadline" >/dev/tty
-        kill -TERM "$child" 2>/dev/null || true
-        stopped_at="$now"
-        while kill -0 "$child" 2>/dev/null && [[ "$(date +%s)" -lt $((stopped_at + grace)) ]]; do
-          sleep "$poll"
-        done
-        if kill -0 "$child" 2>/dev/null; then
-          kill -KILL "$child" 2>/dev/null || true
+    printf 'Groundwork: press Ctrl-C to cancel; the whole Homebrew process group stops and this terminal is restored.\n' >/dev/tty
+
+    # Take the terminal snapshot BEFORE script(1) switches it to raw, so every
+    # exit path below can hand the caller back a working pane. If the mode
+    # cannot be read, nothing here can promise to restore it — stop instead.
+    if ! gw_brew_tty_snapshot; then
+      rm -f -- "$transcript" "$marker" "$status_file"
+      return 125
+    fi
+
+    # Every caller of this function installs its own run-wide INT, TERM, and HUP
+    # traps. Borrow them for the attached stage and hand back exactly what was
+    # there, so the rest of the transaction keeps the cancellation behavior it
+    # declared. `trap -p` emits re-executable definitions; an unset signal emits
+    # nothing and is restored by the reset alone.
+    local saved_traps
+    saved_traps="$(trap -p INT TERM HUP)"
+    GW_BREW_CANCELLED=0
+    trap 'GW_BREW_CANCELLED=130' INT
+    trap 'GW_BREW_CANCELLED=143' TERM
+    trap 'GW_BREW_CANCELLED=129' HUP
+
+    # Bash forces SIGINT and SIGQUIT to SIG_IGN for an ASYNCHRONOUS child of a
+    # non-interactive shell, and a signal ignored on entry to a shell cannot be
+    # trapped or reset from inside it — `trap - INT` in the subshell does not
+    # undo it. The disposition then survives exec, through script(1) and on into
+    # brew and everything brew runs. So backgrounding the workload would hand
+    # the whole Homebrew tree a permanently ignored interrupt, and the Ctrl-C
+    # that script relays into the nested terminal would be delivered to
+    # processes that discard it — every run, not just a wedged one.
+    #
+    # The workload therefore runs in the FOREGROUND, where it inherits the
+    # default disposition and Ctrl-C is real, and the watchdog is what gets
+    # backgrounded instead. `set -m` is not the fix here: job control would move
+    # the workload to a background process group, and its first read of the
+    # terminal for a password would raise SIGTTIN and stop it.
+    gw_brew_watchdog "$$" "$transcript" "$label" "$deadline" "$stall" \
+      "$grace" "$poll" "$marker" "$outer_pgid" &
+    watchdog=$!
+    # script(1) -e collapses a signalled workload into an ordinary nonzero
+    # status, so a cancellation would be indistinguishable from a Homebrew
+    # failure — and update-all already spends exit 2 on "review required". The
+    # inner shell records the true status from inside the nested session, so
+    # cancellation stays cancellation all the way up to the runner.
+    # After script(1)'s login_tty this shell IS the session and process-group
+    # leader of the nested terminal, so $$ is the group id. Recording it here,
+    # before the workload is allowed to start, means the group is known from the
+    # first instant it exists — there is no window in which a Ctrl-C arrives
+    # against a group nothing has identified yet.
+    # The receipt paths are passed as ARGUMENTS, not exported variables, and the
+    # wrapper copies them into locals before the workload runs. Homebrew and its
+    # descendants therefore never see them in the environment: a child cannot
+    # overwrite the status receipt or point cleanup at another process group.
+    #
+    # Publication is fail-closed. If the group cannot be recorded and read back,
+    # the workload is never started — an unrecorded group is one Ctrl-C could
+    # not close, which is exactly the failure this path exists to prevent.
+    # shellcheck disable=SC2016 # The inner shell expands these, not this one.
+    /usr/bin/script -q -e -F "$transcript" /bin/bash -c '
+        gw_pgid_file="$1"
+        gw_status_file="$2"
+        shift 2
+        if ! printf "%s" "$$" >"$gw_pgid_file" \
+          || [[ "$(cat -- "$gw_pgid_file" 2>/dev/null)" != "$$" ]]; then
+          printf "Groundwork: could not publish the Homebrew process group; refusing to start it.\n" >&2
+          printf 125 >"$gw_status_file"
+          exit 125
         fi
-        timed_out=1
-        break
+        trap "printf 130 >\"$gw_status_file\"; exit 130" INT
+        trap "printf 143 >\"$gw_status_file\"; exit 143" TERM
+        trap "printf 129 >\"$gw_status_file\"; exit 129" HUP
+        workload_status=0
+        "$@" || workload_status=$?
+        printf "%s" "$workload_status" >"$gw_status_file"
+        exit "$workload_status"
+      ' gw-brew-workload "${marker}.pgid" "$status_file" "$@" </dev/tty >/dev/tty 2>/dev/tty \
+      || command_status=$?
+    if [[ -s "$status_file" ]]; then
+      if recorded="$(gw_brew_read_integer "$status_file" 0 255)"; then
+        command_status="$recorded"
+      else
+        echo "Groundwork: the Homebrew workload recorded a malformed exit status; treating the stage as failed." >&2
+        [[ "$command_status" -ne 0 ]] || command_status=1
       fi
-      sleep "$poll"
-    done
-    wait "$child" || command_status=$?
+    fi
+    kill -TERM "$watchdog" 2>/dev/null || true
+    wait "$watchdog" 2>/dev/null || true
+    trap - INT TERM HUP
+    [[ -z "$saved_traps" ]] || eval "$saved_traps"
+
+    [[ ! -s "$marker" ]] || timed_out=1
+    pty_pgid="$(gw_brew_verify_pgid "${marker}.pgid" "$outer_pgid")" || pty_pgid=""
+
+    # Sweep on every path, including a clean exit and a Ctrl-C the nested
+    # terminal delivered without this supervisor ever seeing a signal. brew
+    # backgrounds its own helpers exactly the way this function backgrounds the
+    # watchdog, so they carry the same ignored interrupt and can outlive the
+    # session leader that Ctrl-C did stop. Whatever brew started does not
+    # outlive this function.
+    local sweep_status=0 restore_status=0
+    gw_brew_cancel_group "$pty_pgid" "$grace" "$poll" || sweep_status=$?
+    # A clean, fast workload can finish before the watchdog ever sees its group,
+    # and that is fine — there is nothing left to close. But if this stage was
+    # CANCELLED, an unverified group means Homebrew may still be running with no
+    # terminal attached and nothing proved otherwise. Say so rather than report a
+    # tidy cancellation.
+    if [[ -z "$pty_pgid" ]] \
+      && { [[ "$timed_out" -ne 0 ]] || [[ "$GW_BREW_CANCELLED" -ne 0 ]]; }; then
+      echo "Groundwork: cancelled $label without confirming its process group; Homebrew processes may still be running." >&2
+      echo "Groundwork: check with: ps -axo pid,ppid,pgid,state,command | rg 'brew|sudo|installer|hdiutil'" >&2
+      [[ "$sweep_status" -ne 0 ]] || sweep_status=125
+    fi
+    # Restore before classifying: the terminal must come back even if the
+    # classifier itself fails.
+    gw_brew_tty_restore || restore_status=$?
     gw_brew_classify_transcript "$transcript" "$normalized_log" "$receipt_file" "$mode" \
       || classifier_status=$?
-    rm -f -- "$transcript"
+    rm -f -- "$transcript" "$marker" "${marker}.pgid" "$status_file"
+    # An unclosed process group or an unrestored terminal is the failure this
+    # whole path exists to prevent, so it outranks the workload's own status.
+    [[ "$sweep_status" -eq 0 ]] || return "$sweep_status"
+    [[ "$restore_status" -eq 0 ]] || return "$restore_status"
+    [[ "$GW_BREW_CANCELLED" -eq 0 ]] || return "$GW_BREW_CANCELLED"
     [[ "$timed_out" -eq 0 ]] || return 124
+    # script(1) -e reports the workload's status; a workload killed by SIGINT
+    # surfaces as 130 and is a cancellation, not a Homebrew failure.
     [[ "$command_status" -ne 0 ]] && return "$command_status"
     return "$classifier_status"
   fi
