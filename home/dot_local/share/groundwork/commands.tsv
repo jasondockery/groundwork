@@ -20,9 +20,9 @@ herdr	groundwork-herdr-integrations install --yes	command	Explicitly install Her
 herdr	groundwork-herdr-integrations uninstall --yes	command	Explicitly delegate removal of detected Claude Code/Codex hooks to Herdr's supported integration lifecycle.
 herdr	herdr status	command	Inspect the Herdr server and client state.
 herdr	herdr integration status	command	Show installed Herdr agent integration versions and state.
-herdr	Ctrl+b then q	key	Detach the Herdr client while the live server and pane processes continue.
-herdr	Ctrl+b then ?	key	Show Herdr's active keybindings.
-herdr	Ctrl+b then [	key	Enter Herdr copy mode.
+herdr	Ctrl+a then d	key	Detach the Herdr client while the live server and pane processes continue.
+herdr	Ctrl+a then ?	key	Show Herdr's active keybindings and Groundwork's full Herdr shortcut map.
+herdr	Ctrl+a then [	key	Enter Herdr copy mode.
 daily	groundwork-platform	command	Report the current platform as darwin, linux, wsl2, wsl1, wsl-unknown, or unsupported.
 daily	groundwork-distro [--family]	command	On Linux or WSL, report the distribution ID; --family reports its bootstrap family (debian, fedora, arch, opensuse, or unknown).
 daily	groundwork-profile show	command	Show the bootstrap seed, saved environment role, application release posture, terminal multiplexer selection, Xcode and Xcode-beta status, headless state, and detected operating-system channel.

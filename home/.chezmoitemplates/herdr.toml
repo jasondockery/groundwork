@@ -1,13 +1,80 @@
-# Groundwork's deliberately small Herdr baseline. `groundwork-herdr-config edit`
-# opens this source; user-owned configuration is never overwritten silently.
+# Groundwork's Herdr baseline keeps the same prefix and core mnemonics as its
+# tmux setup. `groundwork-herdr-config edit` opens this source; user-owned
+# configuration is never overwritten silently.
 onboarding = false
+
+[theme]
+name = "catppuccin"
 
 [terminal]
 shell_mode = "auto"
 new_cwd = "follow"
 
 [keys]
-prefix = "ctrl+b"
+prefix = "ctrl+a"
+
+# Keep displaced built-ins reachable when Groundwork reuses s, r, and T.
+help = "prefix+?"
+settings = "prefix+shift+s"
+detach = "prefix+d"
+reload_config = "prefix+r"
+resize_mode = "prefix+shift+r"
+copy_mode = "prefix+["
+
+# Pane keys match Groundwork tmux. Direct Ctrl+Alt navigation is available
+# without stealing Alt+h/j/k/l from Neovim's tmux-aware navigator.
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+close_pane = "prefix+x"
+zoom = "prefix+z"
+focus_pane_left = ["prefix+h", "ctrl+alt+h"]
+focus_pane_down = ["prefix+j", "ctrl+alt+j"]
+focus_pane_up = ["prefix+k", "ctrl+alt+k"]
+focus_pane_right = ["prefix+l", "ctrl+alt+l"]
+rename_pane = "prefix+shift+p"
+
+# Herdr tabs carry the tmux window shortcuts; workspaces carry session intent.
+new_tab = "prefix+c"
+rename_tab = "prefix+comma"
+close_tab = "prefix+ampersand"
+switch_tab = "prefix+1..9"
+previous_tab = "prefix+p"
+next_tab = "prefix+n"
+workspace_picker = "prefix+s"
+goto = "prefix+shift+t"
+rename_workspace = "prefix+$"
+
+[[keys.command]]
+key = "prefix+shift+h"
+type = "shell"
+command = "\"$HERDR_BIN_PATH\" pane resize --current --direction left --amount 5"
+description = "resize the active pane left"
+
+[[keys.command]]
+key = "prefix+shift+j"
+type = "shell"
+command = "\"$HERDR_BIN_PATH\" pane resize --current --direction down --amount 5"
+description = "resize the active pane down"
+
+[[keys.command]]
+key = "prefix+shift+k"
+type = "shell"
+command = "\"$HERDR_BIN_PATH\" pane resize --current --direction up --amount 5"
+description = "resize the active pane up"
+
+[[keys.command]]
+key = "prefix+shift+l"
+type = "shell"
+command = "\"$HERDR_BIN_PATH\" pane resize --current --direction right --amount 5"
+description = "resize the active pane right"
+
+[[keys.command]]
+key = "prefix+g"
+type = "popup"
+command = "lazygit"
+description = "open lazygit in the active pane directory"
+width = "90%"
+height = "90%"
 
 [session]
 resume_agents_on_restore = true
@@ -23,6 +90,13 @@ pane_history = false
 
 [ui]
 sidebar_start_collapsed = false
+mouse_capture = true
+copy_on_select = true
+confirm_close = true
+prompt_new_tab_name = false
+pane_borders = true
+pane_scrollbars = false
+pane_gaps = false
 
 [ui.sound]
 enabled = false

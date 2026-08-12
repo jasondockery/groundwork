@@ -69,11 +69,68 @@ import sys, tomllib
 with open(sys.argv[1], "rb") as source:
     config = tomllib.load(source)
 assert config["onboarding"] is False
+assert config["theme"] == {"name": "catppuccin"}
 assert config["terminal"] == {"shell_mode": "auto", "new_cwd": "follow"}
-assert config["keys"]["prefix"] == "ctrl+b"
+keys = config["keys"]
+expected_keys = {
+    "prefix": "ctrl+a",
+    "help": "prefix+?",
+    "settings": "prefix+shift+s",
+    "detach": "prefix+d",
+    "reload_config": "prefix+r",
+    "resize_mode": "prefix+shift+r",
+    "copy_mode": "prefix+[",
+    "split_vertical": "prefix+|",
+    "split_horizontal": "prefix+minus",
+    "close_pane": "prefix+x",
+    "zoom": "prefix+z",
+    "focus_pane_left": ["prefix+h", "ctrl+alt+h"],
+    "focus_pane_down": ["prefix+j", "ctrl+alt+j"],
+    "focus_pane_up": ["prefix+k", "ctrl+alt+k"],
+    "focus_pane_right": ["prefix+l", "ctrl+alt+l"],
+    "rename_pane": "prefix+shift+p",
+    "new_tab": "prefix+c",
+    "rename_tab": "prefix+comma",
+    "close_tab": "prefix+ampersand",
+    "switch_tab": "prefix+1..9",
+    "previous_tab": "prefix+p",
+    "next_tab": "prefix+n",
+    "workspace_picker": "prefix+s",
+    "goto": "prefix+shift+t",
+    "rename_workspace": "prefix+$",
+}
+for action, binding in expected_keys.items():
+    assert keys[action] == binding, (action, keys.get(action))
+assert keys["command"] == [
+    {
+        "key": f"prefix+shift+{key}",
+        "type": "shell",
+        "command": f'"$HERDR_BIN_PATH" pane resize --current --direction {direction} --amount 5',
+        "description": f"resize the active pane {direction}",
+    }
+    for key, direction in (("h", "left"), ("j", "down"), ("k", "up"), ("l", "right"))
+] + [{
+    "key": "prefix+g",
+    "type": "popup",
+    "command": "lazygit",
+    "description": "open lazygit in the active pane directory",
+    "width": "90%",
+    "height": "90%",
+}]
 assert config["session"]["resume_agents_on_restore"] is True
 assert config["remote"]["manage_ssh_config"] is False
 assert config["experimental"] == {"allow_nested": False, "pane_history": False}
+assert config["ui"] == {
+    "sidebar_start_collapsed": False,
+    "mouse_capture": True,
+    "copy_on_select": True,
+    "confirm_close": True,
+    "prompt_new_tab_name": False,
+    "pane_borders": True,
+    "pane_scrollbars": False,
+    "pane_gaps": False,
+    "sound": {"enabled": False},
+}
 PY
 
 # The launcher keeps Herdr primary for `both`, never aliases tmux, and refuses
@@ -188,8 +245,10 @@ for invalid_source in "${invalid_consumers[@]}"; do
   fi
   grep -qF 'invalid terminal_multiplexer value "tmuux"' "$tmp/$invalid_name.err"
 done
-grep -qF 'github.com/ogulcancelik/herdr#license' "$repo/home/.chezmoi.toml.tmpl"
-grep -qF 'AGPL-3.0-or-later or commercial license' "$repo/home/dot_local/bin/executable_groundwork-configure"
+grep -qF 'github.com/herdrdev/herdr#license' "$repo/home/.chezmoi.toml.tmpl"
+grep -qF 'Herdr (recommended; Apache-2.0)' "$repo/home/dot_local/bin/executable_groundwork-configure"
+assert_absent 'github.com/ogulcancelik/herdr' "$repo/home/.chezmoi.toml.tmpl"
+assert_absent 'AGPL-3.0' "$repo/home/dot_local/bin/executable_groundwork-configure"
 
 # Agent hooks are explicit, literal-consent operations and delegate only the
 # two supported tools detected on PATH. No apply hook invokes them.
