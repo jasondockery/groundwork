@@ -77,8 +77,8 @@ description = "resize the active pane right"
 [[keys.command]]
 key = "prefix+g"
 type = "popup"
-command = "lazygit"
-description = "open lazygit in the active pane directory"
+command = "if [ -n \"${HERDR_ACTIVE_PANE_CWD:-}\" ]; then cd \"$HERDR_ACTIVE_PANE_CWD\" || exit; fi; exec lazygit"
+description = "open lazygit in the active pane directory when available"
 width = "90%"
 height = "90%"
 

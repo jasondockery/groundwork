@@ -102,7 +102,7 @@ tmux without prompting or silently changing their established workflow. */ -}}
 {{- $terminalMultiplexer = "tmux" -}}
 {{- else -}}
 {{- $muxByNum := dict "1" "herdr" "2" "tmux" "3" "both" "4" "none" -}}
-{{- $muxChoice := promptChoiceOnce . "terminal_multiplexer" "Terminal multiplexer — type 1-4:\n  1. Herdr (recommended) — AI-native workspaces, panes, and agent recovery; Apache-2.0\n  2. tmux — traditional, mature terminal multiplexer\n  3. Both — Herdr primary, tmux retained as a fallback; Herdr licensing applies\n  4. None — preserve user-managed multiplexer tooling\nHerdr license: https://github.com/herdrdev/herdr#license\nGroundwork never nests them automatically (Enter keeps the default: 1)" (list "1" "2" "3" "4") "1" -}}
+{{- $muxChoice := promptChoiceOnce . "terminal_multiplexer" "Terminal multiplexer — type 1-4:\n  1. Herdr (recommended) — AI-native workspaces, panes, and agent recovery; Apache-2.0\n  2. tmux — traditional, mature terminal multiplexer\n  3. Both — Herdr primary, tmux retained as a fallback; includes Herdr under Apache-2.0\n  4. None — preserve user-managed multiplexer tooling\nHerdr license: https://github.com/herdrdev/herdr#license\nGroundwork never nests them automatically (Enter keeps the default: 1)" (list "1" "2" "3" "4") "1" -}}
 {{- if hasKey $muxByNum $muxChoice -}}
 {{- $terminalMultiplexer = index $muxByNum $muxChoice -}}
 {{- else -}}

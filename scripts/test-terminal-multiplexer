@@ -112,6 +112,80 @@ expected_keys = {
 }
 for action, binding in expected_keys.items():
     assert keys[action] == binding, (action, keys.get(action))
+
+# Model Herdr 0.8's effective prefix keymap: an explicitly configured value
+# replaces its default, and an empty list removes the action. This catches a
+# future local collision between the custom resize commands and any retained
+# built-in instead of proving only that TOML can round-trip `[]`.
+herdr_080_defaults = {
+    "help": "prefix+?",
+    "settings": "prefix+s",
+    "new_workspace": "prefix+shift+n",
+    "new_worktree": "prefix+shift+g",
+    "open_worktree": [],
+    "remove_worktree": [],
+    "rename_workspace": "prefix+shift+w",
+    "close_workspace": "prefix+shift+d",
+    "workspace_picker": "prefix+w",
+    "goto": "prefix+g",
+    "detach": "prefix+q",
+    "reload_config": "prefix+shift+r",
+    "open_notification_target": "prefix+o",
+    "previous_workspace": [],
+    "next_workspace": [],
+    "previous_agent": [],
+    "next_agent": [],
+    "focus_agent": [],
+    "new_tab": "prefix+c",
+    "rename_tab": "prefix+shift+t",
+    "previous_tab": "prefix+p",
+    "next_tab": "prefix+n",
+    "switch_tab": "prefix+1..9",
+    "switch_workspace": [],
+    "close_tab": "prefix+shift+x",
+    "rename_pane": "prefix+shift+p",
+    "edit_scrollback": "prefix+e",
+    "copy_mode": "prefix+[",
+    "focus_pane_left": "prefix+h",
+    "focus_pane_down": "prefix+j",
+    "focus_pane_up": "prefix+k",
+    "focus_pane_right": "prefix+l",
+    "swap_pane_left": "prefix+shift+h",
+    "swap_pane_down": "prefix+shift+j",
+    "swap_pane_up": "prefix+shift+k",
+    "swap_pane_right": "prefix+shift+l",
+    "cycle_pane_next": "prefix+tab",
+    "cycle_pane_previous": "prefix+shift+tab",
+    "last_pane": [],
+    "split_vertical": "prefix+v",
+    "split_horizontal": "prefix+minus",
+    "close_pane": "prefix+x",
+    "zoom": "prefix+z",
+    "resize_mode": "prefix+r",
+    "toggle_sidebar": "prefix+b",
+}
+effective_key_owners = {}
+for action, default in herdr_080_defaults.items():
+    configured = keys[action] if action in keys else default
+    bindings = [configured] if isinstance(configured, str) else configured
+    for binding in bindings:
+        assert binding not in effective_key_owners, (
+            binding,
+            effective_key_owners.get(binding),
+            action,
+        )
+        effective_key_owners[binding] = action
+for command in keys["command"]:
+    binding = command["key"]
+    assert binding not in effective_key_owners, (
+        binding,
+        effective_key_owners.get(binding),
+        "command",
+    )
+    effective_key_owners[binding] = "command"
+for direction in ("left", "down", "up", "right"):
+    assert f"swap_pane_{direction}" not in effective_key_owners.values()
+
 assert keys["command"] == [
     {
         "key": f"prefix+shift+{key}",
@@ -123,8 +197,8 @@ assert keys["command"] == [
 ] + [{
     "key": "prefix+g",
     "type": "popup",
-    "command": "lazygit",
-    "description": "open lazygit in the active pane directory",
+    "command": 'if [ -n "${HERDR_ACTIVE_PANE_CWD:-}" ]; then cd "$HERDR_ACTIVE_PANE_CWD" || exit; fi; exec lazygit',
+    "description": "open lazygit in the active pane directory when available",
     "width": "90%",
     "height": "90%",
 }]
@@ -182,6 +256,59 @@ for command, direction in zip(resize_commands, ("left", "down", "up", "right"), 
         "pane", "resize", "--pane", active_pane,
         "--direction", direction, "--amount", "5",
     ]
+PY
+
+# Herdr 0.8 passes popup commands the active pane directory as an environment
+# variable but does not use it as the popup process cwd. Exercise the configured
+# shell command with a recording lazygit stub to prove it changes directories
+# when the value is available and safely retains the popup cwd when it is not.
+python3 - "$repo/home/.chezmoitemplates/herdr.toml" "$tmp" <<'PY'
+import os
+import pathlib
+import stat
+import subprocess
+import sys
+import tomllib
+
+config_path = pathlib.Path(sys.argv[1])
+fixture = pathlib.Path(sys.argv[2]) / "herdr popup fixture"
+bin_dir = fixture / "bin with spaces"
+active_repo = fixture / "active pane repo"
+fallback_dir = fixture / "server fallback"
+for directory in (bin_dir, active_repo, fallback_dir):
+    directory.mkdir(parents=True)
+
+lazygit = bin_dir / "lazygit"
+lazygit.write_text("#!/bin/sh\npwd -P >\"$GROUNDWORK_LAZYGIT_CWD\"\n")
+lazygit.chmod(lazygit.stat().st_mode | stat.S_IXUSR)
+cwd_path = fixture / "lazygit cwd"
+
+with config_path.open("rb") as source:
+    commands = tomllib.load(source)["keys"]["command"]
+popup = next(command for command in commands if command["type"] == "popup")
+
+environment = dict(os.environ)
+environment.update({
+    "GROUNDWORK_LAZYGIT_CWD": str(cwd_path),
+    "HERDR_ACTIVE_PANE_CWD": str(active_repo),
+    "PATH": str(bin_dir) + os.pathsep + environment.get("PATH", ""),
+})
+subprocess.run(
+    ["/bin/sh", "-c", popup["command"]],
+    check=True,
+    cwd=fallback_dir,
+    env=environment,
+)
+assert pathlib.Path(cwd_path.read_text().strip()).resolve() == active_repo.resolve()
+
+environment.pop("HERDR_ACTIVE_PANE_CWD")
+subprocess.run(
+    ["/bin/sh", "-c", popup["command"]],
+    check=True,
+    cwd=fallback_dir,
+    env=environment,
+)
+assert pathlib.Path(cwd_path.read_text().strip()).resolve() == fallback_dir.resolve()
 PY
 
 # The launcher keeps Herdr primary for `both`, never aliases tmux, and refuses
