@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Isolate the fixtures from the developer's own terminal. These cases assert
+# what a launcher does in a FRESH session; inheriting an ambient multiplexer
+# makes them assert nesting instead, so running the validator the normal way —
+# from inside tmux — failed on the environment rather than on the code. The
+# nesting cases below set these variables explicitly where they are exercised.
+unset TMUX TMUX_PANE HERDR_ENV
+
 repo="$(cd "$(dirname "$0")/.." && pwd -P)"
 tmp_parent=/tmp
 [[ ! -d /private/tmp ]] || tmp_parent=/private/tmp
