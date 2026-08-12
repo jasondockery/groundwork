@@ -59,6 +59,12 @@ ALLOWED_ORIGINS = {
     "tmux-builtin",
     "tmux-plugin",
 }
+MULTIPLEXER_KEY_ORIGINS = {
+    "herdr-binding",
+    "tmux-binding",
+    "tmux-builtin",
+    "tmux-plugin",
+}
 
 # These executables support another public command or an automatic hook. They
 # are not standalone learner interfaces.
@@ -560,13 +566,17 @@ class GroundworkHTML(HTMLParser):
         self.code_texts: list[str] = []
         self.kbd_texts: list[str] = []
         self.key_groups: list[str] = []
+        self.section_key_groups: list[tuple[str, str]] = []
         self.blocks: list[str] = []
         self.block_details: list[tuple[str, list[str]]] = []
+        self.section_block_details: list[tuple[str, str, list[str]]] = []
         self.visible_parts: list[str] = []
         self.has_site_marker = False
         self._captures: list[tuple[str, str, list[str]]] = []
         self._elements: list[tuple[str, tuple[str, str, list[str]] | None]] = []
         self._block_kbd: dict[int, list[str]] = {}
+        self._block_has_child: set[int] = set()
+        self._current_h2 = ""
 
     def handle_starttag(self, tag: str, attrs_list: list[tuple[str, str | None]]) -> None:
         attrs = {name: value or "" for name, value in attrs_list}
@@ -596,6 +606,9 @@ class GroundworkHTML(HTMLParser):
         elif tag == "span" and "keys" in attrs.get("class", "").split():
             capture = (tag, "keys", [])
         elif tag in self.BLOCK_TAGS:
+            for active in self._captures:
+                if active[1] == "block":
+                    self._block_has_child.add(id(active))
             capture = (tag, "block", [])
             self._block_kbd[id(capture)] = []
         if capture is not None:
@@ -631,7 +644,7 @@ class GroundworkHTML(HTMLParser):
             if capture_index is None:
                 continue
             del self._captures[capture_index]
-            _, kind, parts = capture
+            capture_tag, kind, parts = capture
             value = " ".join(" ".join(parts).split())
             if not value:
                 continue
@@ -644,9 +657,18 @@ class GroundworkHTML(HTMLParser):
                         self._block_kbd[id(active)].append(value)
             elif kind == "keys":
                 self.key_groups.append(value)
+                self.section_key_groups.append((self._current_h2, value))
             elif kind == "block":
+                kbd_values = self._block_kbd.pop(id(capture), [])
                 self.blocks.append(value)
-                self.block_details.append((value, self._block_kbd.pop(id(capture), [])))
+                self.block_details.append((value, kbd_values))
+                if id(capture) not in self._block_has_child:
+                    self.section_block_details.append(
+                        (self._current_h2, value, kbd_values)
+                    )
+                self._block_has_child.discard(id(capture))
+                if capture_tag == "h2":
+                    self._current_h2 = value
 
     @property
     def visible_text(self) -> str:
@@ -671,7 +693,7 @@ TOKEN_RE = re.compile(
 KEY_TOKEN_RE = re.compile(
     r"--?[A-Za-z0-9][A-Za-z0-9-]*|"
     r"[A-Za-z0-9][A-Za-z0-9._-]*|"
-    r"[$|&<>,-]"
+    r"[\[\]?$|&<>,;-]"
 )
 
 
@@ -714,16 +736,24 @@ def contains_key_tokens(haystack: str, needle: tuple[str, ...]) -> bool:
     return any(tokens[index : index + width] == needle for index in range(len(tokens) - width + 1))
 
 
+def section_matches(heading: str, section: str) -> bool:
+    return contains_tokens(heading, normalized_tokens(section))
+
+
+def context_matches_section(heading: str, context: str, section: str) -> bool:
+    return section_matches(heading, section) or contains_tokens(
+        context, normalized_tokens(section)
+    )
+
+
 def key_candidates(item: str) -> list[tuple[str, ...]]:
-    if item.startswith("Ctrl+b then "):
-        tail = normalized_key_tokens(item.removeprefix("Ctrl+b then "))
-        return [("ctrl", "b", "then", *tail), ("prefix", *tail)]
     if item.startswith("Ctrl+a then "):
         tail = item.removeprefix("Ctrl+a then ")
         tail_tokens = normalized_key_tokens(tail)
         without_shift = tuple(token for token in tail_tokens if token != "shift")
         candidates = [
             ("ctrl", "a", "then", *tail_tokens),
+            ("ctrl", "a", *tail_tokens),
             ("prefix", *tail_tokens),
             ("prefix", *without_shift),
         ]
@@ -731,6 +761,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "h", "j", "k", "l"),
+                    ("ctrl", "a", "h", "j", "k", "l"),
                     ("prefix", "h", "j", "k", "l"),
                 ]
             )
@@ -738,6 +769,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "H", "J", "K", "L"),
+                    ("ctrl", "a", "H", "J", "K", "L"),
                     ("prefix", "H", "J", "K", "L"),
                 ]
             )
@@ -745,6 +777,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "<", ">"),
+                    ("ctrl", "a", "<", ">"),
                     ("prefix", "<", ">"),
                 ]
             )
@@ -752,6 +785,7 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
             candidates.extend(
                 [
                     ("ctrl", "a", "then", "|", "-"),
+                    ("ctrl", "a", "|", "-"),
                     ("prefix", "|", "-"),
                 ]
             )
@@ -769,7 +803,12 @@ def key_candidates(item: str) -> list[tuple[str, ...]]:
     return [normalized_key_tokens(item)]
 
 
-def item_is_mentioned(item: str, kind: str, document: GroundworkHTML) -> bool:
+def item_is_mentioned(
+    item: str,
+    kind: str,
+    document: GroundworkHTML,
+    section: str | None = None,
+) -> bool:
     if kind != "key":
         candidates = [item]
         if kind == "alias" and " / " in item:
@@ -796,12 +835,29 @@ def item_is_mentioned(item: str, kind: str, document: GroundworkHTML) -> bool:
         )
     if item.startswith("tmux copy-mode-vi: "):
         tail = normalized_key_tokens(item.split(": ", 1)[1])
+        block_details = document.block_details
+        if section is not None:
+            block_details = [
+                (block, kbd_values)
+                for heading, block, kbd_values in document.section_block_details
+                if context_matches_section(heading, block, section)
+            ]
         return any(
             contains_tokens(block, ("copy", "mode"))
             and contains_key_tokens(" ".join(kbd_values), tail)
-            for block, kbd_values in document.block_details
+            for block, kbd_values in block_details
         )
     contexts = document.key_groups + document.blocks
+    if section is not None:
+        contexts = [
+            value
+            for heading, value in document.section_key_groups
+            if section_matches(heading, section)
+        ] + [
+            block
+            for heading, block, _ in document.section_block_details
+            if context_matches_section(heading, block, section)
+        ]
     return any(
         contains_key_tokens(context, candidate)
         for context in contexts
@@ -1085,6 +1141,11 @@ def build_inventory(
         source = str(CATALOG.relative_to(ROOT))
         if row["item"] in tmux_sources:
             source = tmux_sources[row["item"]]
+        coverage_section = (
+            row["category"]
+            if item_metadata["origin"] in MULTIPLEXER_KEY_ORIGINS
+            else None
+        )
         output_rows.append(
             {
                 "surface": row["category"],
@@ -1094,11 +1155,20 @@ def build_inventory(
                 "source": source,
                 "canonical_page": teaching_page,
                 "cheat_sheet": (
-                    "yes" if item_is_mentioned(row["item"], row["kind"], cheat) else "no"
+                    "yes"
+                    if item_is_mentioned(
+                        row["item"], row["kind"], cheat, section=coverage_section
+                    )
+                    else "no"
                 ),
                 "troubleshooting": (
                     "yes"
-                    if item_is_mentioned(row["item"], row["kind"], troubleshoot)
+                    if item_is_mentioned(
+                        row["item"],
+                        row["kind"],
+                        troubleshoot,
+                        section=coverage_section,
+                    )
                     else "no"
                 ),
                 "availability": availability_label(item_metadata),

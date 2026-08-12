@@ -180,7 +180,7 @@
         <tr><td><code>groundwork-herdr-integrations status</code></td><td>Show Herdr&apos;s official integration status for agent session identity and recovery.</td></tr>
         <tr><td><code>groundwork-herdr-integrations install --yes</code></td><td>Explicitly install Herdr&apos;s official Claude Code and Codex hooks for agent tools found on this machine. This never runs during <code>chezmoi apply</code>.</td></tr>
         <tr><td><code>groundwork-herdr-integrations uninstall --yes</code></td><td>Delegate exact Claude Code/Codex hook removal to Herdr&apos;s supported integration lifecycle.</td></tr>
-        <tr><td><code>Ctrl+b</code></td><td>Herdr&apos;s Groundwork-managed prefix: press <code>q</code> to detach, <code>?</code> for active keybindings, or <code>[</code> for copy mode.</td></tr>
+        <tr><td><code>Ctrl+a</code></td><td>The shared Groundwork tmux/Herdr prefix. In Herdr, press <code>d</code> to detach, <code>?</code> for active keybindings, <code>[</code> for copy mode, <code>g</code> for lazygit, or use the pane and tab mnemonics on the <a href="herdr.html">Herdr page</a>.</td></tr>
         <tr><td><code>chezmoi diff</code></td><td>Preview managed-file changes before applying them.</td></tr>
         <tr><td><code>chezmoi apply</code></td><td>Apply this repo to your home directory.</td></tr>
         <tr><td><code>chezmoi update --init</code></td><td>Pull the Groundwork repo and apply it. <code>--init</code> also refreshes the setup answers when new questions were added — answers you already gave are kept, only new questions are asked. This syncs config and installs newly declared tools; it does not request routine upgrades of already-installed tools, though Homebrew may update a dependency required by a new entry.</td></tr>
