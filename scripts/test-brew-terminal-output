@@ -375,6 +375,10 @@ printf 'GW_SUPERVISOR_PID=%s\n' "$$"
 driver_exit() {
   status=$?
   trap - EXIT
+  printf 'GW_WATCHDOG_PID=%s\n' "$GW_BREW_ACTIVE_WATCHDOG"
+  printf 'GW_RECORDER_PID=%s\n' "$GW_BREW_ACTIVE_RECORDER"
+  active_pgid="$(gw_brew_verify_pgid "$GW_BREW_ACTIVE_PGID_FILE" "$GW_BREW_ACTIVE_OUTER_PGID" 2>/dev/null || true)"
+  printf 'GW_NESTED_PGID=%s\n' "$active_pgid"
   gw_brew_cleanup_active_stage || status=$?
   gw_brew_tty_restore || status=$?
   after="$(stty -g)"
@@ -418,6 +422,7 @@ import pty
 import re
 import select
 import signal
+import subprocess
 import sys
 import termios
 import time
@@ -425,6 +430,39 @@ import time
 repo = pathlib.Path(sys.argv[1])
 fixture = pathlib.Path(sys.argv[2])
 library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
+
+
+def process_stopped(pid):
+    result = subprocess.run(
+        ["ps", "-o", "stat=", "-p", str(pid)],
+        check=False, capture_output=True, text=True,
+    )
+    state = result.stdout.strip()
+    return not state or state.startswith("Z")
+
+
+def group_alive(pgid):
+    result = subprocess.run(
+        ["ps", "-axo", "pgid=,stat="],
+        check=True, capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0] == str(pgid) and not fields[1].startswith("Z"):
+            return True
+    return False
+
+
+def require_stopped(description, pid, text, attempts=100):
+    for _ in range(attempts):
+        if process_stopped(pid):
+            return
+        time.sleep(0.1)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    raise SystemExit(f"{description} {pid} remained live\n{text}")
 
 
 def drive(case, environment, ready_marker, interrupt, expected_status, budget,
@@ -550,14 +588,112 @@ if "exceeded its 3s hard deadline" not in deadline_text:
     raise SystemExit(f"the hard deadline was not explained to the user\n{deadline_text}")
 
 
+def drive_outer_signal(signal_name, signal_number, expected_status):
+    """Signal only the /bin/bash 3.2 supervisor and prove EXIT cleanup."""
+    case = f"outer-{signal_name.lower()}"
+    child_pid_file = fixture / f"{case}-child.pid"
+    grandchild_pid_file = fixture / f"{case}-grandchild.pid"
+    log = fixture / f"{case}.log"
+    for stale in (child_pid_file, grandchild_pid_file):
+        if stale.exists():
+            stale.unlink()
+    passed = dict(os.environ)
+    passed.update({
+        "GW_LIBRARY": str(library),
+        "GW_LOG": str(log),
+        "GW_RECEIPT": str(fixture / f"{case}.tsv"),
+        "GW_LABEL": f"Homebrew outer SIG{signal_name} fixture",
+        "GW_COMMAND": str(fixture / "stubborn-command"),
+        "GROUNDWORK_TEST_CHILD_PID": str(child_pid_file),
+        "GROUNDWORK_TEST_GRANDCHILD_PID": str(grandchild_pid_file),
+        "GROUNDWORK_TEST_HELPER": str(fixture / "stubborn-helper"),
+        "GW_EXIT_ON_SIGNAL": "1",
+        "GROUNDWORK_BREW_POLL_SECONDS": "0.05",
+        "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS": "1",
+        "GROUNDWORK_BREW_STALL_SECONDS": "600",
+        "GROUNDWORK_BREW_DEADLINE_SECONDS": "600",
+    })
+    pid, master = pty.fork()
+    if pid == 0:
+        # Explicitly exercise Apple's supported Bash 3.2 boundary, regardless
+        # of which newer bash /usr/bin/env might find in the job's PATH.
+        os.execve("/bin/bash", ["/bin/bash", str(fixture / "cancel-driver")], passed)
+
+    captured = bytearray()
+    signalled = False
+    status = None
+    deadline = time.monotonic() + 40
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([master], [], [], 0.1)
+        if readable:
+            try:
+                captured.extend(os.read(master, 65536))
+            except OSError as error:
+                if error.errno != errno.EIO:
+                    raise
+        if (not signalled and b"stubborn-fixture-ready" in captured
+                and child_pid_file.exists() and grandchild_pid_file.exists()):
+            match = re.search(rb"GW_SUPERVISOR_PID=(\d+)", captured)
+            if match:
+                # The nested group is deliberately not signalled here. This is
+                # the external caller path the prior test never exercised.
+                os.kill(int(match.group(1)), signal_number)
+                signalled = True
+        waited, candidate = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = candidate
+            break
+    text = captured.decode(errors="replace")
+    if status is None:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        raise SystemExit(f"outer SIG{signal_name} did not complete\n{text}")
+    if not signalled:
+        raise SystemExit(f"outer SIG{signal_name} never found the supervisor\n{text}")
+    returncode = os.waitstatus_to_exitcode(status)
+    if returncode != expected_status:
+        raise SystemExit(
+            f"outer SIG{signal_name} returned {returncode}, expected "
+            f"{expected_status}\n{text}")
+    if "GW_STTY=identical" not in text:
+        raise SystemExit(f"outer SIG{signal_name} did not restore the exact terminal\n{text}")
+
+    identifiers = {}
+    for key in ("WATCHDOG_PID", "RECORDER_PID", "NESTED_PGID"):
+        match = re.search(rf"GW_{key}=(\d+)", text)
+        if not match:
+            raise SystemExit(f"outer SIG{signal_name} omitted {key}\n{text}")
+        identifiers[key] = int(match.group(1))
+    require_stopped("watchdog", identifiers["WATCHDOG_PID"], text)
+    require_stopped("terminal recorder", identifiers["RECORDER_PID"], text)
+    for _ in range(100):
+        if not group_alive(identifiers["NESTED_PGID"]):
+            break
+        time.sleep(0.1)
+    else:
+        raise SystemExit(f"outer SIG{signal_name} left the nested group live\n{text}")
+    require_stopped("Homebrew leader", int(child_pid_file.read_text()), text)
+    require_stopped("Homebrew helper", int(grandchild_pid_file.read_text()), text)
+
+    if not log.is_file():
+        raise SystemExit(f"outer SIG{signal_name} lost the finalized diagnostic log")
+    leftovers = []
+    for suffix in ("pty", "cancel", "status"):
+        leftovers.extend(log.parent.glob(f"{log.name}.{suffix}.*"))
+    if leftovers:
+        raise SystemExit(
+            f"outer SIG{signal_name} retained private stage files: {leftovers}")
+
+
+# Separate Bash 3.2 PTY cases for each outer signal. The stubborn workload
+# proves that EXIT cleanup performs TERM-to-KILL escalation rather than merely
+# observing a cooperative command exit.
+drive_outer_signal("TERM", signal.SIGTERM, 143)
+drive_outer_signal("HUP", signal.SIGHUP, 129)
+
+
 def drive_group_fallback(signal_name, signal_number, expected_status):
     """Prove the recovery command Groundwork actually prints.
-
-    A signal to the SUPERVISOR cannot help here: bash defers a trapped signal
-    while it waits for the foreground script(1), and the attached stage is
-    exactly that wait. Signalling the supervisor would sit unhandled while
-    Homebrew kept running -- which is why the stall diagnostic names the nested
-    process GROUP instead.
 
     The workload models real Homebrew: it refuses SIGHUP and SIGINT, so neither
     a collapsing pseudo-terminal nor a stray interrupt can pass for
@@ -783,5 +919,6 @@ PY
 
 echo "ok: interactive Homebrew output retains terminal ownership and bounded status"
 echo "ok: Ctrl-C and the hard deadline close the nested process group, restore the terminal, and preserve caller traps"
+echo "ok: outer TERM/HUP reach the Bash 3.2 supervisor and leave no watchdog, recorder, group, or private transcript"
 echo "ok: the printed group-recovery command frees the supervisor and leaves no Homebrew processes"
 echo "ok: a supervisor killed outright still leaves no Homebrew process group behind"
