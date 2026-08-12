@@ -75,6 +75,21 @@ fi
 bundle_log_exit() {
   local status=$?
   trap - EXIT
+  # An INT/TERM/HUP trap exits this shell directly, which skips the sweep inside
+  # the attached Homebrew stage. Close any stage still live BEFORE restoring the
+  # terminal, so the transaction never ends with brew, sudo, or an installer
+  # still running against a pane nobody holds.
+  local stage_cleanup_status=0
+  if declare -F gw_brew_cleanup_active_stage >/dev/null 2>&1; then
+    gw_brew_cleanup_active_stage || stage_cleanup_status=$?
+    if [[ "$stage_cleanup_status" -ne 0 ]]; then
+      # Outranks whatever set the status, including a signal. "Cancelled" and
+      # "cancelled but Homebrew may still be running" are different outcomes,
+      # and only the second one needs someone to look.
+      echo "Groundwork: could not confirm the interrupted Homebrew stage stopped (exit $stage_cleanup_status)." >&2
+      status="$stage_cleanup_status"
+    fi
+  fi
   # The bundle can hand this terminal to script(1), which disables signal
   # generation on it. However this hook ends, give the pane back usable — and if
   # it could not be given back, say so and fail rather than record a clean apply
@@ -85,7 +100,7 @@ bundle_log_exit() {
     if [[ "$tty_restore_status" -ne 0 ]]; then
       echo "Groundwork: this terminal was not restored to its original mode (exit $tty_restore_status)." >&2
       echo "Run 'stty sane' in this pane to recover it." >&2
-      [[ "$status" -ne 0 ]] || status="$tty_restore_status"
+      status="$tty_restore_status"
     fi
   fi
   mv -f -- "$bundle_log" "$bundle_log_final" 2>/dev/null || true

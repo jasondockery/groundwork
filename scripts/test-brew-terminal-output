@@ -223,9 +223,11 @@ import errno
 import os
 import pathlib
 import pty
+import re
 import select
 import signal
 import sys
+import termios
 import time
 
 repo = pathlib.Path(sys.argv[1])
@@ -294,16 +296,24 @@ PY
 # helpers (sudo, installer, hdiutil): it inherits the same ignored interrupt and
 # outlives the session leader Ctrl-C stops, and it refuses SIGTERM so only a
 # real TERM-to-KILL escalation against the whole group can close it.
+# A separate script, not a subshell: macOS still ships bash 3.2 as /bin/bash and
+# BASHPID does not exist there, so a subshell cannot report its own pid. A
+# backgrounded script's $$ is its own pid in every bash.
+cat >"$fixture/stubborn-helper" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+trap '' HUP INT TERM
+echo "$$" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/stubborn-helper"
+
 cat >"$fixture/interrupt-command" <<'SH'
 #!/usr/bin/env bash
 set -uo pipefail
 trap '' HUP
 echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
-(
-  trap '' HUP TERM INT
-  echo "$BASHPID" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
-  while :; do sleep 1; done
-) &
+"$GROUNDWORK_TEST_HELPER" &
 echo "interrupt-fixture-ready"
 while :; do sleep 1; done
 SH
@@ -316,16 +326,35 @@ cat >"$fixture/stubborn-command" <<'SH'
 #!/usr/bin/env bash
 set -uo pipefail
 trap '' HUP INT TERM
-(
-  trap '' HUP INT TERM
-  echo "$BASHPID" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
-  while :; do sleep 1; done
-) &
+"$GROUNDWORK_TEST_HELPER" &
 echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
 echo "stubborn-fixture-ready"
 while :; do sleep 1; done
 SH
 chmod +x "$fixture/stubborn-command"
+
+# Models real Homebrew for the printed group-recovery path: it refuses SIGHUP
+# and SIGINT so a collapsing pseudo-terminal or a stray interrupt cannot pass
+# for cancellation, but it honours SIGTERM the way brew, sudo, and installer do.
+cat >"$fixture/signalable-helper" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+trap '' HUP INT
+echo "$$" >"$GROUNDWORK_TEST_GRANDCHILD_PID"
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/signalable-helper"
+
+cat >"$fixture/signalable-command" <<'SH'
+#!/usr/bin/env bash
+set -uo pipefail
+trap '' HUP INT
+"$GROUNDWORK_TEST_HELPER" &
+echo "$$" >"$GROUNDWORK_TEST_CHILD_PID"
+echo "signalable-fixture-ready"
+while :; do sleep 1; done
+SH
+chmod +x "$fixture/signalable-command"
 
 # One driver for both cases. It records the caller's complete terminal mode and
 # a distinctive caller trap before the attached stage, and reports both back
@@ -339,6 +368,28 @@ set -uo pipefail
 trap 'echo CALLER_INT_TRAP_FIRED' INT
 trap 'echo CALLER_TERM_TRAP_FIRED' TERM
 before="$(stty -g)"
+printf 'GW_SUPERVISOR_PID=%s\n' "$$"
+# Model the update runner: a signal trap that exits the shell directly, and an
+# EXIT handler that closes any still-live attached stage before restoring the
+# terminal. Without that handler the direct exit skips the in-function sweep.
+driver_exit() {
+  status=$?
+  trap - EXIT
+  gw_brew_cleanup_active_stage || status=$?
+  gw_brew_tty_restore || status=$?
+  after="$(stty -g)"
+  if [[ "$before" == "$after" ]]; then
+    printf '\nGW_STTY=identical\n'
+  else
+    printf '\nGW_STTY=changed\n  before=%s\n  after=%s\n' "$before" "$after"
+  fi
+  exit "$status"
+}
+if [[ -n "${GW_EXIT_ON_SIGNAL:-}" ]]; then
+  trap driver_exit EXIT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+fi
 gw_brew_run_logged "$GW_LOG" "$GW_RECEIPT" reset "$GW_LABEL" -- "$GW_COMMAND"
 status=$?
 after="$(stty -g)"
@@ -347,8 +398,14 @@ if [[ "$before" == "$after" ]]; then
 else
   printf '\nGW_STTY=changed\n  before=%s\n  after=%s\n' "$before" "$after"
 fi
-printf 'GW_TRAP_INT=%s\n' "$(trap -p INT | tr -d '\n')"
-printf 'GW_TRAP_TERM=%s\n' "$(trap -p TERM | tr -d '\n')"
+# Capture BEFORE piping. On bash 3.2 a pipeline inside command substitution
+# runs in a subshell where SIGINT is SIG_IGN, so `trap -p INT` there reports
+# nothing even though the trap is intact -- an artifact of the probe, not a
+# lost trap. Plain command substitution reports it correctly.
+trap_int="$(trap -p INT)"
+trap_term="$(trap -p TERM)"
+printf 'GW_TRAP_INT=%s\n' "$(printf '%s' "$trap_int" | tr -d '\n')"
+printf 'GW_TRAP_TERM=%s\n' "$(printf '%s' "$trap_term" | tr -d '\n')"
 exit "$status"
 SH
 chmod +x "$fixture/cancel-driver"
@@ -358,9 +415,11 @@ import errno
 import os
 import pathlib
 import pty
+import re
 import select
 import signal
 import sys
+import termios
 import time
 
 repo = pathlib.Path(sys.argv[1])
@@ -368,7 +427,8 @@ fixture = pathlib.Path(sys.argv[2])
 library = repo / "home/dot_local/share/groundwork/lib/brew-output.sh"
 
 
-def drive(case, environment, ready_marker, interrupt, expected_status, budget):
+def drive(case, environment, ready_marker, interrupt, expected_status, budget,
+          trap_signals=("INT", "TERM")):
     """Run one cancellation case under a real controlling terminal."""
     child_pid_file = fixture / f"{case}-child.pid"
     grandchild_pid_file = fixture / f"{case}-grandchild.pid"
@@ -385,6 +445,7 @@ def drive(case, environment, ready_marker, interrupt, expected_status, budget):
             "GW_COMMAND": str(fixture / f"{case}-command"),
             "GROUNDWORK_TEST_CHILD_PID": str(child_pid_file),
             "GROUNDWORK_TEST_GRANDCHILD_PID": str(grandchild_pid_file),
+            "GROUNDWORK_TEST_HELPER": str(fixture / "stubborn-helper"),
         }
     )
     passed.update(environment)
@@ -433,7 +494,7 @@ def drive(case, environment, ready_marker, interrupt, expected_status, budget):
             f"script(1) disables signal generation, so a pane left this way ignores "
             f"Ctrl-C and Ctrl-Z entirely\n{text}"
         )
-    for signal_name in ("INT", "TERM"):
+    for signal_name in trap_signals:
         if f"CALLER_{signal_name}_TRAP_FIRED" not in text.split(f"GW_TRAP_{signal_name}=")[-1]:
             raise SystemExit(
                 f"{case}: the caller's own {signal_name} trap did not survive the "
@@ -484,7 +545,238 @@ deadline_text = drive(
 )
 if "exceeded its 3s hard deadline" not in deadline_text:
     raise SystemExit(f"the hard deadline was not explained to the user\n{deadline_text}")
+
+
+def drive_group_fallback(signal_name, signal_number, expected_status):
+    """Prove the recovery command Groundwork actually prints.
+
+    A signal to the SUPERVISOR cannot help here: bash defers a trapped signal
+    while it waits for the foreground script(1), and the attached stage is
+    exactly that wait. Signalling the supervisor would sit unhandled while
+    Homebrew kept running -- which is why the stall diagnostic names the nested
+    process GROUP instead.
+
+    The workload models real Homebrew: it refuses SIGHUP and SIGINT, so neither
+    a collapsing pseudo-terminal nor a stray interrupt can pass for
+    cancellation, but it honours SIGTERM the way brew, sudo, and installer do.
+    The printed command must free the supervisor, leave no group member behind,
+    and hand the terminal back exactly as it was lent.
+    """
+    case = "signalable"
+    child_pid_file = fixture / f"{case}-child.pid"
+    grandchild_pid_file = fixture / f"{case}-grandchild.pid"
+    for stale in (child_pid_file, grandchild_pid_file):
+        if stale.exists():
+            stale.unlink()
+    passed = dict(os.environ)
+    passed.update({
+        "GW_LIBRARY": str(library),
+        "GW_LOG": str(fixture / f"external-{signal_name}.log"),
+        "GW_RECEIPT": str(fixture / f"external-{signal_name}.tsv"),
+        "GW_LABEL": f"Homebrew external {signal_name} fixture",
+        "GW_COMMAND": str(fixture / f"{case}-command"),
+        "GROUNDWORK_TEST_CHILD_PID": str(child_pid_file),
+        "GROUNDWORK_TEST_GRANDCHILD_PID": str(grandchild_pid_file),
+        "GROUNDWORK_TEST_HELPER": str(fixture / "signalable-helper"),
+        "GW_EXIT_ON_SIGNAL": "1",
+        "GROUNDWORK_BREW_STALL_SECONDS": "1",
+        "GROUNDWORK_BREW_POLL_SECONDS": "0.05",
+        "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS": "2",
+        "GROUNDWORK_BREW_DEADLINE_SECONDS": "600",
+    })
+    pid, master = pty.fork()
+    if pid == 0:
+        os.execve(str(fixture / "cancel-driver"), [str(fixture / "cancel-driver")], passed)
+
+    captured = bytearray()
+    signalled = False
+    status = None
+    deadline = time.monotonic() + 40
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([master], [], [], 0.1)
+        if readable:
+            try:
+                captured.extend(os.read(master, 65536))
+            except OSError as error:
+                if error.errno != errno.EIO:
+                    raise
+        if not signalled and b"signalable-fixture-ready" in captured:
+            # Take the process group from the recovery line the user is shown,
+            # so a wrong or unusable instruction fails this test.
+            match = re.search(rb"kill -TERM -- -(\d+)", captured)
+            if match:
+                os.killpg(int(match.group(1)), signal_number)
+                signalled = True
+        waited, candidate = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = candidate
+            break
+    text = captured.decode(errors="replace")
+    if status is None:
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        raise SystemExit(
+            f"the printed SIG{signal_name} group recovery never freed the "
+            f"supervisor\n{text}")
+    if not signalled:
+        raise SystemExit(f"Groundwork never printed a group recovery command\n{text}")
+    returncode = os.waitstatus_to_exitcode(status)
+    if returncode != expected_status:
+        raise SystemExit(
+            f"the printed SIG{signal_name} group recovery produced exit "
+            f"{returncode}, expected {expected_status}\n{text}")
+    if "GW_STTY=identical" not in text:
+        raise SystemExit(
+            f"the printed SIG{signal_name} group recovery left the terminal "
+            f"unrestored\n{text}")
+    for name, pid_file in (("leader", child_pid_file),
+                           ("grandchild", grandchild_pid_file)):
+        recorded = int(pid_file.read_text())
+        for _ in range(60):
+            try:
+                os.kill(recorded, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(recorded, signal.SIGKILL)
+            raise SystemExit(
+                f"the printed SIG{signal_name} group recovery left Homebrew "
+                f"{name} {recorded} running with no terminal attached")
+
+
+# 143: the workload's own TERM handling records it, and the runner treats that
+# as cancellation rather than an ordinary Homebrew failure.
+drive_group_fallback("TERM", signal.SIGTERM, 143)
+
+def drive_supervisor_killed():
+    """A supervisor killed outright must not leave Homebrew running.
+
+    SIGKILL is the case no trap can catch or defer, so no EXIT handler runs and
+    the in-function sweep never happens. The watchdog is the only observer still
+    alive, and closing the nested group is its job. The workload refuses HUP,
+    INT, and TERM, so only a real TERM-to-KILL escalation against the whole
+    group can close it.
+    """
+    case = "stubborn"
+    child_pid_file = fixture / f"{case}-child.pid"
+    grandchild_pid_file = fixture / f"{case}-grandchild.pid"
+    for stale in (child_pid_file, grandchild_pid_file):
+        if stale.exists():
+            stale.unlink()
+    passed = dict(os.environ)
+    passed.update({
+        "GW_LIBRARY": str(library),
+        "GW_LOG": str(fixture / "killed.log"),
+        "GW_RECEIPT": str(fixture / "killed.tsv"),
+        "GW_LABEL": "Homebrew killed-supervisor fixture",
+        "GW_COMMAND": str(fixture / f"{case}-command"),
+        "GROUNDWORK_TEST_CHILD_PID": str(child_pid_file),
+        "GROUNDWORK_TEST_GRANDCHILD_PID": str(grandchild_pid_file),
+        "GROUNDWORK_TEST_HELPER": str(fixture / "stubborn-helper"),
+        "GROUNDWORK_BREW_POLL_SECONDS": "0.05",
+        "GROUNDWORK_BREW_CANCEL_GRACE_SECONDS": "2",
+        "GROUNDWORK_BREW_STALL_SECONDS": "600",
+        "GROUNDWORK_BREW_DEADLINE_SECONDS": "600",
+    })
+    marker_dir = fixture / "killed-markers"
+    marker_dir.mkdir(exist_ok=True)
+    passed["GW_LOG"] = str(marker_dir / "killed.log")
+    pid, master = pty.fork()
+    if pid == 0:
+        os.execve(str(fixture / "cancel-driver"), [str(fixture / "cancel-driver")], passed)
+
+    # The authoritative before/after is the terminal itself, read from the
+    # master, not anything the dying supervisor could print.
+    before_attributes = termios.tcgetattr(master)
+    captured = bytearray()
+    killed = False
+    deadline = time.monotonic() + 40
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([master], [], [], 0.1)
+        if readable:
+            try:
+                captured.extend(os.read(master, 65536))
+            except OSError as error:
+                if error.errno != errno.EIO:
+                    raise
+        if not killed and b"stubborn-fixture-ready" in captured:
+            match = re.search(rb"GW_SUPERVISOR_PID=(\d+)", captured)
+            if match:
+                # Let the nested group publish itself, then remove the
+                # supervisor without warning.
+                time.sleep(1.0)
+                os.kill(int(match.group(1)), signal.SIGKILL)
+                killed = True
+        waited, _ = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            break
+    text = captured.decode(errors="replace")
+    recorded_pids = {}
+    for name, pid_file in (("leader", child_pid_file),
+                           ("grandchild", grandchild_pid_file)):
+        try:
+            recorded_pids[name] = int(pid_file.read_text())
+        except (OSError, ValueError):
+            pass
+
+    def stop_everything():
+        for value in recorded_pids.values():
+            try:
+                os.kill(value, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    if not killed:
+        stop_everything()
+        raise SystemExit(f"the supervisor pid was never reported\n{text}")
+
+    # The takeover receipt is the watchdog's only way to report: nothing is left
+    # to receive an exit status.
+    receipt = None
+    for _ in range(200):
+        matches = sorted(marker_dir.glob("*.takeover"))
+        if matches:
+            body = matches[0].read_text().strip()
+            if body:
+                receipt = body
+                break
+        time.sleep(0.1)
+    if receipt != "0":
+        stop_everything()
+        raise SystemExit(
+            f"the watchdog takeover did not confirm a clean close (receipt "
+            f"{receipt!r}); it must close the group, stop the recorder, and "
+            f"restore the terminal\n{text}")
+
+    for name, recorded in recorded_pids.items():
+        for _ in range(100):
+            try:
+                os.kill(recorded, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            stop_everything()
+            raise SystemExit(
+                f"a killed supervisor left Homebrew {name} {recorded} running "
+                f"with no terminal and nothing watching it\n{text}")
+
+    after_attributes = termios.tcgetattr(master)
+    if after_attributes != before_attributes:
+        stop_everything()
+        raise SystemExit(
+            "a killed supervisor left the terminal in a different mode. "
+            "script(1) restores it only on its own clean exit, so the watchdog "
+            "must restore it after killing the recorder -- otherwise the pane "
+            f"is left unable to raise SIGINT.\nbefore={before_attributes}\n"
+            f"after={after_attributes}\n{text}")
+
+
+drive_supervisor_killed()
 PY
 
 echo "ok: interactive Homebrew output retains terminal ownership and bounded status"
 echo "ok: Ctrl-C and the hard deadline close the nested process group, restore the terminal, and preserve caller traps"
+echo "ok: the printed group-recovery command frees the supervisor and leaves no Homebrew processes"
+echo "ok: a supervisor killed outright still leaves no Homebrew process group behind"
