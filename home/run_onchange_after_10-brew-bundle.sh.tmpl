@@ -9,8 +9,14 @@ set -euo pipefail
 # Browser Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.browser.tmpl" . | sha256sum }}
 {{- end }}
 
-for brew_bin in /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
-  [[ -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
+# Selection stays canonical and absolute. `shellenv` output is EVAL'd, so
+# resolving this from PATH would execute whatever a planted `brew` earlier on
+# PATH contained -- the exact trust this fixed list exists to withhold.
+# GROUNDWORK_BREW_BIN is an explicit, visible seam for pointing the hook at a
+# controlled Homebrew in tests; it is never consulted implicitly.
+for brew_bin in "${GROUNDWORK_BREW_BIN:-}" \
+  /opt/homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew /usr/local/bin/brew; do
+  [[ -n "$brew_bin" && -x "$brew_bin" ]] && eval "$("$brew_bin" shellenv)" && break
 done
 unset brew_bin
 

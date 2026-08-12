@@ -337,15 +337,26 @@ gw_brew_stop_child() {
 # Bounded wait for one pid to leave the process table. A zombie is not running,
 # so it counts as stopped.
 gw_brew_pid_stopped() {
-  local pid="$1" grace="$2" poll="$3" stopped_at
+  local pid="$1" grace="$2" poll="$3" stopped_at state
   [[ -n "$pid" ]] || return 0
   stopped_at="$(date +%s)"
-  while [[ "$(date +%s)" -lt $((stopped_at + grace)) ]]; do
-    ps -p "$pid" -o stat= 2>/dev/null | grep -qv '^[[:space:]]*Z' || return 0
+  while :; do
+    # kill -0 is the authority on existence. ps is consulted only to classify a
+    # process that still exists, never to decide that one is gone: a process
+    # table that cannot be read is not evidence of anything, and treating that
+    # silence as "stopped" would report a clean close over live processes.
+    if ! kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+    state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d '[:space:]')"
+    # A zombie holds a table slot but cannot act, so it counts as stopped --
+    # only when ps actually answered.
+    if [[ -n "$state" && "$state" == Z* ]]; then
+      return 0
+    fi
+    [[ "$(date +%s)" -lt $((stopped_at + grace)) ]] || return 1
     sleep "$poll"
   done
-  ps -p "$pid" -o stat= 2>/dev/null | grep -qv '^[[:space:]]*Z' || return 0
-  return 1
 }
 
 # Close whatever attached stage is still live. Safe to call from an EXIT handler

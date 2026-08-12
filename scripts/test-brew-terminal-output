@@ -503,8 +503,11 @@ def drive(case, environment, ready_marker, interrupt, expected_status, budget,
             except OSError as error:
                 if error.errno != errno.EIO:
                     raise
-        if not sent and ready_marker.encode() in captured:
-            # Let script(1) finish taking the terminal before the interrupt lands.
+        if (not sent and ready_marker.encode() in captured
+                and child_pid_file.exists() and grandchild_pid_file.exists()):
+            # Both processes must have recorded themselves first, or the
+            # interrupt races the fixture instead of testing cancellation. Then
+            # let script(1) finish taking the terminal before it lands.
             time.sleep(0.5)
             os.write(master, b"\x03")
             sent = True
@@ -628,7 +631,8 @@ def drive_outer_signal(signal_name, signal_number, expected_status):
             except OSError as error:
                 if error.errno != errno.EIO:
                     raise
-        if not signalled and b"stubborn-fixture-ready" in captured:
+        if (not signalled and b"stubborn-fixture-ready" in captured
+                and child_pid_file.exists() and grandchild_pid_file.exists()):
             match = re.search(rb"GW_SUPERVISOR_PID=(\d+)", captured)
             if match:
                 # The nested group is deliberately not signalled here. This is
@@ -739,7 +743,9 @@ def drive_group_fallback(signal_name, signal_number, expected_status):
             # Take the process group from the recovery line the user is shown,
             # so a wrong or unusable instruction fails this test.
             match = re.search(rb"kill -TERM -- -(\d+)", captured)
-            if match:
+            # Both processes must have recorded themselves first, or this would
+            # race the fixture rather than test the recovery command.
+            if match and child_pid_file.exists() and grandchild_pid_file.exists():
                 os.killpg(int(match.group(1)), signal_number)
                 signalled = True
         waited, candidate = os.waitpid(pid, os.WNOHANG)
