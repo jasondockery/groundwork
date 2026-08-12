@@ -75,6 +75,34 @@ fi
 bundle_log_exit() {
   local status=$?
   trap - EXIT
+  # An INT/TERM/HUP trap exits this shell directly, which skips the sweep inside
+  # the attached Homebrew stage. Close any stage still live BEFORE restoring the
+  # terminal, so the transaction never ends with brew, sudo, or an installer
+  # still running against a pane nobody holds.
+  local stage_cleanup_status=0
+  if declare -F gw_brew_cleanup_active_stage >/dev/null 2>&1; then
+    gw_brew_cleanup_active_stage || stage_cleanup_status=$?
+    if [[ "$stage_cleanup_status" -ne 0 ]]; then
+      # Outranks whatever set the status, including a signal. "Cancelled" and
+      # "cancelled but Homebrew may still be running" are different outcomes,
+      # and only the second one needs someone to look.
+      echo "Groundwork: could not confirm the interrupted Homebrew stage stopped (exit $stage_cleanup_status)." >&2
+      status="$stage_cleanup_status"
+    fi
+  fi
+  # The bundle can hand this terminal to script(1), which disables signal
+  # generation on it. However this hook ends, give the pane back usable — and if
+  # it could not be given back, say so and fail rather than record a clean apply
+  # over a terminal that no longer answers Ctrl-C.
+  local tty_restore_status=0
+  if declare -F gw_brew_tty_restore >/dev/null 2>&1; then
+    gw_brew_tty_restore || tty_restore_status=$?
+    if [[ "$tty_restore_status" -ne 0 ]]; then
+      echo "Groundwork: this terminal was not restored to its original mode (exit $tty_restore_status)." >&2
+      echo "Run 'stty sane' in this pane to recover it." >&2
+      status="$tty_restore_status"
+    fi
+  fi
   mv -f -- "$bundle_log" "$bundle_log_final" 2>/dev/null || true
   [[ "$bundle_receipt_owned" -eq 0 ]] || rm -f -- "$bundle_receipt" || true
   exit "$status"
@@ -110,6 +138,18 @@ HOMEBREW_CASK_OPTS="$safe_cask_opts" \
   gw_brew_run_logged "$bundle_log" "$bundle_receipt" reset "Homebrew bundle" -- \
     brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
     || bundle_status=$?
+# A cancelled bundle is not a failed bundle looking for a repair. Stop here:
+# repair prompts, re-fetches, and the retry would all run against a terminal the
+# person just asked to have back. 124 is the hard deadline and 125 means
+# cancellation could not be completed cleanly; neither may be followed by more
+# Homebrew work either.
+case "$bundle_status" in
+  124 | 125 | 129 | 130 | 143)
+    echo "Groundwork: Homebrew bundle cancelled; nothing further was started." >&2
+    echo "Nothing that already installed was removed; the next chezmoi apply retries only what is missing." >&2
+    exit "$bundle_status"
+    ;;
+esac
 # The repair helper runs even when the bundle exited 0: Homebrew's per-cask
 # "cannot be upgraded as-is" warning does not fail the run, so it would
 # otherwise repeat on every apply forever. Its exit code distinguishes
@@ -139,6 +179,12 @@ if [[ "$retry_bundle" -eq 1 ]]; then
     gw_brew_run_logged "$bundle_log" "$bundle_receipt" append "Homebrew bundle retry" -- \
       brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
       || bundle_status=$?
+  case "$bundle_status" in
+    124 | 125 | 129 | 130 | 143)
+      echo "Groundwork: Homebrew bundle retry cancelled; nothing further was started." >&2
+      exit "$bundle_status"
+      ;;
+  esac
 fi
 gw_brew_report_classification \
   "Homebrew bundle" "$bundle_receipt" "$bundle_log_final" "$bundle_status"

@@ -111,6 +111,36 @@ docker_backend_restore_required=0
 runner_exit() {
   local status=$? restore_status=0
   trap - EXIT
+  # An INT/TERM/HUP trap exits this shell directly, which skips the sweep inside
+  # the attached Homebrew stage. Close any stage still live BEFORE restoring the
+  # terminal, so the transaction never ends with brew, sudo, or an installer
+  # still running against a pane nobody holds.
+  local stage_cleanup_status=0
+  if declare -F gw_brew_cleanup_active_stage >/dev/null 2>&1; then
+    gw_brew_cleanup_active_stage || stage_cleanup_status=$?
+    if [[ "$stage_cleanup_status" -ne 0 ]]; then
+      # Outranks whatever set the status, including a signal. "Cancelled" and
+      # "cancelled but Homebrew may still be running" are different outcomes,
+      # and only the second one needs someone to look.
+      echo "Groundwork: could not confirm the interrupted Homebrew stage stopped (exit $stage_cleanup_status)." >&2
+      status="$stage_cleanup_status"
+    fi
+  fi
+  # The Homebrew stage hands the caller's terminal to script(1), which disables
+  # signal generation on it. Whatever stage this transaction died in, give the
+  # pane back in the mode it was lent in — an unusable terminal is worse than a
+  # failed update, because it takes away the means to react to one. A refresh
+  # that could not give the terminal back has not fully succeeded, so an
+  # otherwise clean run is downgraded rather than reported as success.
+  local tty_restore_status=0
+  if declare -F gw_brew_tty_restore >/dev/null 2>&1; then
+    gw_brew_tty_restore || tty_restore_status=$?
+    if [[ "$tty_restore_status" -ne 0 ]]; then
+      echo "Groundwork: this terminal was not restored to its original mode (exit $tty_restore_status)." >&2
+      echo "Run 'stty sane' in this pane to recover it." >&2
+      status="$tty_restore_status"
+    fi
+  fi
   if [[ "$docker_backend_restore_required" -eq 1 ]] \
     && declare -F restore_docker_backend >/dev/null 2>&1; then
     restore_docker_backend || restore_status=$?
@@ -356,6 +386,22 @@ if command -v brew >/dev/null 2>&1; then
     gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" reset "Homebrew upgrade" -- \
       brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
       || upgrade_status=$?
+  # A cancelled upgrade is not a failed upgrade looking for a repair. Stop the
+  # transaction here: repair prompts, re-fetches, and the retry would all run
+  # against a terminal the person just asked to have back. 124 is the hard
+  # deadline and 125 is a cancellation that could not be confirmed; both mean
+  # Homebrew must not be asked to do anything else.
+  case "$upgrade_status" in
+    124 | 125 | 129 | 130 | 143)
+      mv -f -- "$upgrade_log" "$upgrade_log_final" 2>/dev/null || true
+      runner_temp=""
+      runner_temp_final=""
+      mark_update_pending "homebrew-upgrade" \
+        "Homebrew upgrade was cancelled (exit $upgrade_status) and did not complete"
+      echo "Groundwork: Homebrew upgrade cancelled; nothing further was started." >&2
+      exit "$upgrade_status"
+      ;;
+  esac
   repair_status=0
   "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
   retry_upgrade=0
@@ -380,6 +426,17 @@ if command -v brew >/dev/null 2>&1; then
       gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" append "Homebrew upgrade retry" -- \
         brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
         || upgrade_status=$?
+    case "$upgrade_status" in
+      124 | 125 | 129 | 130 | 143)
+        mv -f -- "$upgrade_log" "$upgrade_log_final" 2>/dev/null || true
+        runner_temp=""
+        runner_temp_final=""
+        mark_update_pending "homebrew-upgrade" \
+          "Homebrew upgrade retry was cancelled (exit $upgrade_status) and did not complete"
+        echo "Groundwork: Homebrew upgrade retry cancelled; nothing further was started." >&2
+        exit "$upgrade_status"
+        ;;
+    esac
   fi
   mv -f -- "$upgrade_log" "$upgrade_log_final"
   runner_temp=""

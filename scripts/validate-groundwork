@@ -1702,6 +1702,21 @@ case "${1:-}" in
       echo "Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'." >&2
       echo '==> Purging files for version 2026.7.0 of Cask bitwarden'
     fi
+    # Lets a case model a cancelled or deadline-killed upgrade, which the
+    # bounded runner surfaces as 124/125/129/130/143. A sequence gives each
+    # successive call its own status, so the RETRY path can be cancelled while
+    # the first attempt merely fails. Falls back to the shared stage status so
+    # cases that only set BREW_STAGE_STATUS behave as before.
+    if [[ -n "${BREW_UPGRADE_STATUS_SEQUENCE:-}" ]]; then
+      brew_upgrade_count_file="${BREW_UPGRADE_COUNT_FILE:-$HOME/.brew-upgrade-count}"
+      brew_upgrade_call="$(cat "$brew_upgrade_count_file" 2>/dev/null || echo 0)"
+      brew_upgrade_call=$((brew_upgrade_call + 1))
+      printf '%s' "$brew_upgrade_call" >"$brew_upgrade_count_file"
+      brew_upgrade_status="$(printf '%s' "$BREW_UPGRADE_STATUS_SEQUENCE" \
+        | awk -v n="$brew_upgrade_call" '{ print ($n == "" ? 0 : $n) }')"
+      exit "${brew_upgrade_status:-0}"
+    fi
+    exit "${BREW_UPGRADE_STATUS:-${BREW_STAGE_STATUS:-0}}"
     ;;
   autoremove)
     if [[ "${ASSERT_UPDATE_LOCK_DURING_MAINTENANCE:-0}" == "1" ]]; then
@@ -2486,6 +2501,74 @@ EOF
   test -f "$update_all_stamp"
   assert_not_contains 'docker-desktop-(start|stop)|colima-(start|stop)' "$update_all_log" \
     "an already-available Docker lane changed backend lifecycle state"
+
+  # A cancelled Homebrew upgrade must end the transaction, not fall through into
+  # repair, refetch, and a retry. Those all prompt or start more Homebrew work
+  # against a terminal the person just asked to have back, which is the field
+  # failure this whole path exists to prevent. 124 is the hard deadline, 125 a
+  # cancellation that could not be confirmed, 129/130/143 HUP/INT/TERM.
+  for cancel_status in 124 125 129 130 143; do
+    rm -f "$update_all_stamp"
+    # Clear the pending record BEFORE each case so one iteration's marker can
+    # never satisfy the next iteration's assertion.
+    rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+    : >"$update_all_log"
+    cancel_output="$update_all_fixture/darwin-cancel-$cancel_status"
+    cancel_exit=0
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+      NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+      BREW_UPGRADE_STATUS="$cancel_status" \
+      FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+      >"$cancel_output" 2>&1 || cancel_exit=$?
+    [[ "$cancel_exit" -eq "$cancel_status" ]] \
+      || fail "a Homebrew upgrade cancelled with $cancel_status surfaced as exit $cancel_exit"
+    assert_not_contains '^brew-repair$' "$update_all_log" \
+      "a cancelled Homebrew upgrade ($cancel_status) still ran the repair prompt"
+    assert_not_contains '^brew-refetch$' "$update_all_log" \
+      "a cancelled Homebrew upgrade ($cancel_status) still re-fetched artifacts"
+    assert_not_contains 'Homebrew upgrade retry' "$update_all_log" \
+      "a cancelled Homebrew upgrade ($cancel_status) still retried the upgrade"
+    assert_not_contains '^(mise upgrade|brew autoremove|brew cleanup|docker-tidy)' \
+      "$update_all_log" \
+      "a cancelled Homebrew upgrade ($cancel_status) continued into later stages"
+    grep -qF 'cancelled' "$cancel_output" \
+      || fail "a cancelled Homebrew upgrade ($cancel_status) did not say so"
+    test ! -f "$update_all_stamp" \
+      || fail "a cancelled Homebrew upgrade ($cancel_status) recorded a successful refresh"
+    grep -qF 'did not complete' \
+      "$update_all_home/.local/state/groundwork/update-all-pending/homebrew-upgrade" \
+      || fail "a cancelled Homebrew upgrade ($cancel_status) left no pending-repair record"
+  done
+
+  # The retry lane needs the same guard. A first attempt that merely FAILS is
+  # allowed to reach repair and retry; the retry itself being cancelled must end
+  # the transaction there, not continue into later stages.
+  for cancel_status in 124 125 130; do
+    rm -f "$update_all_stamp" "$update_all_home/.brew-upgrade-count"
+    rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+    : >"$update_all_log"
+    retry_output="$update_all_fixture/darwin-retry-cancel-$cancel_status"
+    retry_exit=0
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+      NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+      BREW_UPGRADE_STATUS_SEQUENCE="1 $cancel_status" REPAIR_STATUS=0 \
+      FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+      >"$retry_output" 2>&1 || retry_exit=$?
+    [[ "$retry_exit" -eq "$cancel_status" ]] \
+      || fail "a cancelled Homebrew upgrade RETRY ($cancel_status) surfaced as exit $retry_exit"
+    grep -cxF 'brew-repair' "$update_all_log" | grep -qx 1 \
+      || fail "the cancelled retry case did not run repair exactly once before retrying"
+    assert_not_contains '^(mise upgrade|brew autoremove|brew cleanup|docker-tidy)' \
+      "$update_all_log" \
+      "a cancelled Homebrew upgrade retry ($cancel_status) continued into later stages"
+    test ! -f "$update_all_stamp" \
+      || fail "a cancelled Homebrew upgrade retry ($cancel_status) recorded a successful refresh"
+    grep -qF 'did not complete' \
+      "$update_all_home/.local/state/groundwork/update-all-pending/homebrew-upgrade" \
+      || fail "a cancelled Homebrew upgrade retry ($cancel_status) left no pending-repair record"
+  done
+  rm -f "$update_all_home/.brew-upgrade-count"
+  rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
 
   # The production Docker Desktop transcript stopped after Homebrew entered its
   # privileged launchctl teardown. A cask that owns its updater or removes
@@ -7582,6 +7665,27 @@ EOF
     || fail "the update runner must handle repair exit 3 (approved repair failed)"
   grep -qF "\"\$repair_status\" -eq 3" home/run_onchange_after_10-brew-bundle.sh.tmpl \
     || fail "the brew bundle hook must handle repair exit 3 (approved repair failed)"
+
+  # A cancelled Homebrew stage must stop the caller, never fall through into
+  # repair, refetch, and a retry — those prompt or start more Homebrew work
+  # against a terminal the person just asked to have back. update-all's runner
+  # proves this behaviorally above; assert the same ORDERING in both callers so
+  # the guard cannot be moved below the repair call or lose a status.
+  #
+  # 124 hard deadline · 125 unconfirmed cancellation · 129/130/143 HUP/INT/TERM.
+  for cancel_caller in \
+    home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    home/run_onchange_after_10-brew-bundle.sh.tmpl; do
+    grep -qF '124 | 125 | 129 | 130 | 143)' "$cancel_caller" \
+      || fail "$cancel_caller does not treat every cancellation status as cancellation"
+    awk '
+      /^[[:space:]]*#/ { next }
+      /124 \| 125 \| 129 \| 130 \| 143\)/ { if (!guard) guard = NR }
+      /\$HOME\/\.local\/bin\/groundwork-brew-repair"/ { if (!repair) repair = NR }
+      END { exit !(guard && repair && guard < repair) }
+    ' "$cancel_caller" \
+      || fail "$cancel_caller runs the Homebrew repair before its cancellation guard"
+  done
 
   check "Homebrew cask policy (rendered installer behavior)"
   # The NETWORK audit (scripts/audit-brew-casks) owns upstream cask metadata.
