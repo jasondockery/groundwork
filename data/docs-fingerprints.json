@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "pages": {
+    "agentic-engineering.html": {
+      "sha256": "e29dca3199b8ea060e90b36929c7e1093d66a01f35a118af93c076fc8c7a1dd3",
+      "lastmod": "2026-08-11"
+    },
+    "agents.html": {
+      "sha256": "3b2c0f7c0ce3a0bc405d11d473ff3e7a84d92eb2abcc34be4102deb16053b520",
+      "lastmod": "2026-08-11"
+    },
+    "ai-budget.html": {
+      "sha256": "5b945e1eb28ed186d44484e835c035ae8cb5c82f3372098fc62e7d5de75ae913",
+      "lastmod": "2026-08-11"
+    },
+    "app-dev.html": {
+      "sha256": "833fa7aecdf42813cf7e03cd2497a118dc365ab5e4de02d2818516e4b0a0263c",
+      "lastmod": "2026-08-11"
+    },
+    "apps.html": {
+      "sha256": "a16fa86d94b26ad68e0997eb1510402ad98b9265615936bc674d229518c09e22",
+      "lastmod": "2026-08-11"
+    },
+    "cheatsheet.html": {
+      "sha256": "cb5bd4e1fb9ab4be2c80d911e2d4ab840b6393d038348f4d5e07adbebc553689",
+      "lastmod": "2026-08-11"
+    },
+    "claude.html": {
+      "sha256": "70f536e1a520defe11e417267dc41fddcf85a3f7a99abed9f1e9a4e2dcbdb046",
+      "lastmod": "2026-08-11"
+    },
+    "codex.html": {
+      "sha256": "7fb39a365c22ba556a6d5632b07ab43ad1074981f031988ec63a9e708827f23c",
+      "lastmod": "2026-08-11"
+    },
+    "command-line.html": {
+      "sha256": "534c3e56fbe3393369bd8361f3282531058a5f0362dd64ab0ce5c2605eb3247e",
+      "lastmod": "2026-08-11"
+    },
+    "commands.html": {
+      "sha256": "03d2d3b7efa87c9aca1a12ca623854130c8a8285278642bd226cbcfe7a65f23c",
+      "lastmod": "2026-08-13"
+    },
+    "customizing.html": {
+      "sha256": "b26182c6b8b85a57ff4008086ff53a9b0973e1996b2dc620a37c9392f450a688",
+      "lastmod": "2026-08-11"
+    },
+    "data.html": {
+      "sha256": "dc95b4419f3d6ca924d8089795feca26e230932e95da35f8dd6ca5840ff8c906",
+      "lastmod": "2026-08-11"
+    },
+    "dependencies.html": {
+      "sha256": "a80c02e4ccec91389bfe83354b4469d2f315effcedaf830152997c8a382b7752",
+      "lastmod": "2026-08-12"
+    },
+    "development.html": {
+      "sha256": "bdf9f7f1313f4e7fe4d8b17e63f8e2f17c5302e87c08d59808368637b55f16bd",
+      "lastmod": "2026-08-11"
+    },
+    "editors-ai.html": {
+      "sha256": "8c47aa165cf0d30f2f45477fd5475c50561a9afea7acfb204eaa49a40e2d5984",
+      "lastmod": "2026-08-11"
+    },
+    "game-dev-learn.html": {
+      "sha256": "d03ac9f4875712a2c2f890660fa6c55b78595da5b38cb90f99c7ec0703907741",
+      "lastmod": "2026-08-11"
+    },
+    "game-dev-unity.html": {
+      "sha256": "63852d3a5121a199459a170a42ca2b07173cde78fa19b8298875b094635156f5",
+      "lastmod": "2026-08-11"
+    },
+    "game-dev.html": {
+      "sha256": "3de174f568db51b215856648709ce30f3fff2bc3074a9d722a33d5ec082f0dcc",
+      "lastmod": "2026-08-11"
+    },
+    "gen-media.html": {
+      "sha256": "dfd6ef68c60cdfbcc9a84c983e1258b9820021839a3564dbf75274e1f8994853",
+      "lastmod": "2026-08-11"
+    },
+    "getting-started.html": {
+      "sha256": "de61f5f48d93e5e8cc3b6686c016d32fce061185485ca0f40b084aa48c8335d8",
+      "lastmod": "2026-08-11"
+    },
+    "git.html": {
+      "sha256": "83dd198077e6fb133111ddc337f6d24bf2027f59554d5b4f51c0f1fde3ef39e8",
+      "lastmod": "2026-08-11"
+    },
+    "glm.html": {
+      "sha256": "36d299582fb1010ac8069621cc2c3aa5a3d0e5c719037b55bfdfa9368305cebf",
+      "lastmod": "2026-08-11"
+    },
+    "glossary.html": {
+      "sha256": "66265828a1a126917a97d902b453da2af2b9c6659bdfb462f94927c959e6634f",
+      "lastmod": "2026-08-11"
+    },
+    "gpt.html": {
+      "sha256": "4b19e7d12da5314a1eb03e6876d509c4550189ab519b5f7ab7230aaa17d84315",
+      "lastmod": "2026-08-11"
+    },
+    "grok.html": {
+      "sha256": "85eead3db1f62a47edc7fb105084e962d483f87c6013f06e707498c326ed8ada",
+      "lastmod": "2026-08-11"
+    },
+    "groundwork-twelve.html": {
+      "sha256": "00d7f01f77296ef5b978feeced3c92d46b93a0356fd56aa6a69586fcbb991cca",
+      "lastmod": "2026-08-11"
+    },
+    "herdr.html": {
+      "sha256": "e1ad9ac5a33ff791e26ac42f73cff942e494b7bca8436b631f4b0960f5ff109f",
+      "lastmod": "2026-08-13"
+    },
+    "index.html": {
+      "sha256": "d3c33e638c3796c3457867446f681c14f97935417a869b04816392f1760b1de1",
+      "lastmod": "2026-08-11"
+    },
+    "installed.html": {
+      "sha256": "f4613688c838990979a4bdd961f09712b3659c2cab21e31e52f78f8a19e8f9d5",
+      "lastmod": "2026-08-13"
+    },
+    "keyboard.html": {
+      "sha256": "49535bd8ccf21544124bc143d4dc4164a655d370654ae1e477a6256dd25232f5",
+      "lastmod": "2026-08-13"
+    },
+    "knowledge.html": {
+      "sha256": "ccfb7fb28696e845bca7834e429601d1767729d03db289fd6d5accbfd785b186",
+      "lastmod": "2026-08-11"
+    },
+    "lazygit.html": {
+      "sha256": "f3de79c615cb27cb01b29c8e5abc5cbb88417c3892c249f352afd2225d4a328e",
+      "lastmod": "2026-08-11"
+    },
+    "macos.html": {
+      "sha256": "59a26c029a157ec9f219c7c8fde20431394d19a1d560eeb99b88411bc1df6eef",
+      "lastmod": "2026-08-11"
+    },
+    "neovim.html": {
+      "sha256": "d9f8147723522dae0593d3f6b5abc8195d48339449031f35001f1f2bd880257f",
+      "lastmod": "2026-08-11"
+    },
+    "new-project.html": {
+      "sha256": "8f08c8c3f29c2fd9125d7211c36ad032aa521dae0803b875d81d69fcf5da2840",
+      "lastmod": "2026-08-11"
+    },
+    "path.html": {
+      "sha256": "5f55f21714b8e3d1e0a59d9f9a5ad4b825ffbf7522a318ce4bccb760687b6db4",
+      "lastmod": "2026-08-11"
+    },
+    "platforms.html": {
+      "sha256": "ca2787c96afd0732be2227b3e3772a8c09694f9085011a8f759f29405f446fe2",
+      "lastmod": "2026-08-11"
+    },
+    "practice.html": {
+      "sha256": "66b36c3b96bb8eb3da7886b3d64ea71279c19011993f6083f3d0a3e5eed237d7",
+      "lastmod": "2026-08-11"
+    },
+    "repo-navigation.html": {
+      "sha256": "bec0add87fed4e39437327138661a7443607615eb97e95557e6afa16131277b1",
+      "lastmod": "2026-08-11"
+    },
+    "resources.html": {
+      "sha256": "982eccecccc22e8c64c0ddc10392a1bb34cab071dbe17241b51d0d529597adbc",
+      "lastmod": "2026-08-11"
+    },
+    "setup.html": {
+      "sha256": "ffc833218c91cd62deac59781a0141a45d273795372ec8c80525b7b56bc3ca26",
+      "lastmod": "2026-08-13"
+    },
+    "shell.html": {
+      "sha256": "0233a91b4e8af00a1e4051947480e953f5b207a92f80cb745d083e3c9a4f5183",
+      "lastmod": "2026-08-11"
+    },
+    "skills-playbooks.html": {
+      "sha256": "541cae5e9c39609e910e2b3c128402ced170d6757fbf3a57d9c1e1a878e5e37b",
+      "lastmod": "2026-08-11"
+    },
+    "specs.html": {
+      "sha256": "eb3fe47454b6469bbb6921184138da76eb73da5920674ab9ad947cc489db7cc1",
+      "lastmod": "2026-08-11"
+    },
+    "tmux-repository-windows.html": {
+      "sha256": "6801e992fe1f8afba2ba001a438f431e11e780db03958eac91e3536aa3be6fe9",
+      "lastmod": "2026-08-11"
+    },
+    "tmux.html": {
+      "sha256": "6546d960cff9230cbfa1cf651dd5e4276f6342a01f14719571a400588d3ba76b",
+      "lastmod": "2026-08-11"
+    },
+    "troubleshooting.html": {
+      "sha256": "ee8fe756794288b401d4e40eee671cedd3efa0c89815d2de060f0e8b98d06cee",
+      "lastmod": "2026-08-12"
+    },
+    "web-dev.html": {
+      "sha256": "3d8a3134a4ca5d18cae986e6dcfe41448bcb8110928f85475ea428e94a05877b",
+      "lastmod": "2026-08-11"
+    },
+    "why.html": {
+      "sha256": "804b860690b7bc3ed6a218c0cae454d10fda2d895ecfc8faa7072e0d5e9e8479",
+      "lastmod": "2026-08-11"
+    },
+    "workflow.html": {
+      "sha256": "32739773d986dec2d8ce992625dc785a008dfad824bb8a85636896ac39cee9e9",
+      "lastmod": "2026-08-11"
+    },
+    "worktrees.html": {
+      "sha256": "a7a621f1acaa40a81789aaf856f44f5794a31da3ac046eae5432fdab71963798",
+      "lastmod": "2026-08-11"
+    }
+  }
+}

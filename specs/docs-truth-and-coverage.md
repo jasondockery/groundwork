@@ -62,9 +62,21 @@ enrichment with a reason (see "Blockers vs deferred"). Silence is not coverage.
    navigation and unreferenced by any other page (unless deliberately standalone,
    and then noted).
 10. **Discovery artifacts regenerated.** `scripts/generate-discovery` has been
-    run so `docs/sitemap.xml`, `docs/llms.txt`, and per-page meta descriptions
-    reflect the current pages. `validate-groundwork` already fails on staleness;
-    the audit must not land with these stale.
+    run so `docs/sitemap.xml`, `docs/llms.txt`, `data/docs-fingerprints.json`,
+    and per-page meta descriptions reflect the current pages.
+    `validate-groundwork` already fails on staleness; the audit must not land
+    with these stale.
+
+    Sitemap `lastmod` is a function of page content, never of git. Each page's
+    SHA-256 and the date its content last changed are recorded in the versioned
+    registry `data/docs-fingerprints.json`; a date moves only when that digest
+    moves. Two consequences are contractual, not incidental. Rewriting history
+    — a squash merge, a rebase, an amend — cannot change a single date, so
+    `--check` on a branch gives the verdict main will give after the merge.
+    And git history is not read, so a depth-1 clone is exactly as correct as a
+    full one. A registry that is missing, unparseable, of an unknown version,
+    or carrying a malformed digest or date stops the run; recomputing dates
+    from an untrusted registry would silently republish every page.
 
 ## Machine-readable inventory
 
