@@ -1683,6 +1683,7 @@ case "${1:-}" in
       esac
     done
     printf ']}\n'
+    exit 0
     ;;
   upgrade)
     printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
