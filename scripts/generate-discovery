@@ -10,16 +10,23 @@ Derives, so pages stay the single source of truth:
     registered there rather than referenced from robots).
   - docs/llms.txt for AI/IDE agents (Claude Code, Cursor, and peers fetch
     it when pointed at a docs site).
+  - data/docs-fingerprints.json, the versioned registry recording each page's
+    content digest and the date that content last changed. Sitemap lastmod
+    reads from it, so freshness is a function of page bytes alone — not of
+    commit dates, which a squash merge or rebase rewrites, and not of clone
+    depth. `--check` therefore gives the same verdict on a branch that it will
+    give on main after the merge.
 
 Modes: --write (default) rewrites artifacts; --check exits 1 if a rewrite
 would change anything (wired into scripts/validate-groundwork).
 """
 
 import datetime
+import hashlib
 import html
+import json
 import pathlib
 import re
-import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -43,9 +50,18 @@ LEAD_RE = re.compile(r'<p class="lead">(.*?)</p>', re.S)
 FIRST_P_RE = re.compile(r'<div class="content">.*?<p[^>]*>(.*?)</p>', re.S)
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.S)
 TAG_RE = re.compile(r"<[^>]+>")
-# Reads the sitemap this generator wrote, to report which pages' lastmod moved.
-# Diagnosis only: the freshness verdict never depends on parsing it back.
-SITEMAP_ENTRY_RE = re.compile(r"<loc>([^<]*)</loc>\s*<lastmod>([^<]*)</lastmod>")
+
+# Recorded content fingerprint and lastmod per page. This registry is what makes
+# sitemap freshness deterministic: a page's lastmod moves when its bytes move,
+# never because a commit happened to be dated a certain day. The answer is
+# therefore identical before and after a squash merge or a rebase, and it is
+# computed without reading git history at all, so a depth-1 clone is exactly as
+# correct as a full one. Both properties are what let `--check` settle the
+# question on a branch, before a merge exists.
+REGISTRY = ROOT / "data" / "docs-fingerprints.json"
+REGISTRY_VERSION = 1
+SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 
 def page_description(text: str) -> str:
@@ -68,115 +84,47 @@ def set_meta(text: str, pattern: str, replacement: str) -> str:
     return re.sub(pattern, replacement, text, count=1)
 
 
-def run_git(*args: str) -> str:
-    """Run git and fail closed. Any nonzero exit stops generation instead of
-    letting incomplete history silently produce a valid-looking but false
-    sitemap — the same fail-open trap the shallow-clone check closes."""
-    result = subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        sys.stderr.write(
-            f"generate-discovery: git {' '.join(args)} failed: "
-            f"{result.stderr.strip() or 'unknown error'}\n"
+def fail(message: str) -> None:
+    sys.stderr.write(f"generate-discovery: {message}\n")
+    raise SystemExit(1)
+
+
+def load_registry() -> dict[str, dict[str, str]]:
+    """Page name -> {sha256, lastmod} from the tracked registry.
+
+    Every shape error fails closed. An unreadable registry must never degrade
+    into "stamp everything today": that would silently republish every page's
+    date and bury whichever page actually changed."""
+    where = REGISTRY.relative_to(ROOT)
+    if not REGISTRY.exists():
+        fail(
+            f"{where} is missing. It is tracked and required; restore it from "
+            "git rather than letting every date be recomputed."
         )
-        raise SystemExit(1)
-    return result.stdout
-
-
-def assert_full_history() -> None:
-    """Git history is a declared input here, not ambient state: sitemap
-    lastmod dates are each page's newest commit date. A shallow clone can't
-    prove it holds the commit that last changed a page, so the dates would be
-    silently wrong. Fail closed: if the history state cannot even be
-    established, that is an error, not a pass. The declared contract is the
-    checked-out branch's complete history."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--is-shallow-repository"],
-        cwd=ROOT, capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        sys.stderr.write(
-            "generate-discovery: cannot determine git history state: "
-            f"{result.stderr.strip()}\n"
+    try:
+        raw = json.loads(REGISTRY.read_text())
+    except json.JSONDecodeError as exc:
+        fail(f"{where} is not valid JSON: {exc}")
+    if not isinstance(raw, dict):
+        fail(f"{where} must be a JSON object, not {type(raw).__name__}.")
+    if raw.get("version") != REGISTRY_VERSION:
+        fail(
+            f"{where} is version {raw.get('version')!r}; this generator writes "
+            f"version {REGISTRY_VERSION}. Migrate the file deliberately — a "
+            "version this generator does not understand is not a date source."
         )
-        raise SystemExit(1)
-    state = result.stdout.strip()
-    if state not in ("true", "false"):
-        sys.stderr.write(
-            f"generate-discovery: unexpected shallow-state {state!r} "
-            "(expected 'true' or 'false')\n"
-        )
-        raise SystemExit(1)
-    if state == "true":
-        sys.stderr.write(
-            "generate-discovery: shallow clone; sitemap lastmod dates need "
-            "the checked-out branch's full history. In GitHub Actions set "
-            "checkout fetch-depth: 0 (add filter: blob:none to skip old "
-            "blobs); locally run `git fetch --unshallow`.\n"
-        )
-        raise SystemExit(1)
-
-
-def dirty_docs_paths() -> set[str]:
-    """Docs paths with uncommitted changes (modified, added, renamed, or
-    untracked). These get today's date; committed pages get their last commit
-    date. `-z` gives unambiguous NUL-delimited records, so filenames with
-    spaces, quotes, or unicode can't corrupt parsing."""
-    out = run_git("status", "--porcelain=v1", "-z", "--", "docs")
-    fields = out.split("\0")
-    paths: set[str] = set()
-    i = 0
-    while i < len(fields):
-        record = fields[i]
-        if not record:
-            i += 1
-            continue
-        status, path = record[:2], record[3:]
-        paths.add(path)
-        # A rename/copy record is followed by its source path in the next
-        # NUL field; the destination path (above) is what exists now.
-        if "R" in status or "C" in status:
-            i += 1
-        i += 1
-    return paths
-
-
-def commit_date_map() -> dict[str, str]:
-    """Newest commit date per docs path in ONE history traversal (not a
-    `git log` per page). A NUL prefix marks date lines so a date-shaped
-    filename cannot be misread as a date. Paths are read line-based; that is
-    safe here because the names we actually look up are validated simple
-    `*.html` filenames (SAFE_PAGE_NAME, enforced in main) — a newline in some
-    historical path could only add an unused map key, never mislabel a queried
-    page. git log is newest-first, so a path's first appearance is its latest
-    change."""
-    out = run_git(
-        "-c", "core.quotePath=false",
-        "log", "--format=%x00%cs", "--name-only", "--", "docs",
-    )
-    dates: dict[str, str] = {}
-    current = ""
-    for line in out.splitlines():
-        if line.startswith("\0"):
-            current = line[1:].strip()
-        elif line:
-            dates.setdefault(line, current)
-    return dates
-
-
-def lastmod_drift(recorded: str, computed: str, page_names: dict[str, str]) -> list[str]:
-    """Pages whose lastmod differs between the sitemap on disk and the one just
-    computed, as `page: recorded -> computed`. Pages added or removed are left
-    out: the file list already names sitemap.xml, and only a date move needs
-    explaining."""
-    was = dict(SITEMAP_ENTRY_RE.findall(recorded))
-    now = dict(SITEMAP_ENTRY_RE.findall(computed))
-    return [
-        f"{page_names.get(loc, loc)}: {was[loc]} -> {date}"
-        for loc, date in now.items()
-        if loc in was and was[loc] != date
-    ]
+    pages = raw.get("pages")
+    if not isinstance(pages, dict):
+        fail(f"{where} has no 'pages' object.")
+    for name, entry in pages.items():
+        if not isinstance(entry, dict):
+            fail(f"{where}: {name} is not an object.")
+        digest, lastmod = entry.get("sha256"), entry.get("lastmod")
+        if not isinstance(digest, str) or not SHA256_HEX.fullmatch(digest):
+            fail(f"{where}: {name} has no valid lowercase sha256 digest.")
+        if not isinstance(lastmod, str) or not ISO_DATE.fullmatch(lastmod):
+            fail(f"{where}: {name} has no valid YYYY-MM-DD lastmod.")
+    return pages
 
 
 def is_site_page(path: pathlib.Path) -> bool:
@@ -188,16 +136,15 @@ def is_site_page(path: pathlib.Path) -> bool:
 
 def main() -> int:
     check = "--check" in sys.argv
-    assert_full_history()
+    registry = load_registry()
     pages = sorted(p for p in DOCS.glob("*.html") if is_site_page(p))
     for page in pages:
         if not SAFE_PAGE_NAME.fullmatch(page.name):
-            sys.stderr.write(
-                f"generate-discovery: unsafe page filename {page.name!r}; "
-                "docs pages must be simple [A-Za-z0-9._-].html names so the "
-                "git-log lastmod parse stays unambiguous.\n"
+            fail(
+                f"unsafe page filename {page.name!r}; docs pages must be "
+                "simple [A-Za-z0-9._-].html names so they stay unambiguous as "
+                "registry keys and sitemap URLs."
             )
-            raise SystemExit(1)
     changed: list[str] = []
     entries = []
 
@@ -224,41 +171,47 @@ def main() -> int:
             changed.append(f"docs/{page.name}")
             if not check:
                 page.write_text(new)
-        entries.append((page, page_title(new), page_description(new)))
+        # `new`, not `text`: the fingerprint must cover the bytes this generator
+        # would leave on disk, or a pending description rewrite would land later
+        # as a phantom content change.
+        entries.append((page, page_title(new), page_description(new), new))
 
     url_of = lambda p: f"{BASE}/" if p.name == "index.html" else f"{BASE}/{p.name}"
 
-    dirty = dirty_docs_paths()
-    dates = commit_date_map()
     today = datetime.date.today().isoformat()
+    fingerprints: dict[str, dict[str, str]] = {}
+    moved: list[str] = []
 
-    def page_lastmod(page: pathlib.Path) -> str:
-        rel = f"docs/{page.name}"
-        if rel in dirty:
-            return today
-        date = dates.get(rel)
-        if not date:
-            # Committed but absent from the history map: an invariant failure
-            # (incomplete history), not a page to stamp with a placeholder.
-            sys.stderr.write(
-                f"generate-discovery: {rel} is tracked but has no commit "
-                "date; refusing to emit a placeholder lastmod.\n"
-            )
-            raise SystemExit(1)
-        return date
+    def page_lastmod(page: pathlib.Path, text: str) -> str:
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        recorded = registry.get(page.name)
+        if recorded and recorded["sha256"] == digest:
+            lastmod = recorded["lastmod"]
+        else:
+            lastmod = today
+            why = "content changed" if recorded else "new page"
+            moved.append(f"{page.name}: {why} -> {lastmod}")
+        fingerprints[page.name] = {"sha256": digest, "lastmod": lastmod}
+        return lastmod
 
     sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     sitemap_lines.append(
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
     )
-    for page, _title, _desc in entries:
+    for page, _title, _desc, text in entries:
         sitemap_lines.append("  <url>")
         sitemap_lines.append(f"    <loc>{url_of(page)}</loc>")
-        sitemap_lines.append(f"    <lastmod>{page_lastmod(page)}</lastmod>")
+        sitemap_lines.append(f"    <lastmod>{page_lastmod(page, text)}</lastmod>")
         sitemap_lines.append("  </url>")
     sitemap_lines.append("</urlset>")
     sitemap = "\n".join(sitemap_lines) + "\n"
-    page_names = {url_of(page): page.name for page, _title, _desc in entries}
+
+    for gone in sorted(set(registry) - set(fingerprints)):
+        moved.append(f"{gone}: page removed")
+    registry_json = json.dumps(
+        {"version": REGISTRY_VERSION, "pages": dict(sorted(fingerprints.items()))},
+        indent=2,
+    ) + "\n"
 
     llms_lines = [f"# {SITE}", "", f"> {SUMMARY}", ""]
     llms_lines.append(
@@ -274,18 +227,18 @@ def main() -> int:
     llms_lines.append("")
     llms_lines.append("## Docs")
     llms_lines.append("")
-    for page, title, desc in entries:
+    for page, title, desc, _text in entries:
         llms_lines.append(f"- [{title}]({url_of(page)}): {desc}")
     llms = "\n".join(llms_lines) + "\n"
 
-    drift: list[str] = []
-    for name, content in (("sitemap.xml", sitemap), ("llms.txt", llms)):
-        path = DOCS / name
-        recorded = path.read_text() if path.exists() else ""
-        if recorded != content:
-            changed.append(f"docs/{name}")
-            if name == "sitemap.xml":
-                drift = lastmod_drift(recorded, content, page_names)
+    artifacts = (
+        (DOCS / "sitemap.xml", "docs/sitemap.xml", sitemap),
+        (DOCS / "llms.txt", "docs/llms.txt", llms),
+        (REGISTRY, str(REGISTRY.relative_to(ROOT)), registry_json),
+    )
+    for path, label, content in artifacts:
+        if not path.exists() or path.read_text() != content:
+            changed.append(label)
             if not check:
                 path.write_text(content)
 
@@ -293,13 +246,12 @@ def main() -> int:
         print("discovery artifacts stale; run scripts/generate-discovery:")
         for c in sorted(set(changed)):
             print(f"  {c}")
-        if drift:
-            # Date-only drift is usually not a docs edit: the commit that landed
-            # the pages is dated after the run that stamped them, which a squash
-            # merge or a rebase onto a later day produces on its own. Naming the
-            # pages separates that from a genuinely missed regeneration.
-            print("lastmod drift (page: recorded -> computed):")
-            for line in drift:
+        if moved:
+            # A date only moves when a page's bytes moved, so this list is the
+            # whole reason the artifacts are stale. Naming each page separates a
+            # real edit from a page that was added or removed without a rerun.
+            print("lastmod changes (page: why -> date):")
+            for line in moved:
                 print(f"  {line}")
         return 1
     if changed:
