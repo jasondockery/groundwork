@@ -291,8 +291,6 @@ if command -v brew >/dev/null 2>&1; then
       cask_installed cask_available cask_extra; do
       if [[ -n "$cask_extra" || ! "$cask_token" =~ ^[A-Za-z0-9@+._-]+$ ]]; then
         echo "Groundwork: the classified Homebrew cask receipt is malformed; no cask upgrade was attempted." >&2
-        rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
-        runner_temp=""
         exit 1
       fi
       case "$cask_disposition" in
@@ -313,8 +311,6 @@ if command -v brew >/dev/null 2>&1; then
           ;;
         *)
           echo "Groundwork: the classified Homebrew cask disposition is unknown; no cask upgrade was attempted." >&2
-          rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
-          runner_temp=""
           exit 1
           ;;
       esac
