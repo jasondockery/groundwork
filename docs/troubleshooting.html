@@ -323,6 +323,7 @@
 
       <h2><span class="hash" aria-hidden="true">#</span>Shell &amp; prompt</h2>
       <table class="keytable">
+        <tr><td><strong>Pasted command sits above a blank line</strong></td><td>zsh's bracketed-paste protection kept the trailing newline in the editable buffer instead of executing it. Review the command, then press <kbd>Enter</kbd> once to run it or <kbd>Ctrl</kbd>+<kbd>C</kbd> to discard it. A command that is still editable has no running child process; check from another terminal before interrupting work if the state is unclear.</td></tr>
         <tr><td><strong>No grey autosuggestions / no colors</strong></td><td>The plugins didn't load. Run <code>exec zsh</code>; if it persists, check <code>~/.zsh_plugins.txt</code> exists and that antidote is installed (<code>brew list antidote</code>)</td></tr>
         <tr><td><strong>Prompt shows boxes or wrong glyphs</strong></td><td>Terminal font isn't a Nerd Font — Groundwork sets Ghostty to <em>JetBrainsMono Nerd Font</em>. Re-run <code>chezmoi apply</code>, restart Ghostty, then verify with <code>ghostty +show-config | grep -i font-family</code></td></tr>
         <tr><td><strong>Tab completion feels broken</strong></td><td>The completion cache went stale. Rebuild it: <code>rm -f ~/.zcompdump*</code> then <code>exec zsh</code></td></tr>

@@ -7483,6 +7483,56 @@ ZSH
   [[ -f "$shell_refresh_exec_log" && "$(wc -l <"$shell_refresh_exec_log" | tr -d ' ')" -eq 1 ]] \
     || fail "the refresh hook must exec zsh once after the background job finishes"
 
+  check "bracketed paste stays editable until explicit submit"
+  paste_dir="$out_dir/bracketed-paste"
+  paste_socket="groundwork-paste-$$"
+  paste_marker="$paste_dir/submitted"
+  paste_buffer="$paste_dir/buffer"
+  paste_capture="$paste_dir/capture"
+  paste_fail() {
+    tmux -L "$paste_socket" kill-server 2>/dev/null || true
+    fail "$1"
+  }
+  mkdir -p "$paste_dir"
+  printf "printf 'PASTE-SUBMITTED\\n' >'%s'\n" "$paste_marker" >"$paste_buffer"
+  tmux -L "$paste_socket" -f /dev/null new-session -d -x 100 -y 20 \
+    "env PS1='GROUNDWORK-PASTE> ' zsh -f" \
+    || paste_fail "the bracketed-paste fixture could not start an isolated zsh"
+  for _ in {1..50}; do
+    tmux -L "$paste_socket" capture-pane -p >"$paste_capture" 2>/dev/null || true
+    grep -qF 'GROUNDWORK-PASTE> ' "$paste_capture" && break
+    sleep 0.05
+  done
+  grep -qF 'GROUNDWORK-PASTE> ' "$paste_capture" \
+    || paste_fail "the bracketed-paste fixture did not reach an interactive prompt"
+  tmux -L "$paste_socket" load-buffer -b groundwork-paste "$paste_buffer" \
+    || paste_fail "the bracketed-paste fixture could not load the observed command"
+  tmux -L "$paste_socket" paste-buffer -p -b groundwork-paste -t 0 \
+    || paste_fail "the bracketed-paste fixture could not paste through zsh's safety boundary"
+  for _ in {1..50}; do
+    tmux -L "$paste_socket" capture-pane -p >"$paste_capture" 2>/dev/null || true
+    grep -qF 'PASTE-SUBMITTED' "$paste_capture" && break
+    sleep 0.05
+  done
+  grep -qF 'PASTE-SUBMITTED' "$paste_capture" \
+    || paste_fail "zsh did not display the pasted command for review"
+  [[ ! -e "$paste_marker" ]] \
+    || paste_fail "a pasted trailing newline executed without an explicit Enter"
+  paste_shell_pid="$(tmux -L "$paste_socket" display-message -p -t 0 '#{pane_pid}')"
+  paste_children="$(ps -axo ppid=,stat=,command= 2>/dev/null \
+    | awk -v parent="$paste_shell_pid" '$1 == parent && $2 !~ /^Z/ { print }')"
+  [[ -z "$paste_children" ]] \
+    || paste_fail "an editable paste was misreported as a running child process: $paste_children"
+  tmux -L "$paste_socket" send-keys -t 0 Enter \
+    || paste_fail "the bracketed-paste fixture could not submit with explicit Enter"
+  for _ in {1..50}; do
+    [[ -f "$paste_marker" ]] && break
+    sleep 0.05
+  done
+  [[ -f "$paste_marker" && "$(<"$paste_marker")" == 'PASTE-SUBMITTED' ]] \
+    || paste_fail "explicit Enter did not execute the reviewed pasted command"
+  tmux -L "$paste_socket" kill-server 2>/dev/null || true
+
   check "terminal copy model (effective tmux server + helper safety)"
   # Source greps accept a syntactically valid but wrong binding; assert the
   # EFFECTIVE behavior in a real isolated server, and prove the cwd helper cannot
