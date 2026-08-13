@@ -573,9 +573,11 @@ Roost.
       as Renovate's data source (2026-07-03).
 - [x] Code scanning enabled via CodeQL default setup (2026-07-03).
 - [x] Secret scanning with push protection confirmed enabled.
-- [x] Security-PR automerge enabled, aligned with roost (2026-07-04) — the
-      earlier difference was drift, not policy; shared policy now lives in
-      the `renovate-config` preset (`PLAYBOOK.md`, Dependency Updates).
+- [x] Security-PR handling reconciled to the shared preset (2026-08-13):
+      vulnerability alerts bypass routine schedule, maturity, and rate limits,
+      while automerge stays disabled and a human reviews and merges after
+      required CI. This supersedes the 2026-07-04 automerge decision; shared
+      policy lives in `renovate-config` (`PLAYBOOK.md`, Dependency Updates).
 - [x] `workflow-lint` CI job added: zizmor (pedantic) audits the workflows,
       mirroring roost's job; existing findings fixed in the same change
       (2026-07-04). That original five-check layout was superseded on 2026-08-02

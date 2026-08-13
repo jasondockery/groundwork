@@ -49,17 +49,13 @@ Operating notes:
   updates such as Groundwork's Ubuntu major migration (the runner acts on the
   approval at its next cron/dispatch run, not instantly).
 - Security PRs bypass the normal age, routine schedule, and routine rate limits,
-  appear on the next
-  daily run, are labeled `security`, and automerge once CI is
-  green (decided 2026-07-04, aligned with the roost repo): the CI jobs prove
-  what a human check would, and a known-vulnerable package should not wait on a
-  manual merge. Action and image updates retain their separately inventoried
-  pin/digest controls. "Allow auto-merge" is enabled (2026-07-09). If the
-  branch-protection baseline (Main Branch Protection below) is applied, the
-  required checks are the gate; until then Renovate merges on its own next run
-  once checks pass. Either way, green CI — not a human — is what releases a
-  security update. Whether protection is currently applied is tracked as an
-  owner action in ROADMAP, not restated in this evergreen prose.
+  appear on the next daily run, and are labeled `security`. Renovate automerge
+  and platform automerge remain disabled: a human reviews and merges each
+  security PR after its required CI succeeds (decided 2026-08-13 in the shared
+  `renovate-config` policy). Action and image updates retain their separately
+  inventoried pin/digest controls. Whether branch protection is currently
+  applied is tracked as an owner action in ROADMAP, not restated in this
+  evergreen prose.
 - Never add a `dependabot.yml`; Dependabot version updates would duplicate
   Renovate PRs. The old one (github-actions, docker, devcontainers) was
   removed 2026-07-03 when Renovate took over. Dependabot alerts can stay
@@ -370,10 +366,10 @@ an owner action tracked in ROADMAP, not a dated status restated in this prose.
 
 The baseline requires the aggregate CI gate and a pull request but **zero approving
 reviews**. A solo author cannot approve their own PR, so requiring one approval
-alongside `enforce_admins` would deadlock every owner PR and block Renovate's
-security automerge (auto-merge waits on all required reviews). Zero approvals
-keeps the PR + green-checks gate without making a second human an enforced
-dependency; human review stays the normal practice, just not a hard gate.
+alongside `enforce_admins` would deadlock every owner PR. Zero approvals keeps
+the PR + green-checks gate without making a second human an enforced dependency;
+human review and merge remain policy, just not a required approving review that
+the solo owner cannot provide.
 
 Apply it only AFTER `ci-gate` has reported green at least once on `main` — a
 required context that has never run cannot be selected reliably:
