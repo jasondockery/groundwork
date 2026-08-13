@@ -162,7 +162,7 @@
       <ul>
         <li>Opens <strong>eligible grouped PRs on the daily run</strong>, labeled <code>dependencies</code>. Related bumps travel together so review is one read, not twenty.</li>
         <li>Maintains an always-current <strong>Dependency Dashboard</strong> issue: every pending update, what is held by the maturity floor or rate limits, and what requires approval. Ticking an approval checkbox releases that held update for a future run.</li>
-        <li>Opens security PRs on the next daily runner pass, explicitly bypassing the routine schedule, age floor, and rate limits, and merges them itself once CI is green.</li>
+        <li>Opens security PRs on the next daily runner pass, explicitly bypassing the routine schedule, age floor, and rate limits. Renovate does not merge them: a human reviews and merges each PR after its required CI succeeds.</li>
         <li>Updates things that are not npm packages at all: <strong>GitHub Actions pinned to commit SHAs</strong> (it moves the pin and the human-readable version comment together) and <strong>Docker base-image digests</strong>.</li>
         <li>Embeds each package's <strong>release notes in the PR body</strong>, so the review starts with what changed, not with hunting for a changelog.</li>
       </ul>
@@ -211,7 +211,7 @@
       <ul>
         <li><strong>High-blast-radius majors are held for approval.</strong> Groundwork treats an Ubuntu base-image major as a platform migration, so it appears on the dashboard for approval instead of opening a routine PR. A major upgrade with that compatibility impact is deliberate work with its own plan.</li>
         <li><strong>High-blast-radius packages always get human review</strong>, even for patches. Deployment engines and infrastructure adapters can break everything at once; the config forbids automerging them.</li>
-        <li><strong>Automerge is earned, not default.</strong> Security fixes automerge because CI proves what a human glance would. Routine bumps automerge only after the machinery has demonstrated, over enough cycles, that green CI genuinely means safe.</li>
+        <li><strong>Automerge is earned, not default.</strong> This policy leaves security and routine dependency PRs for human review and merge after required CI. Any future automerge category would need its own evidence and an explicit policy decision.</li>
         <li><strong>The dashboard is the console.</strong> When something seems stuck, the answer is almost always there: held by maturity or rate limits, awaiting approval, or blocked by a config error the bot is reporting.</li>
       </ul>
 
@@ -239,7 +239,9 @@
     "minimumReleaseAge": null,
     "prHourlyLimit": 0,
     "prConcurrentLimit": 0,
-    "prCreation": "immediate"
+    "prCreation": "immediate",
+    "automerge": false,
+    "platformAutomerge": false
   }
 }</code></pre>
       <ol start="3">
