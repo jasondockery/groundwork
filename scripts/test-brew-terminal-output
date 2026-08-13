@@ -11,66 +11,42 @@ fixture="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-brew-terminal.XXXXXX")"
 owned_groups="$fixture/owned-process-groups"
 : >"$owned_groups"
 
-fixture_group_is_live() {
+owned_group_is_live() {
   local candidate="$1"
-  ps -axo pgid=,stat=,command= 2>/dev/null \
-    | awk -v candidate="$candidate" -v fixture="$fixture" '
-        $1 == candidate && $2 !~ /^Z/ && index($0, fixture) { found = 1 }
-        END { exit(found ? 0 : 1) }
-      '
-}
-
-fixture_pid_is_live() {
-  local candidate="$1" state command
-  state="$(ps -p "$candidate" -o stat= 2>/dev/null | tr -d '[:space:]')"
-  [[ -n "$state" && "$state" != Z* ]] || return 1
-  command="$(ps -p "$candidate" -o command= 2>/dev/null || true)"
-  [[ "$command" == *"$fixture"* ]]
+  /bin/kill -0 -- "-$candidate" 2>/dev/null
 }
 
 cleanup_owned_processes() {
-  local candidates targets candidate kind outer_pgid cleanup_failed=0
+  local candidates targets candidate outer_pgid cleanup_failed=0
   candidates="$fixture/cleanup-candidates"
   targets="$fixture/cleanup-targets"
   : >"$candidates"
   : >"$targets"
   cat -- "$owned_groups" >>"$candidates" 2>/dev/null || true
-  while IFS= read -r process_file; do
-    cat -- "$process_file" >>"$candidates" 2>/dev/null || true
-  done < <(find "$fixture" -type f \( -name '*.pid' -o -name '*.pgid' \) -print 2>/dev/null)
   outer_pgid="$(ps -o pgid= -p $$ 2>/dev/null | tr -d '[:space:]')"
 
   LC_ALL=C sort -u "$candidates" | while IFS= read -r candidate; do
     [[ "$candidate" =~ ^[1-9][0-9]*$ ]] || continue
     [[ "$candidate" != "$$" && "$candidate" != "$outer_pgid" ]] || continue
-    if fixture_group_is_live "$candidate"; then
-      printf 'group\t%s\n' "$candidate" >>"$targets"
+    if owned_group_is_live "$candidate"; then
+      printf '%s\n' "$candidate" >>"$targets"
       kill -TERM -- "-$candidate" 2>/dev/null || true
-    elif fixture_pid_is_live "$candidate"; then
-      printf 'pid\t%s\n' "$candidate" >>"$targets"
-      kill -TERM "$candidate" 2>/dev/null || true
     fi
   done
 
   sleep 0.2
-  while IFS=$'\t' read -r kind candidate; do
-    [[ -n "$kind" && -n "$candidate" ]] || continue
-    if [[ "$kind" == group ]] && fixture_group_is_live "$candidate"; then
+  while IFS= read -r candidate; do
+    [[ -n "$candidate" ]] || continue
+    if owned_group_is_live "$candidate"; then
       kill -KILL -- "-$candidate" 2>/dev/null || true
-    elif [[ "$kind" == pid ]] && fixture_pid_is_live "$candidate"; then
-      kill -KILL "$candidate" 2>/dev/null || true
     fi
   done <"$targets"
 
   for _ in {1..20}; do
     cleanup_failed=0
-    while IFS=$'\t' read -r kind candidate; do
-      [[ -n "$kind" && -n "$candidate" ]] || continue
-      if [[ "$kind" == group ]] && fixture_group_is_live "$candidate"; then
-        cleanup_failed=1
-      elif [[ "$kind" == pid ]] && fixture_pid_is_live "$candidate"; then
-        cleanup_failed=1
-      fi
+    while IFS= read -r candidate; do
+      [[ -n "$candidate" ]] || continue
+      owned_group_is_live "$candidate" && cleanup_failed=1
     done <"$targets"
     [[ "$cleanup_failed" -eq 0 ]] && break
     sleep 0.05
@@ -1017,6 +993,7 @@ while :; do sleep 1; done
 SH
 chmod +x "$fixture/cleanup-probe"
 export GROUNDWORK_BREW_TEST_CLEANUP_PROBE_PID="$fixture/cleanup-probe.pid"
+export GROUNDWORK_BREW_TEST_CLEANUP_PROBE_GROUP="$fixture/cleanup-probe.pgid"
 
 python3 - "$fixture" <<'PY'
 import os
@@ -1031,6 +1008,7 @@ if pid == 0:
     os.execve(str(fixture / "cleanup-probe"), [str(fixture / "cleanup-probe")], os.environ.copy())
 with pathlib.Path(os.environ["GROUNDWORK_BREW_TEST_OWNED_GROUPS"]).open("a") as registry:
     registry.write(f"{pid}\n")
+pathlib.Path(os.environ["GROUNDWORK_BREW_TEST_CLEANUP_PROBE_GROUP"]).write_text(f"{pid}\n")
 deadline = time.monotonic() + 5
 while time.monotonic() < deadline:
     if pathlib.Path(os.environ["GROUNDWORK_BREW_TEST_CLEANUP_PROBE_PID"]).exists():
@@ -1043,9 +1021,14 @@ os.close(master)
 PY
 
 cleanup_probe_pid="$(<"$GROUNDWORK_BREW_TEST_CLEANUP_PROBE_PID")"
+cleanup_probe_pgid="$(<"$GROUNDWORK_BREW_TEST_CLEANUP_PROBE_GROUP")"
+if [[ "$cleanup_probe_pid" != "$cleanup_probe_pgid" ]]; then
+  echo "cleanup probe leader $cleanup_probe_pid did not own recorded group $cleanup_probe_pgid" >&2
+  exit 1
+fi
 cleanup_owned_processes
-if fixture_pid_is_live "$cleanup_probe_pid"; then
-  echo "interrupted-fixture cleanup left probe $cleanup_probe_pid running" >&2
+if owned_group_is_live "$cleanup_probe_pgid"; then
+  echo "interrupted-fixture cleanup left probe group $cleanup_probe_pgid running" >&2
   exit 1
 fi
 
