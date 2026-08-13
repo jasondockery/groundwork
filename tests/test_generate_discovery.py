@@ -14,6 +14,7 @@ real generator process rather than by importing internals:
 """
 
 import hashlib
+import html
 import json
 import pathlib
 import shutil
@@ -27,6 +28,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 GENERATOR = REPO / "scripts" / "generate-discovery"
 SITEMAP_NS = {"sitemap": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 BASE = "https://jasondockery.github.io/groundwork"
+MAX_DESC = 158
 
 PAGE = (
     '<html><head><meta name="description" content="{lead}">'
@@ -198,6 +200,53 @@ class TestPageLifecycle(DiscoveryTestCase):
         self.assertNotIn(
             "guide.html", (self.site.root / "docs" / "llms.txt").read_text()
         )
+
+
+class TestMetadataBoundaries(DiscoveryTestCase):
+    """User-authored leads stay literal and within the published size limit."""
+
+    def test_backslashes_are_literal_across_generated_artifacts(self):
+        lead = r"Open C:\Users\dev and keep \1 literal & safe."
+        self.site.write_page("index.html", lead=lead)
+        self.site.write_registry({"version": 1, "pages": {}})
+
+        self.generate()
+        page_path = self.site.root / "docs" / "index.html"
+        page = page_path.read_text()
+        escaped = html.escape(lead, quote=True)
+        self.assertEqual(
+            page.count(f'content="{escaped}"'),
+            3,
+            "all description mirrors must preserve escaped literal content",
+        )
+        self.assertIn(r"C:\Users\dev", page)
+        self.assertIn(r"\1", page)
+        self.assertIn(f": {lead}", (self.site.root / "docs" / "llms.txt").read_text())
+        self.assertEqual(
+            self.site.registry()["pages"]["index.html"]["sha256"],
+            hashlib.sha256(page_path.read_bytes()).hexdigest(),
+            "the registry digest must cover the rewritten metadata bytes",
+        )
+        self.assertIn(f"{BASE}/", self.site.lastmods())
+
+        expected_page = page
+        expected_artifacts = self.site.artifacts()
+        self.generate("--check")
+        self.generate()
+        self.assertEqual(page_path.read_text(), expected_page)
+        self.assertEqual(self.site.artifacts(), expected_artifacts)
+
+    def test_unbroken_lead_reserves_space_for_the_ellipsis(self):
+        lead = "x" * (MAX_DESC + 1)
+        expected = "x" * (MAX_DESC - 1) + "…"
+        self.site.write_page("index.html", lead=lead)
+        self.site.write_registry({"version": 1, "pages": {}})
+
+        self.generate()
+        page = (self.site.root / "docs" / "index.html").read_text()
+        self.assertEqual(len(expected), MAX_DESC)
+        self.assertEqual(page.count(f'content="{expected}"'), 3)
+        self.assertIn(f": {expected}", (self.site.root / "docs" / "llms.txt").read_text())
 
 
 class TestRegistryFailsClosed(DiscoveryTestCase):

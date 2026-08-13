@@ -41,9 +41,9 @@ SUMMARY = (
 )
 MAX_DESC = 158
 
-# Docs pages are simple single-segment .html filenames. The commit-date parse
-# reads git-log output line-based, which is only unambiguous if the names we
-# look up contain no newlines or surprises; main() enforces this.
+# Docs pages are simple single-segment .html filenames. Page names become
+# registry keys and unescaped sitemap URL path segments, so main() restricts
+# them to one predictable, portable alphabet.
 SAFE_PAGE_NAME = re.compile(r"[A-Za-z0-9._-]+\.html")
 
 LEAD_RE = re.compile(r'<p class="lead">(.*?)</p>', re.S)
@@ -71,7 +71,11 @@ def page_description(text: str) -> str:
     raw = html.unescape(TAG_RE.sub("", m.group(1)))
     desc = " ".join(raw.split())
     if len(desc) > MAX_DESC:
-        desc = desc[: MAX_DESC + 1].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+        prefix = desc[: MAX_DESC - 1]
+        if " " in prefix:
+            prefix = prefix.rsplit(" ", 1)[0]
+        prefix = prefix.rstrip(",;:")
+        desc = prefix + "…"
     return desc
 
 
@@ -81,7 +85,12 @@ def page_title(text: str) -> str:
 
 
 def set_meta(text: str, pattern: str, replacement: str) -> str:
-    return re.sub(pattern, replacement, text, count=1)
+    return re.sub(
+        pattern,
+        lambda match: f"{match.group(1)}{replacement}{match.group(2)}",
+        text,
+        count=1,
+    )
 
 
 def fail(message: str) -> None:
@@ -155,17 +164,17 @@ def main() -> int:
         new = set_meta(
             new,
             r'(<meta name="description" content=")[^"]*(")',
-            rf"\g<1>{desc_attr}\g<2>",
+            desc_attr,
         )
         new = set_meta(
             new,
             r'(<meta property="og:description" content=")[^"]*(")',
-            rf"\g<1>{desc_attr}\g<2>",
+            desc_attr,
         )
         new = set_meta(
             new,
             r'(<meta name="twitter:description" content=")[^"]*(")',
-            rf"\g<1>{desc_attr}\g<2>",
+            desc_attr,
         )
         if new != text:
             changed.append(f"docs/{page.name}")
