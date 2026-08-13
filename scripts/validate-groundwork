@@ -7500,10 +7500,10 @@ ZSH
     || paste_fail "the bracketed-paste fixture could not start an isolated zsh"
   for _ in {1..50}; do
     tmux -L "$paste_socket" capture-pane -p >"$paste_capture" 2>/dev/null || true
-    grep -qF 'GROUNDWORK-PASTE> ' "$paste_capture" && break
+    grep -qF 'GROUNDWORK-PASTE>' "$paste_capture" && break
     sleep 0.05
   done
-  grep -qF 'GROUNDWORK-PASTE> ' "$paste_capture" \
+  grep -qF 'GROUNDWORK-PASTE>' "$paste_capture" \
     || paste_fail "the bracketed-paste fixture did not reach an interactive prompt"
   tmux -L "$paste_socket" load-buffer -b groundwork-paste "$paste_buffer" \
     || paste_fail "the bracketed-paste fixture could not load the observed command"
