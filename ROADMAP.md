@@ -448,17 +448,21 @@ done nor lost in review prose.
       CLOSED: the runtime stage is skipped, the run exits nonzero, and no
       success timestamp is written — a policy that steps aside whenever it
       cannot be enforced is not a policy.
-- [x] Homebrew checksum policy (2026-07-14): casks must carry a checksum at
+- [x] Homebrew checksum policy (2026-07-14, update-selection wording superseded
+      2026-08-14): casks must carry a checksum at
       INSTALL as well as upgrade. `brew bundle` runs under
       `HOMEBREW_CASK_OPTS=--require-sha` (the user's own cask options are
       preserved, never replaced), and `update-all` runs `brew upgrade
-      --require-sha` with no `--greedy` of any kind. Verified against the real
+      --require-sha` with no bare global `--greedy`. Exact checksummed tokens
+      may now enter targeted self-update/latest lanes after matching outdated
+      queries. Verified against the real
       inventory rather than assumed: every cask in the Brewfile is versioned
       and checksummed, the AI CLIs included — `claude-code@latest` is a faster
       release CHANNEL, not Homebrew's `version :latest` (which would force
       `sha256 :no_check`), so no unchecked "fast lane" exists and no
-      `groundwork-ai-update` split is warranted. `--greedy-latest` was a no-op
-      justified by an incorrect comment and is gone. The official Chrome stable
+      `groundwork-ai-update` split is warranted. An earlier unscoped
+      `--greedy-latest` was a no-op and removed; the current exact-token lane is
+      a separately proved contract. The official Chrome stable
       and Beta casks genuinely ship `sha256 :no_check` (Google's updater owns
       the binaries): both stay OUT of the checksum-safe Brewfile. The profile
       renders the exact selected set into `Brewfile.browser`, the bounded lane
@@ -702,32 +706,31 @@ The lesson is recorded in `skills/system-update-orchestration`.
 Do this work under `skills/safe-mutating-cli` and
 `skills/system-update-orchestration`, red-proving every branch.
 
-- [x] Homebrew ownership model (2026-08-04): Groundwork-declared packages only.
-      The runner parses the exact formula/cask set from the rendered checksum-
-      safe Brewfile before metadata refresh and reuses it for retry. Unmanaged
-      Homebrew software and the vendor-updated Chrome browser lane are excluded.
+- [x] Homebrew ownership model superseded (2026-08-14): inventory every
+      installed formula/cask, exclude pins, classify one exact metadata
+      snapshot, and update exact eligible tokens. Manual and MDM-ambiguous apps
+      remain unchanged but no longer suppress unrelated safe lanes.
 - [x] Parse arguments before mutation in both launcher and directly invocable
       runner; `--help` reaches no sync, apply, or update command.
 - [x] Reject unknown options and unexpected positional arguments in both layers;
       an apparent scope flag can never fall through to an ordinary refresh.
-- [ ] Add `--include-self-updating-casks` (macOS only; explicit off-platform
-      behavior, never a silent no-op). Build an explicit checksummed candidate
-      token list; never pass a global greedy flag and expect `--require-sha` to
-      filter. Keep `--greedy-latest` and bare `--greedy` banned.
-- [ ] Bulk-query cask metadata once (`brew info --json=v2 --cask <tokens...>`)
+- [x] Build dynamic exact-token self-updating and safely verifiable latest
+      lanes from the matching greedy-aware outdated queries. Current or absent
+      tokens never enter mutation; bare global `--greedy` remains banned.
+- [x] Bulk-query cask metadata once (`brew info --json=v2 --cask <tokens...>`)
       rather than one process per token, and record these calls in the
       bounded-operation audit above.
-- [ ] Replace the final line with a receipt whose buckets match what was
+- [x] Replace the final line with a receipt whose buckets match what was
       established: no-longer-outdated, intentionally excluded (with the specific
       reason: self-updating, no checksum, `:latest`, pinned, disabled), still
       outdated unexpectedly, classification unavailable, receipt incomplete.
       Compare before/after against the exact upgrade scope, never a broader
       `--greedy` view. Never convert an unknown state into "vendor-owned", and
       never let a failed state query become an empty successful one.
-- [ ] Label the cask bucket as casks. It is not a receipt for formulae, mise,
+- [x] Label the cask bucket as casks. It is not a receipt for formulae, mise,
       and every other stage; a comprehensive receipt needs structured status
       from each stage and is a larger follow-up.
-- [ ] Drop hardcoded vendor claims from help. Checksum and auto-update status
+- [x] Drop hardcoded vendor claims from help. Checksum and auto-update status
       are per-run facts, not durable documentation.
 - [ ] Add reusable fixture helpers so these are cheap to assert repo-wide:
       `assert_command_has_no_side_effects_on_help`,

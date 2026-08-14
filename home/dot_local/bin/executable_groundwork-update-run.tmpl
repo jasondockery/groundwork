@@ -52,6 +52,24 @@ while (($#)); do
   shift
 done
 
+{{- if eq .chezmoi.os "darwin" }}
+mas_deadline="${GROUNDWORK_MAS_UPDATE_DEADLINE_SECONDS:-900}"
+mas_observe_deadline="${GROUNDWORK_MAS_OBSERVE_DEADLINE_SECONDS:-30}"
+applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
+if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ \
+  || "$applications_dir" == */../* || "$applications_dir" == */.. \
+  || "$applications_dir" == *//* || -L "$applications_dir" ]]; then
+  echo "groundwork-update-run: the applications directory is unsafe: $applications_dir" >&2
+  exit 64
+fi
+for mas_bound in "$mas_deadline" "$mas_observe_deadline"; do
+  if [[ ! "$mas_bound" =~ ^[1-9][0-9]*$ ]]; then
+    echo "groundwork-update-run: Mac App Store deadlines must be positive integers" >&2
+    exit 64
+  fi
+done
+{{- end }}
+
 # Fail closed before any bootstrap apply or package stage: the support contract
 # is macOS, native Linux, and WSL2 — never WSL1 or an unverifiable WSL
 # environment. Existing v1.9 installations already have this detector even
@@ -162,6 +180,9 @@ runner_exit() {
       "$runner_receipt_dir/homebrew-upgrade.tsv" \
       "$runner_receipt_dir/package-maintenance.tsv" 2>/dev/null || true
     rm -f -- "$runner_receipt_dir"/homebrew-cask-* 2>/dev/null || true
+    rm -f -- "$runner_receipt_dir"/homebrew-formula-* \
+      "$runner_receipt_dir"/homebrew-pinned \
+      "$runner_receipt_dir"/mas-* 2>/dev/null || true
     rmdir "$runner_receipt_dir" 2>/dev/null || true
   fi
   exit "$status"
@@ -226,6 +247,10 @@ command -v chezmoi >/dev/null 2>&1 || {
   echo "Groundwork: chezmoi is not on PATH; cannot complete the synchronization." >&2
   exit 1
 }
+machine_app_action_count=0
+ownership_status=0
+coverage_status=0
+homebrew_unverified_count=0
 {{- if eq .chezmoi.os "darwin" }}
 # Capture the installed version before the full apply: a changed Brewfile hook
 # may replace Karabiner during `chezmoi apply`, before the explicit Homebrew
@@ -242,6 +267,61 @@ if declare -F gw_karabiner_version >/dev/null 2>&1 \
   && [[ "$candidate_version_before" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
   karabiner_version_before="$candidate_version_before"
 fi
+
+# Detect the named field-failure case on every desktop Mac, including work
+# profiles. A manual or MDM-ambiguous app is an action-required receipt item,
+# not authority for update-all to adopt it and not a reason to suppress the
+# remaining safe updater lanes. The Brewfile hook receives the exact conflicting
+# cask token to omit from this apply; adoption stays a separate explicit command.
+chatgpt_app="$applications_dir/ChatGPT.app"
+chatgpt_info="$chatgpt_app/Contents/Info.plist"
+chatgpt_owner="not-installed"
+chatgpt_bundle_id=""
+chatgpt_short_version=""
+chatgpt_build_version=""
+chatgpt_architecture=""
+if command -v brew >/dev/null 2>&1 \
+  && brew list --cask chatgpt >/dev/null 2>&1; then
+  chatgpt_owner="homebrew"
+elif [[ -e "$chatgpt_app" || -L "$chatgpt_app" ]]; then
+  chatgpt_owner="external-unverified"
+  if [[ -d "$chatgpt_app" && -r "$chatgpt_info" ]] \
+    && command -v plutil >/dev/null 2>&1; then
+    chatgpt_bundle_id="$(plutil -extract CFBundleIdentifier raw "$chatgpt_info" 2>/dev/null || true)"
+    chatgpt_short_version="$(plutil -extract CFBundleShortVersionString raw "$chatgpt_info" 2>/dev/null || true)"
+    chatgpt_build_version="$(plutil -extract CFBundleVersion raw "$chatgpt_info" 2>/dev/null || true)"
+    chatgpt_executable="$(plutil -extract CFBundleExecutable raw "$chatgpt_info" 2>/dev/null || true)"
+    if [[ -n "$chatgpt_executable" && -f "$chatgpt_app/Contents/MacOS/$chatgpt_executable" ]]; then
+      chatgpt_architecture="$(file "$chatgpt_app/Contents/MacOS/$chatgpt_executable" 2>/dev/null \
+        | sed -E 's/^.*Mach-O [^ ]+ executable //' || true)"
+    fi
+  fi
+fi
+if [[ "$chatgpt_owner" == "external-unverified" ]]; then
+  machine_app_action_count=$((machine_app_action_count + 1))
+  ownership_status=2
+  export GROUNDWORK_BREWFILE_SKIP_CASKS="chatgpt"
+  cat >&2 <<EOF
+Groundwork action required: ChatGPT is installed, but no supported package
+manager owns the existing app.
+
+  Path:          $chatgpt_app
+  Bundle ID:     ${chatgpt_bundle_id:-unreadable}
+  Version:       ${chatgpt_short_version:-unreadable}
+  Build:         ${chatgpt_build_version:-unreadable}
+  Architecture:  ${chatgpt_architecture:-unreadable}
+
+Groundwork cannot distinguish a manual/vendor installation from an MDM-owned
+copy safely enough to change its updater. The conflicting ChatGPT cask will be
+omitted from this apply; every other safe updater lane will continue.
+
+If you own this app and want Homebrew to manage it, run this separately:
+  groundwork-app-adopt chatgpt
+
+That command uses Homebrew's identical-artifact adoption and separate consent.
+update-all never invokes it and never adds --force, uninstall, delete, or --zap.
+EOF
+fi
 {{- end }}
 chezmoi apply
 
@@ -255,39 +335,44 @@ if command -v brew >/dev/null 2>&1; then
   fi
   # shellcheck source=/dev/null
   . "$brew_output_lib"
-  # Select the exact Groundwork-owned candidate set BEFORE updating metadata or
-  # packages. An unqualified `brew upgrade` also mutates user-installed apps
-  # that are no longer in Groundwork, which would make removal from the Brewfile
-  # meaningless. The same parsed arrays are reused for the retry.
-  managed_brewfile="$HOME/.config/homebrew/Brewfile"
-  [[ -f "$managed_brewfile" ]] || {
-    echo "Groundwork: managed Brewfile is missing: $managed_brewfile" >&2
+  # Homebrew owns everything in its installed inventory, regardless of which
+  # workflow first installed it. Inventory formulae, casks, and pins before
+  # metadata refresh; selection remains exact-token and trust classification
+  # still happens before the first upgrade.
+  formula_inventory="$runner_receipt_dir/homebrew-formula-installed"
+  cask_inventory="$runner_receipt_dir/homebrew-cask-installed"
+  pinned_inventory="$runner_receipt_dir/homebrew-pinned"
+  formula_candidates="$runner_receipt_dir/homebrew-formula-candidates"
+  : >"$formula_inventory"
+  : >"$cask_inventory"
+  : >"$pinned_inventory"
+  if ! brew list --formula --full-name >"$formula_inventory" \
+    || ! brew list --cask >"$cask_inventory" \
+    || ! brew list --pinned --full-name >"$pinned_inventory"; then
+    echo "Groundwork: Homebrew's installed inventory could not be read; no upgrade was attempted." >&2
     exit 1
-  }
-  managed_formulae=()
-  managed_casks=()
-  brew_re='^brew[[:space:]]+"([A-Za-z0-9@+._-]+)"([[:space:]]|$)'
-  cask_re='^cask[[:space:]]+"([A-Za-z0-9@+._-]+)"([[:space:]]|$)'
-  mas_re='^mas[[:space:]]+"[^"]+",[[:space:]]+id:[[:space:]]+[0-9]+([[:space:]]|$)'
-  while IFS= read -r brewfile_line; do
-    case "$brewfile_line" in
-      "" | \#*) continue ;;
-    esac
-    if [[ "$brewfile_line" =~ $brew_re ]]; then
-      managed_formulae+=("${BASH_REMATCH[1]}")
-    elif [[ "$brewfile_line" =~ $cask_re ]]; then
-      managed_casks+=("${BASH_REMATCH[1]}")
-    elif [[ "$brewfile_line" =~ $mas_re ]]; then
-      continue
-    else
-      printf 'Groundwork: unsupported managed Brewfile entry: %s\n' "$brewfile_line" >&2
+  fi
+  for brew_inventory_file in "$formula_inventory" "$cask_inventory" "$pinned_inventory"; do
+    if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
+      "$brew_inventory_file"; then
+      echo "Groundwork: Homebrew returned a malformed installed or pinned token; no upgrade was attempted." >&2
       exit 1
     fi
-  done <"$managed_brewfile"
-  ((${#managed_formulae[@]} > 0)) || {
-    echo "Groundwork: managed Brewfile selected no formulae; refusing an empty upgrade scope." >&2
+  done
+  LC_ALL=C sort -u "$formula_inventory" >"${formula_inventory}.sorted"
+  LC_ALL=C sort -u "$pinned_inventory" >"${pinned_inventory}.sorted"
+  comm -23 "${formula_inventory}.sorted" "${pinned_inventory}.sorted" >"$formula_candidates"
+  if [[ -n "$(comm -13 "${formula_inventory}.sorted" "${pinned_inventory}.sorted")" ]]; then
+    echo "Groundwork: Homebrew reported a pin outside the installed formula inventory; no upgrade was attempted." >&2
     exit 1
-  }
+  fi
+  while IFS= read -r pinned_token; do
+    [[ -n "$pinned_token" ]] || continue
+    brew_cask_review_count=$((brew_cask_review_count + 1))
+    printf 'Groundwork review: %s was excluded from automatic upgrade (pinned).\n' \
+      "$pinned_token"
+  done <"${pinned_inventory}.sorted"
+  rm -f -- "${formula_inventory}.sorted" "${pinned_inventory}.sorted"
 
   # Curl-level retries for the transient failures curl itself classifies as
   # retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry
@@ -297,35 +382,47 @@ if command -v brew >/dev/null 2>&1; then
   # Use the metadata snapshot that just refreshed. A user-customized Homebrew
   # auto-update interval must not start a second, unwrapped update here.
   {{- if eq .chezmoi.os "darwin" }}
-  eligible_casks=()
-  if ((${#managed_casks[@]} > 0)); then
+  ordinary_cask_file="$runner_receipt_dir/homebrew-cask-ordinary"
+  auto_check_file="$runner_receipt_dir/homebrew-cask-auto-check"
+  latest_check_file="$runner_receipt_dir/homebrew-cask-latest-check"
+  : >"$ordinary_cask_file"
+  : >"$auto_check_file"
+  : >"$latest_check_file"
+  if [[ -s "$cask_inventory" ]]; then
     cask_metadata="$(mktemp "$runner_receipt_dir/homebrew-cask-metadata.XXXXXX")"
-    cask_expected="$(mktemp "$runner_receipt_dir/homebrew-cask-expected.XXXXXX")"
     cask_classification="$(mktemp "$runner_receipt_dir/homebrew-cask-classification.XXXXXX")"
-    chmod 600 "$cask_metadata" "$cask_expected" "$cask_classification"
+    chmod 600 "$cask_metadata" "$cask_classification"
     runner_temp="$cask_metadata"
-    printf '%s\n' "${managed_casks[@]}" >"$cask_expected"
-    if ! brew info --json=v2 --cask "${managed_casks[@]}" >"$cask_metadata"; then
-      rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+    installed_casks=()
+    while IFS= read -r cask_token; do installed_casks+=("$cask_token"); done <"$cask_inventory"
+    if ! brew info --json=v2 --cask "${installed_casks[@]}" >"$cask_metadata"; then
+      rm -f -- "$cask_metadata" "$cask_classification"
       runner_temp=""
       echo "Groundwork: Homebrew cask metadata could not be read; no cask upgrade was attempted." >&2
       exit 1
     fi
     if ! gw_brew_classify_cask_metadata \
-      "$cask_metadata" "$cask_expected" "$cask_classification"; then
-      rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+      "$cask_metadata" "$cask_inventory" "$cask_classification"; then
+      rm -f -- "$cask_metadata" "$cask_classification"
       runner_temp=""
       exit 1
     fi
     while IFS=$'\t' read -r cask_token cask_disposition cask_reason \
       cask_installed cask_available cask_extra; do
-      if [[ -n "$cask_extra" || ! "$cask_token" =~ ^[A-Za-z0-9@+._-]+$ ]]; then
+      if [[ -n "$cask_extra" \
+        || ! "$cask_token" =~ ^[A-Za-z0-9@+._-]+(/[A-Za-z0-9@+._-]+){0,2}$ ]]; then
         echo "Groundwork: the classified Homebrew cask receipt is malformed; no cask upgrade was attempted." >&2
         exit 1
       fi
       case "$cask_disposition" in
         eligible)
-          eligible_casks+=("$cask_token")
+          printf '%s\n' "$cask_token" >>"$ordinary_cask_file"
+          ;;
+        auto-check)
+          printf '%s\n' "$cask_token" >>"$auto_check_file"
+          ;;
+        latest-check)
+          printf '%s\n' "$cask_token" >>"$latest_check_file"
           ;;
         current) ;;
         review)
@@ -338,6 +435,12 @@ if command -v brew >/dev/null 2>&1; then
           brew_cask_review_count=$((brew_cask_review_count + 1))
           printf 'Groundwork review: %s was excluded from automatic upgrade (%s).\n' \
             "$cask_token" "$cask_reason"
+          case "$cask_reason" in
+            no-checksum | latest-no-checksum)
+              homebrew_unverified_count=$((homebrew_unverified_count + 1))
+              coverage_status=2
+              ;;
+          esac
           ;;
         *)
           echo "Groundwork: the classified Homebrew cask disposition is unknown; no cask upgrade was attempted." >&2
@@ -345,24 +448,59 @@ if command -v brew >/dev/null 2>&1; then
           ;;
       esac
     done <"$cask_classification"
-    rm -f -- "$cask_metadata" "$cask_expected" "$cask_classification"
+    rm -f -- "$cask_metadata" "$cask_classification"
     runner_temp=""
   fi
+  {{- else }}
+  ordinary_cask_file="$runner_receipt_dir/homebrew-cask-ordinary"
+  auto_check_file="$runner_receipt_dir/homebrew-cask-auto-check"
+  latest_check_file="$runner_receipt_dir/homebrew-cask-latest-check"
+  : >"$ordinary_cask_file"
+  : >"$auto_check_file"
+  : >"$latest_check_file"
+  {{- end }}
 
-  # --require-sha: refuse to upgrade a cask that ships no checksum. Every cask
-  # in the checksum-safe Brewfile is versioned and checksummed (the AI CLIs
-  # included — `claude-code@latest` is a faster release CHANNEL, not Homebrew's
-  # `version :latest`), so this costs nothing now and fails loudly if an
-  # unverified artifact ever enters the upgrade set. A checksum failure must
-  # stop here; never retry without the flag, which would turn a policy refusal
-  # into a silent bypass.
-  #
-  # No --greedy-latest: it only adds `version :latest` casks, and Groundwork
-  # installs none — it was a no-op justified by a wrong comment.
-  # Self-updating and privileged-replacement casks are removed from the exact
-  # candidate list above. The environment flag is retained as defense in depth;
-  # explicit tokens can otherwise override Homebrew's ordinary auto-update
-  # exclusion.
+  select_brew_outdated() {
+    local label="$1" candidates_file="$2" selected_file="$3"
+    shift 3
+    local observed_file="${selected_file}.observed" observation_status=0
+    local candidate_tokens=()
+    : >"$selected_file"
+    [[ -s "$candidates_file" ]] || return 0
+    while IFS= read -r candidate_token; do candidate_tokens+=("$candidate_token"); done <"$candidates_file"
+    HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet "$@" "${candidate_tokens[@]}" \
+      >"$observed_file" || observation_status=$?
+    if [[ "$observation_status" -ne 0 ]]; then
+      printf 'Groundwork: %s could not be observed (exit %s).\n' "$label" "$observation_status" >&2
+      rm -f -- "$observed_file"
+      return "$observation_status"
+    fi
+    if ! gw_brew_select_exact_tokens "$candidates_file" "$observed_file" "$selected_file"; then
+      rm -f -- "$observed_file"
+      return 1
+    fi
+    rm -f -- "$observed_file"
+  }
+
+  formula_outdated="$runner_receipt_dir/homebrew-formula-outdated"
+  ordinary_casks="$runner_receipt_dir/homebrew-cask-ordinary-outdated"
+  auto_casks="$runner_receipt_dir/homebrew-cask-auto-outdated"
+  latest_casks="$runner_receipt_dir/homebrew-cask-latest-outdated"
+  select_brew_outdated "installed Homebrew formulae" \
+    "$formula_candidates" "$formula_outdated" --formula || exit $?
+  {{- if eq .chezmoi.os "darwin" }}
+  # Ordinary cask metadata already carries Homebrew's normal outdated decision.
+  cp "$ordinary_cask_file" "$ordinary_casks"
+  select_brew_outdated "self-updating Homebrew casks" \
+    "$auto_check_file" "$auto_casks" --cask --greedy-auto-updates || exit $?
+  select_brew_outdated "Homebrew casks with version latest" \
+    "$latest_check_file" "$latest_casks" --cask --greedy-latest || exit $?
+  {{- else }}
+  : >"$ordinary_casks"
+  : >"$auto_casks"
+  : >"$latest_casks"
+  {{- end }}
+
   # Keep interactive cask work attached to a real terminal so cursor output and
   # password prompts remain coherent. The saved normalized log still gives the
   # repair helper Homebrew's own remediation hints. The per-cask "cannot be
@@ -378,66 +516,100 @@ if command -v brew >/dev/null 2>&1; then
   runner_temp="$upgrade_log"
   runner_temp_final="$upgrade_log_final"
   upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
-  upgrade_status=0
-  echo "Groundwork: upgrading the exact packages declared in the managed Brewfile."
+  : >"$upgrade_log"
+  : >"$upgrade_receipt"
+  echo "Groundwork: upgrading the exact eligible items in Homebrew's installed inventory."
   mark_update_pending "homebrew-upgrade" \
     "Homebrew upgrade started, but completion has not been proven"
-  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-    gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" reset "Homebrew upgrade" -- \
-      brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
-      || upgrade_status=$?
-  # A cancelled upgrade is not a failed upgrade looking for a repair. Stop the
-  # transaction here: repair prompts, re-fetches, and the retry would all run
-  # against a terminal the person just asked to have back. 124 is the hard
-  # deadline and 125 is a cancellation that could not be confirmed; both mean
-  # Homebrew must not be asked to do anything else.
-  case "$upgrade_status" in
-    124 | 125 | 129 | 130 | 143)
-      mv -f -- "$upgrade_log" "$upgrade_log_final" 2>/dev/null || true
-      runner_temp=""
-      runner_temp_final=""
-      mark_update_pending "homebrew-upgrade" \
-        "Homebrew upgrade was cancelled (exit $upgrade_status) and did not complete"
-      echo "Groundwork: Homebrew upgrade cancelled; nothing further was started." >&2
-      exit "$upgrade_status"
-      ;;
-  esac
-  repair_status=0
-  "$HOME/.local/bin/groundwork-brew-repair" "$upgrade_log" || repair_status=$?
-  retry_upgrade=0
-  if [[ "$repair_status" -eq 0 && "$upgrade_status" -ne 0 ]]; then
-    retry_upgrade=1
-  elif [[ "$repair_status" -eq 3 ]]; then
-    echo "Groundwork: the Homebrew repair you approved did not complete — review the output above."
-    [[ "$upgrade_status" -ne 0 ]] || upgrade_status=1
-  elif [[ "$repair_status" -ge 4 ]]; then
-    echo "Groundwork: Homebrew printed a remediation Groundwork could not safely parse; review the log above and run it yourself."
-  fi
-  # Failed downloads (curl 92 and friends) are not retried by curl's
-  # ordinary --retry; re-fetch just those artifacts serially, then retry
-  # the upgrade so it picks them up from the cache.
-  if [[ "$upgrade_status" -ne 0 ]] \
-    && "$HOME/.local/bin/groundwork-brew-refetch" "$upgrade_log"; then
-    retry_upgrade=1
-  fi
-  if [[ "$retry_upgrade" -eq 1 ]]; then
-    upgrade_status=0
+  run_homebrew_upgrade_lane() {
+    local label="$1" repair_allowed="$2"
+    shift 2
+    local lane_log lane_receipt lane_status=0 repair_status=0 retry_upgrade=0
+    lane_log="$(mktemp "$brew_log_dir/homebrew-upgrade-lane.XXXXXX")"
+    lane_receipt="$(mktemp "$runner_receipt_dir/homebrew-upgrade-lane.XXXXXX")"
+    chmod 600 "$lane_log" "$lane_receipt"
+    runner_temp="$lane_log"
+    runner_temp_final="$upgrade_log_final"
     HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
-      gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" append "Homebrew upgrade retry" -- \
-        brew upgrade --require-sha "${managed_formulae[@]}" "${eligible_casks[@]}" \
-        || upgrade_status=$?
-    case "$upgrade_status" in
+      gw_brew_run_logged "$lane_log" "$lane_receipt" reset "$label" -- "$@" \
+      || lane_status=$?
+    case "$lane_status" in
       124 | 125 | 129 | 130 | 143)
-        mv -f -- "$upgrade_log" "$upgrade_log_final" 2>/dev/null || true
-        runner_temp=""
-        runner_temp_final=""
+        cat "$lane_log" >>"$upgrade_log"
+        cat "$lane_receipt" >>"$upgrade_receipt"
+        rm -f -- "$lane_log" "$lane_receipt"
+        runner_temp="$upgrade_log"
         mark_update_pending "homebrew-upgrade" \
-          "Homebrew upgrade retry was cancelled (exit $upgrade_status) and did not complete"
-        echo "Groundwork: Homebrew upgrade retry cancelled; nothing further was started." >&2
-        exit "$upgrade_status"
+          "$label was cancelled (exit $lane_status) and did not complete"
+        printf 'Groundwork: %s cancelled; nothing further was started.\n' "$label" >&2
+        return "$lane_status"
         ;;
     esac
+    if [[ "$repair_allowed" -eq 1 ]]; then
+      "$HOME/.local/bin/groundwork-brew-repair" "$lane_log" || repair_status=$?
+      if [[ "$repair_status" -eq 0 && "$lane_status" -ne 0 ]]; then
+        retry_upgrade=1
+      elif [[ "$repair_status" -eq 3 ]]; then
+        echo "Groundwork: the Homebrew repair you approved did not complete — review the output above."
+        [[ "$lane_status" -ne 0 ]] || lane_status=1
+      elif [[ "$repair_status" -ge 4 ]]; then
+        echo "Groundwork: Homebrew printed a remediation Groundwork could not safely parse; review the log above and run it yourself."
+      fi
+    fi
+    if [[ "$lane_status" -ne 0 ]] \
+      && "$HOME/.local/bin/groundwork-brew-refetch" "$lane_log"; then
+      retry_upgrade=1
+    fi
+    if [[ "$retry_upgrade" -eq 1 ]]; then
+      lane_status=0
+      HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1 \
+        gw_brew_run_logged "$lane_log" "$lane_receipt" append "$label retry" -- "$@" \
+        || lane_status=$?
+    fi
+    cat "$lane_log" >>"$upgrade_log"
+    cat "$lane_receipt" >>"$upgrade_receipt"
+    rm -f -- "$lane_log" "$lane_receipt"
+    runner_temp="$upgrade_log"
+    case "$lane_status" in
+      124 | 125 | 129 | 130 | 143)
+        mark_update_pending "homebrew-upgrade" \
+          "$label retry was cancelled (exit $lane_status) and did not complete"
+        printf 'Groundwork: %s retry cancelled; nothing further was started.\n' "$label" >&2
+        return "$lane_status"
+        ;;
+    esac
+    return "$lane_status"
+  }
+
+  upgrade_status=0
+  formula_tokens=()
+  ordinary_cask_tokens=()
+  auto_cask_tokens=()
+  latest_cask_tokens=()
+  while IFS= read -r brew_token; do formula_tokens+=("$brew_token"); done <"$formula_outdated"
+  while IFS= read -r brew_token; do ordinary_cask_tokens+=("$brew_token"); done <"$ordinary_casks"
+  while IFS= read -r brew_token; do auto_cask_tokens+=("$brew_token"); done <"$auto_casks"
+  while IFS= read -r brew_token; do latest_cask_tokens+=("$brew_token"); done <"$latest_casks"
+  if ((${#formula_tokens[@]} > 0)); then
+    run_homebrew_upgrade_lane "Homebrew formula upgrade" 0 \
+      brew upgrade --formula "${formula_tokens[@]}" || upgrade_status=$?
   fi
+  {{- if eq .chezmoi.os "darwin" }}
+  if [[ "$upgrade_status" -eq 0 ]] && ((${#ordinary_cask_tokens[@]} > 0)); then
+    run_homebrew_upgrade_lane "Homebrew cask upgrade" 1 \
+      brew upgrade --cask --require-sha "${ordinary_cask_tokens[@]}" || upgrade_status=$?
+  fi
+  if [[ "$upgrade_status" -eq 0 ]] && ((${#auto_cask_tokens[@]} > 0)); then
+    run_homebrew_upgrade_lane "Homebrew self-updating cask upgrade" 1 \
+      brew upgrade --cask --require-sha --greedy-auto-updates \
+        "${auto_cask_tokens[@]}" || upgrade_status=$?
+  fi
+  if [[ "$upgrade_status" -eq 0 ]] && ((${#latest_cask_tokens[@]} > 0)); then
+    run_homebrew_upgrade_lane "Homebrew latest-version cask upgrade" 1 \
+      brew upgrade --cask --require-sha --greedy-latest \
+        "${latest_cask_tokens[@]}" || upgrade_status=$?
+  fi
+  {{- end }}
   mv -f -- "$upgrade_log" "$upgrade_log_final"
   runner_temp=""
   runner_temp_final=""
@@ -447,38 +619,52 @@ if command -v brew >/dev/null 2>&1; then
     failed_cask="$(awk -F '\t' '$1 == "failed-cask" { print $2; exit }' "$upgrade_receipt")"
     pending_detail="Homebrew upgrade failed (exit $upgrade_status)"
     [[ -z "$failed_cask" ]] || pending_detail="$pending_detail; failed cask: $failed_cask"
-    mark_update_pending "homebrew-upgrade" "$pending_detail"
+    # The lane already records a more precise cancellation/retry-cancellation
+    # disposition. Do not overwrite it with the generic failure summary after
+    # the status unwinds to this transaction boundary.
+    case "$upgrade_status" in
+      124 | 125 | 129 | 130 | 143) ;;
+      *) mark_update_pending "homebrew-upgrade" "$pending_detail" ;;
+    esac
     exit "$upgrade_status"
   fi
+
+  # Re-run the same exact observations after mutation. A selected item that
+  # remains outdated, or a query that can no longer be trusted, makes the
+  # completeness claim fail closed.
+  formula_remaining="$runner_receipt_dir/homebrew-formula-remaining"
+  ordinary_remaining="$runner_receipt_dir/homebrew-cask-ordinary-remaining"
+  auto_remaining="$runner_receipt_dir/homebrew-cask-auto-remaining"
+  latest_remaining="$runner_receipt_dir/homebrew-cask-latest-remaining"
+  select_brew_outdated "post-update Homebrew formulae" \
+    "$formula_candidates" "$formula_remaining" --formula || exit $?
+  {{- if eq .chezmoi.os "darwin" }}
+  select_brew_outdated "post-update ordinary Homebrew casks" \
+    "$ordinary_cask_file" "$ordinary_remaining" --cask || exit $?
+  select_brew_outdated "post-update self-updating Homebrew casks" \
+    "$auto_check_file" "$auto_remaining" --cask --greedy-auto-updates || exit $?
+  select_brew_outdated "post-update latest-version Homebrew casks" \
+    "$latest_check_file" "$latest_remaining" --cask --greedy-latest || exit $?
   {{- else }}
-  # Casks are a macOS concern; Homebrew on Linux/WSL2 upgrades the exact
-  # Groundwork-managed formula list.
-  brew_log_dir="$HOME/.local/state/groundwork/logs"
-  mkdir -p "$brew_log_dir"
-  upgrade_log_final="$brew_log_dir/homebrew-upgrade-latest.log"
-  upgrade_log="$(mktemp "$brew_log_dir/homebrew-upgrade.XXXXXX")"
-  chmod 600 "$upgrade_log"
-  runner_temp="$upgrade_log"
-  runner_temp_final="$upgrade_log_final"
-  upgrade_receipt="$runner_receipt_dir/homebrew-upgrade.tsv"
-  upgrade_status=0
-  mark_update_pending "homebrew-upgrade" \
-    "Homebrew upgrade started, but completion has not been proven"
-  HOMEBREW_NO_AUTO_UPDATE=1 \
-    gw_brew_run_logged "$upgrade_log" "$upgrade_receipt" reset "Homebrew upgrade" -- \
-      brew upgrade "${managed_formulae[@]}" \
-    || upgrade_status=$?
-  mv -f -- "$upgrade_log" "$upgrade_log_final"
-  runner_temp=""
-  runner_temp_final=""
-  gw_brew_report_classification \
-    "Homebrew upgrade" "$upgrade_receipt" "$upgrade_log_final" "$upgrade_status"
-  if [[ "$upgrade_status" -ne 0 ]]; then
-    mark_update_pending "homebrew-upgrade" \
-      "Homebrew upgrade failed (exit $upgrade_status)"
-    exit "$upgrade_status"
-  fi
+  : >"$ordinary_remaining"
+  : >"$auto_remaining"
+  : >"$latest_remaining"
   {{- end }}
+  homebrew_remaining_count=0
+  for remaining_file in "$formula_remaining" "$ordinary_remaining" \
+    "$auto_remaining" "$latest_remaining"; do
+    while IFS= read -r remaining_token; do
+      [[ -n "$remaining_token" ]] || continue
+      homebrew_remaining_count=$((homebrew_remaining_count + 1))
+      printf 'Groundwork failed: Homebrew still reports %s outdated after its eligible update lane.\n' \
+        "$remaining_token" >&2
+    done <"$remaining_file"
+  done
+  if [[ "$homebrew_remaining_count" -ne 0 ]]; then
+    mark_update_pending "homebrew-upgrade" \
+      "$homebrew_remaining_count eligible Homebrew item(s) remained outdated after update"
+    exit 1
+  fi
   clear_update_pending "homebrew-upgrade"
   {{- if and (eq .chezmoi.os "darwin") (not .headless) }}
   "$HOME/.local/bin/groundwork-apps-start" || true
@@ -486,8 +672,125 @@ if command -v brew >/dev/null 2>&1; then
   brew_lane_status="current-or-updated"
 fi
 
-update_status=0
+mas_lane_status="skipped"
+mas_status=0
+{{- if eq .chezmoi.os "darwin" }}
+if command -v mas >/dev/null 2>&1; then
+  mas_runner_lib="$HOME/.local/share/groundwork/lib/maintenance-runner.sh"
+  [[ -r "$mas_runner_lib" ]] || {
+    echo "Groundwork: the bounded Mac App Store runner is missing: $mas_runner_lib" >&2
+    exit 1
+  }
+  # shellcheck disable=SC2034 # Sourced runner API.
+  declare deadline="$mas_deadline" observe_deadline="$mas_observe_deadline" \
+    heartbeat=15 cancel_grace=2 poll_seconds=0.2 orphan_grace=5
+  # shellcheck source=/dev/null
+  . "$mas_runner_lib"
+  mas_installed="$(mktemp "$runner_receipt_dir/mas-installed.XXXXXX")"
+  mas_outdated="$(mktemp "$runner_receipt_dir/mas-outdated.XXXXXX")"
+  mas_remaining="$(mktemp "$runner_receipt_dir/mas-remaining.XXXXXX")"
+  mas_installed_ids="$runner_receipt_dir/mas-installed-ids"
+  mas_outdated_ids="$runner_receipt_dir/mas-outdated-ids"
+  mas_remaining_ids="$runner_receipt_dir/mas-remaining-ids"
+  chmod 600 "$mas_installed" "$mas_outdated" "$mas_remaining"
+  : >"$mas_installed_ids"
+  : >"$mas_outdated_ids"
+  : >"$mas_remaining_ids"
+  select_mas_ids() {
+    local label="$1" input_file="$2" output_file="$3"
+    if ! awk '
+        NF == 0 { next }
+        $1 !~ /^[0-9]+$/ || NF < 2 { exit 1 }
+        { print $1 }
+      ' "$input_file" >"$output_file"; then
+      printf 'Groundwork: Mac App Store returned a malformed %s item; no App Store update was attempted.\n' \
+        "$label" >&2
+      return 1
+    fi
+    if [[ -n "$(LC_ALL=C sort "$output_file" | uniq -d)" ]]; then
+      printf 'Groundwork: Mac App Store returned a duplicate %s ID; no App Store update was attempted.\n' \
+        "$label" >&2
+      return 1
+    fi
+  }
+  runner_temp="$mas_installed"
+  run_bounded_internal "inventory Mac App Store applications" "$mas_observe_deadline" \
+    "$mas_installed" mas list || mas_status=$?
+  if [[ "$mas_status" -eq 0 ]]; then
+    select_mas_ids "installed" "$mas_installed" "$mas_installed_ids" || mas_status=$?
+  fi
+  if [[ "$mas_status" -eq 0 ]]; then
+    run_bounded_internal "check Mac App Store updates" "$mas_observe_deadline" \
+      "$mas_outdated" mas outdated || mas_status=$?
+  fi
+  mas_ids=()
+  if [[ "$mas_status" -eq 0 ]]; then
+    select_mas_ids "outdated" "$mas_outdated" "$mas_outdated_ids" || mas_status=$?
+  fi
+  if [[ "$mas_status" -eq 0 ]] \
+    && [[ -n "$(comm -23 <(LC_ALL=C sort "$mas_outdated_ids") <(LC_ALL=C sort "$mas_installed_ids"))" ]]; then
+    echo "Groundwork: Mac App Store's outdated result was outside the exact installed ID set; no App Store update was attempted." >&2
+    mas_status=1
+  fi
+  if [[ "$mas_status" -eq 0 ]]; then
+    while IFS= read -r mas_id; do
+      [[ -n "$mas_id" ]] || continue
+      mas_ids+=("$mas_id")
+    done <"$mas_outdated_ids"
+  fi
+  if [[ "$mas_status" -eq 0 ]] && ((${#mas_ids[@]} > 0)); then
+    mark_update_pending "mac-app-store" \
+      "Mac App Store update started, but completion has not been proven"
+    run_bounded_internal "update exact Mac App Store applications" "$mas_deadline" "" \
+      mas update "${mas_ids[@]}" || mas_status=$?
+  fi
+  if [[ "$mas_status" -eq 0 ]]; then
+    run_bounded_internal "verify Mac App Store updates" "$mas_observe_deadline" \
+      "$mas_remaining" mas outdated || mas_status=$?
+  fi
+  if [[ "$mas_status" -eq 0 ]]; then
+    select_mas_ids "remaining outdated" "$mas_remaining" "$mas_remaining_ids" || mas_status=$?
+  fi
+  if [[ "$mas_status" -eq 0 ]] \
+    && [[ -n "$(comm -23 <(LC_ALL=C sort "$mas_remaining_ids") <(LC_ALL=C sort "$mas_installed_ids"))" ]]; then
+    echo "Groundwork: Mac App Store's post-update result was outside the exact installed ID set." >&2
+    mas_status=1
+  fi
+  if [[ "$mas_status" -eq 0 && -s "$mas_remaining" ]]; then
+    while IFS= read -r mas_line; do
+      [[ -n "$mas_line" ]] || continue
+      printf 'Groundwork failed: Mac App Store still reports %s\n' "$mas_line" >&2
+    done <"$mas_remaining"
+    mas_status=1
+  fi
+  if [[ "$mas_status" -eq 0 ]]; then
+    clear_update_pending "mac-app-store"
+    if ((${#mas_ids[@]} > 0)); then
+      mas_lane_status="updated-and-verified"
+    else
+      mas_lane_status="current"
+    fi
+  else
+    mark_update_pending "mac-app-store" \
+      "Mac App Store inventory or update failed (exit $mas_status)"
+    mas_lane_status="failed"
+  fi
+  rm -f -- "$mas_installed" "$mas_outdated" "$mas_remaining" \
+    "$mas_installed_ids" "$mas_outdated_ids" "$mas_remaining_ids"
+  runner_temp=""
+  case "$mas_status" in 124 | 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
+fi
+{{- end }}
+
+update_status="$ownership_status"
+if [[ "$coverage_status" -ne 0 ]]; then
+  update_status="$coverage_status"
+fi
+if [[ "$mas_status" -ne 0 ]]; then
+  update_status="$mas_status"
+fi
 mise_lane_status="skipped"
+mise_status=0
 if command -v mise >/dev/null 2>&1; then
   # The same 5-day floor the renovate-config preset applies to repo
   # dependencies, now applied to the machine: don't adopt a release the world
@@ -507,17 +810,18 @@ Groundwork: this mise cannot enforce the 5-day release floor
   Urgent security release? Pin that exact runtime version; pinned versions
   bypass the floor by design.
 EOF
-    update_status=1
+    mise_status=1
   else
-    mise upgrade --minimum-release-age 5d || update_status=$?
+    mise upgrade --minimum-release-age 5d || mise_status=$?
   fi
-  case "$update_status" in
-    129 | 130 | 143) exit "$update_status" ;;
+  case "$mise_status" in
+    129 | 130 | 143) exit "$mise_status" ;;
   esac
-  if [[ "$update_status" -eq 0 ]]; then
+  if [[ "$mise_status" -eq 0 ]]; then
     mise_lane_status="current-or-updated"
   else
     mise_lane_status="failed"
+    [[ "$update_status" -ne 0 ]] || update_status="$mise_status"
   fi
 fi
 
@@ -971,6 +1275,19 @@ EOF
   if [[ "$update_status" -ne 0 ]]; then
     echo "  A required upgrade stage failed (exit $update_status); run update-all again after repairing it." >&2
   fi
+  if [[ "$ownership_status" -ne 0 ]]; then
+    printf '  %s installed application(s) require an explicit updater-ownership decision.\n' \
+      "$machine_app_action_count" >&2
+    echo "  Safe managed update lanes completed; run the adoption command named above separately if appropriate." >&2
+  fi
+  if [[ "$coverage_status" -ne 0 ]]; then
+    printf '  %s Homebrew-managed cask(s) could not be verified under the checksum policy.\n' \
+      "$homebrew_unverified_count" >&2
+    echo "  Safe managed update lanes completed; the exact exclusions are named above." >&2
+  fi
+  if [[ "$mas_status" -ne 0 ]]; then
+    echo "  Mac App Store inventory or updates are incomplete." >&2
+  fi
   if [[ "$maintenance_status" -ne 0 ]]; then
     cat >&2 <<'EOF'
   Package-manager maintenance is incomplete.
@@ -1061,6 +1378,7 @@ Groundwork update complete
 
 Updates
   Homebrew packages       $brew_lane_status
+  Mac App Store apps      $mas_lane_status
   mise runtimes           $mise_lane_status
 
 Deferred

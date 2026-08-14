@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+usage() {
+  cat <<'EOF'
+Adopt a supported manually installed macOS app into Homebrew ownership.
+
+Usage:
+  groundwork-app-adopt <app>          inspect, confirm, and adopt one app
+  groundwork-app-adopt --yes <app>    adopt without an interactive prompt
+  groundwork-app-adopt -h|--help      show this help
+
+Supported app mappings are explicit and local. Adoption uses Homebrew's
+exact-artifact check and never forces, removes, reinstalls, deletes, or zaps an
+existing application. The command refuses a running app, an unexpected bundle,
+symlinked paths, and a Mac whose app ownership may be device-managed.
+EOF
+}
+
+assume_yes=0
+requested_token=""
+while (($#)); do
+  case "$1" in
+    --yes) assume_yes=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      printf 'groundwork-app-adopt: unknown option: %s\n' "$1" >&2
+      exit 64
+      ;;
+    *)
+      if [[ -n "$requested_token" ]]; then
+        printf 'groundwork-app-adopt: unexpected argument: %s\n' "$1" >&2
+        exit 64
+      fi
+      requested_token="$1"
+      ;;
+  esac
+  shift
+done
+
+[[ -n "$requested_token" ]] || {
+  echo "groundwork-app-adopt: an app name is required" >&2
+  usage >&2
+  exit 64
+}
+[[ "$requested_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ]] || {
+  printf 'groundwork-app-adopt: invalid app name: %s\n' "$requested_token" >&2
+  exit 64
+}
+
+mapping_file="${GROUNDWORK_APP_ADOPTION_MAP:-$HOME/.local/share/groundwork/app-adoption.tsv}"
+applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
+if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ ||
+  "$applications_dir" == */../* || "$applications_dir" == */.. ||
+  "$applications_dir" == *//* || -L "$applications_dir" ]]; then
+  echo "groundwork-app-adopt: the applications directory is unsafe: $applications_dir" >&2
+  exit 1
+fi
+[[ -f "$mapping_file" && -r "$mapping_file" && ! -L "$mapping_file" ]] || {
+  echo "groundwork-app-adopt: the app-adoption mapping is missing or unsafe: $mapping_file" >&2
+  exit 1
+}
+
+display_name=""
+cask_token=""
+app_bundle=""
+expected_bundle_id=""
+executable_name=""
+while IFS=$'\t' read -r map_token map_display map_cask map_app map_bundle map_executable map_extra; do
+  case "$map_token" in "" | \#*) continue ;; esac
+  if [[ -n "$map_extra" || ! "$map_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ||
+    ! "$map_cask" =~ ^[A-Za-z0-9@+._-]+$ ||
+    ! "$map_app" =~ ^[^/[:cntrl:]]+[.]app$ ||
+    ! "$map_bundle" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    -z "$map_display" || "$map_display" == *$'\n'* ||
+    -z "$map_executable" || "$map_executable" == */* ]]; then
+    echo "groundwork-app-adopt: the app-adoption mapping is malformed" >&2
+    exit 1
+  fi
+  if [[ "$map_token" == "$requested_token" ]]; then
+    [[ -z "$display_name" ]] || {
+      printf 'groundwork-app-adopt: duplicate app mapping: %s\n' "$requested_token" >&2
+      exit 1
+    }
+    display_name="$map_display"
+    cask_token="$map_cask"
+    app_bundle="$map_app"
+    expected_bundle_id="$map_bundle"
+    executable_name="$map_executable"
+  fi
+done <"$mapping_file"
+
+[[ -n "$display_name" ]] || {
+  printf 'groundwork-app-adopt: unsupported app: %s\n' "$requested_token" >&2
+  echo "Run 'groundwork-app-adopt --help' for the contract." >&2
+  exit 64
+}
+app_path="$applications_dir/$app_bundle"
+[[ "$(uname -s)" == "Darwin" ]] || {
+  printf 'groundwork-app-adopt: %s adoption is supported only on macOS\n' "$display_name" >&2
+  exit 1
+}
+command -v brew >/dev/null 2>&1 || {
+  echo "groundwork-app-adopt: Homebrew is not on PATH" >&2
+  exit 1
+}
+command -v plutil >/dev/null 2>&1 || {
+  echo "groundwork-app-adopt: plutil is unavailable; bundle identity cannot be verified" >&2
+  exit 1
+}
+
+if brew list --cask "$cask_token" >/dev/null 2>&1; then
+  printf '%s is already owned by Homebrew. No change was made.\n' "$display_name"
+  exit 0
+fi
+
+info_path="$app_path/Contents/Info.plist"
+for path_part in "$applications_dir" "$app_path" "$app_path/Contents" "$info_path"; do
+  [[ ! -L "$path_part" ]] || {
+    printf 'groundwork-app-adopt: refusing symlinked application path: %s\n' "$path_part" >&2
+    exit 1
+  }
+done
+[[ -d "$app_path" && -r "$info_path" ]] || {
+  printf 'groundwork-app-adopt: %s is missing or unreadable: %s\n' "$display_name" "$app_path" >&2
+  exit 1
+}
+
+bundle_id="$(plutil -extract CFBundleIdentifier raw "$info_path" 2>/dev/null || true)"
+short_version="$(plutil -extract CFBundleShortVersionString raw "$info_path" 2>/dev/null || true)"
+build_version="$(plutil -extract CFBundleVersion raw "$info_path" 2>/dev/null || true)"
+[[ "$bundle_id" == "$expected_bundle_id" && -n "$short_version" && -n "$build_version" ]] || {
+  printf 'groundwork-app-adopt: the existing %s bundle is unsupported (identifier: %s)\n' \
+    "$display_name" "${bundle_id:-unreadable}" >&2
+  echo "No ownership change was attempted." >&2
+  exit 1
+}
+
+if command -v profiles >/dev/null 2>&1 \
+  && profiles status -type enrollment 2>&1 | grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes'; then
+  cat >&2 <<EOF
+groundwork-app-adopt: this Mac is device-managed, so Groundwork cannot prove
+that $display_name is owner-managed rather than MDM-managed. Ask the device
+administrator before changing updater ownership. No change was made.
+EOF
+  exit 2
+fi
+
+executable_path="$app_path/Contents/MacOS/$executable_name"
+if command -v ps >/dev/null 2>&1 \
+  && ps -axo command= 2>/dev/null | awk -v executable="$executable_path" \
+    '$0 == executable || index($0, executable " ") == 1 { found = 1 } END { exit !found }'; then
+  printf 'groundwork-app-adopt: quit %s before changing updater ownership\n' "$display_name" >&2
+  exit 2
+fi
+
+cat <<EOF
+$display_name is installed but Homebrew does not own it.
+
+Path:       $app_path
+Bundle ID:  $bundle_id
+Version:    $short_version
+Build:      $build_version
+
+Homebrew will adopt the app only if its installed artifact is identical to the
+current cask artifact. Groundwork will not force, remove, reinstall, delete, or
+zap it.
+EOF
+
+if [[ "$assume_yes" -ne 1 ]]; then
+  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+  if [[ -t 0 ]]; then
+    prompt_fd=0
+  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
+    prompt_fd=8
+  else
+    echo "groundwork-app-adopt: confirmation requires a terminal; rerun interactively or use --yes" >&2
+    exit 2
+  fi
+  while true; do
+    printf 'Adopt %s into Homebrew ownership now? [y/N] ' "$display_name" >&2
+    if ! IFS= read -r answer <&"$prompt_fd"; then
+      echo >&2
+      echo "groundwork-app-adopt: confirmation input ended; no change was made" >&2
+      exit 2
+    fi
+    case "$answer" in
+      y | Y | yes | Yes | YES) break ;;
+      "" | n | N | no | No | NO)
+        printf '%s ownership was left unchanged.\n' "$display_name"
+        exit 2
+        ;;
+      *) echo "Please answer yes or no." >&2 ;;
+    esac
+  done
+fi
+
+adopt_status=0
+brew install --cask --require-sha --adopt "$cask_token" || adopt_status=$?
+if [[ "$adopt_status" -ne 0 ]]; then
+  cat >&2 <<EOF
+Groundwork: Homebrew could not adopt $display_name (exit $adopt_status).
+Groundwork did not force, remove, reinstall, delete, or zap the app. Review
+Homebrew's message above; if App Management permission was denied, grant it
+deliberately and rerun this command.
+EOF
+  exit "$adopt_status"
+fi
+if ! brew list --cask "$cask_token" >/dev/null 2>&1; then
+  printf 'Groundwork: Homebrew returned success but did not record %s ownership.\n' "$display_name" >&2
+  exit 1
+fi
+printf '%s is now owned by Homebrew and will be included in update-all.\n' "$display_name"

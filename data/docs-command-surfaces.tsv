@@ -4,6 +4,7 @@ groundwork-help --pick [query]	command	executable	all	all	fzf	commands.html
 groundwork-docs	command	executable	all	all	chezmoi	setup.html
 update-all	command	executable	all	all	-	setup.html
 update-all --skip-maintenance	command	executable	all	all	-	commands.html
+groundwork-app-adopt <app>	command	executable	macos	desktop	brew	commands.html
 groundwork-cleanup	command	executable	all	all	-	commands.html
 groundwork-cleanup --yes	command	executable	all	all	-	commands.html
 groundwork-cleanup --yes --force	command	executable	all	all	-	commands.html

@@ -143,12 +143,13 @@ gw_brew_classify_transcript() {
 }
 
 # Classify one Homebrew metadata snapshot before update-all starts a cask
-# replacement. Self-updating casks and casks whose uninstall stanza removes
-# launchd services or privileged files stay owner-run: those replacements can
-# stop for a password, an application dialog, or a helper teardown. The output
-# is a typed TSV consumed without eval or command construction:
+# replacement. Checksummed self-updating casks enter a separate outdated-driven
+# exact-token lane. Casks whose uninstall stanza removes launchd services or
+# privileged files stay owner-run because those replacements can stop for a
+# password, an application dialog, or helper teardown. The output is a typed TSV
+# consumed without eval or command construction:
 #
-#   token  eligible|current|review|excluded  reason  installed  available
+#   token  eligible|auto-check|latest-check|current|review|excluded  reason  installed  available
 gw_brew_classify_cask_metadata() {
   local metadata_file="$1" expected_tokens_file="$2" classification_file="$3"
   local observed_tokens="${classification_file}.observed.$$"
@@ -163,9 +164,9 @@ gw_brew_classify_cask_metadata() {
     echo "Groundwork: jq is required to classify Homebrew casks safely." >&2
     return 1
   fi
-  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' \
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
     "$expected_tokens_file"; then
-    echo "Groundwork: the managed cask token set is malformed." >&2
+    echo "Groundwork: the installed cask token set is malformed." >&2
     return 1
   fi
 
@@ -197,7 +198,7 @@ gw_brew_classify_cask_metadata() {
   LC_ALL=C sort "$observed_tokens" >"$observed_sorted"
   if [[ -n "$(uniq -d "$observed_sorted")" ]] \
     || ! cmp -s "$expected_sorted" "$observed_sorted"; then
-    echo "Groundwork: Homebrew cask metadata did not match the exact managed token set; no cask upgrade was attempted." >&2
+    echo "Groundwork: Homebrew cask metadata did not match the exact installed token set; no cask upgrade was attempted." >&2
     rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
     return 1
   fi
@@ -215,13 +216,15 @@ gw_brew_classify_cask_metadata() {
        elif $c.auto_updates then "self-updating"
        elif $privileged_replacement then "privileged-replacement"
        else "ordinary" end) as $ownership |
-      (if $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
-       elif $c.pinned then ["excluded", "pinned"]
+      (if $c.pinned then ["excluded", "pinned"]
        elif $c.disabled then ["excluded", "disabled"]
        elif $c.deprecated then ["excluded", "deprecated"]
-       elif $c.version == "latest" then ["excluded", "latest"]
+       elif $c.sha256 == "no_check" and $c.version == "latest" then ["excluded", "latest-no-checksum"]
        elif $c.sha256 == "no_check" then ["excluded", "no-checksum"]
-       elif $ownership != "ordinary" then ["review", $ownership]
+       elif $privileged_replacement then ["review", $ownership]
+       elif $c.version == "latest" then ["latest-check", "targeted-greedy-latest"]
+       elif $c.auto_updates then ["auto-check", "targeted-greedy-auto-updates"]
+       elif $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
        elif $c.outdated then ["eligible", "ordinary"]
        else ["current", "ordinary"] end) as $decision |
       [ $c.token, $decision[0], $decision[1], $c.installed, $c.version ] | @tsv
@@ -231,6 +234,41 @@ gw_brew_classify_cask_metadata() {
     return 1
   fi
   rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+}
+
+# Validate an updater observation against the exact candidate set and write the
+# observed subset in lexical order. This is the boundary that lets
+# `brew outdated` drive expensive auto-update/latest lanes without allowing a
+# malformed or injected token to enter a later mutating command.
+gw_brew_select_exact_tokens() {
+  local candidates_file="$1" observed_file="$2" selected_file="$3"
+  local candidates_sorted="${selected_file}.candidates.$$"
+  local observed_sorted="${selected_file}.observed.$$"
+
+  if [[ ! -r "$candidates_file" || ! -r "$observed_file" ]]; then
+    echo "Groundwork: Homebrew candidate observation inputs are missing." >&2
+    return 1
+  fi
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
+    "$candidates_file"; then
+    echo "Groundwork: the Homebrew candidate set is malformed." >&2
+    return 1
+  fi
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
+    "$observed_file"; then
+    echo "Groundwork: Homebrew returned a malformed outdated token." >&2
+    return 1
+  fi
+  LC_ALL=C sort "$candidates_file" >"$candidates_sorted"
+  LC_ALL=C sort "$observed_file" >"$observed_sorted"
+  if [[ -n "$(uniq -d "$candidates_sorted")" || -n "$(uniq -d "$observed_sorted")" ]] \
+    || [[ -n "$(comm -23 "$observed_sorted" "$candidates_sorted")" ]]; then
+    rm -f -- "$candidates_sorted" "$observed_sorted"
+    echo "Groundwork: Homebrew's outdated result did not match the exact candidate set." >&2
+    return 1
+  fi
+  mv -f -- "$observed_sorted" "$selected_file"
+  rm -f -- "$candidates_sorted"
 }
 
 # script(1) puts the REAL terminal into raw mode with signal generation off and
