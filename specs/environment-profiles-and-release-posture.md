@@ -365,11 +365,19 @@ refreshing metadata. On macOS it binds every cask decision to one matching
 lane; checksummed self-updating and safely verifiable latest-version casks use
 separate exact-token greedy-aware lanes driven by matching outdated queries.
 Bare global `--greedy` remains prohibited. Pinned, deprecated, disabled,
-no-checksum, privileged-replacement, and unknown items remain unchanged with an
-explicit reason. Mac App Store updates use exact discovered IDs. Known manual
+unresolved no-checksum, privileged-replacement, and unknown items remain
+unchanged with an explicit reason. Only tokens in Groundwork's reviewed
+`vendor-updater-casks.txt` policy remain visible as accepted no-checksum vendor
+coverage rather than false failure. Current privileged casks stay quiet;
+running applications are deferred per token and every cask mutation carries
+Homebrew's `--no-quit` guard unless the invocation explicitly uses
+`--allow-app-quit`. Mac App Store updates use
+exact discovered IDs. Known manual
 applications use explicit mappings for diagnosis and optional, separately
 consented identical-artifact adoption. A manual or MDM-ambiguous app cannot
-suppress unrelated safe lanes, but it makes the final completeness claim fail.
+suppress unrelated safe lanes and remains a review outcome; it is not an
+updater failure. Inventory, classification, mutation, and verification failures
+remain nonzero while independent safe updater lanes continue.
 Chezmoi's Brewfile hook remains install-only for existing packages and accepts
 only an exact temporary omission when a conflicting selected manual app exists.
 Repository package manifests and lockfiles remain outside machine maintenance.

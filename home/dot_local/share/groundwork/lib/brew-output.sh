@@ -142,6 +142,76 @@ gw_brew_classify_transcript() {
   ' "$transcript"
 }
 
+# Normalize installed formulae and pinned formulae in the same full-name
+# namespace. `brew list --pinned --full-name` is not a real Homebrew command;
+# pin state therefore comes from the same `brew info --json=v2 --formula`
+# objects whose `full_name` values are matched against
+# `brew list --formula --full-name`.
+#
+# Output:
+#   full_name  candidate|pinned|deprecated|disabled  reason  installed  available
+gw_brew_classify_formula_metadata() {
+  local metadata_file="$1" expected_tokens_file="$2" classification_file="$3"
+  local observed_tokens="${classification_file}.observed.$$"
+  local expected_sorted="${classification_file}.expected.$$"
+  local observed_sorted="${classification_file}.observed-sorted.$$"
+
+  if [[ ! -r "$metadata_file" || ! -r "$expected_tokens_file" ]]; then
+    echo "Groundwork: Homebrew formula metadata inputs are missing." >&2
+    return 1
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Groundwork: jq is required to classify Homebrew formulae safely." >&2
+    return 1
+  fi
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
+    "$expected_tokens_file"; then
+    echo "Groundwork: the installed formula identity set is malformed." >&2
+    return 1
+  fi
+  if ! jq -e '
+      (.formulae | type) == "array" and
+      all(.formulae[];
+        (.full_name | type) == "string" and
+        (.full_name | test("^[A-Za-z0-9@+._-]+(/[A-Za-z0-9@+._-]+){0,2}$")) and
+        (.installed | type) == "array" and (.installed | length) > 0 and
+        all(.installed[]; (.version | type) == "string") and
+        (.pinned | type) == "boolean" and
+        (.outdated | type) == "boolean" and
+        (.deprecated | type) == "boolean" and
+        (.disabled | type) == "boolean" and
+        (.versions | type) == "object" and
+        ((.versions.stable | type) == "string" or .versions.stable == null))
+    ' "$metadata_file" >/dev/null; then
+    echo "Groundwork: Homebrew returned incomplete or malformed formula metadata; no formula upgrade was attempted." >&2
+    return 1
+  fi
+  jq -r '.formulae[].full_name' "$metadata_file" >"$observed_tokens"
+  LC_ALL=C sort "$expected_tokens_file" >"$expected_sorted"
+  LC_ALL=C sort "$observed_tokens" >"$observed_sorted"
+  if [[ -n "$(uniq -d "$expected_sorted")" ||
+  -n "$(uniq -d "$observed_sorted")" ]] \
+    || ! cmp -s "$expected_sorted" "$observed_sorted"; then
+    echo "Groundwork: Homebrew formula metadata did not match the exact installed full-name set; no formula upgrade was attempted." >&2
+    rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+    return 1
+  fi
+  if ! jq -r '
+      .formulae[] |
+      (if .pinned then ["pinned", "pinned"]
+       elif .disabled then ["disabled", "disabled"]
+       elif .deprecated then ["deprecated", "deprecated"]
+       else ["candidate", (if .outdated then "outdated" else "current-or-check" end)] end) as $decision |
+      [ .full_name, $decision[0], $decision[1], .installed[-1].version,
+        (.versions.stable // "unknown") ] | @tsv
+    ' "$metadata_file" >"$classification_file"; then
+    rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted" "$classification_file"
+    echo "Groundwork: Homebrew formula classification failed; no formula upgrade was attempted." >&2
+    return 1
+  fi
+  rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
+}
+
 # Classify one Homebrew metadata snapshot before update-all starts a cask
 # replacement. Checksummed self-updating casks enter a separate outdated-driven
 # exact-token lane. Casks whose uninstall stanza removes launchd services or
@@ -149,14 +219,16 @@ gw_brew_classify_transcript() {
 # password, an application dialog, or helper teardown. The output is a typed TSV
 # consumed without eval or command construction:
 #
-#   token  eligible|auto-check|latest-check|current|review|excluded  reason  installed  available
+#   token  eligible|auto-check|latest-check|current|review|vendor-covered|deprecated|disabled  reason  installed  available  app-bundles
 gw_brew_classify_cask_metadata() {
-  local metadata_file="$1" expected_tokens_file="$2" classification_file="$3"
+  local metadata_file="$1" expected_tokens_file="$2" vendor_policy_file="$3"
+  local classification_file="$4"
   local observed_tokens="${classification_file}.observed.$$"
   local expected_sorted="${classification_file}.expected.$$"
   local observed_sorted="${classification_file}.observed-sorted.$$"
 
-  if [[ ! -r "$metadata_file" || ! -r "$expected_tokens_file" ]]; then
+  if [[ ! -r "$metadata_file" || ! -r "$expected_tokens_file" ||
+    ! -r "$vendor_policy_file" ]]; then
     echo "Groundwork: Homebrew cask metadata inputs are missing." >&2
     return 1
   fi
@@ -167,6 +239,12 @@ gw_brew_classify_cask_metadata() {
   if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+(\/[A-Za-z0-9@+._-]+){0,2}$/ { exit 1 }' \
     "$expected_tokens_file"; then
     echo "Groundwork: the installed cask token set is malformed." >&2
+    return 1
+  fi
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' \
+    "$vendor_policy_file" \
+    || [[ -n "$(LC_ALL=C sort "$vendor_policy_file" | uniq -d)" ]]; then
+    echo "Groundwork: the vendor-updater cask policy is malformed." >&2
     return 1
   fi
 
@@ -184,7 +262,11 @@ gw_brew_classify_cask_metadata() {
         (.outdated | type) == "boolean" and
         (.deprecated | type) == "boolean" and
         (.disabled | type) == "boolean" and
-        (.artifacts | type) == "array")
+        (.artifacts | type) == "array" and
+        ([.artifacts[]? | select(has("app")) | .app[]?] |
+          all(.[];
+            (type) == "string" and
+            test("^[^/|\\x00-\\x1F\\x7F]+[.]app$"))))
     ' "$metadata_file" >/dev/null; then
     echo "Groundwork: Homebrew returned incomplete or malformed cask metadata; no cask upgrade was attempted." >&2
     return 1
@@ -196,14 +278,16 @@ gw_brew_classify_cask_metadata() {
   fi
   LC_ALL=C sort "$expected_tokens_file" >"$expected_sorted"
   LC_ALL=C sort "$observed_tokens" >"$observed_sorted"
-  if [[ -n "$(uniq -d "$observed_sorted")" ]] \
+  if [[ -n "$(uniq -d "$expected_sorted")" ||
+  -n "$(uniq -d "$observed_sorted")" ]] \
     || ! cmp -s "$expected_sorted" "$observed_sorted"; then
     echo "Groundwork: Homebrew cask metadata did not match the exact installed token set; no cask upgrade was attempted." >&2
     rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted"
     return 1
   fi
 
-  if ! jq -r '
+  if ! jq -r --rawfile vendor_policy "$vendor_policy_file" '
+      ($vendor_policy | split("\n") | map(select(length > 0))) as $vendor_tokens |
       .casks[] |
       . as $c |
       ([ $c.artifacts[]? |
@@ -211,23 +295,27 @@ gw_brew_classify_cask_metadata() {
           .uninstall[]? |
           keys[] ] |
         any(. == "launchctl" or . == "delete")) as $privileged_replacement |
+      ([ $c.artifacts[]? | select(has("app")) | .app[]? ] | unique | join("|")) as $apps |
       (if $c.auto_updates and $privileged_replacement then
          "self-updating+privileged-replacement"
        elif $c.auto_updates then "self-updating"
        elif $privileged_replacement then "privileged-replacement"
        else "ordinary" end) as $ownership |
-      (if $c.pinned then ["excluded", "pinned"]
-       elif $c.disabled then ["excluded", "disabled"]
-       elif $c.deprecated then ["excluded", "deprecated"]
-       elif $c.sha256 == "no_check" and $c.version == "latest" then ["excluded", "latest-no-checksum"]
-       elif $c.sha256 == "no_check" then ["excluded", "no-checksum"]
+      (if $c.pinned then ["review", "pinned"]
+       elif $c.disabled then ["disabled", "disabled"]
+       elif $c.deprecated then ["deprecated", "deprecated"]
+       elif $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
        elif $privileged_replacement then ["review", $ownership]
+       elif $c.sha256 == "no_check" and $c.auto_updates and
+         (($vendor_tokens | index($c.token)) != null) then ["vendor-covered", "declared-vendor-self-updater"]
+       elif $c.sha256 == "no_check" and $c.auto_updates then ["review", "unverified-vendor-updater"]
+       elif $c.sha256 == "no_check" and $c.version == "latest" then ["review", "latest-no-checksum"]
+       elif $c.sha256 == "no_check" then ["review", "no-checksum-unresolved"]
        elif $c.version == "latest" then ["latest-check", "targeted-greedy-latest"]
        elif $c.auto_updates then ["auto-check", "targeted-greedy-auto-updates"]
-       elif $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
        elif $c.outdated then ["eligible", "ordinary"]
        else ["current", "ordinary"] end) as $decision |
-      [ $c.token, $decision[0], $decision[1], $c.installed, $c.version ] | @tsv
+      [ $c.token, $decision[0], $decision[1], $c.installed, $c.version, $apps ] | @tsv
     ' "$metadata_file" >"$classification_file"; then
     rm -f -- "$observed_tokens" "$expected_sorted" "$observed_sorted" "$classification_file"
     echo "Groundwork: Homebrew cask classification failed; no cask upgrade was attempted." >&2

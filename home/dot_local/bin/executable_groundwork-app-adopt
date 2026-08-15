@@ -114,6 +114,19 @@ command -v plutil >/dev/null 2>&1 || {
   exit 1
 }
 
+lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
+[[ -r "$lock_lib" && ! -L "$lock_lib" ]] || {
+  echo "groundwork-app-adopt: the machine-maintenance lock helper is missing or unsafe: $lock_lib" >&2
+  exit 1
+}
+# shellcheck source=/dev/null
+source "$lock_lib"
+adoption_cleanup() {
+  groundwork_lock_release || true
+}
+trap adoption_cleanup EXIT
+groundwork_lock_acquire "groundwork-app-adopt $requested_token" || exit $?
+
 if brew list --cask "$cask_token" >/dev/null 2>&1; then
   printf '%s is already owned by Homebrew. No change was made.\n' "$display_name"
   exit 0

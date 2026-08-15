@@ -1,0 +1,437 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+usage() {
+  cat <<'EOF'
+Remove one explicitly mapped legacy macOS app while preserving its replacement.
+
+Usage:
+  groundwork-app-remove <app>          inspect, confirm, and remove one app
+  groundwork-app-remove --yes <app>    remove after non-interactive consent
+  groundwork-app-remove -h|--help      show this help
+
+Supported mappings are explicit and local. The command proves the replacement
+app's identity, signing team, executable, Homebrew ownership, and exact cask
+artifacts; refuses running, changed, or device-managed state; shows what will
+move or be removed and what will remain; and then asks for literal consent.
+Manual app bundles move to Trash. Homebrew-owned targets use an exact mapped
+cask uninstall. The command never uses --zap and never removes preferences,
+chats, credentials, Application Support, or other user data.
+EOF
+}
+
+die() {
+  printf 'groundwork-app-remove: %s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+reject_symlink_chain() {
+  local candidate="$1" current="/" component remainder
+  [[ "$candidate" == /* ]] || return 1
+  remainder="${candidate#/}"
+  while [[ -n "$remainder" ]]; do
+    component="${remainder%%/*}"
+    if [[ "$remainder" == */* ]]; then remainder="${remainder#*/}"; else remainder=""; fi
+    [[ -n "$component" && "$component" != . && "$component" != .. ]] || return 1
+    current="${current%/}/$component"
+    [[ ! -L "$current" ]] || return 1
+  done
+}
+
+read_bundle_identity() {
+  local app_path="$1" expected_id="$2" expected_executable="$3"
+  local expected_team="$4" label="$5"
+  local info_path bundle_id short_version build_version executable_path
+  local signature_details team_id
+  info_path="$app_path/Contents/Info.plist"
+  reject_symlink_chain "$info_path" \
+    || die "refusing a symlinked or unsafe $label path: $app_path"
+  [[ -d "$app_path" && -r "$info_path" ]] \
+    || die "$label is missing or unreadable: $app_path"
+  bundle_id="$(plutil -extract CFBundleIdentifier raw "$info_path" 2>/dev/null || true)"
+  short_version="$(plutil -extract CFBundleShortVersionString raw "$info_path" 2>/dev/null || true)"
+  build_version="$(plutil -extract CFBundleVersion raw "$info_path" 2>/dev/null || true)"
+  executable_path="$app_path/Contents/MacOS/$expected_executable"
+  [[ "$bundle_id" == "$expected_id" && -n "$short_version" && -n "$build_version" &&
+    -f "$executable_path" && -x "$executable_path" && ! -L "$executable_path" ]] \
+    || die "$label did not match its expected bundle identity and executable"
+  signature_details="$(codesign -dv --verbose=4 "$app_path" 2>&1)" \
+    || die "$label signing identity could not be read; no change was made"
+  team_id="$(printf '%s\n' "$signature_details" \
+    | awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"
+  [[ "$team_id" == "$expected_team" ]] \
+    || die "$label has an unexpected signing-team identity; no change was made"
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$bundle_id" "$short_version" "$build_version" "$executable_path" "$team_id"
+}
+
+cask_declares_exact_app() {
+  local token="$1" expected_app="$2" expected_quit="$3"
+  local expected_launchctl="$4" metadata_file="$5"
+  [[ "$expected_launchctl" != - ]] || expected_launchctl=""
+  HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --cask "$token" \
+    >"$metadata_file" 2>/dev/null || return 1
+  jq -e --arg token "$token" --arg app "$expected_app" \
+    --arg quit "$expected_quit" --arg launchctl "$expected_launchctl" '
+    (.formulae == []) and
+    (.casks | length == 1) and
+    (.casks[0].token == $token) and
+    ([.casks[0].artifacts[]? | select(has("app")) | .app[0]] == [$app]) and
+    (all(.casks[0].artifacts[]?; ((keys - ["app", "uninstall", "zap"]) | length) == 0)) and
+    ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?] | length == 1) and
+    ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?][0] as $uninstall |
+      (($uninstall | keys) - ["launchctl", "quit"] | length) == 0 and
+      (($uninstall.quit // "") == $quit) and
+      (($uninstall.launchctl // "") == $launchctl))
+  ' "$metadata_file" >/dev/null 2>&1
+}
+
+device_is_managed() {
+  command -v profiles >/dev/null 2>&1 || return 1
+  profiles status -type enrollment 2>&1 \
+    | grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes'
+}
+
+related_app_is_running() {
+  local snapshot="$1" required_executable_path="$2" removed_executable_path="$3"
+  local removed_suffix="$4"
+  ps -axo command= >"$snapshot" || return 2
+  if awk -v required="$required_executable_path" -v removed="$removed_executable_path" \
+    -v removed_suffix="$removed_suffix" '
+    { command=$0; sub(/^[[:space:]]+/, "", command) }
+    command == required || index(command, required " ") == 1 ||
+      command == removed || index(command, removed " ") == 1 ||
+      index(command, removed_suffix) > 0 { found=1 }
+    END { exit !found }
+  ' "$snapshot"; then
+    return 1
+  fi
+  return 0
+}
+
+assume_yes=0
+requested_token=""
+while (($#)); do
+  case "$1" in
+    --yes) assume_yes=1 ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*) die "unknown option: $1" 64 ;;
+    *)
+      [[ -z "$requested_token" ]] || die "unexpected argument: $1" 64
+      requested_token="$1"
+      ;;
+  esac
+  shift
+done
+[[ -n "$requested_token" ]] || {
+  usage >&2
+  die "an app name is required" 64
+}
+[[ "$requested_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ]] \
+  || die "invalid app name: $requested_token" 64
+
+mapping_file="${GROUNDWORK_APP_REMOVAL_MAP:-$HOME/.local/share/groundwork/app-removal.tsv}"
+applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
+trash_dir="${GROUNDWORK_TRASH_DIR:-$HOME/.Trash}"
+[[ "$(uname -s)" == Darwin ]] || die "app removal is supported only on macOS"
+for required_command in brew codesign jq plutil ps shasum; do
+  command -v "$required_command" >/dev/null 2>&1 \
+    || die "$required_command is unavailable; application state cannot be verified"
+done
+reject_symlink_chain "$applications_dir" \
+  || die "the applications directory has a symlinked or unsafe ancestor: $applications_dir"
+reject_symlink_chain "$mapping_file" \
+  || die "the removal mapping has a symlinked or unsafe ancestor: $mapping_file"
+[[ -f "$mapping_file" && -r "$mapping_file" ]] \
+  || die "the removal mapping is missing or unreadable: $mapping_file"
+
+display_name=""
+remove_cask=""
+remove_app=""
+remove_bundle_id=""
+remove_executable=""
+remove_team_id=""
+remove_uninstall_quit=""
+remove_uninstall_launchctl=""
+required_cask=""
+required_app=""
+required_bundle_id=""
+required_executable=""
+required_team_id=""
+required_uninstall_quit=""
+required_uninstall_launchctl=""
+while IFS=$'\t' read -r map_token map_display map_remove_cask map_remove_app \
+  map_remove_bundle map_remove_executable map_remove_team map_remove_quit \
+  map_remove_launchctl map_required_cask map_required_app map_required_bundle \
+  map_required_executable map_required_team map_required_quit \
+  map_required_launchctl map_extra; do
+  case "$map_token" in "" | \#*) continue ;; esac
+  if [[ -n "$map_extra" || ! "$map_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ||
+    ! "$map_remove_cask" =~ ^[A-Za-z0-9@+._-]+$ ||
+    ! "$map_required_cask" =~ ^[A-Za-z0-9@+._-]+$ ||
+    ! "$map_remove_app" =~ ^[^/[:cntrl:]]+[.]app$ ||
+    ! "$map_required_app" =~ ^[^/[:cntrl:]]+[.]app$ ||
+    ! "$map_remove_bundle" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    ! "$map_required_bundle" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    ! "$map_remove_team" =~ ^[A-Z0-9]+$ ||
+    ! "$map_required_team" =~ ^[A-Z0-9]+$ ||
+    ! "$map_remove_quit" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    ! "$map_required_quit" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    ! "$map_remove_launchctl" =~ ^(-|[A-Za-z0-9][A-Za-z0-9._-]*)$ ||
+    ! "$map_required_launchctl" =~ ^(-|[A-Za-z0-9][A-Za-z0-9._-]*)$ ||
+    -z "$map_display" || "$map_display" == *$'\n'* ||
+    -z "$map_remove_executable" || "$map_remove_executable" == */* ||
+    -z "$map_required_executable" || "$map_required_executable" == */* ]]; then
+    die "the removal mapping is malformed"
+  fi
+  if [[ "$map_token" == "$requested_token" ]]; then
+    [[ -z "$display_name" ]] || die "duplicate app mapping: $requested_token"
+    display_name="$map_display"
+    remove_cask="$map_remove_cask"
+    remove_app="$map_remove_app"
+    remove_bundle_id="$map_remove_bundle"
+    remove_executable="$map_remove_executable"
+    remove_team_id="$map_remove_team"
+    remove_uninstall_quit="$map_remove_quit"
+    remove_uninstall_launchctl="$map_remove_launchctl"
+    required_cask="$map_required_cask"
+    required_app="$map_required_app"
+    required_bundle_id="$map_required_bundle"
+    required_executable="$map_required_executable"
+    required_team_id="$map_required_team"
+    required_uninstall_quit="$map_required_quit"
+    required_uninstall_launchctl="$map_required_launchctl"
+  fi
+done <"$mapping_file"
+[[ -n "$display_name" ]] || die "unsupported app: $requested_token" 64
+
+lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
+[[ -r "$lock_lib" && ! -L "$lock_lib" ]] \
+  || die "the machine-maintenance lock helper is missing or unsafe: $lock_lib"
+# shellcheck source=/dev/null
+source "$lock_lib"
+temporary_dir=""
+cleanup() {
+  if [[ -n "$temporary_dir" ]]; then
+    rm -f -- "$temporary_dir/required.json" "$temporary_dir/remove.json" \
+      "$temporary_dir/required-after.json" "$temporary_dir/remove-after.json" \
+      "$temporary_dir/processes" "$temporary_dir/processes-after"
+    rmdir "$temporary_dir" 2>/dev/null || true
+  fi
+  groundwork_lock_release || true
+}
+trap cleanup EXIT
+groundwork_lock_acquire "groundwork-app-remove $requested_token" || exit $?
+
+temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-app-remove.XXXXXX")"
+required_metadata="$temporary_dir/required.json"
+remove_metadata="$temporary_dir/remove.json"
+required_metadata_after="$temporary_dir/required-after.json"
+remove_metadata_after="$temporary_dir/remove-after.json"
+process_snapshot="$temporary_dir/processes"
+process_snapshot_after="$temporary_dir/processes-after"
+required_path="$applications_dir/$required_app"
+remove_path="$applications_dir/$remove_app"
+required_identity="$(read_bundle_identity "$required_path" "$required_bundle_id" \
+  "$required_executable" "$required_team_id" "required current app")"
+IFS=$'\t' read -r observed_required_id required_version required_build \
+  required_executable_path observed_required_team <<<"$required_identity"
+brew list --cask "$required_cask" >/dev/null 2>&1 \
+  || die "$required_app is not Homebrew-owned; reconcile its updater before removing anything"
+cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
+  "$required_uninstall_launchctl" "$required_metadata" \
+  || die "Homebrew metadata has unexpected artifacts or does not bind $required_cask to $required_app"
+if device_is_managed; then
+  die "this Mac is device-managed, so application ownership is ambiguous; no change was made" 2
+fi
+
+remove_receipt=0
+brew list --cask "$remove_cask" >/dev/null 2>&1 && remove_receipt=1
+remove_present=0
+[[ -e "$remove_path" || -L "$remove_path" ]] && remove_present=1
+if [[ "$remove_receipt" -eq 0 && "$remove_present" -eq 0 ]]; then
+  printf '%s is not installed. %s remains identity- and ownership-verified. No change was made.\n' \
+    "$display_name" "$required_app"
+  exit 0
+fi
+if [[ "$remove_receipt" -eq 1 ]]; then
+  cask_declares_exact_app "$remove_cask" "$remove_app" "$remove_uninstall_quit" \
+    "$remove_uninstall_launchctl" "$remove_metadata" \
+    || die "$remove_cask has unexpected artifacts or ownership hooks; no change was made"
+fi
+
+remove_identity=""
+remove_executable_path="$remove_path/Contents/MacOS/$remove_executable"
+if [[ "$remove_present" -eq 1 ]]; then
+  remove_identity="$(read_bundle_identity "$remove_path" "$remove_bundle_id" \
+    "$remove_executable" "$remove_team_id" "$display_name")"
+  IFS=$'\t' read -r observed_remove_id remove_version remove_build \
+    remove_executable_path observed_remove_team <<<"$remove_identity"
+fi
+remove_executable_suffix="/$remove_app/Contents/MacOS/$remove_executable"
+running_status=0
+related_app_is_running "$process_snapshot" "$required_executable_path" \
+  "$remove_executable_path" "$remove_executable_suffix" || running_status=$?
+case "$running_status" in
+  0) ;;
+  1) die "quit both $required_app and $remove_app before removing anything" 2 ;;
+  *) die "running application state could not be observed; no change was made" ;;
+esac
+
+trash_destination=""
+if [[ "$remove_receipt" -eq 0 && "$remove_present" -eq 1 ]]; then
+  reject_symlink_chain "$trash_dir" \
+    || die "the Trash directory has a symlinked or unsafe ancestor: $trash_dir"
+  [[ -d "$trash_dir" && -w "$trash_dir" ]] \
+    || die "the Trash directory is unavailable: $trash_dir"
+  trash_destination="$trash_dir/$remove_app"
+  if [[ -e "$trash_destination" || -L "$trash_destination" ]]; then
+    trash_destination="$trash_dir/${remove_app%.app} (Groundwork $(date -u '+%Y%m%d-%H%M%S')).app"
+    [[ ! -e "$trash_destination" && ! -L "$trash_destination" ]] \
+      || die "a recoverable Trash destination already exists: $trash_destination"
+  fi
+fi
+
+cat <<EOF
+$required_app is the preferred current app and will remain installed.
+
+Keep:
+  App:        $required_path
+  Bundle ID:  $observed_required_id
+  Version:    $required_version
+  Build:      $required_build
+  Team ID:    $observed_required_team
+  Updater:    Homebrew cask $required_cask
+
+Remove:
+EOF
+if [[ "$remove_present" -eq 1 ]]; then
+  cat <<EOF
+  App:        $remove_path
+  Bundle ID:  $observed_remove_id
+  Version:    $remove_version
+  Build:      $remove_build
+  Team ID:    $observed_remove_team
+EOF
+fi
+if [[ "$remove_receipt" -eq 1 ]]; then
+  caskroom_path="$(HOMEBREW_NO_AUTO_UPDATE=1 brew --caskroom "$remove_cask" 2>/dev/null || true)"
+  cat <<EOF
+  Receipt:    Homebrew cask $remove_cask
+  Caskroom:   ${caskroom_path:-unavailable}
+  Operation:  brew uninstall --cask $remove_cask
+EOF
+else
+  printf '  Move to Trash: %s\n' "$trash_destination"
+fi
+cat <<'EOF'
+
+Groundwork will not use --zap or remove shared Application Support,
+preferences, chats, credentials, or unrelated data.
+EOF
+
+if [[ "$assume_yes" -ne 1 ]]; then
+  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
+  if [[ -t 0 ]]; then
+    prompt_fd=0
+  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
+    prompt_fd=8
+  else
+    die "confirmation requires a terminal; rerun interactively or use --yes" 2
+  fi
+  while true; do
+    if [[ "$requested_token" == chatgpt-classic ]]; then
+      printf 'Remove ChatGPT Classic? [y/N] ' >&2
+    else
+      printf 'Remove %s? [y/N] ' "$display_name" >&2
+    fi
+    if ! IFS= read -r answer <&"$prompt_fd"; then
+      echo >&2
+      die "confirmation input ended; no change was made" 2
+    fi
+    case "$answer" in
+      y | Y | yes | Yes | YES) break ;;
+      "" | n | N | no | No | NO)
+        printf '%s was kept unchanged.\n' "$display_name"
+        exit 0
+        ;;
+      *) echo "Please answer yes or no." >&2 ;;
+    esac
+  done
+fi
+
+# Consent is not authority to act on stale observations. Re-read every
+# identity, owner, cask byte, running state, MDM state, and destination before
+# the first mutation while the machine-wide update lock is still held.
+required_identity_after="$(read_bundle_identity "$required_path" "$required_bundle_id" \
+  "$required_executable" "$required_team_id" "required current app")"
+[[ "$required_identity_after" == "$required_identity" ]] \
+  || die "$required_app changed after consent; no change was made"
+brew list --cask "$required_cask" >/dev/null 2>&1 \
+  || die "$required_cask ownership changed after consent; no change was made"
+cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
+  "$required_uninstall_launchctl" "$required_metadata_after" \
+  || die "$required_cask metadata changed or became unsafe after consent"
+[[ "$(shasum -a 256 "$required_metadata" | awk '{print $1}')" == "$(shasum -a 256 "$required_metadata_after" | awk '{print $1}')" ]] \
+  || die "$required_cask metadata changed after consent; no change was made"
+remove_receipt_after=0
+brew list --cask "$remove_cask" >/dev/null 2>&1 && remove_receipt_after=1
+remove_present_after=0
+[[ -e "$remove_path" || -L "$remove_path" ]] && remove_present_after=1
+[[ "$remove_receipt_after" -eq "$remove_receipt" &&
+  "$remove_present_after" -eq "$remove_present" ]] \
+  || die "$display_name ownership or path changed after consent; no change was made"
+if [[ "$remove_receipt" -eq 1 ]]; then
+  cask_declares_exact_app "$remove_cask" "$remove_app" "$remove_uninstall_quit" \
+    "$remove_uninstall_launchctl" "$remove_metadata_after" \
+    || die "$remove_cask metadata changed or became unsafe after consent"
+  [[ "$(shasum -a 256 "$remove_metadata" | awk '{print $1}')" == "$(shasum -a 256 "$remove_metadata_after" | awk '{print $1}')" ]] \
+    || die "$remove_cask metadata changed after consent; no change was made"
+fi
+if [[ "$remove_present" -eq 1 ]]; then
+  remove_identity_after="$(read_bundle_identity "$remove_path" "$remove_bundle_id" \
+    "$remove_executable" "$remove_team_id" "$display_name")"
+  [[ "$remove_identity_after" == "$remove_identity" ]] \
+    || die "$display_name changed after consent; no change was made"
+fi
+if device_is_managed; then
+  die "device management changed after consent; no change was made" 2
+fi
+running_status=0
+related_app_is_running "$process_snapshot_after" "$required_executable_path" \
+  "$remove_executable_path" "$remove_executable_suffix" || running_status=$?
+case "$running_status" in
+  0) ;;
+  1) die "a related app started after consent; no change was made" 2 ;;
+  *) die "running application state could not be re-observed; no change was made" ;;
+esac
+if [[ -n "$trash_destination" &&
+  (-e "$trash_destination" || -L "$trash_destination") ]]; then
+  die "the recoverable Trash destination changed after consent: $trash_destination"
+fi
+
+if [[ "$remove_receipt" -eq 1 ]]; then
+  brew uninstall --cask "$remove_cask"
+else
+  /bin/mv -- "$remove_path" "$trash_destination"
+fi
+
+[[ ! -e "$remove_path" && ! -L "$remove_path" ]] \
+  || die "$remove_app remains after the removal command; review it manually"
+if brew list --cask "$remove_cask" >/dev/null 2>&1; then
+  die "$remove_cask remains installed after the removal command; review it manually"
+fi
+read_bundle_identity "$required_path" "$required_bundle_id" \
+  "$required_executable" "$required_team_id" "required current app" >/dev/null
+brew list --cask "$required_cask" >/dev/null 2>&1 \
+  || die "$required_cask ownership disappeared during cleanup"
+cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
+  "$required_uninstall_launchctl" "$required_metadata_after" \
+  || die "$required_cask no longer declares the preserved app after cleanup"
+printf '%s was removed. %s remains identity- and ownership-verified.\n' \
+  "$display_name" "$required_app"

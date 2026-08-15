@@ -768,7 +768,7 @@ render_without_xcode_key() {
 
 assert_not_contains() {
   local pattern="$1" file="$2" message="$3"
-  if grep -Eq "$pattern" "$file"; then
+  if grep -Eq -- "$pattern" "$file"; then
     fail_reason="$message"
     echo "$message" >&2
     sed -n '1,160p' "$file" >&2
@@ -1481,6 +1481,43 @@ SH
   test ! -e "$brew_output_fixture/invalid-bound-receipt" \
     || fail "an invalid Homebrew deadline mutated the receipt"
 
+  cat >"$brew_output_fixture/formula-expected" <<'EOF'
+git
+homebrew/core/ripgrep
+owner/tap/tool
+EOF
+  cat >"$brew_output_fixture/formula-metadata.json" <<'EOF'
+{
+  "formulae": [
+    {"full_name":"git","installed":[{"version":"2.51.0"}],"versions":{"stable":"2.52.0"},"pinned":true,"outdated":true,"deprecated":false,"disabled":false},
+    {"full_name":"homebrew/core/ripgrep","installed":[{"version":"14.1.1"}],"versions":{"stable":"14.1.1"},"pinned":false,"outdated":false,"deprecated":false,"disabled":false},
+    {"full_name":"owner/tap/tool","installed":[{"version":"1.0"}],"versions":{"stable":"1.1"},"pinned":false,"outdated":true,"deprecated":false,"disabled":false}
+  ],
+  "casks": []
+}
+EOF
+  gw_brew_classify_formula_metadata \
+    "$brew_output_fixture/formula-metadata.json" \
+    "$brew_output_fixture/formula-expected" \
+    "$brew_output_fixture/formula-classification.tsv" \
+    || fail "valid full-name Homebrew formula metadata did not classify"
+  cat >"$brew_output_fixture/formula-classification.expected" <<'EOF'
+git	pinned	pinned	2.51.0	2.52.0
+homebrew/core/ripgrep	candidate	current-or-check	14.1.1	14.1.1
+owner/tap/tool	candidate	outdated	1.0	1.1
+EOF
+  diff -u "$brew_output_fixture/formula-classification.expected" \
+    "$brew_output_fixture/formula-classification.tsv" \
+    || fail "Homebrew formula full-name/pin classification changed"
+  printf '%s\n' git git homebrew/core/ripgrep owner/tap/tool \
+    >"$brew_output_fixture/formula-duplicate-set"
+  if gw_brew_classify_formula_metadata \
+    "$brew_output_fixture/formula-metadata.json" \
+    "$brew_output_fixture/formula-duplicate-set" \
+    "$brew_output_fixture/formula-duplicate.tsv" >/dev/null 2>&1; then
+    fail "duplicate formula identities were accepted"
+  fi
+
   cat >"$brew_output_fixture/cask-expected" <<'EOF'
 ordinary-outdated
 ordinary-current
@@ -1495,6 +1532,7 @@ pinned-cask
 latest-cask
 latest-unchecked
 chatgpt-classic
+unknown-vendor
 unchecked-cask
 disabled-cask
 deprecated-cask
@@ -1508,7 +1546,7 @@ EOF
     {"token":"docker-desktop","installed":"4.85.0,235549","version":"4.86.0,236216","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["com.docker.helper"],"delete":["/Library/PrivilegedHelperTools/com.docker.vmnetd"]}]}]},
     {"token":"self-current","installed":"2.0","version":"2.0","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"chatgpt","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
-    {"token":"cursor","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"cursor","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"app":["Cursor.app"]}]},
     {"token":"claude","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"obsidian","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"privileged-only","installed":"3.0","version":"3.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["example.helper"]}]}]},
@@ -1516,38 +1554,48 @@ EOF
     {"token":"latest-cask","installed":"0","version":"latest","sha256":"sha","auto_updates":false,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"latest-unchecked","installed":"0","version":"latest","sha256":"no_check","auto_updates":false,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"chatgpt-classic","installed":"1.2026.184","version":"1.2026.184","sha256":"no_check","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]},
+    {"token":"unknown-vendor","installed":"1.0","version":"1.1","sha256":"no_check","auto_updates":true,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"unchecked-cask","installed":"1.0","version":"1.1","sha256":"no_check","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]},
     {"token":"disabled-cask","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":true,"artifacts":[]},
     {"token":"deprecated-cask","installed":"1.0","version":"1.1","sha256":"sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":true,"disabled":false,"artifacts":[]}
   ]
 }
 EOF
+  cp home/dot_local/share/groundwork/vendor-updater-casks.txt \
+    "$brew_output_fixture/vendor-updater-casks.txt"
   gw_brew_classify_cask_metadata \
     "$brew_output_fixture/cask-metadata.json" \
     "$brew_output_fixture/cask-expected" \
+    "$brew_output_fixture/vendor-updater-casks.txt" \
     "$brew_output_fixture/cask-classification.tsv" \
     || fail "valid Homebrew cask metadata did not classify"
   cat >"$brew_output_fixture/cask-classification.expected" <<'EOF'
 ordinary-outdated	eligible	ordinary	1.0	1.1
 ordinary-current	current	ordinary	1.1	1.1
 docker-desktop	review	self-updating+privileged-replacement	4.85.0,235549	4.86.0,236216
-self-current	auto-check	targeted-greedy-auto-updates	2.0	2.0
+self-current	current	self-updating	2.0	2.0
 chatgpt	auto-check	targeted-greedy-auto-updates	1.0	1.1
 cursor	auto-check	targeted-greedy-auto-updates	1.0	1.1
 claude	auto-check	targeted-greedy-auto-updates	1.0	1.1
 obsidian	auto-check	targeted-greedy-auto-updates	1.0	1.1
 privileged-only	review	privileged-replacement	3.0	3.1
-pinned-cask	excluded	pinned	1.0	1.1
+pinned-cask	review	pinned	1.0	1.1
 latest-cask	latest-check	targeted-greedy-latest	0	latest
-latest-unchecked	excluded	latest-no-checksum	0	latest
-chatgpt-classic	excluded	no-checksum	1.2026.184	1.2026.184
-unchecked-cask	excluded	no-checksum	1.0	1.1
-disabled-cask	excluded	disabled	1.0	1.1
-deprecated-cask	excluded	deprecated	1.0	1.1
+latest-unchecked	review	latest-no-checksum	0	latest
+chatgpt-classic	current	self-updating	1.2026.184	1.2026.184
+unknown-vendor	review	unverified-vendor-updater	1.0	1.1
+unchecked-cask	review	no-checksum-unresolved	1.0	1.1
+disabled-cask	disabled	disabled	1.0	1.1
+deprecated-cask	deprecated	deprecated	1.0	1.1
 EOF
+  cut -f1-5 "$brew_output_fixture/cask-classification.tsv" \
+    >"$brew_output_fixture/cask-classification-core.tsv"
   diff -u "$brew_output_fixture/cask-classification.expected" \
-    "$brew_output_fixture/cask-classification.tsv" \
+    "$brew_output_fixture/cask-classification-core.tsv" \
     || fail "Homebrew cask metadata decisions changed"
+  grep -qx $'cursor\tauto-check\ttargeted-greedy-auto-updates\t1.0\t1.1\tCursor.app' \
+    "$brew_output_fixture/cask-classification.tsv" \
+    || fail "Homebrew cask app metadata disappeared from the typed classification"
 
   cat >"$brew_output_fixture/auto-candidates" <<'EOF'
 chatgpt
@@ -1591,13 +1639,25 @@ EOF
   if gw_brew_classify_cask_metadata \
     "$brew_output_fixture/cask-metadata-malformed.json" \
     "$brew_output_fixture/cask-expected" \
+    "$brew_output_fixture/vendor-updater-casks.txt" \
     "$brew_output_fixture/cask-malformed.tsv" >/dev/null 2>&1; then
     fail "incomplete Homebrew cask metadata was accepted"
+  fi
+  jq '.casks[0].artifacts = [{"app":["Bad|Name.app"]}]' \
+    "$brew_output_fixture/cask-metadata.json" \
+    >"$brew_output_fixture/cask-metadata-hostile-app.json"
+  if gw_brew_classify_cask_metadata \
+    "$brew_output_fixture/cask-metadata-hostile-app.json" \
+    "$brew_output_fixture/cask-expected" \
+    "$brew_output_fixture/vendor-updater-casks.txt" \
+    "$brew_output_fixture/cask-hostile-app.tsv" >/dev/null 2>&1; then
+    fail "an ambiguous cask app-bundle delimiter entered the typed receipt"
   fi
   printf '%s\n' ordinary-outdated >"$brew_output_fixture/cask-wrong-set"
   if gw_brew_classify_cask_metadata \
     "$brew_output_fixture/cask-metadata.json" \
     "$brew_output_fixture/cask-wrong-set" \
+    "$brew_output_fixture/vendor-updater-casks.txt" \
     "$brew_output_fixture/cask-wrong-set.tsv" >/dev/null 2>&1; then
     fail "Homebrew metadata outside the exact managed cask set was accepted"
   fi
@@ -1605,6 +1665,7 @@ EOF
   if gw_brew_classify_cask_metadata \
     "$brew_output_fixture/cask-metadata.json" \
     "$brew_output_fixture/cask-hostile-set" \
+    "$brew_output_fixture/vendor-updater-casks.txt" \
     "$brew_output_fixture/cask-hostile.tsv" >/dev/null 2>&1; then
     fail "an injection-like managed cask token was accepted"
   fi
@@ -1615,7 +1676,8 @@ EOF
   adoption_bin="$adoption_home/.local/bin"
   adoption_apps="$adoption_fixture/Applications"
   adoption_app="$adoption_apps/ChatGPT.app"
-  mkdir -p "$adoption_bin" "$adoption_app/Contents/MacOS"
+  mkdir -p "$adoption_bin" "$adoption_app/Contents/MacOS" \
+    "$adoption_home/.local/lib/groundwork"
   adoption_apps="$(cd "$adoption_apps" && pwd -P)"
   adoption_app="$adoption_apps/ChatGPT.app"
   : >"$adoption_app/Contents/Info.plist"
@@ -1662,6 +1724,11 @@ if [[ "${1:-}" == install ]]; then
   exit 0
 fi
 exit 64
+SH
+  cat >"$adoption_home/.local/lib/groundwork/update-lock.sh" <<'SH'
+#!/usr/bin/env bash
+groundwork_lock_acquire() { printf 'lock acquire %s\n' "$1" >>"$ADOPT_LOG"; }
+groundwork_lock_release() { printf 'lock release\n' >>"$ADOPT_LOG"; }
 SH
   chmod +x "$adoption_bin"/*
   adoption_env=(
@@ -1735,6 +1802,357 @@ SH
     >"$adoption_fixture/symlink" 2>&1; then
     fail "groundwork-app-adopt accepted a symlinked application bundle"
   fi
+
+  check "explicit legacy application removal safety"
+  removal_fixture="$out_dir/app-removal-fixture"
+  mkdir -p "$removal_fixture"
+  removal_fixture="$(cd "$removal_fixture" && pwd -P)"
+  removal_home="$removal_fixture/home"
+  removal_bin="$removal_home/.local/bin"
+  removal_apps="$removal_fixture/Applications"
+  removal_current="$removal_apps/ChatGPT.app"
+  mkdir -p "$removal_bin" "$removal_current/Contents/MacOS" \
+    "$removal_home/Library/Application Support/ChatGPT" \
+    "$removal_home/.local/lib/groundwork" "$removal_home/.Trash"
+  removal_apps="$(cd "$removal_apps" && pwd -P)"
+  removal_current="$removal_apps/ChatGPT.app"
+  : >"$removal_current/Contents/Info.plist"
+  : >"$removal_current/Contents/MacOS/ChatGPT"
+  chmod +x "$removal_current/Contents/MacOS/ChatGPT"
+  : >"$removal_home/.chatgpt-receipt"
+  printf 'preserve-user-data\n' \
+    >"$removal_home/Library/Application Support/ChatGPT/keep.txt"
+  cat >"$removal_fixture/apps.tsv" <<'EOF'
+chatgpt-classic	ChatGPT Classic	chatgpt-classic	ChatGPT Classic.app	com.openai.chat	ChatGPT	2DC432GLL2	com.openai.chat	com.openai.chat-helper	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2	com.openai.codex	-
+codex-app	deprecated Codex app	codex-app	Codex.app	com.openai.codex	Codex	2DC432GLL2	com.openai.codex	-	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2	com.openai.codex	-
+EOF
+  cat >"$removal_bin/uname" <<'SH'
+#!/usr/bin/env bash
+printf 'Darwin\n'
+SH
+  cat >"$removal_bin/plutil" <<'SH'
+#!/usr/bin/env bash
+key="${2:-}"
+path="${4:-}"
+case "$path" in
+  */ChatGPT.app/*)
+    case "$key" in
+      CFBundleIdentifier) printf '%s\n' "${REMOVE_CURRENT_BUNDLE_ID:-com.openai.codex}" ;;
+      CFBundleShortVersionString) printf '26.810.41047\n' ;;
+      CFBundleVersion) printf '6570\n' ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  */ChatGPT\ Classic.app/*)
+    case "$key" in
+      CFBundleIdentifier) printf '%s\n' "${REMOVE_CLASSIC_BUNDLE_ID:-com.openai.chat}" ;;
+      CFBundleShortVersionString) printf '1.2026.160\n' ;;
+      CFBundleVersion) printf '1781312926\n' ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  */Codex.app/*)
+    case "$key" in
+      CFBundleIdentifier) printf 'com.openai.codex\n' ;;
+      CFBundleShortVersionString) printf '26.623.141536\n' ;;
+      CFBundleVersion) printf '623141536\n' ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  *) exit 1 ;;
+esac
+SH
+  cat >"$removal_bin/profiles" <<'SH'
+#!/usr/bin/env bash
+if [[ "${REMOVE_MDM:-0}" == 1 ]]; then
+  printf 'Enrolled via DEP: Yes\nMDM enrollment: Yes\n'
+else
+  printf 'Enrolled via DEP: No\nMDM enrollment: No\n'
+fi
+SH
+  cat >"$removal_bin/codesign" <<'SH'
+#!/usr/bin/env bash
+app=""
+for argument in "$@"; do app="$argument"; done
+case "$app" in
+  */ChatGPT.app | */ChatGPT\ Classic.app | */Codex.app) ;;
+  *) exit 1 ;;
+esac
+if [[ "${1:-}" == -dv ]]; then
+  printf 'TeamIdentifier=%s\n' "${REMOVE_TEAM_ID:-2DC432GLL2}" >&2
+  exit 0
+fi
+exit 64
+SH
+  cat >"$removal_bin/ps" <<'SH'
+#!/usr/bin/env bash
+[[ "$#" -eq 2 && "$1" == -axo && "$2" == command= ]] || exit 64
+ps_count="$(cat "$HOME/.remove-ps-count" 2>/dev/null || echo 0)"
+ps_count=$((ps_count + 1))
+printf '%s\n' "$ps_count" >"$HOME/.remove-ps-count"
+running="${REMOVE_RUNNING:-}"
+if [[ "${REMOVE_LAUNCH_AFTER_CONSENT:-0}" == 1 && "$ps_count" -ge 2 ]]; then
+  running=classic
+fi
+case "$running" in
+  current) printf '%s/ChatGPT.app/Contents/MacOS/ChatGPT --fixture\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
+  classic) printf '%s/ChatGPT Classic.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
+  codex-caskroom) printf '%s/codex-app/1.0/Codex.app/Contents/MacOS/Codex\n' "$REMOVE_CASKROOM_ROOT" ;;
+esac
+SH
+  cat >"$removal_bin/brew" <<'SH'
+#!/usr/bin/env bash
+printf 'brew %s\n' "$*" >>"$REMOVE_LOG"
+if [[ "${1:-}" == list && "${2:-}" == --cask ]]; then
+  case "${3:-}" in
+    chatgpt) test -f "$HOME/.chatgpt-receipt" ;;
+    chatgpt-classic) test -f "$HOME/.classic-receipt" ;;
+    codex-app) test -f "$HOME/.codex-receipt" ;;
+    *) exit 1 ;;
+  esac
+  exit
+fi
+if [[ "${1:-}" == info && "${2:-}" == --json=v2 && "${3:-}" == --cask ]]; then
+  token="${4:-}"
+  case "$token" in
+    chatgpt) app=ChatGPT.app; quit=com.openai.codex; launchctl=- ;;
+    chatgpt-classic) app='ChatGPT Classic.app'; quit=com.openai.chat; launchctl=com.openai.chat-helper ;;
+    codex-app)
+      if [[ "${REMOVE_CODEX_OWNS_CURRENT:-0}" == 1 ]]; then
+        app=ChatGPT.app
+      else
+        app=Codex.app
+      fi
+      quit=com.openai.codex
+      launchctl=-
+      ;;
+    *) exit 1 ;;
+  esac
+  info_count_file="$HOME/.remove-info-$token"
+  info_count="$(cat "$info_count_file" 2>/dev/null || echo 0)"
+  info_count=$((info_count + 1))
+  printf '%s\n' "$info_count" >"$info_count_file"
+  variant=stable
+  if [[ "${REMOVE_METADATA_CHANGE_AFTER_CONSENT:-}" == "$token" \
+    && "$info_count" -ge 2 ]]; then
+    variant=changed
+  fi
+  if [[ "$launchctl" == - ]]; then
+    uninstall="{\"quit\":\"$quit\"}"
+  else
+    uninstall="{\"launchctl\":\"$launchctl\",\"quit\":\"$quit\"}"
+  fi
+  extra_artifact=""
+  if [[ "${REMOVE_EXTRA_ARTIFACT_FOR:-}" == "$token" ]]; then
+    extra_artifact=',{"pkg":["Unexpected.pkg"]}'
+  fi
+  printf '{"formulae":[],"casks":[{"token":"%s","fixture_variant":"%s","artifacts":[{"uninstall":[%s]},{"app":["%s"]},{"zap":[{"trash":["~/Library/Application Support/fixture"]}]}%s]}]}\n' \
+    "$token" "$variant" "$uninstall" "$app" "$extra_artifact"
+  exit 0
+fi
+if [[ "${1:-}" == --caskroom && -n "${2:-}" ]]; then
+  printf '%s/%s\n' "$REMOVE_CASKROOM_ROOT" "$2"
+  exit 0
+fi
+if [[ "${1:-}" == uninstall && "${2:-}" == --cask && -n "${3:-}" && "$#" -eq 3 ]]; then
+  case "$3" in
+    chatgpt-classic)
+      rm -rf -- "$GROUNDWORK_APPLICATIONS_DIR/ChatGPT Classic.app"
+      rm -f "$HOME/.classic-receipt"
+      ;;
+    codex-app)
+      rm -rf -- "$GROUNDWORK_APPLICATIONS_DIR/Codex.app"
+      rm -f "$HOME/.codex-receipt"
+      ;;
+    *) exit 64 ;;
+  esac
+  exit 0
+fi
+exit 64
+SH
+  cat >"$removal_home/.local/lib/groundwork/update-lock.sh" <<'SH'
+#!/usr/bin/env bash
+groundwork_lock_acquire() {
+  printf 'lock acquire %s\n' "$1" >>"$REMOVE_LOG"
+  [[ "${REMOVE_LOCK_BUSY:-0}" != 1 ]] || return 75
+  groundwork_lock_owned=1
+}
+groundwork_lock_release() {
+  printf 'lock release\n' >>"$REMOVE_LOG"
+  groundwork_lock_owned=0
+}
+SH
+  chmod +x "$removal_bin"/*
+  removal_env=(
+    HOME="$removal_home"
+    PATH="/usr/bin:/bin"
+    GROUNDWORK_APP_REMOVAL_MAP="$removal_fixture/apps.tsv"
+    GROUNDWORK_APPLICATIONS_DIR="$removal_apps"
+    GROUNDWORK_TRASH_DIR="$removal_home/.Trash"
+    REMOVE_CASKROOM_ROOT="$removal_fixture/Caskroom"
+    REMOVE_LOG="$removal_fixture/commands.log"
+  )
+  : >"$removal_fixture/commands.log"
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove --help \
+    >"$removal_fixture/help"
+  if env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    'chatgpt-classic;touch-owned' >"$removal_fixture/invalid" 2>&1; then
+    fail "groundwork-app-remove accepted an injection-like app name"
+  fi
+  assert_not_contains '^brew uninstall|--zap' "$removal_fixture/commands.log" \
+    "help or invalid app arguments reached removal"
+
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    chatgpt-classic >"$removal_fixture/current-only"
+  grep -qF 'ChatGPT Classic is not installed' "$removal_fixture/current-only" \
+    || fail "current-only ChatGPT cleanup was not idempotent"
+
+  mv "$removal_current" "$removal_fixture/current-away"
+  if env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --yes chatgpt-classic >"$removal_fixture/classic-only" 2>&1; then
+    fail "groundwork-app-remove accepted Classic without an identity- and ownership-verified current app"
+  fi
+  mv "$removal_fixture/current-away" "$removal_current"
+
+  classic_app="$removal_apps/ChatGPT Classic.app"
+  mkdir -p "$classic_app/Contents/MacOS"
+  : >"$classic_app/Contents/Info.plist"
+  : >"$classic_app/Contents/MacOS/ChatGPT"
+  chmod +x "$classic_app/Contents/MacOS/ChatGPT"
+  printf 'no\n' >"$removal_fixture/no-answer"
+  env "${removal_env[@]}" GROUNDWORK_PROMPT_TTY="$removal_fixture/no-answer" \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic \
+    </dev/null >"$removal_fixture/kept" 2>&1
+  grep -qF 'Remove ChatGPT Classic? [y/N]' "$removal_fixture/kept" \
+    || fail "the Classic removal prompt was not literal and explicit"
+  test -d "$classic_app" || fail "the explicit keep choice removed ChatGPT Classic"
+
+  uninstall_count_before="$(grep -c '^brew uninstall' "$removal_fixture/commands.log" || true)"
+  if env "${removal_env[@]}" REMOVE_LOCK_BUSY=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/lock-busy" 2>&1; then
+    fail "groundwork-app-remove ignored machine-maintenance lock contention"
+  fi
+  [[ "$(grep -c '^brew uninstall' "$removal_fixture/commands.log" || true)" -eq "$uninstall_count_before" ]] \
+    || fail "lock contention reached application removal"
+  test -d "$classic_app" || fail "lock contention changed ChatGPT Classic"
+
+  if env "${removal_env[@]}" REMOVE_TEAM_ID=HOSTILETEAM \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/signature-mismatch" 2>&1; then
+    fail "groundwork-app-remove accepted a signing-team mismatch"
+  fi
+  test -d "$classic_app" || fail "signing-team refusal changed ChatGPT Classic"
+
+  for refusal in running mdm wrong-bundle; do
+    refusal_status=0
+    case "$refusal" in
+      running) refusal_env=(REMOVE_RUNNING=classic) ;;
+      mdm) refusal_env=(REMOVE_MDM=1) ;;
+      wrong-bundle) refusal_env=(REMOVE_CLASSIC_BUNDLE_ID=com.example.hostile) ;;
+    esac
+    env "${removal_env[@]}" "${refusal_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+      >"$removal_fixture/$refusal" 2>&1 && refusal_status=1
+    [[ "$refusal_status" -eq 0 ]] \
+      || fail "groundwork-app-remove accepted the $refusal refusal case"
+    test -d "$classic_app" || fail "$refusal refusal removed ChatGPT Classic"
+  done
+
+  rm -f "$removal_home/.remove-ps-count"
+  printf 'yes\n' >"$removal_fixture/yes-answer"
+  if env "${removal_env[@]}" REMOVE_LAUNCH_AFTER_CONSENT=1 \
+    GROUNDWORK_PROMPT_TTY="$removal_fixture/yes-answer" \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic \
+    </dev/null >"$removal_fixture/launched-after-consent" 2>&1; then
+    fail "groundwork-app-remove missed an app launched while confirmation was open"
+  fi
+  grep -qF 'started after consent' "$removal_fixture/launched-after-consent" \
+    || fail "post-consent running-state refusal was not actionable"
+  test -d "$classic_app" || fail "post-consent running-state refusal changed Classic"
+
+  : >"$removal_home/.classic-receipt"
+  if env "${removal_env[@]}" REMOVE_EXTRA_ARTIFACT_FOR=chatgpt-classic \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/extra-cask-artifact" 2>&1; then
+    fail "groundwork-app-remove accepted unexpected cask artifacts or uninstall hooks"
+  fi
+  test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
+    || fail "unexpected cask artifacts reached removal"
+  rm -f "$removal_home/.remove-info-chatgpt" \
+    "$removal_home/.remove-info-chatgpt-classic"
+  if env "${removal_env[@]}" REMOVE_METADATA_CHANGE_AFTER_CONSENT=chatgpt-classic \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/metadata-changed-after-consent" 2>&1; then
+    fail "groundwork-app-remove acted after cask metadata changed"
+  fi
+  grep -qF 'metadata changed after consent' \
+    "$removal_fixture/metadata-changed-after-consent" \
+    || fail "post-consent cask metadata drift was not named"
+  test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
+    || fail "post-consent metadata drift reached removal"
+  rm -f "$removal_home/.classic-receipt"
+
+  : >"$removal_home/.codex-receipt"
+  if env "${removal_env[@]}" REMOVE_CODEX_OWNS_CURRENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes codex-app \
+    >"$removal_fixture/codex-owns-current" 2>&1; then
+    fail "groundwork-app-remove uninstalled codex-app when its cask metadata owned ChatGPT.app"
+  fi
+  test -f "$removal_home/.codex-receipt" \
+    || fail "ambiguous codex-app ownership removed its receipt"
+
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --yes codex-app >"$removal_fixture/stale-codex"
+  grep -qxF 'brew uninstall --cask codex-app' "$removal_fixture/commands.log" \
+    || fail "a demonstrably stale codex-app receipt did not use exact cask removal"
+  test ! -f "$removal_home/.codex-receipt" \
+    || fail "the stale codex-app receipt remained after accepted cleanup"
+  test -d "$removal_current" && test -f "$removal_home/.chatgpt-receipt" \
+    || fail "stale codex-app cleanup disturbed the current ChatGPT app"
+
+  : >"$removal_fixture/commands.log"
+  mkdir -p "$removal_home/.Trash/ChatGPT Classic.app"
+  printf 'existing-trash-item\n' \
+    >"$removal_home/.Trash/ChatGPT Classic.app/keep.txt"
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --yes chatgpt-classic >"$removal_fixture/manual-classic-removed"
+  test ! -e "$classic_app" || fail "accepted manual Classic cleanup left the app bundle"
+  grep -qxF 'existing-trash-item' \
+    "$removal_home/.Trash/ChatGPT Classic.app/keep.txt" \
+    || fail "a Trash name collision overwrote an existing item"
+  [[ "$(find "$removal_home/.Trash" -maxdepth 1 -type d \
+    -name 'ChatGPT Classic (Groundwork *).app' | wc -l | tr -d ' ')" -eq 1 ]] \
+    || fail "manual Classic cleanup did not choose one recoverable collision-safe Trash name"
+  grep -qxF 'preserve-user-data' \
+    "$removal_home/Library/Application Support/ChatGPT/keep.txt" \
+    || fail "manual Classic cleanup changed ChatGPT user data"
+  assert_not_contains '--zap|Application Support|Preferences|credentials|chats|rm -rf' \
+    "$removal_fixture/commands.log" \
+    "manual Classic cleanup delegated user-data deletion to Homebrew"
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --yes chatgpt-classic >"$removal_fixture/manual-second-run"
+  grep -qF 'No change was made' "$removal_fixture/manual-second-run" \
+    || fail "a second Classic cleanup was not idempotent"
+
+  mkdir -p "$classic_app/Contents/MacOS"
+  : >"$classic_app/Contents/Info.plist"
+  : >"$classic_app/Contents/MacOS/ChatGPT"
+  chmod +x "$classic_app/Contents/MacOS/ChatGPT"
+  : >"$removal_home/.classic-receipt"
+  : >"$removal_fixture/commands.log"
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --yes chatgpt-classic >"$removal_fixture/homebrew-classic-removed"
+  grep -qxF 'brew uninstall --cask chatgpt-classic' "$removal_fixture/commands.log" \
+    || fail "Homebrew-owned Classic cleanup did not remove the exact mapped cask"
+  assert_not_contains '--zap|--force' \
+    "$removal_fixture/commands.log" \
+    "Classic cleanup used a destructive Homebrew flag"
+  assert_not_contains '^brew uninstall --cask chatgpt$' \
+    "$removal_fixture/commands.log" \
+    "Classic cleanup widened into current ChatGPT removal"
+  test -d "$removal_current" && test -x "$removal_current/Contents/MacOS/ChatGPT" \
+    || fail "Classic cleanup did not preserve a launchable current ChatGPT app"
 
   check "update-all launcher handoff and runner transaction"
   update_all_fixture="$out_dir/update-all-fixture"
@@ -1857,16 +2275,18 @@ case "${1:-}" in
     shift
     case "${1:-}" in
       --formula)
-        [[ "${2:-}" == "--full-name" ]] || exit 64
+        [[ "${2:-}" == "--full-name" && "$#" -eq 2 ]] || exit 64
         printf '%s\n' ${BREW_FORMULAE:-git}
         ;;
       --pinned)
-        [[ "${2:-}" == "--full-name" ]] || exit 64
+        # Real Homebrew accepts `brew list --pinned`, but rejects the tempting
+        # `--pinned --full-name` combination. Production gets pin state from
+        # full-name formula metadata instead.
+        [[ "$#" -eq 1 ]] || exit 64
         [[ -z "${BREW_PINNED:-}" ]] || printf '%s\n' $BREW_PINNED
         ;;
       --cask)
         shift
-        if [[ "${1:-}" == "--full-name" ]]; then shift; fi
         if [[ "$#" -eq 0 ]]; then
           [[ -z "${BREW_CASKS:-ghostty}" ]] || printf '%s\n' ${BREW_CASKS:-ghostty}
         else
@@ -1884,9 +2304,37 @@ case "${1:-}" in
     exit 0
     ;;
   info)
-    [[ "${2:-}" == "--json=v2" && "${3:-}" == "--cask" ]] || exit 64
-    [[ "${BREW_INFO_STATUS:-0}" == "0" ]] || exit "$BREW_INFO_STATUS"
+    [[ "${2:-}" == "--json=v2" ]] || exit 64
+    info_kind="${3:-}"
+    [[ "$info_kind" == "--formula" || "$info_kind" == "--cask" ]] || exit 64
+    if [[ "$info_kind" == "--formula" ]]; then
+      [[ "${BREW_FORMULA_INFO_STATUS:-${BREW_INFO_STATUS:-0}}" == "0" ]] \
+        || exit "${BREW_FORMULA_INFO_STATUS:-${BREW_INFO_STATUS:-0}}"
+    else
+      [[ "${BREW_CASK_INFO_STATUS:-${BREW_INFO_STATUS:-0}}" == "0" ]] \
+        || exit "${BREW_CASK_INFO_STATUS:-${BREW_INFO_STATUS:-0}}"
+    fi
     shift 3
+    if [[ "$info_kind" == "--formula" ]]; then
+      printf '{"formulae":['
+      separator=''
+      for token in "$@"; do
+        printf '%s' "$separator"
+        separator=,
+        formula_pinned=false
+        formula_outdated=false
+        for pinned in ${BREW_PINNED:-}; do
+          [[ "$pinned" == "$token" ]] && formula_pinned=true
+        done
+        for outdated in ${BREW_FORMULA_OUTDATED-$token}; do
+          [[ "$outdated" == "$token" ]] && formula_outdated=true
+        done
+        printf '{"full_name":"%s","installed":[{"version":"1.0.0"}],"versions":{"stable":"1.1.0"},"pinned":%s,"outdated":%s,"deprecated":false,"disabled":false}' \
+          "$token" "$formula_pinned" "$formula_outdated"
+      done
+      printf '],"casks":[]}\n'
+      exit 0
+    fi
     printf '{"formulae":[],"casks":['
     separator=''
     for token in "$@"; do
@@ -1896,17 +2344,44 @@ case "${1:-}" in
         docker-desktop)
           printf '%s' '{"token":"docker-desktop","installed":"4.85.0,235549","version":"4.86.0,236216","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["com.docker.helper"],"delete":["/Library/PrivilegedHelperTools/com.docker.vmnetd"]}]}]}'
           ;;
-        chatgpt | cursor | claude | obsidian | self-current)
-          printf '{"token":"%s","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]}' "$token"
+        chatgpt)
+          printf '%s' '{"token":"chatgpt","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"app":["ChatGPT.app"]},{"uninstall":[{"quit":["com.openai.codex"]}]}]}'
           ;;
-        google-chrome)
-          printf '%s' '{"token":"google-chrome","installed":"1.0.0","version":"1.1.0","sha256":"no_check","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]}'
+        cursor | claude | obsidian)
+          case "$token" in
+            cursor) app_name='Cursor.app' ;;
+            claude) app_name='Claude.app' ;;
+            *) app_name='Obsidian.app' ;;
+          esac
+          printf '{"token":"%s","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"app":["%s"]}]}' "$token" "$app_name"
+          ;;
+        self-current)
+          printf '%s' '{"token":"self-current","installed":"1.1.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"app":["Self Current.app"]}]}'
+          ;;
+        google-chrome | google-chrome@beta)
+          case "$token" in
+            google-chrome) app_name='Google Chrome.app' ;;
+            *) app_name='Google Chrome Beta.app' ;;
+          esac
+          printf '{"token":"%s","installed":"1.0.0","version":"1.1.0","sha256":"no_check","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"app":["%s"]}]}' "$token" "$app_name"
+          ;;
+        unknown-vendor)
+          printf '%s' '{"token":"unknown-vendor","installed":"1.0.0","version":"1.1.0","sha256":"no_check","auto_updates":true,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[{"app":["Unknown Vendor.app"]}]}'
+          ;;
+        disabled-cask)
+          printf '%s' '{"token":"disabled-cask","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":true,"artifacts":[{"app":["Disabled.app"]}]}'
           ;;
         latest-cask)
           printf '%s' '{"token":"latest-cask","installed":"0","version":"latest","sha256":"fixture-sha","auto_updates":false,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[]}'
           ;;
         codex-app)
-          printf '%s' '{"token":"codex-app","installed":"1.0.0","version":"1.0.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":true,"disabled":false,"artifacts":[]}'
+          printf '%s' '{"token":"codex-app","installed":"1.0.0","version":"1.0.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":true,"disabled":false,"artifacts":[{"app":["Codex.app"]}]}'
+          ;;
+        appcleaner | karabiner-elements | zoom)
+          printf '{"token":"%s","installed":"1.1.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":true,"pinned":false,"outdated":false,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["fixture.helper"],"delete":["/Library/PrivilegedHelperTools/fixture"]}]}]}' "$token"
+          ;;
+        privileged-outdated)
+          printf '%s' '{"token":"privileged-outdated","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[{"uninstall":[{"launchctl":["fixture.helper"]}]}]}'
           ;;
         *)
           printf '{"token":"%s","installed":"1.0.0","version":"1.1.0","sha256":"fixture-sha","auto_updates":false,"pinned":false,"outdated":true,"deprecated":false,"disabled":false,"artifacts":[]}' "$token"
@@ -1931,7 +2406,12 @@ case "${1:-}" in
     done
     [[ "${BREW_OUTDATED_STATUS:-0}" == 0 ]] || exit "$BREW_OUTDATED_STATUS"
     for token in "${candidates[@]}"; do
-      if [[ "${BREW_REMAIN_OUTDATED:-0}" != 1 ]] \
+      remain_outdated=0
+      [[ "${BREW_REMAIN_OUTDATED:-0}" == 1 ]] && remain_outdated=1
+      for retained in ${BREW_REMAIN_OUTDATED_TOKENS:-}; do
+        [[ "$retained" == "$token" ]] && remain_outdated=1
+      done
+      if [[ "$remain_outdated" -eq 0 ]] \
         && grep -qxF "$token" "$HOME/.brew-updated-tokens" 2>/dev/null; then
         continue
       fi
@@ -1948,10 +2428,21 @@ case "${1:-}" in
     exit 0
     ;;
   upgrade)
+    saw_cask=0
+    saw_no_quit=0
+    for arg in "$@"; do
+      [[ "$arg" == "--cask" ]] && saw_cask=1
+      [[ "$arg" == "--no-quit" ]] && saw_no_quit=1
+    done
     printf 'brew %s auto=%s casks=%s hb-color=%s\n' "$*" \
       "${HOMEBREW_NO_AUTO_UPDATE:-unset}" \
       "${HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:-unset}" \
       "${HOMEBREW_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
+    if [[ "${BREW_LAUNCH_AFTER_SNAPSHOT:-0}" == 1 \
+      && "$saw_cask" -eq 1 && "$saw_no_quit" -ne 1 ]]; then
+      echo 'Error: fixture application launched after the process snapshot and Homebrew was allowed to quit it.' >&2
+      exit 73
+    fi
     for token in "$@"; do
       case "$token" in --*) continue ;; esac
       printf '%s\n' "$token" >>"$HOME/.brew-updated-tokens"
@@ -2059,6 +2550,18 @@ case "${1:-}" in
 esac
 exit "${BREW_STAGE_STATUS:-0}"
 SH
+  cat >"$update_all_bin/ps" <<'SH'
+#!/usr/bin/env bash
+if [[ "$#" -eq 2 && "${1:-}" == -axo && "${2:-}" == command= ]]; then
+  if [[ -n "${BREW_PS_TRACE_FILE:-}" ]]; then
+    printf 'args=%s %s\nrunning=%s\n' "$1" "$2" "${BREW_RUNNING_COMMANDS:-}" \
+      >"$BREW_PS_TRACE_FILE"
+  fi
+  [[ -z "${BREW_RUNNING_COMMANDS:-}" ]] || printf '%s\n' "$BREW_RUNNING_COMMANDS"
+  exit "${BREW_PS_STATUS:-0}"
+fi
+exec /bin/ps "$@"
+SH
   cat >"$update_all_bin/mas" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
@@ -2142,6 +2645,8 @@ SH
   cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
   cp home/dot_local/share/groundwork/lib/brew-output.sh \
     "$update_all_home/.local/share/groundwork/lib/brew-output.sh"
+  cp home/dot_local/share/groundwork/vendor-updater-casks.txt \
+    "$update_all_home/.local/share/groundwork/vendor-updater-casks.txt"
   install_fixture_watchdog_runner \
     "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
   install_fixture_policy_clock "$update_all_bin/date"
@@ -2224,13 +2729,17 @@ if [[ "${1:-}" == stop ]]; then
 fi
 exit 64
 SH
-  chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/mise" \
+  chmod +x "$update_all_bin/chezmoi" "$update_all_bin/brew" "$update_all_bin/ps" "$update_all_bin/mise" \
     "$update_all_bin/npm" "$update_all_bin/groundwork-cleanup" \
     "$update_all_bin/groundwork-docker-tidy" \
     "$update_all_bin/groundwork-repos" "$update_all_bin/groundwork-brew-update" \
     "$update_all_bin/groundwork-platform" "$update_all_bin/docker" \
     "$update_all_bin/colima" \
     "$update_all_fixture/fresh-runner"
+  if HOME="$update_all_home" PATH="$update_all_bin:/usr/bin:/bin" \
+    "$update_all_bin/brew" list --pinned --full-name >/dev/null 2>&1; then
+    fail "the strict Homebrew fixture accepted the impossible pinned/full-name command"
+  fi
 
   update_all_log="$update_all_fixture/commands.log"
   update_all_stamp="$update_all_home/.local/state/groundwork/last-update-all"
@@ -2291,6 +2800,16 @@ fresh runner color=0
 arg=--skip-maintenance
 EOF
   diff -u "$update_all_fixture/expected-handoff" "$update_all_log"
+
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+    CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+    "$update_all_fixture/old-launcher" --allow-app-quit \
+    >"$update_all_fixture/app-quit-handoff" 2>&1 \
+    || fail "the stable launcher rejected the explicit app-quit option"
+  grep -qxF 'arg=--allow-app-quit' "$update_all_log" \
+    || fail "the stable launcher did not forward --allow-app-quit to the fresh runner"
 
   # Exercise the complete launcher -> exec'd real runner -> nested real cleanup
   # ownership chain. The exec keeps the launcher's PID and must adopt the lock;
@@ -2523,12 +3042,17 @@ EOF
   set -e
   [[ "$update_all_status" -ne 0 ]] \
     || fail "update-all accepted an injection-like installed Homebrew token"
-  diff -u <(printf 'chezmoi apply color=0\n') "$update_all_log" \
-    || fail "update-all mutated Homebrew before validating installed inventory"
+  diff -u <(printf 'chezmoi apply color=0\nmise upgrade --minimum-release-age 5d\n') \
+    "$update_all_log" \
+    || fail "an invalid Homebrew inventory suppressed an independent safe lane"
+  assert_not_contains '^brew-update$|^brew upgrade' "$update_all_log" \
+    "update-all mutated Homebrew before validating installed inventory"
   grep -qF 'malformed installed or pinned token' "$update_all_fixture/hostile-brew-inventory"
 
-  # Failed metadata refresh stops before every package/runtime stage and does
-  # not create the success timestamp.
+  # Failed Homebrew metadata refresh blocks Homebrew mutation but does not
+  # suppress an independent mise observation/update lane. Package-manager and
+  # Docker maintenance stay skipped because they would add mutation after the
+  # updater authority failed closed.
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -2537,8 +3061,14 @@ EOF
     >"$update_all_fixture/failure-output" 2>&1
   update_all_status=$?
   set -e
-  [[ "$update_all_status" -ne 0 ]] || fail "update-all runner continued after its metadata refresh failed"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
+  [[ "$update_all_status" -ne 0 ]] || fail "a failed Homebrew refresh produced a false complete result"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
+  grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
+    "$update_all_fixture/failure-output" \
+    || fail "Homebrew failure did not explain why later package-manager mutation was skipped"
+  grep -qF 'Docker scratch maintenance skipped because the required Homebrew lane failed' \
+    "$update_all_fixture/failure-output" \
+    || fail "Homebrew failure did not isolate Docker maintenance"
   test ! -e "$update_all_stamp"
 
   # Ctrl-C and termination statuses from a managed stage propagate unchanged.
@@ -2569,7 +3099,7 @@ EOF
   cat >"$update_all_fixture/expected-success" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade --formula git auto=1 casks=1 hb-color=unset
+brew upgrade --formula git auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -2691,6 +3221,7 @@ EOF
 
   printf 'older Docker failure must survive\n' >"$docker_pending"
   printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$update_all_home/.mas-updated"
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -2724,7 +3255,7 @@ EOF
     env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
       HOMEBREW_COLOR= $runner_color_env "$update_all_fixture/rendered-runner" >/dev/null 2>&1 \
       || fail "update-all runner failed under color settings: $runner_color_env"
-    grep -qxF "brew upgrade --formula git auto=1 casks=1 hb-color=$runner_color_expected" "$update_all_log" \
+    grep -qxF "brew upgrade --formula git auto=1 casks=unset hb-color=$runner_color_expected" "$update_all_log" \
       || fail "brew must see HOMEBREW_COLOR=$runner_color_expected under: $runner_color_env"
   done
 
@@ -2740,7 +3271,7 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "update-all runner recorded success after mise upgrade failed"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade --formula git auto=1 casks=1 hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\ndocker-tidy --automatic\n') \
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nbrew upgrade --formula git auto=1 casks=unset hb-color=unset\nmise upgrade --minimum-release-age 5d\nbrew autoremove\nbrew cleanup --prune=all\ndocker-tidy --automatic\n') \
     "$update_all_log"
   grep -qxF 'previous-success' "$update_all_stamp"
 
@@ -2826,8 +3357,8 @@ SH
   cat >"$update_all_fixture/expected-darwin" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade --formula git auto=1 casks=1 hb-color=unset
-brew upgrade --cask --require-sha ghostty auto=1 casks=1 hb-color=unset
+brew upgrade --formula git auto=1 casks=unset hb-color=unset
+brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset
 brew-repair
 apps-start
 mise upgrade --minimum-release-age 5d
@@ -2848,21 +3379,23 @@ EOF
   # no-checksum and deprecated casks remain visible review outcomes.
   rm -f "$update_all_stamp"
   : >"$update_all_log"
+  dynamic_exit=0
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    BREW_CASKS='ghostty chatgpt cursor claude obsidian self-current google-chrome latest-cask codex-app' \
+    BREW_CASKS='ghostty chatgpt cursor claude obsidian self-current google-chrome google-chrome@beta unknown-vendor disabled-cask latest-cask codex-app' \
     BREW_AUTO_OUTDATED='chatgpt cursor claude obsidian' \
     BREW_LATEST_OUTDATED='latest-cask' \
+    BREW_LAUNCH_AFTER_SNAPSHOT=1 \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-dynamic-casks" 2>&1 || dynamic_exit=$?
-  [[ "$dynamic_exit" -eq 2 ]] \
-    || fail "unverifiable managed casks surfaced as exit $dynamic_exit"
+  [[ "$dynamic_exit" -eq 0 ]] \
+    || fail "accepted vendor/deprecated cask outcomes surfaced as exit $dynamic_exit"
   grep -qxF \
-    'brew upgrade --cask --require-sha --greedy-auto-updates chatgpt claude cursor obsidian auto=1 casks=1 hb-color=unset' \
+    'brew upgrade --cask --require-sha --no-quit --greedy-auto-updates chatgpt claude cursor obsidian auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "the targeted self-updating lane omitted an exact installed outdated cask"
   grep -qxF \
-    'brew upgrade --cask --require-sha --greedy-latest latest-cask auto=1 casks=1 hb-color=unset' \
+    'brew upgrade --cask --require-sha --no-quit --greedy-latest latest-cask auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "the checksummed version-latest lane omitted its exact outdated cask"
   assert_not_contains '^brew upgrade .*self-current' "$update_all_log" \
@@ -2870,31 +3403,151 @@ EOF
   assert_not_contains '^brew upgrade --greedy([[:space:]]|$)|^brew upgrade --cask --greedy([[:space:]]|$)' \
     "$update_all_log" \
     "update-all invoked an unscoped global greedy upgrade"
-  grep -qF 'google-chrome was excluded from automatic upgrade (no-checksum)' \
+  grep -qF 'Groundwork vendor-covered: google-chrome remains with its declared self-updater' \
     "$update_all_fixture/darwin-dynamic-casks" \
-    || fail "a no-checksum self-updating cask disappeared from the completeness receipt"
-  grep -qF 'codex-app was excluded from automatic upgrade (deprecated)' \
+    || fail "a no-checksum vendor-updated cask disappeared from the coverage receipt"
+  grep -qF 'Groundwork vendor-covered: google-chrome@beta remains with its declared self-updater' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the Chrome Beta vendor-updater coverage disappeared"
+  grep -qF 'Inspect exact ownership before optional removal: groundwork-app-remove codex-app' \
     "$update_all_fixture/darwin-dynamic-casks" \
     || fail "the deprecated codex-app was not distinguished from current ChatGPT"
-  grep -qF '1 Homebrew-managed cask(s) could not be verified' \
+  grep -qF 'Vendor-covered          2 self-updating cask(s)' \
     "$update_all_fixture/darwin-dynamic-casks" \
-    || fail "unverifiable managed casks did not prevent a false complete claim"
-  assert_not_contains 'SUCCESS' "$update_all_fixture/darwin-dynamic-casks" \
-    "unverifiable managed casks produced a false success result"
+    || fail "the accepted vendor-updater coverage was not summarized"
+  grep -qF 'Groundwork review: unknown-vendor 1.0.0 -> 1.1.0 was not upgraded automatically (unverified-vendor-updater).' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "an unknown no-checksum self-updater was incorrectly trusted"
+  grep -qF 'Unverified casks        1 checksum/updater-ownership item(s) named above' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the unverified updater count was absent from the final receipt"
+  grep -qF 'Groundwork owner action: disabled cask disabled-cask 1.0.0 -> 1.1.0 remains installed and unchanged.' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the disabled cask did not receive its distinct disposition"
+  grep -qF 'Review its supported replacement or run: brew uninstall --cask disabled-cask' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the disabled cask omitted replacement/removal guidance"
+  assert_not_contains 'brew upgrade .*disabled-cask|brew upgrade --cask --require-sha disabled-cask' \
+    "$update_all_log" \
+    "a disabled cask entered a mutating command"
+  grep -qF 'Discovered              13 installed formulae and casks' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the Homebrew discovery count omitted a formula or cask"
+  grep -qF 'Current                 1' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the Homebrew current count did not match the classified inventory"
+  grep -qF 'Attempted               7 exact eligible item(s)' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the Homebrew attempted count did not match the exact mutating argv"
+  grep -qF 'Verified updated        7' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the Homebrew verified-update count did not match reconciliation"
+  grep -qF 'SUCCESS · 3 OWNER-REVIEW ITEM(S)' \
+    "$update_all_fixture/darwin-dynamic-casks" \
+    || fail "the deprecated cask was not kept distinct from an updater failure"
+  test -f "$update_all_stamp" \
+    || fail "accepted vendor coverage incorrectly withheld the success timestamp"
+
+  # Running applications are removed from the mutating argv by default while
+  # unrelated casks continue. The explicit flag permits Homebrew's normal quit
+  # behavior only for that invocation and does not widen the selected tokens.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty chatgpt cursor' BREW_AUTO_OUTDATED='chatgpt cursor' \
+    BREW_RUNNING_COMMANDS="$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window" \
+    BREW_PS_TRACE_FILE="$update_all_fixture/running-cask-ps.trace" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-running-cask" 2>&1 \
+    || fail "deferring one running cask failed the otherwise safe update"
+  diff -u <(printf '%s\n%s\n' 'args=-axo command=' \
+    "running=$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window") \
+    "$update_all_fixture/running-cask-ps.trace" \
+    || fail "the running-cask fixture did not exercise the production ps snapshot seam"
+  grep -qxF \
+    'brew upgrade --cask --require-sha --no-quit --greedy-auto-updates chatgpt auto=1 casks=unset hb-color=unset' \
+    "$update_all_log" || {
+    sed -n '1,120p' "$update_all_log" >&2
+    sed -n '1,220p' "$update_all_fixture/darwin-running-cask" >&2
+    fail "a running cask prevented an unrelated self-updating cask upgrade"
+  }
+  assert_not_contains '^brew upgrade .*cursor' "$update_all_log" \
+    "a running application entered the default mutating cask argv"
+  grep -qF 'Groundwork deferred-running: cursor is open and was not upgraded.' \
+    "$update_all_fixture/darwin-running-cask" \
+    || fail "the running cask was not reported as deferred"
+  grep -qF 'Save your work, then rerun: update-all --allow-app-quit' \
+    "$update_all_fixture/darwin-running-cask" \
+    || fail "the running cask omitted its exact opt-in rerun action"
+  grep -qF 'SUCCESS · 1 DEFERRED-RUNNING' \
+    "$update_all_fixture/darwin-running-cask" \
+    || fail "running-app deferral was conflated with updater failure"
 
   rm -f "$update_all_stamp"
   : >"$update_all_log"
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    BREW_PINNED=git BREW_FORMULA_OUTDATED=git \
+    BREW_CASKS='ghostty chatgpt cursor' BREW_AUTO_OUTDATED='chatgpt cursor' \
+    BREW_RUNNING_COMMANDS="$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" --allow-app-quit \
+    >"$update_all_fixture/darwin-running-cask-opt-in" 2>&1 \
+    || fail "the explicit app-quit invocation failed"
+  grep -qxF \
+    'brew upgrade --cask --require-sha --greedy-auto-updates chatgpt cursor auto=1 casks=unset hb-color=unset' \
+    "$update_all_log" \
+    || fail "--allow-app-quit did not preserve the exact selected cask argv"
+  assert_not_contains 'deferred-running' "$update_all_fixture/darwin-running-cask-opt-in" \
+    "the explicit app-quit invocation still claimed a deferral"
+
+  # Privileged replacement metadata is only relevant when an update is due.
+  # Current AppCleaner, Karabiner, and Zoom equivalents must be quiet/current.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty appcleaner karabiner-elements zoom' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-current-privileged-casks" 2>&1 \
+    || fail "current privileged casks failed the otherwise safe update"
+  assert_not_contains 'Groundwork review: (appcleaner|karabiner-elements|zoom)' \
+    "$update_all_fixture/darwin-current-privileged-casks" \
+    "current privileged casks created recurring review noise"
+  assert_not_contains '^brew upgrade .*(appcleaner|karabiner-elements|zoom)' \
+    "$update_all_log" \
+    "a current privileged cask entered a mutating command"
+  grep -qF 'Current                 3' \
+    "$update_all_fixture/darwin-current-privileged-casks" \
+    || fail "current privileged casks were not counted as current"
+  [[ -z "$(tail -c 1 "$update_all_fixture/darwin-current-privileged-casks")" ]] \
+    || fail "update-all left a partial non-newline-terminated status line"
+  assert_not_contains 'kUsage:|[^[:space:]]Usage:' \
+    "$update_all_fixture/darwin-current-privileged-casks" \
+    "update-all output contained a spliced usage fragment"
+
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULAE='git owner/tap/tool' \
+    BREW_PINNED='owner/tap/tool' BREW_FORMULA_OUTDATED='git owner/tap/tool' \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-pinned-formula" 2>&1 \
     || fail "a pinned formula failed the otherwise safe update"
-  grep -qF 'git was excluded from automatic upgrade (pinned)' \
+  grep -qF 'Groundwork pinned: formula owner/tap/tool 1.0.0 remains pinned.' \
     "$update_all_fixture/darwin-pinned-formula" \
-    || fail "a pinned installed formula disappeared from the review receipt"
-  assert_not_contains '^brew upgrade --formula .*git' "$update_all_log" \
-    "a pinned formula entered the mutating upgrade lane"
+    || fail "a tapped pinned formula disappeared from the formula receipt"
+  grep -qF 'Optional owner action: brew unpin --formula owner/tap/tool' \
+    "$update_all_fixture/darwin-pinned-formula" \
+    || fail "the tapped pinned formula omitted its exact optional action"
+  grep -qxF 'brew upgrade --formula git auto=1 casks=unset hb-color=unset' \
+    "$update_all_log" \
+    || fail "pin normalization removed an unrelated formula from mutation"
+  assert_not_contains '^brew upgrade --formula .*owner/tap/tool' "$update_all_log" \
+    "a tapped pinned formula entered the mutating upgrade lane"
+  grep -qF 'Pinned                  1' \
+    "$update_all_fixture/darwin-pinned-formula" \
+    || fail "the formula pin was counted outside the pinned outcome"
 
   rm -f "$update_all_home/.mas-updated" "$update_all_stamp"
   : >"$update_all_log"
@@ -2933,10 +3586,11 @@ EOF
 
   printf 'previous-success\n' >"$update_all_stamp"
   : >"$update_all_log"
+  rm -f "$update_all_home/.brew-updated-tokens"
   remaining_exit=0
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    BREW_REMAIN_OUTDATED=1 BREW_FORMULA_OUTDATED=git \
+    BREW_REMAIN_OUTDATED_TOKENS=git BREW_FORMULA_OUTDATED=git \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-managed-remains-outdated" 2>&1 || remaining_exit=$?
   [[ "$remaining_exit" -eq 1 ]] \
@@ -2944,6 +3598,17 @@ EOF
   grep -qF 'Homebrew still reports git outdated' \
     "$update_all_fixture/darwin-managed-remains-outdated" \
     || fail "the post-update completeness check omitted the remaining managed item"
+  grep -qF 'Homebrew attempted: 2 exact eligible item(s)' \
+    "$update_all_fixture/darwin-managed-remains-outdated" || {
+    sed -n '1,220p' "$update_all_fixture/darwin-managed-remains-outdated" >&2
+    fail "the incomplete update receipt omitted the exact attempted count"
+  }
+  grep -qF 'Homebrew verified updated: 1' \
+    "$update_all_fixture/darwin-managed-remains-outdated" \
+    || fail "an item that remained outdated was counted as verified updated"
+  assert_not_contains 'Homebrew verified updated:[[:space:]]+2' \
+    "$update_all_fixture/darwin-managed-remains-outdated" \
+    "upgrade exit zero was mistaken for two verified updates"
   grep -qxF 'previous-success' "$update_all_stamp" \
     || fail "a false incomplete update replaced the prior success timestamp"
   grep -qF 'eligible Homebrew item(s) remained outdated' \
@@ -2953,8 +3618,8 @@ EOF
 
   # Exact work-laptop regression: a vendor/manual ChatGPT bundle is present on
   # a work profile while Homebrew owns other software. It must be reported and
-  # omitted from the Brewfile apply, but every safe managed lane still runs and
-  # the final result stays incomplete rather than claiming everything current.
+  # omitted from the Brewfile apply, but every safe managed lane still runs.
+  # Ownership review is a successful-but-actionable receipt, not updater failure.
   manual_apps="$update_all_fixture/Work Applications"
   manual_chatgpt="$manual_apps/ChatGPT.app"
   mkdir -p "$manual_chatgpt/Contents/MacOS"
@@ -2962,6 +3627,9 @@ EOF
   manual_chatgpt="$manual_apps/ChatGPT.app"
   : >"$manual_chatgpt/Contents/Info.plist"
   : >"$manual_chatgpt/Contents/MacOS/ChatGPT"
+  mkdir -p "$manual_apps/ChatGPT Classic.app/Contents/MacOS"
+  : >"$manual_apps/ChatGPT Classic.app/Contents/Info.plist"
+  : >"$manual_apps/ChatGPT Classic.app/Contents/MacOS/ChatGPT"
   printf 'previous-success\n' >"$update_all_stamp"
   : >"$update_all_log"
   manual_exit=0
@@ -2970,7 +3638,7 @@ EOF
     GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_CASKS='ghostty' \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-work-runner" \
     >"$update_all_fixture/darwin-work-manual-chatgpt" 2>&1 || manual_exit=$?
-  [[ "$manual_exit" -eq 2 ]] \
+  [[ "$manual_exit" -eq 0 ]] \
     || fail "manual ChatGPT on a work profile surfaced as exit $manual_exit instead of action-required"
   grep -qF 'Groundwork action required: ChatGPT is installed' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
@@ -2978,26 +3646,32 @@ EOF
   grep -qF "Path:          $manual_chatgpt" \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
     || fail "the manual ChatGPT receipt omitted its exact application path"
+  grep -qF 'ChatGPT.app is the preferred current app. Classic is a legacy duplicate' \
+    "$update_all_fixture/darwin-work-manual-chatgpt" \
+    || fail "ChatGPT Classic was not distinguished from the preferred current app"
+  grep -qF 'Inspect optional removal: groundwork-app-remove chatgpt-classic' \
+    "$update_all_fixture/darwin-work-manual-chatgpt" \
+    || fail "update-all omitted the separate consent-gated Classic cleanup route"
   grep -qxF 'chezmoi skip-casks=chatgpt' "$update_all_log" \
     || fail "manual ChatGPT was not omitted from the conflicting Brewfile apply"
-  grep -qxF 'brew upgrade --formula git auto=1 casks=1 hb-color=unset' \
+  grep -qxF 'brew upgrade --formula git auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "manual ChatGPT prevented an unrelated managed formula update"
-  grep -qxF 'brew upgrade --cask --require-sha ghostty auto=1 casks=1 hb-color=unset' \
+  grep -qxF 'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "manual ChatGPT prevented an unrelated managed cask update"
   grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
     || fail "manual ChatGPT prevented the later managed runtime lane"
-  assert_not_contains '^groundwork-app-adopt|brew install .*--adopt' "$update_all_log" \
-    "update-all invoked the separate ownership-adoption command"
-  grep -qF 'Safe managed update lanes completed' \
+  assert_not_contains '^groundwork-app-(adopt|remove)|brew install .*--adopt|brew uninstall' "$update_all_log" \
+    "update-all invoked a separate ownership or removal command"
+  grep -qF 'Application ownership  2 manual/MDM-unresolved item(s) named above' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
-    || fail "the incomplete result did not distinguish completed safe lanes"
-  grep -qF 'FAILED · required work did not complete' \
+    || fail "the manual/current and Classic application choices were absent from the final review receipt"
+  grep -qF 'SUCCESS · 2 OWNER-REVIEW ITEM(S)' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
-    || fail "an unmanaged app produced a false complete/current claim"
-  grep -qxF 'previous-success' "$update_all_stamp" \
-    || fail "an incomplete ownership result replaced the prior success timestamp"
+    || fail "manual and Classic application choices were conflated with updater failure"
+  grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$update_all_stamp" \
+    || fail "a completed update with ownership review did not refresh the success timestamp"
   rm -rf "$manual_apps"
 
   # A cancelled Homebrew upgrade must end the transaction, not fall through into
@@ -3213,7 +3887,7 @@ EOF
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-privileged-cask-review" 2>&1 \
     || fail "a review-only privileged cask failed the otherwise safe update"
-  grep -qxF 'brew upgrade --cask --require-sha ghostty auto=1 casks=1 hb-color=unset' \
+  grep -qxF 'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "the safe cask did not retain its automatic update lane"
   assert_not_contains '^brew upgrade .*docker-desktop' "$update_all_log" \
@@ -3224,7 +3898,7 @@ EOF
   grep -qF 'Quit it if running, then run: brew upgrade --cask --require-sha docker-desktop' \
     "$update_all_fixture/darwin-privileged-cask-review" \
     || fail "the Docker Desktop review omitted owner-run recovery"
-  grep -qF 'Homebrew casks          1 owner-run upgrade(s) named above' \
+  grep -qF 'Homebrew casks          1 unresolved/privileged item(s) named above' \
     "$update_all_fixture/darwin-privileged-cask-review" \
     || fail "the final receipt omitted the deferred privileged cask"
   grep -qF 'SUCCESS · 1 OWNER-REVIEW ITEM(S)' \
@@ -3238,11 +3912,14 @@ EOF
   # Missing or malformed metadata fails before brew upgrade, preserves the old
   # success timestamp, and cannot silently widen the candidate set.
   printf 'previous-success\n' >"$update_all_stamp"
+  rm -f "$update_all_home/.mas-updated"
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    FAKE_PLATFORM=darwin BREW_INFO_STATUS=19 \
+    FAKE_PLATFORM=darwin BREW_CASK_INFO_STATUS=19 \
+    MAS_INSTALLED='497799835 Xcode (26.4)' \
+    MAS_OUTDATED='497799835 Xcode (26.4 -> 26.5)' \
     "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-cask-metadata-failure" 2>&1
   update_all_status=$?
@@ -3251,9 +3928,16 @@ EOF
     || fail "a failed cask metadata observation was reported as success"
   assert_not_contains '^brew upgrade' "$update_all_log" \
     "update-all mutated packages after cask metadata became unknown"
+  grep -qxF 'mas update 497799835' "$update_all_log" \
+    || fail "Homebrew inventory failure suppressed the independent App Store lane"
+  grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+    || fail "Homebrew inventory failure suppressed the independent mise lane"
+  assert_not_contains 'brew autoremove|brew cleanup|docker-tidy' "$update_all_log" \
+    "Homebrew inventory failure continued into later mutating maintenance"
   grep -qF 'no cask upgrade was attempted' \
     "$update_all_fixture/darwin-cask-metadata-failure"
   grep -qxF 'previous-success' "$update_all_stamp"
+  rm -f "$update_all_home/.mas-updated"
 
   # An interrupted/half-installed cask can quit the old app successfully, find
   # an unexpected app inside the old Caskroom, emit Error:, then purge the new
@@ -3615,8 +4299,8 @@ EOF
   [[ "$(grep -c '^brew upgrade --cask --require-sha' "$update_all_log")" -eq 2 ]] \
     || fail "a successful re-fetch must retry the failed upgrade exactly once"
   diff -u <(printf '%s\n%s\n' \
-    'brew upgrade --cask --require-sha ghostty auto=1 casks=1 hb-color=unset' \
-    'brew upgrade --cask --require-sha ghostty auto=1 casks=1 hb-color=unset') \
+    'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
+    'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset') \
     <(grep '^brew upgrade --cask --require-sha' "$update_all_log") \
     || fail "the Homebrew retry changed the selected managed candidate set"
   grep -qxF 'brew-refetch' "$update_all_log" \
@@ -3641,8 +4325,7 @@ EOF
   grep -qF 'did not complete' "$update_all_fixture/darwin-repair-fail" \
     || fail "a failed approved repair must be reported in the output"
   test ! -e "$update_all_stamp"
-  # A failed app relaunch must not fail the refresh (it is best-effort), and a
-  # failed Homebrew stage must still stop everything after it.
+  # A failed app relaunch must not fail the refresh because it is best-effort.
   rm -f "$update_all_stamp"
   : >"$update_all_log"
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -3683,8 +4366,11 @@ EOF
     >"$update_all_fixture/darwin-brew-fail" 2>&1
   update_all_status=$?
   set -e
-  [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner continued after its metadata refresh failed"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\n') "$update_all_log"
+  [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner reported a failed metadata refresh as complete"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
+  grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
+    "$update_all_fixture/darwin-brew-fail" \
+    || fail "Homebrew failure did not isolate later package-manager mutation on macOS"
   test ! -e "$update_all_stamp"
 
   check "update-all Homebrew download-cache cleanup"
@@ -3731,7 +4417,7 @@ EOF
   cat >"$update_all_fixture/expected-cleanup-transaction" <<'EOF'
 chezmoi apply color=0
 brew-update
-brew upgrade --formula git auto=1 casks=1 hb-color=unset
+brew upgrade --formula git auto=1 casks=unset hb-color=unset
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -13473,18 +14159,26 @@ PY
   # Lock the update-all Homebrew policy: every cask mutation requires a
   # checksum. Greedy-aware variants are permitted only in their preclassified
   # exact-token lanes; bare global --greedy remains forbidden.
-  grep -q 'HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1' "$out_dir/darwin-beta/update-run"
+  assert_not_contains 'HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS' \
+    "$out_dir/darwin-beta/update-run" \
+    "a no-op environment setting was presented as cask safety"
   grep -q 'brew upgrade --cask --require-sha' "$out_dir/darwin-beta/update-run"
-  grep -qF 'run_homebrew_upgrade_lane "Homebrew cask upgrade" 1' \
+  grep -qF 'run_homebrew_cask_upgrade_lane "Homebrew cask upgrade"' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the macOS Homebrew upgrade must preserve terminal ownership through the bounded runner"
+  grep -qF 'run_homebrew_upgrade_lane "$label" 1' \
+    "$out_dir/darwin-beta/update-run" \
+    || fail "the cask wrapper bypassed the bounded Homebrew runner"
   assert_not_contains "gw_brew_classify_stream \"\\\$upgrade_log\"" \
     "$out_dir/darwin-beta/update-run" \
     "the macOS Homebrew upgrade bypassed the terminal-preserving runner"
-  grep -qF 'brew upgrade --cask --require-sha --greedy-auto-updates' \
+  grep -qF 'brew upgrade --cask --require-sha --no-quit "$@"' \
+    "$out_dir/darwin-beta/update-run" \
+    || fail "the default cask mutation boundary omitted Homebrew's no-quit guard"
+  grep -qF 'run_homebrew_cask_upgrade_lane "Homebrew self-updating cask upgrade"' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the exact self-updating cask lane is missing"
-  grep -qF 'brew upgrade --cask --require-sha --greedy-latest' \
+  grep -qF 'run_homebrew_cask_upgrade_lane "Homebrew latest-version cask upgrade"' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the exact latest-version cask lane is missing"
   assert_not_contains 'brew upgrade ([^#]*[[:space:]])?--greedy([[:space:]]|$)' \

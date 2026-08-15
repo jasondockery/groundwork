@@ -687,9 +687,9 @@ these are the implementations that make them real.
 
 ## update-all: honest scope and receipt
 
-`update-all` upgrades what Groundwork's safe lane covers and leaves
-self-updating applications to their vendors — a defensible policy reported
-dishonestly. It prints skipped casks and then `Groundwork tools refreshed.`,
+`update-all` upgrades what Groundwork's safe lane covers and leaves declared
+no-checksum self-updating applications to their vendors — a defensible policy
+that was reported dishonestly. It printed skipped casks and then `Groundwork tools refreshed.`,
 which reads as "nothing remains outdated" when three things do. That is the
 same class of defect as a piped command reporting exit 0: a receipt claiming
 more than the run proved.
@@ -721,9 +721,9 @@ Do this work under `skills/safe-mutating-cli` and
       rather than one process per token, and record these calls in the
       bounded-operation audit above.
 - [x] Replace the final line with a receipt whose buckets match what was
-      established: no-longer-outdated, intentionally excluded (with the specific
-      reason: self-updating, no checksum, `:latest`, pinned, disabled), still
-      outdated unexpectedly, classification unavailable, receipt incomplete.
+      established: discovered, current, updated, deferred-running, pinned,
+      accepted vendor/self-updater coverage, deprecated owner action,
+      manual/MDM/unresolved review, actual failure, and pending repair.
       Compare before/after against the exact upgrade scope, never a broader
       `--greedy` view. Never convert an unknown state into "vendor-owned", and
       never let a failed state query become an empty successful one.
@@ -732,6 +732,13 @@ Do this work under `skills/safe-mutating-cli` and
       from each stage and is a larger follow-up.
 - [x] Drop hardcoded vendor claims from help. Checksum and auto-update status
       are per-run facts, not durable documentation.
+- [x] Separate the current unified ChatGPT app, supported Classic app, and
+      deprecated `codex-app` receipt (2026-08-15). Fresh setup declares only
+      `chatgpt`; `update-all` reports but never removes the other identities.
+      `groundwork-app-remove` holds the machine update lock, verifies exact
+      bundle identities, signing teams, and cask hooks before and after consent,
+      moves a manual Classic bundle to a collision-safe Trash path, and never
+      uses `--zap` or removes shared user data.
 - [ ] Add reusable fixture helpers so these are cheap to assert repo-wide:
       `assert_command_has_no_side_effects_on_help`,
       `assert_invalid_args_fail_before_mutation`,
