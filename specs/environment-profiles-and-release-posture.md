@@ -355,28 +355,39 @@ PLAN-004  --plan does not write the last-update-all timestamp, so it never
 
 ## Update ownership
 
-**Decision: `update-all` updates the software Groundwork declares for the
-selected profile — not every package the user ever installed through
-Homebrew.**
+**Decision: `update-all` updates every eligible installation in each supported
+machine-level package-manager inventory, and reports everything it cannot
+safely or conclusively update.**
 
-The Homebrew lane parses the exact formulae and checksum-safe casks from the
-rendered Groundwork Brewfile before refreshing metadata. On macOS it then binds
-the cask decision to one matching `brew info --json=v2` snapshot. Ordinary,
-outdated casks enter the automatic command; self-updating casks and replacements
-whose uninstall metadata removes launchd services or privileged helper files
-remain owner-run Review items. A retry reuses only the accepted automatic set.
-It no longer runs an unqualified `brew upgrade`, so software a user installed
-independently is not mutated merely because Homebrew knows it. Chezmoi's
-Brewfile hook is install-only for existing packages, and the profile-selected
-Chrome casks remain outside the checksum-safe list because Google owns their
-updates. Broader catalog-backed plan and receipt work remains open.
+The Homebrew lane inventories installed formulae, casks, and pins before
+refreshing metadata. On macOS it binds every cask decision to one matching
+`brew info --json=v2` snapshot. Ordinary checksummed casks use an exact normal
+lane; checksummed self-updating and safely verifiable latest-version casks use
+separate exact-token greedy-aware lanes driven by matching outdated queries.
+Bare global `--greedy` remains prohibited. Pinned, deprecated, disabled,
+unresolved no-checksum, privileged-replacement, and unknown items remain
+unchanged with an explicit reason. Only tokens in Groundwork's reviewed
+`vendor-updater-casks.txt` policy remain visible as accepted no-checksum vendor
+coverage rather than false failure. Current privileged casks stay quiet;
+running applications are deferred per token and every cask mutation carries
+Homebrew's `--no-quit` guard unless the invocation explicitly uses
+`--allow-app-quit`. Mac App Store updates use
+exact discovered IDs. Known manual
+applications use explicit mappings for diagnosis and optional, separately
+consented identical-artifact adoption. A manual or MDM-ambiguous app cannot
+suppress unrelated safe lanes and remains a review outcome; it is not an
+updater failure. Inventory, classification, mutation, and verification failures
+remain nonzero while independent safe updater lanes continue.
+Chezmoi's Brewfile hook remains install-only for existing packages and accepts
+only an exact temporary omission when a conflicting selected manual app exists.
+Repository package manifests and lockfiles remain outside machine maintenance.
 
 ## Execution model
 
 ```text
 read persisted profile
-→ render the exact Groundwork-owned candidate set from the catalog
-→ query installed and available state
+→ inventory each supported package manager and known selected manual app
+→ query installed, available, pinned, and updater-ownership state
 → classify every candidate
 → show the plan when --plan
 → update
@@ -474,7 +485,8 @@ Enforced by `scripts/validate-groundwork`:
 5. Migration and profile-changing commands, built on catalog-backed plans —
    migration needs the catalog to map observed casks to known variants.
 6. Rebuild `update-all` on explicit candidates with `--plan` and an honest
-   receipt. No global greedy flag; no mutation of unmanaged packages.
+   receipt. Bare global greedy remains forbidden; exact greedy-aware lanes may
+   mutate only preclassified installed tokens. Manual/MDM apps remain unchanged.
 7. `groundwork-doctor` checks: profile vs installed channels, AI freshness,
    vendor-updater status, policy blocks, unmanaged software, system channel vs
    declared intent.

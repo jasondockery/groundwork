@@ -19,12 +19,13 @@ honesty live there. This skill covers what is specific to updating a machine.
 
 ## Ownership is explicit
 
-Pick one and make the command name, help, implementation, and receipt agree:
+Pick one and make the command name, help, implementation, and receipt agree.
+Groundwork uses model B for Homebrew and Mac App Store inventory:
 
 ```text
-A. Groundwork-owned packages only     — derive the set from the rendered Brewfile
-B. every eligible installed package   — say so, and warn that hand-installed
-                                        packages are in scope too
+A. Groundwork-declared packages only  — derive the set from the rendered Brewfile
+B. every eligible installed package   — inventory the package manager, classify
+                                        every item, and name every exclusion
 ```
 
 An unqualified `brew upgrade` is model B. Calling that "the Groundwork-managed
@@ -61,17 +62,30 @@ Build an explicit token list instead:
 
 ```text
 ordinary versioned + checksummed   eligible by default
-self-updating + checksummed        eligible only under explicit opt-in
-no checksum                        never; refused by integrity policy
-version :latest                    never; these ship sha256 :no_check
+self-updating + checksummed        greedy-aware exact-token lane
+no checksum + declared updater     unchanged; accepted vendor coverage
+no checksum + unknown updater      unchanged; owner review
+version :latest + checksum         greedy-latest exact-token lane
+version :latest + no checksum      never; unverifiable
 pinned                             never; the user pinned it
 disabled/deprecated/incompatible   never
 unknown                            never; classification unavailable
 ```
 
-`--greedy-latest` and bare `--greedy` (which implies it) stay banned outright.
-`scripts/validate-groundwork` locks this; if the lock must change, change it
-deliberately with the rationale, never to make a new patch pass.
+Evaluate current before privileged-replacement review: a current privileged
+cask is current, not recurring noise. Bind no-checksum vendor coverage to the
+reviewed Groundwork token policy; metadata flags alone do not grant updater
+authority. Observe running app artifacts before mutation and defer only those
+exact casks by default. Also pass Homebrew's `--no-quit` at every default cask
+mutation boundary so an app launched after that observation remains protected.
+An explicit `--allow-app-quit` may omit that guard for one invocation; it is
+never an ambient environment setting.
+
+Bare `--greedy` stays banned outright. The narrower
+`--greedy-auto-updates` and `--greedy-latest` flags may appear only with a
+preclassified, installed, exact token list. Candidate selection comes from the
+matching greedy-aware `brew outdated` query, so a current 590 MB application is
+not downloaded merely because its metadata says it can self-update.
 
 ## Receipts are epistemically honest
 
@@ -81,7 +95,7 @@ Report categories that match what the run actually established:
 attempted and no longer outdated
 intentionally excluded by policy   (with the specific reason)
 attempted but still outdated
-not attempted
+not attempted (pinned, deferred-running, vendor-covered, or owner review)
 classification unavailable
 receipt incomplete
 ```
@@ -101,8 +115,9 @@ Rules that are easy to violate:
   Prefer "no longer reported outdated" unless the command log confirms it.
 - **Name the stage.** A cask bucket is not a receipt for formulae, mise, and
   every other stage. Label it for what it covers.
-- **Policy is not impossibility.** "Only its vendor can update it" is false —
-  Groundwork *refuses* it because it has no checksum. Say that.
+- **Policy is not impossibility.** "Only its vendor can update it" is false.
+  Groundwork may accept a declared self-updater as coverage or refuse an
+  unresolved no-checksum cask under its integrity policy. Say which was proved.
 - **Never hardcode vendor metadata.** Checksum and auto-update status change.
   Query them per run; keep specific cask names out of long-lived help.
 
@@ -126,18 +141,26 @@ Do not build a first-seen ledger to simulate one.
 
 ## Required fixture matrix
 
-| Fixture cask              | Default | Explicit opt-in | Receipt                      |
-| ------------------------- | ------- | --------------- | ---------------------------- |
-| versioned + checksummed   | upgrade | upgrade         | eligible                     |
-| self-updating checksummed | skip    | upgrade         | policy-specific              |
-| no checksum               | skip    | skip            | excluded by integrity policy |
-| `version :latest`         | skip    | skip            | latest lane excluded         |
-| pinned                    | skip    | skip            | pinned                       |
-| unknown metadata          | skip    | skip            | classification unavailable   |
+| Fixture cask                         | Automatic disposition            | Receipt                      |
+| ------------------------------------ | -------------------------------- | ---------------------------- |
+| ordinary versioned + checksummed     | normal exact-token lane          | eligible/current             |
+| self-updating + checksummed, outdated| targeted auto-update exact lane  | eligible/current             |
+| self-updating + checksummed, current | no mutation                      | current                      |
+| no checksum + declared vendor updater| no mutation                      | accepted vendor coverage     |
+| no checksum, updater unresolved      | no mutation                      | owner review                  |
+| `version :latest` + checksum         | targeted latest exact lane       | eligible/current             |
+| `version :latest` + no checksum      | no mutation                      | unverifiable                 |
+| pinned                               | no mutation                      | pinned                       |
+| disabled/deprecated                  | no mutation                      | explicit reason              |
+| unknown metadata                     | no mutation                      | classification unavailable   |
 
-Plus: a no-check cask must not abort unrelated upgrades; before/after query
-failure marks the receipt incomplete; retry scope matches the first attempt;
-no `jq` yields "reason unavailable" rather than a guess; the macOS-only path is
-explicit on Linux; and no outdated casks yields a concise successful receipt.
+Plus: multiple self-updating casks enter one explicit command; an absent or
+current token cannot poison that lane; a no-check cask must not abort unrelated
+upgrades; current privileged casks create no recurring review; running apps are
+deferred without blocking unrelated tokens unless app quitting is explicitly
+enabled; before/after query failure marks the receipt incomplete; retry scope
+matches the first attempt; no `jq` yields "reason unavailable" rather than a
+guess; the macOS-only path is explicit on Linux; all discovered Mac App Store
+updates use exact IDs; and no outdated items yields a concise successful receipt.
 
 Red-prove every branch. Run `scripts/validate-groundwork` and report what ran.
