@@ -1,0 +1,3 @@
+# token	display_name	cask_token	app_bundle	bundle_id	executable	team_id	uninstall_quit	uninstall_launchctl	required_cask	required_app	required_bundle_id	required_executable	required_team_id	required_uninstall_quit	required_uninstall_launchctl
+chatgpt-classic	ChatGPT Classic	chatgpt-classic	ChatGPT Classic.app	com.openai.chat	ChatGPT	2DC432GLL2	com.openai.chat	com.openai.chat-helper	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2	com.openai.codex	-
+codex-app	deprecated Codex app	codex-app	Codex.app	com.openai.codex	Codex	2DC432GLL2	com.openai.codex	-	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2	com.openai.codex	-

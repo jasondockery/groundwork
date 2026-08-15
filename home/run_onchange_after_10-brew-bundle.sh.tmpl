@@ -69,6 +69,33 @@ mkdir -p "$brew_log_dir"
 bundle_log_final="$brew_log_dir/homebrew-bundle-latest.log"
 bundle_log="$(mktemp "$brew_log_dir/homebrew-bundle.XXXXXX")"
 chmod 600 "$bundle_log"
+bundle_file="$HOME/.config/homebrew/Brewfile"
+bundle_file_owned=0
+if [[ -n "${GROUNDWORK_BREWFILE_SKIP_CASKS:-}" ]]; then
+  skip_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-brew-skip.XXXXXX")"
+  bundle_file="$(mktemp "${TMPDIR:-/tmp}/groundwork-brewfile.XXXXXX")"
+  bundle_file_owned=1
+  chmod 600 "$skip_file" "$bundle_file"
+  printf '%s\n' "$GROUNDWORK_BREWFILE_SKIP_CASKS" >"$skip_file"
+  if ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' "$skip_file"; then
+    rm -f -- "$skip_file" "$bundle_file"
+    echo "Groundwork: the Brewfile cask-skip set is malformed; no bundle was attempted." >&2
+    exit 1
+  fi
+  awk -v skip_file="$skip_file" '
+    BEGIN {
+      while ((getline token < skip_file) > 0) skipped[token] = 1
+      close(skip_file)
+    }
+    $1 == "cask" {
+      token = $2
+      gsub(/^"|"$/, "", token)
+      if (skipped[token]) next
+    }
+    { print }
+  ' "$HOME/.config/homebrew/Brewfile" >"$bundle_file"
+  rm -f -- "$skip_file"
+fi
 bundle_receipt_owned=0
 if [[ "${GROUNDWORK_UPDATE_LOCK_HELD:-}" == "1" &&
   -n "${GROUNDWORK_UPDATE_RECEIPT_DIR:-}" &&
@@ -111,6 +138,7 @@ bundle_log_exit() {
   fi
   mv -f -- "$bundle_log" "$bundle_log_final" 2>/dev/null || true
   [[ "$bundle_receipt_owned" -eq 0 ]] || rm -f -- "$bundle_receipt" || true
+  [[ "$bundle_file_owned" -eq 0 ]] || rm -f -- "$bundle_file" || true
   exit "$status"
 }
 trap bundle_log_exit EXIT
@@ -142,7 +170,7 @@ user_cask_opts="${HOMEBREW_CASK_OPTS-}"
 safe_cask_opts="${user_cask_opts:+$user_cask_opts }--require-sha"
 HOMEBREW_CASK_OPTS="$safe_cask_opts" \
   gw_brew_run_logged "$bundle_log" "$bundle_receipt" reset "Homebrew bundle" -- \
-    brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
+    brew bundle install --no-upgrade --verbose --file="$bundle_file" \
     || bundle_status=$?
 # A cancelled bundle is not a failed bundle looking for a repair. Stop here:
 # repair prompts, re-fetches, and the retry would all run against a terminal the
@@ -183,7 +211,7 @@ if [[ "$retry_bundle" -eq 1 ]]; then
   bundle_status=0
   HOMEBREW_CASK_OPTS="$safe_cask_opts" \
     gw_brew_run_logged "$bundle_log" "$bundle_receipt" append "Homebrew bundle retry" -- \
-      brew bundle install --no-upgrade --verbose --file="$HOME/.config/homebrew/Brewfile" \
+      brew bundle install --no-upgrade --verbose --file="$bundle_file" \
       || bundle_status=$?
   case "$bundle_status" in
     124 | 125 | 129 | 130 | 143)

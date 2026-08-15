@@ -80,11 +80,14 @@ mac	browser-extensions [--open]	command	executable	home/dot_local/share/groundwo
 mac	defaultbrowser	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop
 mac	open -a <App>	command	external-command	home/dot_local/share/groundwork/commands.tsv	apps.html	no	no	macOS desktop
 mac	raycast-extensions [--open]	command	executable	home/dot_local/share/groundwork/commands.tsv	apps.html	yes	no	macOS desktop; requires raycast
+maintenance	groundwork-app-adopt <app>	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	macOS desktop; requires brew
+maintenance	groundwork-app-remove <app>	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	macOS desktop; requires brew
 maintenance	groundwork-cleanup	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
 maintenance	groundwork-cleanup --yes	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
 maintenance	groundwork-cleanup --yes --force	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
 maintenance	groundwork-karabiner-restart	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	macOS desktop; requires karabiner
+maintenance	update-all --allow-app-quit	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	macOS desktop; requires brew
 maintenance	update-all --skip-maintenance	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all
 practice	Practice drill: Agent drill	competency	docs-competency	docs/practice.html	workflow.html	n/a	n/a	all
 practice	Practice drill: Copy drill (keyboard-only)	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all
