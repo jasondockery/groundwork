@@ -1645,9 +1645,9 @@ EOF
   fi
   jq '.casks[0].artifacts = [{"app":["Bad|Name.app"]}]' \
     "$brew_output_fixture/cask-metadata.json" \
-    >"$brew_output_fixture/cask-metadata-hostile-app.json"
+    >"$brew_output_fixture/bad-app-metadata.json"
   if gw_brew_classify_cask_metadata \
-    "$brew_output_fixture/cask-metadata-hostile-app.json" \
+    "$brew_output_fixture/bad-app-metadata.json" \
     "$brew_output_fixture/cask-expected" \
     "$brew_output_fixture/vendor-updater-casks.txt" \
     "$brew_output_fixture/cask-hostile-app.tsv" >/dev/null 2>&1; then

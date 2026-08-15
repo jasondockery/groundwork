@@ -58,6 +58,7 @@ while (($#)); do
   shift
 done
 
+applications_dir=""
 {{- if eq .chezmoi.os "darwin" }}
 mas_deadline="${GROUNDWORK_MAS_UPDATE_DEADLINE_SECONDS:-900}"
 mas_observe_deadline="${GROUNDWORK_MAS_OBSERVE_DEADLINE_SECONDS:-30}"
@@ -419,7 +420,7 @@ if command -v brew >/dev/null 2>&1; then
   fi
   if [[ "$homebrew_status" -eq 0 ]]; then
     while IFS=$'\t' read -r formula_token formula_disposition formula_reason \
-      formula_installed formula_available formula_extra; do
+      formula_installed _formula_available formula_extra; do
       [[ -n "$formula_token" ]] || continue
       if [[ -n "$formula_extra" ]]; then
         echo "Groundwork: the classified Homebrew formula receipt is malformed; no Homebrew upgrade was attempted." >&2
