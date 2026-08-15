@@ -14166,6 +14166,7 @@ PY
   grep -qF 'run_homebrew_cask_upgrade_lane "Homebrew cask upgrade"' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the macOS Homebrew upgrade must preserve terminal ownership through the bounded runner"
+  # shellcheck disable=SC2016 # $label is literal rendered-script source under test.
   grep -qF 'run_homebrew_upgrade_lane "$label" 1' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the cask wrapper bypassed the bounded Homebrew runner"
