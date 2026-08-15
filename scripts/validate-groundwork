@@ -8707,6 +8707,30 @@ ZSH
   done
   grep -qF 'PASTE-SUBMITTED' "$paste_capture" \
     || paste_fail "zsh did not display the pasted command for review"
+  # Pane output can expose the pasted payload before zsh has consumed the
+  # closing bracketed-paste marker. Round-trip a reversible sentinel through
+  # normal ZLE editing so the later Enter cannot race that marker.
+  paste_ready='GROUNDWORK_ZLE_READY'
+  tmux -L "$paste_socket" send-keys -t 0 -l "$paste_ready" \
+    || paste_fail "the bracketed-paste fixture could not probe normal editing"
+  for _ in {1..50}; do
+    tmux -L "$paste_socket" capture-pane -p >"$paste_capture" 2>/dev/null || true
+    grep -qF "$paste_ready" "$paste_capture" && break
+    sleep 0.05
+  done
+  grep -qF "$paste_ready" "$paste_capture" \
+    || paste_fail "zsh did not return to normal editing after bracketed paste"
+  for ((paste_key = 0; paste_key < ${#paste_ready}; paste_key++)); do
+    tmux -L "$paste_socket" send-keys -t 0 BSpace \
+      || paste_fail "the bracketed-paste fixture could not erase its editing probe"
+  done
+  for _ in {1..50}; do
+    tmux -L "$paste_socket" capture-pane -p >"$paste_capture" 2>/dev/null || true
+    ! grep -qF "$paste_ready" "$paste_capture" && break
+    sleep 0.05
+  done
+  ! grep -qF "$paste_ready" "$paste_capture" \
+    || paste_fail "the bracketed-paste editing probe was not erased"
   [[ ! -e "$paste_marker" ]] \
     || paste_fail "a pasted trailing newline executed without an explicit Enter"
   paste_shell_pid="$(tmux -L "$paste_socket" display-message -p -t 0 '#{pane_pid}')"
