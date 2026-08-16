@@ -45,8 +45,35 @@ index and working tree, complete command and arguments, relevant configuration
 hash, toolchain or lock hash, suite version, and platform. A receipt missing any
 required identity field is historical context, not reusable proof.
 
-Until Groundwork owns a receipt binding every required identity input, local
-proof is not reusable; exact-SHA CI proof is reusable only for that exact SHA.
+A clean local PR-head receipt may be reused across a merge-created SHA only
+when the PR head and landed commit have the same Git tree, toolchain authority,
+validator command contract, and relevant environment inputs, and the receipt
+proves unchanged source and owned-process closure. If any required input is
+unbound, ambiguous, or different, the proof is not reusable. Exact-SHA hosted
+proof remains bound to that exact SHA.
+
+## Release proof economy
+
+Release preflight does not repeat behavior merely because a merge created a new
+commit object. An exact-release-SHA hosted `Full validation` run satisfies the
+release Full requirement when one terminal `full-gate` binds successful Linux
+and macOS receipts to the same run ID, attempt, commit, and clean source tree.
+The hosted gate is the cross-platform release boundary.
+
+A prior clean local PR-head Full is reusable supporting evidence when the Git
+tree, toolchain authority, validator command contract, relevant environment,
+source-stability observation, and process-closure observation match the landed
+release tree. A changed proof input or absent, malformed, cancelled, timed-out,
+or unsuccessful receipt requires new proof. A commit-SHA change with identical
+content and proof inputs does not.
+
+The normal post-merge release preflight is therefore cheap and read-only:
+resolve the exact commit and tree; confirm clean local, origin, and live-remote
+alignment; authenticate the accepted CI and hosted Full receipts; inspect the
+release-note scope; and prove that the proposed tag and release do not already
+exist. It never substitutes a branch-latest result for exact identity, and it
+does not launch Full unless an actual evidence input changed or required hosted
+evidence is missing or invalid.
 
 At handoff, name the affected surfaces, the selected commands and why they cover
 those surfaces, and any repository-wide contract the scoped proof did not

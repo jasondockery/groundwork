@@ -31,14 +31,25 @@ A new opt-in prompt that defaults safely and additive tools are **minor**, not m
    unless its SHA matches. Record the run ID and attempt. If no exact match
    exists, push/fix CI first.
 2. **Local tree matches origin.** `git status -sb` shows no divergence; `git fetch` then confirm `main` == `origin/main`.
-3. **Complete validation passes locally and remotely.** Run
-   `scripts/validate-groundwork --suite full --report <path>` after the final
-   relevant edit. Every release also requires one non-cancelled `Full
-   validation` run at the exact release SHA; its `full-gate` must contain both
-   Linux and macOS final receipts for the same run ID, attempt, and SHA. Dispatch
-   the workflow from the branch or tag that currently resolves to that SHA, then
-   verify the resulting `headSha`; do not assume a workflow accepts an arbitrary
-   raw SHA as `--ref`, and do not substitute a nightly run from another commit.
+3. **Exact-release-SHA hosted Full passes.** One non-cancelled `Full validation`
+   run at the exact release SHA satisfies the release Full requirement when its
+   `full-gate` binds successful Linux and macOS final receipts to the same run
+   ID, attempt, and SHA. Dispatch from the branch or tag that currently resolves
+   to that SHA, then verify the resulting `headSha`; do not assume a workflow
+   accepts an arbitrary raw SHA as `--ref`, and do not substitute a nightly run
+   from another commit.
+
+   Do not rerun local Full merely because merging created a new commit SHA. A
+   clean local PR-head Full is reusable when the PR head and landed release
+   commit have the same Git tree, toolchain authority, validator command
+   contract, and relevant environment inputs, and its receipt proves unchanged
+   source and owned-process closure. If any input changed or the receipt cannot
+   prove it, run new proof. The hosted exact-release-SHA Linux/macOS gate is
+   still required and is the release platform boundary.
+4. **Cheap release preflight passes.** Recheck the release commit and tree,
+   local/origin/live-main alignment, clean source, exact receipt identities,
+   terminal hosted checks, release-note scope, and tag/release absence. These
+   observations do not rerun behavior already proved by accepted receipts.
 
 ## Cut it
 
