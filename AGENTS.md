@@ -241,6 +241,13 @@ research on named products in an approved private location, not in tracked files
   validate after it.
 - Say what a green run actually exercised. A proof must not claim more than it
   ran. A template is not proven until its **rendered** output passes.
+- Do not repeat release Full merely because a merge created a new commit SHA.
+  An exact-release-SHA hosted Full whose gate binds successful Linux and macOS
+  receipts satisfies the release Full requirement. A clean local PR-head Full
+  may be reused only when the landed Git tree, toolchain authority, validator
+  command contract, and relevant environment inputs are unchanged and the
+  receipt proves source stability and process closure. Missing, ambiguous, or
+  changed evidence fails closed and requires new proof.
 - Classify every handoff as release-affecting or not. Release-affecting work is
   not done until it ships; anything else says "no release cut" and why.
 - Detail — owner verification hold, proof identity, suite budgets, hook budget,

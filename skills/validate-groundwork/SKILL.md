@@ -85,6 +85,16 @@ bootstrap, cross-platform, CI-routing, release, and broad cross-cutting changes:
 scripts/validate-groundwork --suite full --report /tmp/groundwork-validation.json
 ```
 
+That implementation rule does not require a duplicate local Full after a
+proved pull-request tree lands under a different merge SHA. For release, an
+exact-release-SHA hosted `Full validation` gate with successful Linux and macOS
+receipts satisfies the Full requirement. A clean local PR-head Full may be
+reused only when the landed Git tree, toolchain authority, validator command
+contract, and relevant environment inputs match and its receipt proves source
+stability and owned-process closure. Rerun heavy proof only when one of those
+inputs changed or required evidence is missing, malformed, cancelled, timed
+out, or unsuccessful.
+
 ## Close A Historical CI Failure
 
 Treat the failed run as evidence, not as proof for a repair:
