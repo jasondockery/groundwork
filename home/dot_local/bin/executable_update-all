@@ -169,7 +169,11 @@ gw_config_before=""
 # applying: the drift preflight below inspects status first, and the full apply
 # runs inside the freshly installed runner so long installs happen in a phase
 # the new implementation owns.
-chezmoi update --init --apply=false
+# Pull first, then rebuild the config exactly once from the synchronized
+# template. Passing --init to update initializes before the pull, so a changed
+# config template can be rediscovered and warned about by later commands.
+chezmoi update --apply=false
+chezmoi init
 
 gw_config_after=""
 [[ -f "$gw_config" ]] && gw_config_after="$(cksum <"$gw_config" 2>/dev/null || true)"

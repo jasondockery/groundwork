@@ -1141,8 +1141,16 @@ gw_brew_report_classification() {
   fi
   if [[ "$error_count" -gt 0 ]]; then
     printf '  Errors: %s preserved above\n' "$error_count"
+  elif [[ "$status" -ne 0 ]]; then
+    echo '  Errors: 1 authoritative command failure; Homebrew emitted no literal Error line'
   else
     echo '  Errors: none observed in Homebrew output'
+  fi
+  if [[ "$status" -ne 0 && -r "$receipt_file" ]]; then
+    awk -F '\t' '$1 == "command-failure" && NF == 4 {
+      printf "  Failed sub-lane: %s (exit %s)\n", $2, $3
+      printf "  Failed exact package token(s): %s\n", $4
+    }' "$receipt_file"
   fi
   while IFS= read -r failed_cask; do
     [[ -n "$failed_cask" ]] || continue
