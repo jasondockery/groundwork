@@ -5,11 +5,29 @@ How Groundwork grows from here. `AI_THESIS.md` owns the north star,
 build-out. AI tools: keep these checkboxes current, and check a box only
 after the work is verified, never aspirationally.
 
-## Current execution order
+## Current continuity
 
-Reconciled 2026-08-10 against `origin/main` at `256ada6`; `v1.14.0` is the
-current release tag. Detailed acceptance criteria live in the specs; this list
-is only sequence.
+Reconciled 2026-08-16 against `origin/main` at
+`5b74bd221473cabf5be130984ac6704e5ec5820d` (tree
+`7addf306b14960535f1cd01f5c86c7880ecfe0e7`). `v1.17.0` is the current
+published release and points to that same commit. This section is the durable
+handoff record; detailed acceptance criteria remain in the specs.
+
+| Boundary | Current evidence and disposition |
+| --- | --- |
+| Accepted release and main | `v1.17.0`, local `main`, and `origin/main` share the exact identity above. PR #19 starts from that accepted baseline and does not rewrite it. |
+| Accepted but unreleased | PR #19 on `codex/update-all-field-receipts` adds exact per-app MAS authorization, deadlines, cancellation and receipts; truthful Homebrew sub-lane failures; one supported chezmoi refresh boundary; and separate default-no ChatGPT adoption and Classic-removal actions. The review checkpoint was `09925eeead8e8f835512f4c1af7758b7ed9ee7f1`; the PR head supersedes that checkpoint when later review repairs land. |
+| Field evidence still open | The sanitized fixture preserves the observed shape of a silent Homebrew exit 1 and the MAS authentication/hang sequence. The retained work-laptop `homebrew-upgrade-latest.log` is unavailable on this personal laptop, so the original Homebrew sub-lane/root cause remains unknown and must not be described as repaired. |
+| Upstream handoffs | Compass `8713d212` and the earlier Groundwork Compass scaffold `b62fbaa` are superseded diagnostic evidence and are not adoptable here. Compass adoption and container/resource lifecycle work remain separate successor tranches pending their own formal accepted handoffs. |
+| Next step | Stabilize PR #19, run one exact-clean Full on its final commit, push the unchanged SHA, require exact-head CI/CodeQL/Pages and hosted Linux/macOS Full where applicable, then present the owner merge packet. |
+| Owner gates | PR #19 merge remains owner-only. The change is release-affecting and is expected to require `v1.18.0` because it adds interactive post-update actions; no tag or release is authorized. Live laptop adoption, removal, or update mutation also requires a separate owner decision on the named machine. |
+
+The future container/resource-lifecycle tranche may add read-only inventory and
+exact-object cleanup only after its formal Compass authority handoff. It is not
+part of PR #19, and `update-all` remains non-destructive toward unrelated
+container state.
+
+## Current execution order
 
 1. **Immutable, verified bootstrap releases.** Close the inspect-one-fetch /
    execute-another trust gap with tag-pinned bootstrap assets and published

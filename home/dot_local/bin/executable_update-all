@@ -169,7 +169,11 @@ gw_config_before=""
 # applying: the drift preflight below inspects status first, and the full apply
 # runs inside the freshly installed runner so long installs happen in a phase
 # the new implementation owns.
-chezmoi update --init --apply=false
+# Pull first, then rebuild the config exactly once from the synchronized
+# template. Passing --init to update initializes before the pull, so a changed
+# config template can be rediscovered and warned about by later commands.
+chezmoi update --apply=false
+chezmoi init
 
 gw_config_after=""
 [[ -f "$gw_config" ]] && gw_config_after="$(cksum <"$gw_config" 2>/dev/null || true)"
@@ -199,10 +203,9 @@ if [[ -n "$drift" ]]; then
   # The overwrite question needs a person. With no usable terminal (an agent,
   # cron, redirected stdin with no controlling tty), stop BEFORE the apply
   # instead of leaving chezmoi to hang or fail mid-run. Exit 2 = review
-  # required. (GROUNDWORK_PROMPT_TTY is the same test seam the other
-  # Groundwork prompts use.)
-  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
-  if [[ ! -t 0 ]] && ! { : <"$prompt_tty"; } 2>/dev/null; then
+  # required. A controlling terminal elsewhere in the process is not enough:
+  # the actual input and error streams for this invocation must be interactive.
+  if [[ ! -t 0 || ! -t 2 ]]; then
     echo "Groundwork: no interactive terminal to answer on — stopping before the apply." >&2
     echo "Nothing was overwritten. Review each file with 'chezmoi diff <file>', resolve it," >&2
     echo "then run update-all again from a terminal." >&2

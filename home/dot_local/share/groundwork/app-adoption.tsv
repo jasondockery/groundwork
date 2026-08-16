@@ -1,2 +1,2 @@
-# token	display name	Homebrew cask	application bundle	bundle identifier	executable name
-chatgpt	ChatGPT	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT
+# token	display name	Homebrew cask	application bundle	bundle identifier	executable name	signing team
+chatgpt	ChatGPT	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2
