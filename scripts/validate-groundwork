@@ -15128,7 +15128,7 @@ EOF
     || fail "cut-release lost the read-only post-merge preflight"
   grep -qF '## Release proof economy' specs/verification-and-proof.md \
     || fail "the verification spec lost the release proof-economy contract"
-  grep -qF 'An exact-release-SHA hosted `Full validation` run satisfies' \
+  grep -qF "An exact-release-SHA hosted \`Full validation\` run satisfies" \
     specs/verification-and-proof.md \
     || fail "the verification spec must bind release Full to hosted exact-SHA proof"
   grep -qF 'Do not repeat release Full merely because a merge created a new commit SHA.' \
