@@ -15137,12 +15137,17 @@ EOF
   assert_no_matches "release guidance must not require duplicate local validation after hosted exact-SHA Full" \
     rg -n 'Complete validation passes locally and remotely|Local validation</td>' \
     skills/cut-release/SKILL.md docs/skills-playbooks.html
-  rendered_batch_marker='performance-contract: rendered-shellcheck-''batched'
+  rendered_batch_marker='performance-contract: rendered-shellcheck-''matrix-batched'
   [[ "$(grep -cF "$rendered_batch_marker" scripts/validate-groundwork)" -eq 1 ]] \
-    || fail "rendered shell profiles must use one ShellCheck batch per profile"
+    || fail "the rendered shell matrix must use exactly one ShellCheck batch"
   legacy_rendered_call='run_shellcheck "$''rendered"'
   assert_no_matches "rendered profiles must not launch ShellCheck once per template" \
     rg -nF -- "$legacy_rendered_call" scripts/validate-groundwork
+  legacy_profile_batch="run_shellcheck \"\${rendered_shell_scripts["
+  legacy_profile_batch+="@"
+  legacy_profile_batch+="]}\""
+  [[ "$(grep -cF "$legacy_profile_batch" scripts/validate-groundwork)" -eq 1 ]] \
+    || fail "the rendered shell matrix must contain one and only one batch invocation"
   for page in docs/*.html; do
     # Search-engine verification stubs (google*.html) live in docs/ but are
     # not pages; the same marker rule generate-discovery uses.
@@ -15368,22 +15373,17 @@ PY
   done < <(find . -path ./.git -prune -o -name '*.tmpl' -print)
 
   shell_templates=(home/run_*.sh.tmpl home/dot_local/bin/*.tmpl)
+  rendered_shell_scripts=()
   while IFS=$'\t' read -r case_name os arch headless work xcode beta game_dev password_manager profile_preset environment_role release_posture; do
     [[ -n "$case_name" && "$case_name" != \#* ]] || continue
     mkdir -p "$out_dir/$case_name"
     check "rendered shell templates ($case_name)"
-    rendered_shell_scripts=()
     for script in "${shell_templates[@]}"; do
       rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
       render "$os" "$headless" "$arch" "$script" "$rendered" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
       bash -n "$rendered"
       rendered_shell_scripts+=("$rendered")
     done
-    # performance-contract: rendered-shellcheck-batched
-    # ShellCheck accepts multiple paths in one invocation. Batching the complete
-    # profile preserves every rendered-file assertion while avoiding one
-    # analyzer startup per template (about 190 processes across this matrix).
-    run_shellcheck "${rendered_shell_scripts[@]}"
 
     check "rendered zsh ($case_name)"
     render "$os" "$headless" "$arch" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
@@ -15442,6 +15442,13 @@ PY
       assert_not_contains 'SSH_AUTH_SOCK' "$out_dir/$case_name/zshrc" "SSH_AUTH_SOCK leaked into $case_name zshrc"
     fi
   done <data/render-profiles.tsv
+
+  # performance-contract: rendered-shellcheck-matrix-batched
+  # ShellCheck accepts multiple paths in one invocation. Batching the complete
+  # matrix preserves all 10 profiles and all 19 rendered scripts per profile
+  # while replacing about 190 analyzer startups with one.
+  check "rendered shell template ShellCheck matrix"
+  run_shellcheck "${rendered_shell_scripts[@]}"
 
   check "rendered work macOS profile"
   mkdir -p "$out_dir/darwin-work"
