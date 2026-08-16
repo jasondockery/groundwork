@@ -245,7 +245,7 @@
       <p>This recovery does not use <code>--zap</code>; application data and preferences remain outside Groundwork&apos;s repair scope.</p>
 
       <h3>Homebrew warns: "The following taps are not trusted"</h3>
-      <p>Homebrew now requires you to explicitly trust third-party taps before it will use their formulae and casks — a supply-chain protection, and the taps it lists are ones <em>you</em> (or a tool you ran) added; Groundwork adds none. Ignore the warning and those taps stay inert. To keep using something from one, prefer trusting just the formulae you actually use over whole-tap trust, which also covers everything the tap publishes in the future:</p>
+      <p>Homebrew now requires you to explicitly trust third-party taps before it will use their formulae and casks — a supply-chain protection, and the taps it lists are almost always ones <em>you</em> (or a tool you ran) added. Groundwork adds exactly one, <code>bjarneo/cliamp</code>, on personal machines only, for the cliamp terminal music player that ships nowhere else; the Brewfile names it and states the tradeoff, and validation rejects any other tap. Everything else Groundwork installs comes from Homebrew core and cask. Ignore the warning and those taps stay inert. To keep using something from one, prefer trusting just the formulae you actually use over whole-tap trust, which also covers everything the tap publishes in the future:</p>
       <div class="terminal">
         <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">tap trust</span></div>
         <pre><code><span class="prompt">$ </span>brew trust --formula hashicorp/tap/terraform   <span class="comment"># narrow: one formula</span>
