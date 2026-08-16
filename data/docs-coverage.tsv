@@ -3,7 +3,7 @@ daily	chezmoi apply	command	external-command	home/dot_local/share/groundwork/com
 daily	chezmoi cd	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	no	no	all
 daily	chezmoi diff	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
 daily	chezmoi edit <file>	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
-daily	chezmoi update --init	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
+daily	chezmoi update --init	command	external-command	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	no	all
 daily	groundwork-configure	command	executable	home/dot_local/share/groundwork/commands.tsv	setup.html	yes	yes	all
 daily	groundwork-distro [--family]	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	Linux/WSL
 daily	groundwork-docker-cache-tidy	command	executable	home/dot_local/share/groundwork/commands.tsv	platforms.html	no	no	all; requires docker

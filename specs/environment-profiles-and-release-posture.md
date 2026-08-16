@@ -371,8 +371,12 @@ unchanged with an explicit reason. Only tokens in Groundwork's reviewed
 coverage rather than false failure. Current privileged casks stay quiet;
 running applications are deferred per token and every cask mutation carries
 Homebrew's `--no-quit` guard unless the invocation explicitly uses
-`--allow-app-quit`. Mac App Store updates use
-exact discovered IDs. Known manual
+`--allow-app-quit`. Mac App Store updates use exact discovered IDs. A real
+interactive terminal establishes macOS authorization before each mutation; the
+exact non-prompting mutation then owns one process group and a conservative
+30-minute hard backstop. Redirected or automated runs mark each exact app
+action-required without mutation. Receipts distinguish attempted, verified,
+remaining, timed-out, failed, action-required, and unexplained outcomes. Known manual
 applications use explicit mappings for diagnosis and optional, separately
 consented identical-artifact adoption. A manual or MDM-ambiguous app cannot
 suppress unrelated safe lanes and remains a review outcome; it is not an
@@ -381,6 +385,10 @@ remain nonzero while independent safe updater lanes continue.
 Chezmoi's Brewfile hook remains install-only for existing packages and accepts
 only an exact temporary omission when a conflicting selected manual app exists.
 Repository package manifests and lockfiles remain outside machine maintenance.
+After a successful transaction releases the update lock, an interactive
+post-update action center may invoke the separately locked adoption and removal
+helpers only after literal default-no consent. A noninteractive run prints the
+safe commands and performs no ownership or removal action.
 
 ## Execution model
 

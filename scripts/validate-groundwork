@@ -1085,6 +1085,9 @@ install_fixture_policy_clock() {
   mkdir -p "$(dirname "$target")"
   cat >"$target" <<'SH'
 #!/usr/bin/env bash
+if [[ "${GROUNDWORK_TEST_REALTIME_CLOCK:-0}" == 1 ]]; then
+  exec /bin/date "$@"
+fi
 case "$*" in
   '+%s' | '-u +%s') printf '1893456000\n' ;;
   "-u +%Y-%m-%dT%H:%M:%SZ") printf '2030-01-01T00:00:00Z\n' ;;
@@ -1284,6 +1287,149 @@ PY
 }
 
 validate_update() {
+  run_fixture_pty() { # output input-file command [args...]
+    local output="$1" input_file="$2"
+    shift 2
+    python3 - "$output" "$input_file" "$@" <<'PY'
+import errno
+import os
+import pty
+import select
+import signal
+import sys
+import time
+
+output_path, input_path, *command = sys.argv[1:]
+if not command:
+    raise SystemExit(64)
+payload = open(input_path, "rb").read()
+pid, master = pty.fork()
+if pid == 0:
+    os.execvp(command[0], command)
+
+deadline = time.monotonic() + 90
+chunks = []
+if payload:
+    os.write(master, payload)
+status = None
+try:
+    while True:
+        ready, _, _ = select.select([master], [], [], 0.1)
+        if ready:
+            try:
+                chunk = os.read(master, 65536)
+            except OSError as exc:
+                if exc.errno != errno.EIO:
+                    raise
+                chunk = b""
+            if chunk:
+                chunks.append(chunk)
+        waited, candidate = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = candidate
+            break
+        if time.monotonic() >= deadline:
+            os.killpg(pid, signal.SIGTERM)
+            time.sleep(0.5)
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            _, status = os.waitpid(pid, 0)
+            chunks.append(b"\nfixture PTY deadline expired\n")
+            break
+    # A child can exit while the kernel still has its final receipt buffered on
+    # the PTY master. Drain that bounded tail so the fixture proves the same
+    # terminal output a person would see instead of racing process exit.
+    drain_deadline = time.monotonic() + 1
+    while time.monotonic() < drain_deadline:
+        ready, _, _ = select.select([master], [], [], 0.05)
+        if not ready:
+            break
+        try:
+            chunk = os.read(master, 65536)
+        except OSError as exc:
+            if exc.errno != errno.EIO:
+                raise
+            break
+        if not chunk:
+            break
+        chunks.append(chunk)
+finally:
+    try:
+        os.close(master)
+    except OSError:
+        pass
+with open(output_path, "wb") as stream:
+    stream.write(b"".join(chunks))
+raise SystemExit(os.waitstatus_to_exitcode(status))
+PY
+  }
+
+  run_fixture_pty_after() { # output needle payload command [args...]
+    local output="$1" needle="$2" payload="$3"
+    shift 3
+    python3 - "$output" "$needle" "$payload" "$@" <<'PY'
+import errno
+import os
+import pty
+import select
+import signal
+import sys
+import time
+
+output_path, needle_text, payload_text, *command = sys.argv[1:]
+needle = needle_text.encode()
+payload = payload_text.encode().decode("unicode_escape").encode("latin1")
+pid, master = pty.fork()
+if pid == 0:
+    os.execvp(command[0], command)
+deadline = time.monotonic() + 30
+chunks = []
+sent = False
+status = None
+try:
+    while True:
+        ready, _, _ = select.select([master], [], [], 0.1)
+        if ready:
+            try:
+                chunk = os.read(master, 65536)
+            except OSError as exc:
+                if exc.errno != errno.EIO:
+                    raise
+                chunk = b""
+            if chunk:
+                chunks.append(chunk)
+                if not sent and needle in b"".join(chunks):
+                    os.write(master, payload)
+                    sent = True
+        waited, candidate = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            status = candidate
+            break
+        if time.monotonic() >= deadline:
+            os.killpg(pid, signal.SIGTERM)
+            time.sleep(0.5)
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            _, status = os.waitpid(pid, 0)
+            chunks.append(b"\nfixture PTY dialog deadline expired\n")
+            break
+finally:
+    try:
+        os.close(master)
+    except OSError:
+        pass
+with open(output_path, "wb") as stream:
+    stream.write(b"".join(chunks))
+if not sent:
+    raise SystemExit(66)
+raise SystemExit(os.waitstatus_to_exitcode(status))
+PY
+  }
+
   check "Homebrew update retry helper"
   test -x home/dot_local/bin/executable_groundwork-brew-update
   brew_retry_bin="$out_dir/brew-retry-bin"
@@ -1671,7 +1817,15 @@ EOF
   fi
 
   check "explicit application adoption safety"
+  assert_not_contains 'GROUNDWORK_PROMPT_TTY|/dev/tty' \
+    home/dot_local/bin/executable_groundwork-app-adopt \
+    "groundwork-app-adopt retained a file-backed or controlling-terminal prompt override"
+  assert_not_contains 'GROUNDWORK_PROMPT_TTY|/dev/tty' \
+    home/dot_local/bin/executable_groundwork-app-remove \
+    "groundwork-app-remove retained a file-backed or controlling-terminal prompt override"
   adoption_fixture="$out_dir/app-adoption-fixture"
+  mkdir -p "$adoption_fixture"
+  adoption_fixture="$(cd "$adoption_fixture" && pwd -P)"
   adoption_home="$adoption_fixture/home"
   adoption_bin="$adoption_home/.local/bin"
   adoption_apps="$adoption_fixture/Applications"
@@ -1682,8 +1836,9 @@ EOF
   adoption_app="$adoption_apps/ChatGPT.app"
   : >"$adoption_app/Contents/Info.plist"
   : >"$adoption_app/Contents/MacOS/ChatGPT"
+  chmod +x "$adoption_app/Contents/MacOS/ChatGPT"
   cat >"$adoption_fixture/apps.tsv" <<'EOF'
-chatgpt	ChatGPT	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT
+chatgpt	ChatGPT	chatgpt	ChatGPT.app	com.openai.codex	ChatGPT	2DC432GLL2
 EOF
   cat >"$adoption_bin/uname" <<'SH'
 #!/usr/bin/env bash
@@ -1691,32 +1846,75 @@ printf 'Darwin\n'
 SH
   cat >"$adoption_bin/plutil" <<'SH'
 #!/usr/bin/env bash
+count="$(cat "$HOME/.adopt-plutil-count" 2>/dev/null || echo 0)"
+count=$((count + 1))
+printf '%s\n' "$count" >"$HOME/.adopt-plutil-count"
 case "${2:-}" in
   CFBundleIdentifier) printf '%s\n' "${ADOPT_BUNDLE_ID:-com.openai.codex}" ;;
-  CFBundleShortVersionString) printf '%s\n' "${ADOPT_SHORT_VERSION:-26.810.41047}" ;;
+  CFBundleShortVersionString)
+    if [[ "${ADOPT_IDENTITY_CHANGE_AFTER_CONSENT:-0}" == 1 && "$count" -gt 3 ]]; then
+      printf '26.999.1\n'
+    else
+      printf '%s\n' "${ADOPT_SHORT_VERSION:-26.810.41047}"
+    fi
+    ;;
   CFBundleVersion) printf '%s\n' "${ADOPT_BUILD_VERSION:-41047}" ;;
   *) exit 1 ;;
 esac
 SH
-  cat >"$adoption_bin/profiles" <<'SH'
+  cat >"$adoption_bin/codesign" <<'SH'
 #!/usr/bin/env bash
+app=""
+for argument in "$@"; do app="$argument"; done
+[[ "$app" == */ChatGPT.app ]] || exit 1
+if [[ "${1:-}" == --verify ]]; then
+  count="$(cat "$HOME/.adopt-codesign-verify-count" 2>/dev/null || echo 0)"
+  count=$((count + 1))
+  printf '%s\n' "$count" >"$HOME/.adopt-codesign-verify-count"
+  if [[ "${ADOPT_VERIFY_FAIL_AFTER_CONSENT:-0}" == 1 && "$count" -ge 2 ]]; then
+    exit 17
+  fi
+  exit "${ADOPT_VERIFY_STATUS:-0}"
+fi
+[[ "${1:-}" == -dv ]] || exit 64
+printf 'TeamIdentifier=%s\n' "${ADOPT_TEAM_ID:-2DC432GLL2}" >&2
+SH
+cat >"$adoption_bin/profiles" <<'SH'
+#!/usr/bin/env bash
+[[ "${ADOPT_MDM_STATUS:-0}" == 0 ]] || exit "$ADOPT_MDM_STATUS"
 if [[ "${ADOPT_MDM:-0}" == 1 ]]; then
   printf 'Enrolled via DEP: Yes\nMDM enrollment: Yes\n'
+elif [[ "${ADOPT_MDM_AMBIGUOUS:-0}" == 1 ]]; then
+  printf 'Enrollment state unavailable\n'
 else
   printf 'Enrolled via DEP: No\nMDM enrollment: No\n'
 fi
 SH
   cat >"$adoption_bin/ps" <<'SH'
 #!/usr/bin/env bash
-[[ "${ADOPT_RUNNING:-0}" == 1 ]] \
-  && printf '%s/ChatGPT.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR"
+[[ "$#" -eq 2 && "$1" == -axo && "$2" == pid=,command= ]] || exit 64
+count="$(cat "$HOME/.adopt-ps-count" 2>/dev/null || echo 0)"
+count=$((count + 1))
+printf '%s\n' "$count" >"$HOME/.adopt-ps-count"
+[[ "${ADOPT_PS_STATUS:-0}" == 0 ]] || exit "$ADOPT_PS_STATUS"
+if [[ "${ADOPT_PS_MALFORMED:-0}" == 1 ]]; then
+  printf 'not-a-pid malformed\n'
+  exit 0
+fi
+if [[ "${ADOPT_RUNNING:-0}" == 1 ||
+  ("${ADOPT_LAUNCH_AFTER_CONSENT:-0}" == 1 && "$count" -ge 2) ]]; then
+  printf '4242 %s/ChatGPT.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR"
+fi
 SH
-  cat >"$adoption_bin/brew" <<'SH'
+cat >"$adoption_bin/brew" <<'SH'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$ADOPT_LOG"
-if [[ "${1:-}" == list && "${2:-}" == --cask && "${3:-}" == chatgpt ]]; then
-  [[ "${ADOPT_OWNED:-0}" == 1 || -f "$HOME/.chatgpt-adopted" ]]
-  exit
+if [[ "${1:-}" == list && "${2:-}" == --cask && "$#" -eq 2 ]]; then
+  [[ "${ADOPT_INVENTORY_STATUS:-0}" == 0 ]] || exit "$ADOPT_INVENTORY_STATUS"
+  if [[ "${ADOPT_OWNED:-0}" == 1 || -f "$HOME/.chatgpt-adopted" ]]; then
+    printf 'chatgpt\n'
+  fi
+  exit 0
 fi
 if [[ "${1:-}" == install ]]; then
   [[ "${ADOPT_INSTALL_STATUS:-0}" == 0 ]] || exit "$ADOPT_INSTALL_STATUS"
@@ -1767,15 +1965,114 @@ SH
     >"$adoption_fixture/mdm" 2>&1; then
     fail "groundwork-app-adopt took ownership on an MDM-enrolled Mac"
   fi
+  for mdm_case in command-failed ambiguous; do
+    mdm_env=()
+    case "$mdm_case" in
+      command-failed) mdm_env=(ADOPT_MDM_STATUS=9) ;;
+      ambiguous) mdm_env=(ADOPT_MDM_AMBIGUOUS=1) ;;
+    esac
+    if env "${adoption_env[@]}" "${mdm_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+      >"$adoption_fixture/mdm-$mdm_case" 2>&1; then
+      fail "groundwork-app-adopt treated $mdm_case MDM state as unmanaged"
+    fi
+  done
+  if env "${adoption_env[@]}" ADOPT_INVENTORY_STATUS=9 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+    >"$adoption_fixture/homebrew-inventory-failed" 2>&1; then
+    fail "groundwork-app-adopt treated a failed Homebrew inventory as unowned"
+  fi
+  grep -qF 'ownership could not be observed' \
+    "$adoption_fixture/homebrew-inventory-failed"
   if env "${adoption_env[@]}" ADOPT_RUNNING=1 \
     /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
     >"$adoption_fixture/running" 2>&1; then
     fail "groundwork-app-adopt changed ownership while the app was running"
   fi
-  printf 'true\n1\nyes\n' >"$adoption_fixture/answers"
-  env "${adoption_env[@]}" GROUNDWORK_PROMPT_TTY="$adoption_fixture/answers" \
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  env "${adoption_env[@]}" \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --check chatgpt \
+    >"$adoption_fixture/check-only"
+  grep -qF 'ready for a separate consent-gated adoption' \
+    "$adoption_fixture/check-only" \
+    || fail "groundwork-app-adopt --check did not report its nonmutating result"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "groundwork-app-adopt --check reached mutation"
+
+  : >"$adoption_fixture/commands.log"
+  if env "${adoption_env[@]}" ADOPT_TEAM_ID=HOSTILETEAM \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+    >"$adoption_fixture/signature-mismatch" 2>&1; then
+    fail "groundwork-app-adopt accepted a signing-team mismatch"
+  fi
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "a signing-team mismatch reached Homebrew adoption"
+  rm -f "$adoption_home/.adopt-codesign-verify-count"
+  if env "${adoption_env[@]}" ADOPT_VERIFY_STATUS=17 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+    >"$adoption_fixture/signature-verification-failed" 2>&1; then
+    fail "groundwork-app-adopt accepted a displayable but invalid signature"
+  fi
+  grep -qF 'signature failed strict verification' \
+    "$adoption_fixture/signature-verification-failed"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "failed strict signature verification reached Homebrew adoption"
+  for process_case in failed malformed; do
+    case "$process_case" in
+      failed) process_env=(ADOPT_PS_STATUS=9) ;;
+      malformed) process_env=(ADOPT_PS_MALFORMED=1) ;;
+    esac
+    if env "${adoption_env[@]}" "${process_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+      >"$adoption_fixture/process-$process_case" 2>&1; then
+      fail "groundwork-app-adopt treated $process_case process observation as stopped"
+    fi
+    grep -qF 'running application state could not be observed' \
+      "$adoption_fixture/process-$process_case"
+  done
+
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  if env "${adoption_env[@]}" CI=1 \
     /bin/bash home/dot_local/bin/executable_groundwork-app-adopt chatgpt \
-    </dev/null >"$adoption_fixture/adopted" 2>&1
+    </dev/null >"$adoption_fixture/noninteractive" \
+    2>"$adoption_fixture/noninteractive-error"; then
+    fail "groundwork-app-adopt prompted or adopted with redirected streams"
+  fi
+  grep -qF 'requires interactive stdin and stderr' \
+    "$adoption_fixture/noninteractive-error" \
+    || fail "redirected adoption did not explain its noninteractive refusal"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "redirected or CI-style adoption reached mutation"
+
+  # A controlling terminal elsewhere in the process is not enough: if one of
+  # this command's own interactive streams is redirected, it must still refuse
+  # instead of reopening /dev/tty.
+  : >"$adoption_fixture/pty-empty"
+  # The positional parameters belong to the intentionally isolated child shell.
+  # shellcheck disable=SC2016
+  if run_fixture_pty "$adoption_fixture/controlling-tty" \
+    "$adoption_fixture/pty-empty" env "${adoption_env[@]}" \
+    /bin/bash -c '
+      /bin/bash "$1" chatgpt >"$2" 2>"$3"
+    ' fixture "$PWD/home/dot_local/bin/executable_groundwork-app-adopt" \
+    "$adoption_fixture/controlling-tty-stdout" \
+    "$adoption_fixture/controlling-tty-stderr"; then
+    fail "groundwork-app-adopt used a controlling TTY despite redirected output"
+  fi
+  grep -qF 'requires interactive stdin and stderr' \
+    "$adoption_fixture/controlling-tty-stderr" \
+    || fail "the controlling-TTY hostile case did not refuse redirected output"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "a controlling TTY bypassed redirected-stream consent"
+
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  printf 'true\n1\nyes\n' >"$adoption_fixture/answers"
+  run_fixture_pty "$adoption_fixture/adopted" "$adoption_fixture/answers" \
+    env "${adoption_env[@]}" \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt chatgpt
   [[ "$(grep -cF 'Please answer yes or no.' "$adoption_fixture/adopted")" -eq 2 ]] \
     || fail "groundwork-app-adopt treated nonliteral consent as authorization"
   grep -qxF 'brew install --cask --require-sha --adopt chatgpt' \
@@ -1785,6 +2082,51 @@ SH
     "$adoption_fixture/commands.log" \
     "groundwork-app-adopt reached a destructive Homebrew operation"
   rm -f "$adoption_home/.chatgpt-adopted"
+
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  printf 'yes\n' >"$adoption_fixture/change-answer"
+  if run_fixture_pty "$adoption_fixture/changed-after-consent" \
+    "$adoption_fixture/change-answer" env "${adoption_env[@]}" \
+    ADOPT_IDENTITY_CHANGE_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt chatgpt; then
+    fail "groundwork-app-adopt acted after bundle identity changed"
+  fi
+  grep -qF 'identity changed after consent' \
+    "$adoption_fixture/changed-after-consent" \
+    || fail "post-consent adoption identity drift was not named"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "post-consent adoption identity drift reached mutation"
+
+  rm -f "$adoption_home/.adopt-codesign-verify-count" \
+    "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  if env "${adoption_env[@]}" ADOPT_VERIFY_FAIL_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+    >"$adoption_fixture/signature-failed-after-consent" 2>&1; then
+    fail "groundwork-app-adopt did not repeat strict signature verification after consent"
+  fi
+  grep -qF 'signature failed strict verification' \
+    "$adoption_fixture/signature-failed-after-consent"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "post-consent signature failure reached Homebrew adoption"
+
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
+  printf 'yes\n' >"$adoption_fixture/launch-answer"
+  if run_fixture_pty "$adoption_fixture/launched-after-consent" \
+    "$adoption_fixture/launch-answer" env "${adoption_env[@]}" \
+    ADOPT_LAUNCH_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt chatgpt; then
+    fail "groundwork-app-adopt missed an app launched while confirmation was open"
+  fi
+  grep -qF 'started after consent' "$adoption_fixture/launched-after-consent" \
+    || fail "post-consent adoption running-state refusal was not actionable"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "post-consent running-state drift reached Homebrew adoption"
+
+  rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
+  : >"$adoption_fixture/commands.log"
   if env "${adoption_env[@]}" ADOPT_INSTALL_STATUS=17 \
     /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
     >"$adoption_fixture/install-failed" 2>&1; then
@@ -1862,10 +2204,13 @@ case "$path" in
   *) exit 1 ;;
 esac
 SH
-  cat >"$removal_bin/profiles" <<'SH'
+cat >"$removal_bin/profiles" <<'SH'
 #!/usr/bin/env bash
+[[ "${REMOVE_MDM_STATUS:-0}" == 0 ]] || exit "$REMOVE_MDM_STATUS"
 if [[ "${REMOVE_MDM:-0}" == 1 ]]; then
   printf 'Enrolled via DEP: Yes\nMDM enrollment: Yes\n'
+elif [[ "${REMOVE_MDM_AMBIGUOUS:-0}" == 1 ]]; then
+  printf 'Enrollment state unavailable\n'
 else
   printf 'Enrolled via DEP: No\nMDM enrollment: No\n'
 fi
@@ -1878,6 +2223,15 @@ case "$app" in
   */ChatGPT.app | */ChatGPT\ Classic.app | */Codex.app) ;;
   *) exit 1 ;;
 esac
+if [[ "${1:-}" == --verify ]]; then
+  count="$(cat "$HOME/.remove-codesign-verify-count" 2>/dev/null || echo 0)"
+  count=$((count + 1))
+  printf '%s\n' "$count" >"$HOME/.remove-codesign-verify-count"
+  if [[ "${REMOVE_VERIFY_FAIL_AFTER_CONSENT:-0}" == 1 && "$count" -ge 3 ]]; then
+    exit 17
+  fi
+  exit "${REMOVE_VERIFY_STATUS:-0}"
+fi
 if [[ "${1:-}" == -dv ]]; then
   printf 'TeamIdentifier=%s\n' "${REMOVE_TEAM_ID:-2DC432GLL2}" >&2
   exit 0
@@ -1886,31 +2240,35 @@ exit 64
 SH
   cat >"$removal_bin/ps" <<'SH'
 #!/usr/bin/env bash
-[[ "$#" -eq 2 && "$1" == -axo && "$2" == command= ]] || exit 64
+[[ "$#" -eq 2 && "$1" == -axo && "$2" == pid=,command= ]] || exit 64
 ps_count="$(cat "$HOME/.remove-ps-count" 2>/dev/null || echo 0)"
 ps_count=$((ps_count + 1))
 printf '%s\n' "$ps_count" >"$HOME/.remove-ps-count"
+[[ "${REMOVE_PS_STATUS:-0}" == 0 ]] || exit "$REMOVE_PS_STATUS"
+if [[ "${REMOVE_PS_MALFORMED:-0}" == 1 ]]; then
+  printf 'malformed process row\n'
+  exit 0
+fi
 running="${REMOVE_RUNNING:-}"
 if [[ "${REMOVE_LAUNCH_AFTER_CONSENT:-0}" == 1 && "$ps_count" -ge 2 ]]; then
   running=classic
 fi
 case "$running" in
-  current) printf '%s/ChatGPT.app/Contents/MacOS/ChatGPT --fixture\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
-  classic) printf '%s/ChatGPT Classic.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
-  codex-caskroom) printf '%s/codex-app/1.0/Codex.app/Contents/MacOS/Codex\n' "$REMOVE_CASKROOM_ROOT" ;;
+  current) printf '4242 %s/ChatGPT.app/Contents/MacOS/ChatGPT --fixture\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
+  classic) printf '4243 %s/ChatGPT Classic.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR" ;;
+  codex-caskroom) printf '4244 %s/codex-app/1.0/Codex.app/Contents/MacOS/Codex\n' "$REMOVE_CASKROOM_ROOT" ;;
 esac
 SH
   cat >"$removal_bin/brew" <<'SH'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$REMOVE_LOG"
 if [[ "${1:-}" == list && "${2:-}" == --cask ]]; then
-  case "${3:-}" in
-    chatgpt) test -f "$HOME/.chatgpt-receipt" ;;
-    chatgpt-classic) test -f "$HOME/.classic-receipt" ;;
-    codex-app) test -f "$HOME/.codex-receipt" ;;
-    *) exit 1 ;;
-  esac
-  exit
+  [[ "$#" -eq 2 ]] || exit 64
+  [[ "${REMOVE_INVENTORY_STATUS:-0}" == 0 ]] || exit "$REMOVE_INVENTORY_STATUS"
+  test ! -f "$HOME/.chatgpt-receipt" || printf 'chatgpt\n'
+  test ! -f "$HOME/.classic-receipt" || printf 'chatgpt-classic\n'
+  test ! -f "$HOME/.codex-receipt" || printf 'codex-app\n'
+  exit 0
 fi
 if [[ "${1:-}" == info && "${2:-}" == --json=v2 && "${3:-}" == --cask ]]; then
   token="${4:-}"
@@ -2019,10 +2377,32 @@ SH
   : >"$classic_app/Contents/Info.plist"
   : >"$classic_app/Contents/MacOS/ChatGPT"
   chmod +x "$classic_app/Contents/MacOS/ChatGPT"
-  printf 'no\n' >"$removal_fixture/no-answer"
-  env "${removal_env[@]}" GROUNDWORK_PROMPT_TTY="$removal_fixture/no-answer" \
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --check chatgpt-classic >"$removal_fixture/check-only"
+  grep -qF 'ready for a separate consent-gated removal' \
+    "$removal_fixture/check-only" \
+    || fail "groundwork-app-remove --check did not report its nonmutating result"
+  test -d "$classic_app" \
+    || fail "groundwork-app-remove --check mutated the verified Classic app"
+  assert_not_contains '^brew uninstall' "$removal_fixture/commands.log" \
+    "groundwork-app-remove --check reached mutation"
+  if env "${removal_env[@]}" CI=1 \
     /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic \
-    </dev/null >"$removal_fixture/kept" 2>&1
+    </dev/null >"$removal_fixture/noninteractive" \
+    2>"$removal_fixture/noninteractive-error"; then
+    fail "groundwork-app-remove prompted or removed with redirected streams"
+  fi
+  grep -qF 'requires interactive stdin and stderr' \
+    "$removal_fixture/noninteractive-error" \
+    || fail "redirected removal did not explain its noninteractive refusal"
+  test -d "$classic_app" \
+    || fail "redirected or CI-style removal changed ChatGPT Classic"
+  assert_not_contains '^brew uninstall' "$removal_fixture/commands.log" \
+    "redirected or CI-style removal reached mutation"
+  printf 'no\n' >"$removal_fixture/no-answer"
+  run_fixture_pty "$removal_fixture/kept" "$removal_fixture/no-answer" \
+    env "${removal_env[@]}" \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic
   grep -qF 'Remove ChatGPT Classic? [y/N]' "$removal_fixture/kept" \
     || fail "the Classic removal prompt was not literal and explicit"
   test -d "$classic_app" || fail "the explicit keep choice removed ChatGPT Classic"
@@ -2043,6 +2423,15 @@ SH
     fail "groundwork-app-remove accepted a signing-team mismatch"
   fi
   test -d "$classic_app" || fail "signing-team refusal changed ChatGPT Classic"
+  rm -f "$removal_home/.remove-codesign-verify-count"
+  if env "${removal_env[@]}" REMOVE_VERIFY_STATUS=17 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/signature-verification-failed" 2>&1; then
+    fail "groundwork-app-remove accepted a displayable but invalid signature"
+  fi
+  grep -qF 'signature failed strict verification' \
+    "$removal_fixture/signature-verification-failed"
+  test -d "$classic_app" || fail "failed strict signature verification changed Classic"
 
   for refusal in running mdm wrong-bundle; do
     refusal_status=0
@@ -2058,13 +2447,41 @@ SH
       || fail "groundwork-app-remove accepted the $refusal refusal case"
     test -d "$classic_app" || fail "$refusal refusal removed ChatGPT Classic"
   done
+  for process_case in failed malformed; do
+    case "$process_case" in
+      failed) process_env=(REMOVE_PS_STATUS=9) ;;
+      malformed) process_env=(REMOVE_PS_MALFORMED=1) ;;
+    esac
+    if env "${removal_env[@]}" "${process_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+      >"$removal_fixture/process-$process_case" 2>&1; then
+      fail "groundwork-app-remove treated $process_case process observation as stopped"
+    fi
+    grep -qF 'running application state could not be observed' \
+      "$removal_fixture/process-$process_case"
+    test -d "$classic_app" || fail "$process_case process observation changed Classic"
+  done
+  for ownership_case in mdm-command-failed mdm-ambiguous inventory-failed; do
+    ownership_env=()
+    case "$ownership_case" in
+      mdm-command-failed) ownership_env=(REMOVE_MDM_STATUS=9) ;;
+      mdm-ambiguous) ownership_env=(REMOVE_MDM_AMBIGUOUS=1) ;;
+      inventory-failed) ownership_env=(REMOVE_INVENTORY_STATUS=9) ;;
+    esac
+    if env "${removal_env[@]}" "${ownership_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+      >"$removal_fixture/$ownership_case" 2>&1; then
+      fail "groundwork-app-remove treated $ownership_case as safe ownership"
+    fi
+    test -d "$classic_app" || fail "$ownership_case removed ChatGPT Classic"
+  done
 
   rm -f "$removal_home/.remove-ps-count"
   printf 'yes\n' >"$removal_fixture/yes-answer"
-  if env "${removal_env[@]}" REMOVE_LAUNCH_AFTER_CONSENT=1 \
-    GROUNDWORK_PROMPT_TTY="$removal_fixture/yes-answer" \
-    /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic \
-    </dev/null >"$removal_fixture/launched-after-consent" 2>&1; then
+  if run_fixture_pty "$removal_fixture/launched-after-consent" \
+    "$removal_fixture/yes-answer" env "${removal_env[@]}" \
+    REMOVE_LAUNCH_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove chatgpt-classic; then
     fail "groundwork-app-remove missed an app launched while confirmation was open"
   fi
   grep -qF 'started after consent' "$removal_fixture/launched-after-consent" \
@@ -2091,6 +2508,16 @@ SH
     || fail "post-consent cask metadata drift was not named"
   test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
     || fail "post-consent metadata drift reached removal"
+  rm -f "$removal_home/.remove-codesign-verify-count"
+  if env "${removal_env[@]}" REMOVE_VERIFY_FAIL_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/signature-failed-after-consent" 2>&1; then
+    fail "groundwork-app-remove did not repeat strict signature verification after consent"
+  fi
+  grep -qF 'signature failed strict verification' \
+    "$removal_fixture/signature-failed-after-consent"
+  test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
+    || fail "post-consent signature failure reached removal"
   rm -f "$removal_home/.classic-receipt"
 
   : >"$removal_home/.codex-receipt"
@@ -2205,11 +2632,18 @@ EOF
   cat >"$update_all_bin/chezmoi" <<'SH'
 #!/usr/bin/env bash
 printf 'chezmoi %s color=%s\n' "$*" "${GROUNDWORK_COLOR:-unset}" >>"$GROUNDWORK_TEST_LOG"
+if [[ "${CHEZMOI_CONFIG_WARNING:-0}" == 1 && "${1:-}" != init \
+  && ! -f "$HOME/.chezmoi-config-initialized" ]]; then
+  echo 'chezmoi: warning: configuration template changed; run chezmoi init' >&2
+fi
 if [[ -n "${GROUNDWORK_BREWFILE_SKIP_CASKS:-}" ]]; then
   printf 'chezmoi skip-casks=%s\n' "$GROUNDWORK_BREWFILE_SKIP_CASKS" >>"$GROUNDWORK_TEST_LOG"
 fi
 [[ "${CHEZMOI_STATUS:-0}" == "0" ]] || exit "$CHEZMOI_STATUS"
 case "${1:-}" in
+  init)
+    : >"$HOME/.chezmoi-config-initialized"
+    ;;
   status)
     [[ "${CHEZMOI_STATUS_FAIL:-0}" == "0" ]] || exit 1
     [[ -z "${CHEZMOI_DRIFT:-}" ]] || printf '%s\n' "$CHEZMOI_DRIFT"
@@ -2276,7 +2710,8 @@ case "${1:-}" in
     case "${1:-}" in
       --formula)
         [[ "${2:-}" == "--full-name" && "$#" -eq 2 ]] || exit 64
-        printf '%s\n' ${BREW_FORMULAE:-git}
+        installed_formulae="${BREW_FORMULAE-git}"
+        [[ -z "$installed_formulae" ]] || printf '%s\n' $installed_formulae
         ;;
       --pinned)
         # Real Homebrew accepts `brew list --pinned`, but rejects the tempting
@@ -2288,13 +2723,18 @@ case "${1:-}" in
       --cask)
         shift
         if [[ "$#" -eq 0 ]]; then
-          [[ -z "${BREW_CASKS:-ghostty}" ]] || printf '%s\n' ${BREW_CASKS:-ghostty}
+          [[ "${BREW_CASK_INVENTORY_STATUS:-0}" == 0 ]] \
+            || exit "$BREW_CASK_INVENTORY_STATUS"
+          installed_casks="${BREW_CASKS-ghostty}"
+          [[ -z "$installed_casks" ]] || printf '%s\n' $installed_casks
+          [[ ! -f "$HOME/.chatgpt-adopted" ]] || printf 'chatgpt\n'
         else
           for wanted in "$@"; do
             found=0
-            for installed in ${BREW_CASKS:-ghostty}; do
+            for installed in ${BREW_CASKS-ghostty}; do
               [[ "$installed" == "$wanted" ]] && found=1
             done
+            [[ "$wanted" == chatgpt && -f "$HOME/.chatgpt-adopted" ]] && found=1
             [[ "$found" -eq 1 ]] || exit 1
           done
         fi
@@ -2562,31 +3002,117 @@ if [[ "$#" -eq 2 && "${1:-}" == -axo && "${2:-}" == command= ]]; then
 fi
 exec /bin/ps "$@"
 SH
-  cat >"$update_all_bin/mas" <<'SH'
+cat >"$update_all_bin/mas" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
+  version)
+    [[ "$#" -eq 1 ]] || exit 64
+    printf '%s\n' "${MAS_VERSION:-7.0.0}"
+    ;;
   list)
-    [[ -z "${MAS_INSTALLED:-}" ]] || printf '%s\n' "$MAS_INSTALLED"
+    [[ "$#" -eq 2 && "${2:-}" == --json ]] || exit 64
+    mas_installed_output="${MAS_INSTALLED:-}"
+    shopt -s nullglob
+    mas_markers=("$HOME"/.mas-updated-*)
+    shopt -u nullglob
+    if ((${#mas_markers[@]} > 0)) && [[ -n "${MAS_POST_INSTALLED+x}" ]]; then
+      mas_installed_output="${MAS_POST_INSTALLED:-}"
+    fi
+    [[ -z "$mas_installed_output" ]] || printf '%s\n' "$mas_installed_output"
     exit "${MAS_LIST_STATUS:-0}"
     ;;
   outdated)
-    [[ -z "${MAS_OUTDATED:-}" || -f "$HOME/.mas-updated" ]] || printf '%s\n' "$MAS_OUTDATED"
+    [[ "$#" -eq 3 && "${2:-}" == --json && "${3:-}" == --accurate ]] || exit 64
+    if [[ -n "${MAS_OUTDATED:-}" ]]; then
+      while IFS= read -r mas_line; do
+        [[ -n "$mas_line" ]] || continue
+        mas_id="$(printf '%s\n' "$mas_line" \
+          | sed -n 's/.*"trackId"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')"
+        [[ "$mas_id" =~ ^[0-9]+$ ]] || exit 65
+        [[ -f "$HOME/.mas-updated-$mas_id" ]] || printf '%s\n' "$mas_line"
+      done <<<"$MAS_OUTDATED"
+    fi
     exit "${MAS_OUTDATED_STATUS:-0}"
     ;;
   update)
     shift
+    [[ "$#" -eq 1 && "$1" =~ ^[0-9]+$ ]] || exit 64
+    app_id="$1"
     {
       printf 'mas update'
       for app_id in "$@"; do printf ' %s' "$app_id"; done
       printf '\n'
     } >>"$GROUNDWORK_TEST_LOG"
-    [[ "${MAS_UPDATE_STATUS:-0}" == 0 ]] && : >"$HOME/.mas-updated"
-    exit "${MAS_UPDATE_STATUS:-0}"
+    if [[ "${MAS_HANG_ID:-}" == "$app_id" ]]; then
+      sleep 60 &
+      child=$!
+      printf '%s\n' "$child" >"$HOME/.mas-owned-child-$app_id"
+      wait "$child"
+    fi
+    app_status="${MAS_UPDATE_STATUS:-0}"
+    [[ "${MAS_FAIL_ID:-}" == "$app_id" ]] && app_status="${MAS_FAIL_STATUS:-17}"
+    [[ "$app_status" == 0 ]] && : >"$HOME/.mas-updated-$app_id"
+    exit "$app_status"
     ;;
   *) exit 64 ;;
 esac
 SH
   chmod +x "$update_all_bin/mas"
+  cat >"$update_all_bin/sudo" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  -v)
+    [[ "$#" -eq 1 ]] || exit 64
+    printf 'sudo -v\n' >>"$GROUNDWORK_TEST_LOG"
+    auth_count_file="$HOME/.mas-auth-count"
+    auth_count="$(cat "$auth_count_file" 2>/dev/null || echo 0)"
+    auth_count=$((auth_count + 1))
+    printf '%s\n' "$auth_count" >"$auth_count_file"
+    if [[ "${SUDO_AUTH_CHILD:-0}" == 1 ]]; then
+      sleep 60 &
+      auth_child=$!
+      printf '%s\n' "$auth_child" >"$HOME/.mas-auth-owned-child"
+    fi
+    [[ "${SUDO_AUTH_PROMPT:-0}" != 1 ]] || printf 'Password:' >&2
+    if [[ "${SUDO_AUTH_READ:-0}" == 1 ]]; then
+      IFS= read -r password || exit 19
+      [[ "$password" == fixture-password ]] || exit 20
+      printf 'sudo auth pgid=%s tpgid=%s\n' \
+        "$(ps -o pgid= -p $$ | tr -d ' ')" \
+        "$(ps -o tpgid= -p $$ | tr -d ' ')" >>"$GROUNDWORK_TEST_LOG"
+    fi
+    if [[ "${SUDO_AUTH_HANG:-0}" == 1 \
+      || ("${SUDO_AUTH_HANG_ONCE:-0}" == 1 && "$auth_count" -eq 1) ]]; then
+      if [[ -z "${auth_child:-}" ]]; then
+        sleep 60 &
+        auth_child=$!
+        printf '%s\n' "$auth_child" >"$HOME/.mas-auth-owned-child"
+      fi
+      wait "$auth_child"
+    fi
+    exit "${SUDO_AUTH_STATUS:-0}"
+    ;;
+  -n)
+    shift
+    {
+      printf 'sudo -n'
+      printf ' %s' "$@"
+      printf '\n'
+    } >>"$GROUNDWORK_TEST_LOG"
+    exec "$@"
+    ;;
+  *) exit 64 ;;
+esac
+SH
+  chmod +x "$update_all_bin/sudo"
+  cat >"$update_all_bin/cp" <<'SH'
+#!/usr/bin/env bash
+if [[ "${FAIL_ACTION_RECEIPT_CP:-0}" == 1 && "${1:-}" == */actions.tsv ]]; then
+  exit 19
+fi
+exec /bin/cp "$@"
+SH
+  chmod +x "$update_all_bin/cp"
   cat >"$update_all_bin/plutil" <<'SH'
 #!/usr/bin/env bash
 case "${2:-}" in
@@ -2645,6 +3171,8 @@ SH
   cp home/dot_local/bin/executable_groundwork-cleanup "$update_all_bin/groundwork-cleanup"
   cp home/dot_local/share/groundwork/lib/brew-output.sh \
     "$update_all_home/.local/share/groundwork/lib/brew-output.sh"
+  cp home/dot_local/share/groundwork/lib/reset-signals.c \
+    "$update_all_home/.local/share/groundwork/lib/reset-signals.c"
   cp home/dot_local/share/groundwork/vendor-updater-casks.txt \
     "$update_all_home/.local/share/groundwork/vendor-updater-casks.txt"
   install_fixture_watchdog_runner \
@@ -2792,7 +3320,8 @@ SH
   # sync (hook scripts inherit it), and on the runner line that the exec'd
   # runner inherits the same decision; stdout is a file here, so it is 0.
   cat >"$update_all_fixture/expected-handoff" <<EOF
-chezmoi update --init --apply=false color=0
+chezmoi update --apply=false color=0
+chezmoi init color=0
 chezmoi status color=0
 chezmoi apply $update_all_lock_path $update_all_runner_path color=0
 chezmoi verify $update_all_lock_path $update_all_runner_path color=0
@@ -2810,6 +3339,23 @@ EOF
     || fail "the stable launcher rejected the explicit app-quit option"
   grep -qxF 'arg=--allow-app-quit' "$update_all_log" \
     || fail "the stable launcher did not forward --allow-app-quit to the fresh runner"
+
+  # A synchronized config-template change may produce one pre-init warning.
+  # Pull first, then initialize once so status/apply/verify cannot repeat it.
+  rm -f "$update_all_home/.chezmoi-config-initialized"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+    CHEZMOI_CONFIG_WARNING=1 CHEZMOI_INSTALL_RUNNER=1 \
+    FRESH_RUNNER="$update_all_fixture/fresh-runner" \
+    "$update_all_fixture/old-launcher" \
+    >"$update_all_fixture/config-warning-once" 2>&1 \
+    || fail "the one-boundary chezmoi config refresh failed"
+  [[ "$(grep -cF 'configuration template changed' \
+    "$update_all_fixture/config-warning-once")" -eq 1 ]] \
+    || fail "a config-template change emitted more than one warning"
+  [[ "$(grep -cxF 'chezmoi init color=0' "$update_all_log")" -eq 1 ]] \
+    || fail "update-all did not initialize the synchronized config exactly once"
 
   # Exercise the complete launcher -> exec'd real runner -> nested real cleanup
   # ownership chain. The exec keeps the launcher's PID and must adopt the lock;
@@ -2953,8 +3499,10 @@ EOF
       $color_env CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
       "$update_all_fixture/old-launcher" >/dev/null 2>&1 \
       || fail "update-all failed under color overrides: $color_env"
-    grep -qxF "chezmoi update --init --apply=false color=$color_expected" "$update_all_log" \
+    grep -qxF "chezmoi update --apply=false color=$color_expected" "$update_all_log" \
       || fail "the launcher must decide color=$color_expected before the sync under: $color_env"
+    grep -qxF "chezmoi init color=$color_expected" "$update_all_log" \
+      || fail "the launcher must rebuild the synchronized config exactly once"
     grep -qxF "fresh runner color=$color_expected" "$update_all_log" \
       || fail "the exec'd runner must inherit color=$color_expected under: $color_env"
   done
@@ -2989,7 +3537,7 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "update-all continued after chezmoi update failed"
-  diff -u <(printf 'chezmoi update --init --apply=false color=0\n') "$update_all_log"
+  diff -u <(printf 'chezmoi update --apply=false color=0\n') "$update_all_log"
 
   # A successful sync that does not deliver the runner fails loudly instead of
   # continuing through stale logic.
@@ -3003,7 +3551,7 @@ EOF
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "update-all continued without the freshly installed runner"
   grep -qF 'update runner is missing or not executable' "$update_all_fixture/missing-output"
-  diff -u <(printf 'chezmoi update --init --apply=false color=0\nchezmoi status color=0\nchezmoi apply %s %s color=0\nchezmoi verify %s %s color=0\n' \
+  diff -u <(printf 'chezmoi update --apply=false color=0\nchezmoi init color=0\nchezmoi status color=0\nchezmoi apply %s %s color=0\nchezmoi verify %s %s color=0\n' \
     "$update_all_lock_path" "$update_all_runner_path" \
     "$update_all_lock_path" "$update_all_runner_path") "$update_all_log"
 
@@ -3070,6 +3618,34 @@ EOF
     "$update_all_fixture/failure-output" \
     || fail "Homebrew failure did not isolate Docker maintenance"
   test ! -e "$update_all_stamp"
+
+  # An authoritative Homebrew exit is an error even when Homebrew prints no
+  # literal `Error:` line. Preserve the exact sub-lane, token, status, and the
+  # bounded tail disposition instead of claiming that no error was observed.
+  rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
+  : >"$update_all_log"
+  silent_brew_exit=0
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_UPGRADE_STATUS=1 "$update_all_fixture/rendered-runner" \
+    >"$update_all_fixture/silent-brew-failure" 2>&1 || silent_brew_exit=$?
+  [[ "$silent_brew_exit" -eq 1 ]] \
+    || fail "a silent Homebrew exit 1 surfaced as $silent_brew_exit"
+  grep -qF 'Errors: 1 authoritative command failure' \
+    "$update_all_fixture/silent-brew-failure" \
+    || fail "a silent Homebrew exit did not become an explicit error"
+  grep -qF 'Failed sub-lane: Homebrew formula upgrade (exit 1)' \
+    "$update_all_fixture/silent-brew-failure"
+  grep -qF 'Failed exact package token(s): git' \
+    "$update_all_fixture/silent-brew-failure"
+  grep -qF '(Homebrew produced no output.)' \
+    "$update_all_fixture/silent-brew-failure" \
+    || fail "a silent Homebrew failure omitted its bounded-output disposition"
+  assert_not_contains 'Errors: none observed' \
+    "$update_all_fixture/silent-brew-failure" \
+    "an authoritative Homebrew failure claimed that no error was observed"
+  test ! -e "$update_all_stamp"
+  rm -rf "$update_all_home/.local/state/groundwork/update-all-pending"
 
   # Ctrl-C and termination statuses from a managed stage propagate unchanged.
   for interrupt_status in 129 130 143; do
@@ -3221,7 +3797,7 @@ EOF
 
   printf 'older Docker failure must survive\n' >"$docker_pending"
   printf 'previous-success\n' >"$update_all_stamp"
-  rm -f "$update_all_home/.mas-updated"
+  rm -f "$update_all_home"/.mas-updated-*
   : >"$update_all_log"
   set +e
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -3335,6 +3911,37 @@ if [[ "${KARABINER_ROOT_SERVICE_PRESENT:-1}" == 0 ]]; then
 fi
 exit "${KARABINER_POSTFLIGHT_STATUS:-0}"
 SH
+  cat >"$update_all_bin/groundwork-app-adopt" <<'SH'
+#!/usr/bin/env bash
+printf 'app-adopt %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+test ! -d "$HOME/.local/state/groundwork/update-all.lock"
+test -z "${GROUNDWORK_UPDATE_LOCK_HELD:-}"
+test -z "${GROUNDWORK_UPDATE_LOCK_TOKEN:-}"
+case "$*" in
+  '--check chatgpt') exit "${ACTION_ADOPT_CHECK_STATUS:-0}" ;;
+  '--yes chatgpt')
+    [[ "${ACTION_ADOPT_STATUS:-0}" == 0 ]] || exit "$ACTION_ADOPT_STATUS"
+    : >"$HOME/.chatgpt-adopted"
+    ;;
+  *) exit 64 ;;
+esac
+SH
+  cat >"$update_all_bin/groundwork-app-remove" <<'SH'
+#!/usr/bin/env bash
+printf 'app-remove %s\n' "$*" >>"$GROUNDWORK_TEST_LOG"
+test ! -d "$HOME/.local/state/groundwork/update-all.lock"
+test -z "${GROUNDWORK_UPDATE_LOCK_HELD:-}"
+test -z "${GROUNDWORK_UPDATE_LOCK_TOKEN:-}"
+case "$*" in
+  '--check chatgpt-classic') exit "${ACTION_REMOVE_CHECK_STATUS:-0}" ;;
+  '--yes chatgpt-classic')
+    [[ "${ACTION_REMOVE_STATUS:-0}" == 0 ]] || exit "$ACTION_REMOVE_STATUS"
+    mv "$GROUNDWORK_APPLICATIONS_DIR/ChatGPT Classic.app" \
+      "$HOME/.Trash/ChatGPT Classic.app"
+    ;;
+  *) exit 64 ;;
+esac
+SH
   cat >"$update_all_home/.local/share/groundwork/lib/karabiner.sh" <<'SH'
 gw_karabiner_version() {
   [[ -n "${KARABINER_VERSION_BEFORE:-}" ]] || return 1
@@ -3342,7 +3949,9 @@ gw_karabiner_version() {
 }
 SH
   chmod +x "$update_all_bin/groundwork-apps-start" \
-    "$update_all_bin/groundwork-karabiner-postflight"
+    "$update_all_bin/groundwork-karabiner-postflight" \
+    "$update_all_bin/groundwork-app-adopt" \
+    "$update_all_bin/groundwork-app-remove"
   grep -qF "karabiner_postflight=\"\$HOME/.local/bin/groundwork-karabiner-postflight\"" \
     "$update_all_fixture/darwin-runner" \
     || fail "the macOS runner render omitted the Karabiner postflight"
@@ -3549,29 +4158,408 @@ EOF
     "$update_all_fixture/darwin-pinned-formula" \
     || fail "the formula pin was counted outside the pinned outcome"
 
-  rm -f "$update_all_home/.mas-updated" "$update_all_stamp"
+  rm -f "$update_all_home"/.mas-updated-* "$update_all_stamp"
   : >"$update_all_log"
+  : >"$update_all_fixture/pty-empty-input"
+  printf 'fixture-password\nfixture-password\n' \
+    >"$update_all_fixture/pty-mas-passwords"
+  mas_xcode_264='{"trackId":497799835,"trackName":"Xcode","version":"26.4"}'
+  mas_xcode_265='{"trackId":497799835,"trackName":"Xcode","version":"26.5"}'
+  mas_xcode_outdated='{"trackId":497799835,"trackName":"Xcode","version":"26.4","newVersion":"26.5"}'
+  mas_anybox_10='{"trackId":1593408455,"trackName":"Anybox (Research)","version":"1.0"}'
+  mas_anybox_11='{"trackId":1593408455,"trackName":"Anybox (Research)","version":"1.1"}'
+  mas_anybox_outdated='{"trackId":1593408455,"trackName":"Anybox (Research)","version":"1.0","newVersion":"1.1"}'
+  mas_installed_both="$mas_xcode_264"$'\n'"$mas_anybox_10"
+  mas_outdated_both="$mas_xcode_outdated"$'\n'"$mas_anybox_outdated"
+  mas_updated_both="$mas_xcode_265"$'\n'"$mas_anybox_11"
+  mas_partial_both="$mas_xcode_264"$'\n'"$mas_anybox_11"
+
+  # JSON is a reviewed mas 7.x interface, not an ambient assumption about an
+  # arbitrary older or future CLI. An unsupported major and a malformed JSON
+  # stream both fail the MAS lane before authorization or mutation while the
+  # independent mise lane still runs.
+  : >"$update_all_log"
+  mas_version_exit=0
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    MAS_INSTALLED=$'497799835 Xcode (26.4)\n1593408455 Anybox (1.0)' \
-    MAS_OUTDATED=$'497799835 Xcode (26.4 -> 26.5)\n1593408455 Anybox (1.0 -> 1.1)' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_VERSION=6.0.1 MAS_INSTALLED="$mas_xcode_264" \
+    MAS_OUTDATED="$mas_xcode_outdated" FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-mas-unsupported-json-contract" 2>&1 \
+    || mas_version_exit=$?
+  [[ "$mas_version_exit" -ne 0 ]] \
+    || fail "an unsupported mas JSON contract produced a false complete result"
+  grep -qF 'requires reviewed mas 7.x; observed 6.0.1' \
+    "$update_all_fixture/darwin-mas-unsupported-json-contract"
+  assert_not_contains '^sudo -v$|^sudo -n mas update|^mas update' "$update_all_log" \
+    "an unsupported mas JSON contract reached authorization or mutation"
+  grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+    || fail "an unsupported mas JSON contract suppressed the independent mise lane"
+
+  : >"$update_all_log"
+  mas_malformed_json_exit=0
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED='{"trackId":497799835,"trackName":"Xcode (broken)","version":}' \
+    MAS_OUTDATED="$mas_xcode_outdated" FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-mas-malformed-json" 2>&1 \
+    || mas_malformed_json_exit=$?
+  [[ "$mas_malformed_json_exit" -ne 0 ]] \
+    || fail "a malformed mas JSON stream produced a false complete result"
+  grep -qF 'returned a malformed installed item' \
+    "$update_all_fixture/darwin-mas-malformed-json"
+  assert_not_contains '^sudo -v$|^sudo -n mas update|^mas update' "$update_all_log" \
+    "a malformed mas JSON stream reached authorization or mutation"
+  grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+    || fail "a malformed mas JSON stream suppressed the independent mise lane"
+
+  install_fixture_runtime_runner \
+    "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
+  if ! run_fixture_pty "$update_all_fixture/darwin-mas-exact" \
+    "$update_all_fixture/pty-mas-passwords" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
+    MAS_POST_INSTALLED="$mas_updated_both" \
+    SUDO_AUTH_PROMPT=1 SUDO_AUTH_READ=1 \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/darwin-mas-exact" 2>&1 \
-    || fail "the exact Mac App Store update fixture failed"
-  grep -qxF 'mas update 497799835 1593408455' "$update_all_log" \
-    || fail "Mac App Store updates were not issued by exact discovered ID"
+    ; then
+    cat "$update_all_fixture/darwin-mas-exact" >&2
+    fail "the exact Mac App Store update fixture failed"
+  fi
+  [[ "$(grep -c '^sudo -v$' "$update_all_log")" -eq 2 ]] \
+    || fail "each exact Mac App Store mutation did not establish fresh authorization"
+  [[ "$(grep -c '^sudo auth pgid=' "$update_all_log")" -eq 2 ]] \
+    || fail "the real PTY fixture did not authenticate twice through foreground sudo"
+  awk -F'[ =]' '/^sudo auth pgid=/ { if ($4 != $6) exit 1; count++ } END { exit count != 2 }' \
+    "$update_all_log" \
+    || fail "sudo password input was not owned by the foreground terminal process group"
+  grep -qxF 'sudo -n mas update 497799835' "$update_all_log"
+  grep -qxF 'sudo -n mas update 1593408455' "$update_all_log"
+  grep -qxF 'mas update 497799835' "$update_all_log" \
+    || fail "Xcode was not updated by its exact discovered ID"
+  grep -qxF 'mas update 1593408455' "$update_all_log" \
+    || fail "Anybox was not updated by its exact discovered ID"
   grep -qF 'Mac App Store apps      updated-and-verified' \
     "$update_all_fixture/darwin-mas-exact" \
     || fail "the Mac App Store exact-ID lane was not reflected in the final receipt"
-  rm -f "$update_all_home/.mas-updated"
+  rm -f "$update_all_home"/.mas-updated-*
+
+  # An item disappearing from `mas outdated` proves only that it is no longer
+  # reported outdated. If its installed version did not change, the receipt
+  # must not count or describe an update.
+  : >"$update_all_log"
+  run_fixture_pty "$update_all_fixture/darwin-mas-no-version-change" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    MAS_POST_INSTALLED="$mas_xcode_264" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    || fail "a no-longer-outdated unchanged MAS app failed the honest receipt path"
+  grep -qF 'installed version remained 26.4, so no update is claimed' \
+    "$update_all_fixture/darwin-mas-no-version-change"
+  grep -qF 'Verified updated        0' \
+    "$update_all_fixture/darwin-mas-no-version-change"
+  grep -qF 'No longer outdated     1' \
+    "$update_all_fixture/darwin-mas-no-version-change"
+  grep -qF $'mas-app\t497799835\tXcode\t26.4\t26.5\tcommand-succeeded\t0\texited\t26.4\tnot-reported' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv"
+  rm -f "$update_all_home"/.mas-updated-*
+
+  # A successful command cannot launder a missing or changed post-update app
+  # identity into verification.
+  : >"$update_all_log"
+  mas_missing_post_exit=0
+  run_fixture_pty "$update_all_fixture/darwin-mas-missing-post-identity" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    MAS_POST_INSTALLED='' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    || mas_missing_post_exit=$?
+  [[ "$mas_missing_post_exit" -ne 0 ]] \
+    || fail "a missing post-update MAS identity produced a false complete result"
+  grep -qF 'lost or changed its installed identity after update' \
+    "$update_all_fixture/darwin-mas-missing-post-identity"
+  grep -qF $'mas-app\t497799835\tXcode\t26.4\t26.5\tcommand-succeeded\t0\texited\tmissing-or-changed\tunknown' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv"
+  rm -f "$update_all_home"/.mas-updated-*
+
+  # A visible authorization refusal is isolated to the exact app. No mutation
+  # starts, the app is action-required, and later independent lanes continue.
+  : >"$update_all_log"
+  mas_auth_exit=0
+  run_fixture_pty "$update_all_fixture/darwin-mas-auth-refused" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    SUDO_AUTH_PROMPT=1 SUDO_AUTH_STATUS=1 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" || mas_auth_exit=$?
+  [[ "$mas_auth_exit" -ne 0 ]] \
+    || fail "refused Mac App Store authorization produced a false complete result"
+  grep -qF 'Password:' "$update_all_fixture/darwin-mas-auth-refused"
+  grep -qF 'Mac App Store action required: 1' \
+    "$update_all_fixture/darwin-mas-auth-refused"
+  assert_not_contains '^sudo -n mas update|^mas update' "$update_all_log" \
+    "failed authorization reached a Mac App Store mutation"
+  grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+    || fail "failed Mac App Store authorization suppressed the independent mise lane"
+
+  # Authorization has its own deadline and owned process group. A silent
+  # password helper times out without reaching mas, then the next exact app can
+  # authorize and update. The unrelated process and owned-child checks prove
+  # the cancellation boundary.
+  rm -f "$update_all_home/.mas-auth-count" "$update_all_home/.mas-auth-owned-child" \
+    "$update_all_home"/.mas-updated-*
+  : >"$update_all_log"
+  /bin/sleep 20 &
+  mas_auth_unrelated_pid=$!
+  mas_auth_timeout_exit=0
+  run_fixture_pty "$update_all_fixture/darwin-mas-auth-timeout" \
+    "$update_all_fixture/pty-mas-passwords" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    GROUNDWORK_TEST_REALTIME_CLOCK=1 \
+    GROUNDWORK_MAS_AUTH_DEADLINE_SECONDS=1 \
+    MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
+    MAS_POST_INSTALLED="$mas_partial_both" \
+    SUDO_AUTH_READ=1 SUDO_AUTH_HANG_ONCE=1 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" || mas_auth_timeout_exit=$?
+  [[ "$mas_auth_timeout_exit" -ne 0 ]] \
+    || fail "a timed-out authorization produced a false complete result"
+  kill -0 "$mas_auth_unrelated_pid" 2>/dev/null \
+    || fail "the authorization timeout terminated an unrelated process"
+  kill "$mas_auth_unrelated_pid" 2>/dev/null || true
+  wait "$mas_auth_unrelated_pid" 2>/dev/null || true
+  mas_auth_owned_pid="$(cat "$update_all_home/.mas-auth-owned-child")"
+  ! kill -0 "$mas_auth_owned_pid" 2>/dev/null \
+    || fail "the authorization timeout left its owned child running"
+  assert_not_contains '^mas update 497799835$' "$update_all_log" \
+    "timed-out authorization reached the first MAS mutation"
+  if ! grep -qxF 'mas update 1593408455' "$update_all_log"; then
+    cat "$update_all_fixture/darwin-mas-auth-timeout" >&2
+    cat "$update_all_log" >&2
+    fail "timed-out authorization suppressed the next exact MAS app"
+  fi
+  grep -qF 'Mac App Store action required: 1' \
+    "$update_all_fixture/darwin-mas-auth-timeout"
+
+  # A literal terminal interrupt while fake sudo is reading its password is
+  # delivered to the foreground terminal group. The runner propagates 130,
+  # records the exact app, and leaves no owned authorization child behind.
+  rm -f "$update_all_home/.mas-auth-count" \
+    "$update_all_home/.mas-auth-owned-child" "$update_all_home"/.mas-updated-*
+  : >"$update_all_log"
+  mas_auth_cancel_exit=0
+  run_fixture_pty_after "$update_all_fixture/darwin-mas-auth-cancelled" \
+    'Password:' '\x03' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    SUDO_AUTH_PROMPT=1 SUDO_AUTH_READ=1 SUDO_AUTH_CHILD=1 \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    || mas_auth_cancel_exit=$?
+  [[ "$mas_auth_cancel_exit" -eq 130 ]] \
+    || fail "foreground sudo cancellation surfaced as $mas_auth_cancel_exit"
+  mas_auth_cancelled_child="$(cat "$update_all_home/.mas-auth-owned-child")"
+  ! kill -0 "$mas_auth_cancelled_child" 2>/dev/null \
+    || fail "foreground sudo cancellation left its owned child running"
+  assert_not_contains '^sudo -n mas update|^mas update|^mise upgrade' \
+    "$update_all_log" \
+    "foreground sudo cancellation continued into later mutation"
+  grep -qF $'mas-app\t497799835\tXcode\t26.4\t26.5\tcancelled\t130\tauthorization' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv" \
+    || fail "foreground sudo cancellation left no exact per-app receipt"
+
+  # Cleanup-uncertain and terminal signal statuses propagate immediately from
+  # authorization. They cannot be laundered into action-required continuation.
+  for auth_terminal_status in 125 129 130 143; do
+    rm -f "$update_all_home/.mas-auth-count" "$update_all_home"/.mas-updated-*
+    : >"$update_all_log"
+    auth_terminal_exit=0
+    run_fixture_pty "$update_all_fixture/darwin-mas-auth-terminal-$auth_terminal_status" \
+      "$update_all_fixture/pty-empty-input" env \
+      HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+      NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+      BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+      MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+      SUDO_AUTH_STATUS="$auth_terminal_status" FAKE_PLATFORM=darwin \
+      "$update_all_fixture/darwin-runner" || auth_terminal_exit=$?
+    [[ "$auth_terminal_exit" -eq "$auth_terminal_status" ]] \
+      || fail "authorization status $auth_terminal_status surfaced as $auth_terminal_exit"
+    assert_not_contains '^sudo -n mas update|^mas update|^mise upgrade' "$update_all_log" \
+      "terminal authorization status $auth_terminal_status continued into later mutation"
+    grep -qF $'mas-app\t497799835\tXcode\t26.4\t26.5\tcancelled' \
+      "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv" \
+      || fail "terminal authorization status $auth_terminal_status left no durable per-ID receipt"
+    grep -qF $'process-status\t'"$auth_terminal_status" \
+      "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv"
+  done
+
+  # One hung App Store app owns one bounded process group. Its timeout must not
+  # kill an unrelated process or suppress the next exact app, and the receipt
+  # must separate attempted, verified, remaining, and timed-out outcomes.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  /bin/sleep 20 &
+  mas_unrelated_pid=$!
+  mas_timeout_exit=0
+  run_fixture_pty "$update_all_fixture/darwin-mas-timeout" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    GROUNDWORK_TEST_REALTIME_CLOCK=1 \
+    GROUNDWORK_MAS_APP_DEADLINE_SECONDS=1 \
+    MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
+    MAS_POST_INSTALLED="$mas_partial_both" \
+    MAS_HANG_ID=497799835 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" || mas_timeout_exit=$?
+  [[ "$mas_timeout_exit" -ne 0 ]] \
+    || fail "a timed-out App Store app produced a false complete result"
+  kill -0 "$mas_unrelated_pid" 2>/dev/null \
+    || fail "the MAS timeout terminated an unrelated process"
+  kill "$mas_unrelated_pid" 2>/dev/null || true
+  wait "$mas_unrelated_pid" 2>/dev/null || true
+  mas_owned_pid="$(cat "$update_all_home/.mas-owned-child-497799835")"
+  ! kill -0 "$mas_owned_pid" 2>/dev/null \
+    || fail "the MAS timeout left its owned child process running"
+  grep -qxF 'mas update 497799835' "$update_all_log"
+  grep -qxF 'mas update 1593408455' "$update_all_log" \
+    || fail "one hung App Store app suppressed the next exact app"
+  grep -qF 'Mac App Store update: Xcode (ID 497799835; deadline 1s)' \
+    "$update_all_fixture/darwin-mas-timeout" \
+    || fail "the timed App Store lane omitted its authenticated app identity"
+  grep -qF 'Mac App Store attempted: 2' "$update_all_fixture/darwin-mas-timeout"
+  grep -qF 'Mac App Store verified updated: 1' "$update_all_fixture/darwin-mas-timeout"
+  grep -qF 'Mac App Store remaining: 1' "$update_all_fixture/darwin-mas-timeout"
+  grep -qF 'Mac App Store timed out: 1' "$update_all_fixture/darwin-mas-timeout"
+  grep -qxF 'previous-success' "$update_all_stamp" \
+    || fail "an incomplete MAS lane replaced the prior success timestamp"
+  rm -f "$update_all_home"/.mas-updated-* "$update_all_home"/.mas-owned-child-*
+
+  # A non-timeout failure is isolated the same way and remains distinct from a
+  # later app that updated and verified successfully.
+  : >"$update_all_log"
+  mas_partial_exit=0
+  run_fixture_pty "$update_all_fixture/darwin-mas-partial-failure" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
+    MAS_POST_INSTALLED="$mas_partial_both" \
+    MAS_FAIL_ID=497799835 MAS_FAIL_STATUS=17 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" || mas_partial_exit=$?
+  [[ "$mas_partial_exit" -ne 0 ]] || fail "a partial MAS failure was reported complete"
+  grep -qF 'Mac App Store failed: 1' "$update_all_fixture/darwin-mas-partial-failure"
+  grep -qF 'Mac App Store verified updated: 1' \
+    "$update_all_fixture/darwin-mas-partial-failure"
+  grep -qxF 'mas update 1593408455' "$update_all_log" \
+    || fail "a failed App Store app suppressed the next exact app"
+  rm -f "$update_all_home"/.mas-updated-*
+
+  # Redirected, CI, and cron-style execution may retain a controlling terminal,
+  # but without interactive stdin AND stderr no authorization prompt is safe.
+  # Every exact app remains visible/action-required and independent safe lanes
+  # continue without invoking sudo or mas mutation.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  mas_noninteractive_exit=0
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    CI=1 NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    </dev/null >"$update_all_fixture/darwin-mas-noninteractive" \
+    2>&1 || mas_noninteractive_exit=$?
+  [[ "$mas_noninteractive_exit" -ne 0 ]] \
+    || fail "a noninteractive outstanding App Store update produced a false complete result"
+  assert_not_contains '^sudo -v$|^sudo -n mas update|^mas update' "$update_all_log" \
+    "a noninteractive App Store lane reached authorization or mutation"
+  grep -qF 'Mac App Store action required: 1' \
+    "$update_all_fixture/darwin-mas-noninteractive"
+  grep -qF 'Run interactively: sudo -v && sudo -n mas update 497799835' \
+    "$update_all_fixture/darwin-mas-noninteractive"
+  grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
+    || fail "noninteractive App Store authorization suppressed the independent mise lane"
+  grep -qxF 'previous-success' "$update_all_stamp" \
+    || fail "an action-required App Store update replaced the prior success timestamp"
+
+  # Sanitized work-laptop journey: Homebrew returns 1 without literal Error
+  # output, MAS visibly requests authorization, then one exact app becomes
+  # silent long enough to emit an elapsed heartbeat. Its bounded cancellation
+  # closes only that owned tree and the next exact MAS app still runs. The
+  # retained work-laptop Homebrew log is unavailable on this personal machine,
+  # so this proves diagnostics and isolation only; it does not diagnose or
+  # close the original Homebrew root cause.
+  printf 'previous-success\n' >"$update_all_stamp"
+  : >"$update_all_log"
+  rm -f "$update_all_home"/.mas-updated-* "$update_all_home"/.mas-owned-child-*
+  /bin/sleep 120 &
+  combined_unrelated_pid=$!
+  combined_exit=0
+  run_fixture_pty "$update_all_fixture/work-laptop-sanitized" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULAE='git' BREW_FORMULA_OUTDATED='git' BREW_CASKS='' BREW_UPGRADE_STATUS=1 \
+    GROUNDWORK_TEST_REALTIME_CLOCK=1 \
+    GROUNDWORK_MAS_APP_DEADLINE_SECONDS=16 \
+    MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
+    MAS_POST_INSTALLED="$mas_partial_both" \
+    MAS_HANG_ID=497799835 SUDO_AUTH_PROMPT=1 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-runner" || combined_exit=$?
+  [[ "$combined_exit" -ne 0 ]] \
+    || fail "the sanitized work-laptop partial failure produced a false complete result"
+  kill -0 "$combined_unrelated_pid" 2>/dev/null \
+    || fail "the sanitized MAS cancellation terminated an unrelated process"
+  kill "$combined_unrelated_pid" 2>/dev/null || true
+  wait "$combined_unrelated_pid" 2>/dev/null || true
+  combined_owned_pid="$(cat "$update_all_home/.mas-owned-child-497799835")"
+  ! kill -0 "$combined_owned_pid" 2>/dev/null \
+    || fail "the sanitized MAS cancellation left its owned child running"
+  grep -qF 'Errors: 1 authoritative command failure' \
+    "$update_all_fixture/work-laptop-sanitized"
+  grep -qF 'Failed sub-lane: Homebrew formula upgrade (exit 1)' \
+    "$update_all_fixture/work-laptop-sanitized"
+  grep -qF 'Failed exact package token(s): git' \
+    "$update_all_fixture/work-laptop-sanitized"
+  grep -qF '(Homebrew produced no output.)' "$update_all_fixture/work-laptop-sanitized"
+  assert_not_contains 'Errors: none observed' "$update_all_fixture/work-laptop-sanitized" \
+    "a silent Homebrew exit 1 still produced a false no-error receipt"
+  grep -qF 'Password:' "$update_all_fixture/work-laptop-sanitized" \
+    || fail "the sanitized MAS journey omitted its visible authentication request"
+  grep -qF 'Still running: Mac App Store update for Xcode (ID 497799835)' \
+    "$update_all_fixture/work-laptop-sanitized" \
+    || fail "the silent MAS journey omitted exact authenticated elapsed progress"
+  grep -qF 'Mac App Store timed out: 1' "$update_all_fixture/work-laptop-sanitized"
+  grep -qxF 'mas update 1593408455' "$update_all_log" \
+    || fail "the silent MAS timeout suppressed the next exact App Store app"
+  grep -qxF 'previous-success' "$update_all_stamp" \
+    || fail "the sanitized partial failure replaced the prior success timestamp"
+  rm -f "$update_all_home"/.mas-updated-* "$update_all_home"/.mas-owned-child-*
+  install_fixture_watchdog_runner \
+    "$update_all_home/.local/share/groundwork/lib/maintenance-runner.sh"
 
   printf 'previous-success\n' >"$update_all_stamp"
   : >"$update_all_log"
   mas_foreign_exit=0
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    MAS_INSTALLED='497799835 Xcode (26.4)' \
-    MAS_OUTDATED='1593408455 Anybox (1.0 -> 1.1)' \
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_anybox_outdated" \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-mas-foreign-id" 2>&1 || mas_foreign_exit=$?
   [[ "$mas_foreign_exit" -eq 1 ]] \
@@ -3640,18 +4628,18 @@ EOF
     >"$update_all_fixture/darwin-work-manual-chatgpt" 2>&1 || manual_exit=$?
   [[ "$manual_exit" -eq 0 ]] \
     || fail "manual ChatGPT on a work profile surfaced as exit $manual_exit instead of action-required"
-  grep -qF 'Groundwork action required: ChatGPT is installed' \
+  grep -qF 'ChatGPT.app is installed but not package-manager-owned' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
     || fail "the exact work-laptop manual ChatGPT case was silent"
   grep -qF "Path:          $manual_chatgpt" \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
     || fail "the manual ChatGPT receipt omitted its exact application path"
-  grep -qF 'ChatGPT.app is the preferred current app. Classic is a legacy duplicate' \
+  grep -qF 'Review interactively: groundwork-app-adopt chatgpt' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
-    || fail "ChatGPT Classic was not distinguished from the preferred current app"
-  grep -qF 'Inspect optional removal: groundwork-app-remove chatgpt-classic' \
+    || fail "noninteractive update-all omitted the safe ChatGPT adoption route"
+  assert_not_contains 'Remove ChatGPT Classic[.]app while preserving shared data' \
     "$update_all_fixture/darwin-work-manual-chatgpt" \
-    || fail "update-all omitted the separate consent-gated Classic cleanup route"
+    "Classic removal was offered before current ChatGPT ownership was verified"
   grep -qxF 'chezmoi skip-casks=chatgpt' "$update_all_log" \
     || fail "manual ChatGPT was not omitted from the conflicting Brewfile apply"
   grep -qxF 'brew upgrade --formula git auto=1 casks=unset hb-color=unset' \
@@ -3672,6 +4660,147 @@ EOF
     || fail "manual and Classic application choices were conflated with updater failure"
   grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' "$update_all_stamp" \
     || fail "a completed update with ownership review did not refresh the success timestamp"
+
+  # Interactive actions run only after the transaction lock is released. A
+  # literal yes adopts current ChatGPT first, re-observes Homebrew ownership,
+  # then offers the separate Classic-to-Trash action. The helper stubs fail if
+  # either the lock directory or inherited lock token still exists.
+  rm -f "$update_all_home/.chatgpt-adopted"
+  mkdir -p "$update_all_home/.Trash"
+  : >"$update_all_log"
+  awk '/groundwork_interactive_tty_available=0/ { found=1 } found { print }' \
+    "$update_all_fixture/darwin-work-runner" \
+    >"$update_all_fixture/action-center-render"
+  assert_not_contains 'GROUNDWORK_PROMPT_TTY|/dev/tty' \
+    "$update_all_fixture/action-center-render" \
+    "the post-update action center retained a file-backed prompt path"
+  run_fixture_pty_after "$update_all_fixture/darwin-chatgpt-actions" \
+    'Let Homebrew manage ChatGPT.app? [y/N]' 'yes\nyes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-work-runner" \
+    || fail "the consent-gated ChatGPT action sequence failed"
+  grep -qF 'Let Homebrew manage ChatGPT.app? [y/N]' \
+    "$update_all_fixture/darwin-chatgpt-actions"
+  grep -qF 'Remove ChatGPT Classic.app while preserving shared data? [y/N]' \
+    "$update_all_fixture/darwin-chatgpt-actions"
+  grep -qxF 'app-adopt --check chatgpt' "$update_all_log"
+  grep -qxF 'app-adopt --yes chatgpt' "$update_all_log"
+  grep -qxF 'app-remove --check chatgpt-classic' "$update_all_log"
+  grep -qxF 'app-remove --yes chatgpt-classic' "$update_all_log"
+  test -f "$update_all_home/.chatgpt-adopted" \
+    || fail "accepted ChatGPT adoption did not establish fixture ownership"
+  test ! -e "$manual_apps/ChatGPT Classic.app" \
+    || fail "accepted Classic cleanup did not move the verified bundle"
+  test -d "$update_all_home/.Trash/ChatGPT Classic.app" \
+    || fail "accepted Classic cleanup was not recoverable through Trash"
+  grep -qF $'process-status\t0' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv" \
+    || fail "successful maintenance left no independent durable receipt"
+  grep -qF $'chatgpt-adoption\tcompleted\thomebrew-owned' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  grep -qF $'chatgpt-classic-removal\tcompleted\tmoved-or-uninstalled' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  maintenance_receipt_latest="$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv"
+  action_receipt_latest="$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  maintenance_invocation="$(awk -F '\t' '$1 == "invocation-id" { print $2; exit }' \
+    "$maintenance_receipt_latest")"
+  action_invocation="$(awk -F '\t' '$1 == "invocation-id" { print $2; exit }' \
+    "$action_receipt_latest")"
+  [[ -n "$maintenance_invocation" && "$action_invocation" == "$maintenance_invocation" ]] \
+    || fail "maintenance and action receipts were not bound to one invocation ID"
+  bound_maintenance_name="$(awk -F '\t' '$1 == "maintenance-receipt" { print $2; exit }' \
+    "$action_receipt_latest")"
+  bound_maintenance_digest="$(awk -F '\t' '$1 == "maintenance-sha256" { print $2; exit }' \
+    "$action_receipt_latest")"
+  bound_maintenance_path="$update_all_home/.local/state/groundwork/receipts/$bound_maintenance_name"
+  [[ "$bound_maintenance_name" == "update-all-maintenance-$maintenance_invocation.tsv" \
+    && -f "$bound_maintenance_path" ]] \
+    || fail "the action receipt did not name its immutable maintenance receipt"
+  [[ "$(shasum -a 256 "$bound_maintenance_path" | awk '{print $1}')" \
+    == "$bound_maintenance_digest" ]] \
+    || fail "the action receipt did not bind the exact maintenance receipt digest"
+  cmp -s "$maintenance_receipt_latest" "$bound_maintenance_path" \
+    || fail "latest maintenance truth drifted from the invocation-bound receipt"
+
+  # Decline is the default and a failed adoption suppresses every Classic
+  # removal action. Neither route may run automatically.
+  mv "$update_all_home/.Trash/ChatGPT Classic.app" \
+    "$manual_apps/ChatGPT Classic.app"
+  rm -f "$update_all_home/.chatgpt-adopted"
+  : >"$update_all_log"
+  run_fixture_pty_after "$update_all_fixture/darwin-chatgpt-declined" \
+    'Let Homebrew manage ChatGPT.app? [y/N]' '\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-work-runner" \
+    || fail "declining ChatGPT adoption failed the completed updater"
+  grep -qxF 'app-adopt --check chatgpt' "$update_all_log" \
+    || fail "the action center prompted without a fresh adoption eligibility check"
+  assert_not_contains '^app-adopt --yes|^app-remove' "$update_all_log" \
+    "the default-no action center invoked a mutating helper"
+  : >"$update_all_log"
+  action_failed_exit=0
+  run_fixture_pty_after "$update_all_fixture/darwin-chatgpt-adoption-failed" \
+    'Let Homebrew manage ChatGPT.app? [y/N]' 'yes\nyes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    ACTION_ADOPT_STATUS=17 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-work-runner" || action_failed_exit=$?
+  [[ "$action_failed_exit" -eq 17 ]] \
+    || fail "a requested ChatGPT adoption failure surfaced as $action_failed_exit"
+  grep -qF 'Maintenance: succeeded' \
+    "$update_all_fixture/darwin-chatgpt-adoption-failed" \
+    || fail "a failed optional action retroactively obscured successful maintenance"
+  grep -qF 'Requested action: failed (exit 17)' \
+    "$update_all_fixture/darwin-chatgpt-adoption-failed" \
+    || fail "the optional action failure was not reported separately"
+  grep -qF $'process-status\t0' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv" \
+    || fail "an optional action failure rewrote the maintenance receipt"
+  grep -qF $'chatgpt-adoption\tfailed\t17' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  grep -qF $'process-status\t17' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  grep -qxF 'app-adopt --check chatgpt' "$update_all_log"
+  grep -qxF 'app-adopt --yes chatgpt' "$update_all_log"
+  assert_not_contains '^app-remove' "$update_all_log" \
+    "failed ChatGPT adoption still offered or invoked Classic removal"
+  test -d "$manual_apps/ChatGPT Classic.app" \
+    || fail "failed ChatGPT adoption changed Classic"
+
+  : >"$update_all_log"
+  run_fixture_pty "$update_all_fixture/darwin-chatgpt-adoption-check-failed" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    ACTION_ADOPT_CHECK_STATUS=18 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-work-runner" \
+    || fail "an ineligible ChatGPT adoption failed otherwise completed maintenance"
+  grep -qxF 'app-adopt --check chatgpt' "$update_all_log"
+  assert_not_contains '^app-adopt --yes|^app-remove' "$update_all_log" \
+    "failed ChatGPT eligibility still reached adoption or Classic removal"
+
+  : >"$update_all_log"
+  action_receipt_failure_exit=0
+  run_fixture_pty_after "$update_all_fixture/darwin-action-receipt-failure" \
+    'Let Homebrew manage ChatGPT.app? [y/N]' '\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    FAIL_ACTION_RECEIPT_CP=1 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-work-runner" || action_receipt_failure_exit=$?
+  [[ "$action_receipt_failure_exit" -eq 1 ]] \
+    || fail "action-receipt publication failure surfaced as $action_receipt_failure_exit"
+  grep -qF 'durable post-update action receipt could not be published' \
+    "$update_all_fixture/darwin-action-receipt-failure" \
+    || fail "action-receipt publication failure was not explicit"
+  assert_not_contains '^app-adopt --yes|^app-remove' "$update_all_log" \
+    "receipt publication failure followed an unapproved optional mutation"
   rm -rf "$manual_apps"
 
   # A cancelled Homebrew upgrade must end the transaction, not fall through into
@@ -3912,18 +5041,16 @@ EOF
   # Missing or malformed metadata fails before brew upgrade, preserves the old
   # success timestamp, and cannot silently widen the candidate set.
   printf 'previous-success\n' >"$update_all_stamp"
-  rm -f "$update_all_home/.mas-updated"
+  rm -f "$update_all_home"/.mas-updated-*
   : >"$update_all_log"
-  set +e
-  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  update_all_status=0
+  run_fixture_pty "$update_all_fixture/darwin-cask-metadata-failure" \
+    "$update_all_fixture/pty-empty-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
     FAKE_PLATFORM=darwin BREW_CASK_INFO_STATUS=19 \
-    MAS_INSTALLED='497799835 Xcode (26.4)' \
-    MAS_OUTDATED='497799835 Xcode (26.4 -> 26.5)' \
-    "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/darwin-cask-metadata-failure" 2>&1
-  update_all_status=$?
-  set -e
+    MAS_INSTALLED="$mas_xcode_264" MAS_OUTDATED="$mas_xcode_outdated" \
+    "$update_all_fixture/darwin-runner" || update_all_status=$?
   [[ "$update_all_status" -ne 0 ]] \
     || fail "a failed cask metadata observation was reported as success"
   assert_not_contains '^brew upgrade' "$update_all_log" \
@@ -3937,7 +5064,7 @@ EOF
   grep -qF 'no cask upgrade was attempted' \
     "$update_all_fixture/darwin-cask-metadata-failure"
   grep -qxF 'previous-success' "$update_all_stamp"
-  rm -f "$update_all_home/.mas-updated"
+  rm -f "$update_all_home"/.mas-updated-*
 
   # An interrupted/half-installed cask can quit the old app successfully, find
   # an unexpected app inside the old Caskroom, emit Error:, then purge the new
@@ -4025,20 +5152,16 @@ EOF
   # real TERM delivered by the acting tidy child. Personal renders own Docker
   # Desktop; work renders own Colima. The nonselected backend must stay inert.
   docker_runtime_state="$update_all_fixture/docker-runtime-state"
-  docker_tty_yes="$update_all_fixture/docker-tty-yes"
-  docker_tty_no="$update_all_fixture/docker-tty-no"
-  printf 'yes\n' >"$docker_tty_yes"
-  printf 'no\n' >"$docker_tty_no"
 
   printf 'stopped\n' >"$docker_runtime_state"
   rm -f "$update_all_stamp" "$docker_pending"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  run_fixture_pty_after "$update_all_fixture/docker-declined" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'no\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_no" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-declined" 2>&1 \
     || fail "declining a temporary Docker Desktop start failed update-all"
   grep -qxF 'stopped' "$docker_runtime_state"
   [[ "$(grep -c '^docker-tidy --automatic$' "$update_all_log")" -eq 1 ]] \
@@ -4049,12 +5172,11 @@ EOF
   printf 'stopped\n' >"$docker_runtime_state"
   rm -f "$update_all_stamp" "$docker_pending"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  env HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-noninteractive" 2>&1 \
+    </dev/null >"$update_all_fixture/docker-noninteractive" 2>&1 \
     || fail "a noninteractive stopped Docker lane failed without pending work"
   grep -qF 'no interactive terminal was available' \
     "$update_all_fixture/docker-noninteractive"
@@ -4064,12 +5186,12 @@ EOF
   printf 'stopped\n' >"$docker_runtime_state"
   rm -f "$update_all_stamp" "$docker_pending"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  run_fixture_pty_after "$update_all_fixture/docker-personal-approved" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_TIDY_RUNNING_STATUS=0 "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-personal-approved" 2>&1 \
     || fail "an approved temporary Docker Desktop maintenance cycle failed"
   grep -qxF 'stopped' "$docker_runtime_state" \
     || fail "Docker Desktop was not restored to its original stopped state"
@@ -4087,12 +5209,12 @@ EOF
   printf 'stopped\n' >"$docker_runtime_state"
   rm -f "$update_all_stamp" "$docker_pending"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  run_fixture_pty_after "$update_all_fixture/docker-work-approved" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_TIDY_RUNNING_STATUS=0 "$update_all_fixture/darwin-work-runner" \
-    >"$update_all_fixture/docker-work-approved" 2>&1 \
     || fail "an approved temporary Colima maintenance cycle failed"
   grep -qxF 'stopped' "$docker_runtime_state" \
     || fail "Colima was not restored to its original stopped state"
@@ -4119,12 +5241,12 @@ EOF
   printf 'stopped\n' >"$docker_runtime_state"
   rm -f "$update_all_stamp" "$docker_pending"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  run_fixture_pty_after "$update_all_fixture/docker-work-declined" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'no\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_no" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     "$update_all_fixture/darwin-work-runner" \
-    >"$update_all_fixture/docker-work-declined" 2>&1 \
     || fail "declining a temporary Colima start failed update-all"
   grep -qxF 'stopped' "$docker_runtime_state"
   assert_not_contains 'colima (start|stop)|docker-desktop-start|docker-desktop-stop' \
@@ -4134,16 +5256,14 @@ EOF
   printf 'previous-success\n' >"$update_all_stamp"
   rm -f "$docker_pending"
   : >"$update_all_log"
-  set +e
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  update_all_status=0
+  run_fixture_pty_after "$update_all_fixture/docker-start-timeout" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_START_PARTIAL=1 DOCKER_START_STATUS=124 \
-    "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-start-timeout" 2>&1
-  update_all_status=$?
-  set -e
+    "$update_all_fixture/darwin-runner" || update_all_status=$?
   [[ "$update_all_status" -eq 124 ]] \
     || fail "a Docker backend start timeout exited $update_all_status instead of 124"
   grep -qxF 'stopped' "$docker_runtime_state" \
@@ -4155,17 +5275,16 @@ EOF
   printf 'previous-success\n' >"$update_all_stamp"
   rm -f "$docker_pending"
   : >"$update_all_log"
-  set +e
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  update_all_status=0
+  run_fixture_pty_after "$update_all_fixture/docker-readiness-timeout" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     GROUNDWORK_DOCKER_READY_DEADLINE_SECONDS=1 \
     GROUNDWORK_DOCKER_PROBE_DEADLINE_SECONDS=1 \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_INFO_STATUS=1 "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-readiness-timeout" 2>&1
-  update_all_status=$?
-  set -e
+    || update_all_status=$?
   [[ "$update_all_status" -eq 124 ]] \
     || fail "a Docker readiness timeout exited $update_all_status instead of 124"
   grep -qF 'did not become ready within 1s' \
@@ -4179,15 +5298,14 @@ EOF
   printf 'previous-success\n' >"$update_all_stamp"
   rm -f "$docker_pending"
   : >"$update_all_log"
-  set +e
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  update_all_status=0
+  run_fixture_pty_after "$update_all_fixture/docker-cleanup-failure" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_TIDY_RUNNING_STATUS=9 "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-cleanup-failure" 2>&1
-  update_all_status=$?
-  set -e
+    || update_all_status=$?
   [[ "$update_all_status" -ne 0 ]] \
     || fail "a failed tidy after temporary backend start reported success"
   grep -qxF 'stopped' "$docker_runtime_state" \
@@ -4199,15 +5317,14 @@ EOF
   printf 'previous-success\n' >"$update_all_stamp"
   rm -f "$docker_pending"
   : >"$update_all_log"
-  set +e
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" \
+  update_all_status=0
+  run_fixture_pty_after "$update_all_fixture/docker-signal" \
+    'temporarily for Groundwork scratch maintenance? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" \
     GROUNDWORK_TEST_LOG="$update_all_log" FAKE_PLATFORM=darwin \
-    GROUNDWORK_PROMPT_TTY="$docker_tty_yes" \
     DOCKER_RUNTIME_STATE_FILE="$docker_runtime_state" DOCKER_TIDY_STATUS=3 \
     DOCKER_TIDY_SIGNAL_PARENT=1 "$update_all_fixture/darwin-runner" \
-    >"$update_all_fixture/docker-signal" 2>&1
-  update_all_status=$?
-  set -e
+    || update_all_status=$?
   [[ "$update_all_status" -eq 143 ]] \
     || fail "TERM during temporary Docker maintenance exited $update_all_status instead of 143"
   grep -qxF 'stopped' "$docker_runtime_state" \
@@ -13396,7 +14513,8 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
   # implementation, and the launcher must never regain update stages.
   test -x home/dot_local/bin/executable_update-all
   test -x home/dot_local/bin/executable_groundwork-update-run.tmpl
-  grep -qF 'chezmoi update --init' home/dot_local/bin/executable_update-all
+  grep -qF 'chezmoi update --apply=false' home/dot_local/bin/executable_update-all
+  grep -qF 'chezmoi init' home/dot_local/bin/executable_update-all
   # shellcheck disable=SC2016 # Match literal launcher source; these variables belong to that file.
   grep -qF 'exec "$runner" "${forward_args[@]}"' home/dot_local/bin/executable_update-all
   assert_no_matches "update stages leaked into the stable update-all launcher" \
