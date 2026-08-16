@@ -4440,6 +4440,7 @@ EOF
     BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
     GROUNDWORK_TEST_REALTIME_CLOCK=1 \
     GROUNDWORK_MAS_AUTH_DEADLINE_SECONDS=1 \
+    GROUNDWORK_TEST_MAS_AUTH_KILL_GRACE_SECONDS=0.1 \
     MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
     MAS_POST_INSTALLED="$mas_partial_both" \
     SUDO_AUTH_READ=1 SUDO_AUTH_HANG_ONCE=1 FAKE_PLATFORM=darwin \
@@ -4531,6 +4532,7 @@ EOF
     BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
     GROUNDWORK_TEST_REALTIME_CLOCK=1 \
     GROUNDWORK_MAS_APP_DEADLINE_SECONDS=1 \
+    GROUNDWORK_TEST_MAS_CANCEL_GRACE_SECONDS=1 \
     MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
     MAS_POST_INSTALLED="$mas_partial_both" \
     MAS_HANG_ID=497799835 FAKE_PLATFORM=darwin \
@@ -4625,7 +4627,9 @@ EOF
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
     BREW_FORMULAE='git' BREW_FORMULA_OUTDATED='git' BREW_CASKS='' BREW_UPGRADE_STATUS=1 \
     GROUNDWORK_TEST_REALTIME_CLOCK=1 \
-    GROUNDWORK_MAS_APP_DEADLINE_SECONDS=16 \
+    GROUNDWORK_MAS_APP_DEADLINE_SECONDS=3 \
+    GROUNDWORK_TEST_MAS_HEARTBEAT_SECONDS=1 \
+    GROUNDWORK_TEST_MAS_CANCEL_GRACE_SECONDS=1 \
     MAS_INSTALLED="$mas_installed_both" MAS_OUTDATED="$mas_outdated_both" \
     MAS_POST_INSTALLED="$mas_partial_both" \
     MAS_HANG_ID=497799835 SUDO_AUTH_PROMPT=1 FAKE_PLATFORM=darwin \
@@ -15547,7 +15551,8 @@ EOF
 
   check "continuity record: release, field evidence, and owner gates"
   grep -qF '5b74bd221473cabf5be130984ac6704e5ec5820d' ROADMAP.md
-  grep -qF "\`v1.17.0\` is the current published release" ROADMAP.md
+  grep -qF "\`v1.17.0\` is the current" ROADMAP.md
+  grep -qF 'published release and points to that same commit' ROADMAP.md
   grep -qF "PR #19 on \`codex/update-all-field-receipts\`" ROADMAP.md
   grep -qF 'original Homebrew sub-lane/root cause remains unknown' ROADMAP.md
   grep -qF "Compass \`8713d212\` and the earlier Groundwork Compass scaffold \`b62fbaa\` are superseded diagnostic evidence" ROADMAP.md
