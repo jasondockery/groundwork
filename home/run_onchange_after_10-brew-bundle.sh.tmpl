@@ -158,6 +158,22 @@ if [[ "$groundwork_color" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 bundle_status=0
+# Homebrew refuses to LOAD a formula from an untrusted third-party tap, so a
+# declared tap that is never trusted fails the whole bundle rather than just
+# its own package. Groundwork declares exactly one tap, and the troubleshooting
+# docs prefer trusting the formula you actually use over the whole tap, which
+# would also cover everything that tap publishes later. So trust exactly that
+# one formula, and only while the Brewfile still asks for it.
+#
+# This is not a new supply-chain decision: it applies the one already recorded
+# in the Brewfile and enforced by the validator's tap allowlist. `brew trust`
+# is idempotent, so a repeat run is a no-op.
+if grep -qxF 'brew "cliamp"' "$bundle_file"; then
+  if ! brew trust --formula bjarneo/cliamp/cliamp >/dev/null 2>&1; then
+    echo "Groundwork: could not trust bjarneo/cliamp/cliamp; cliamp will fail to load." >&2
+    echo "  Trust it yourself with: brew trust --formula bjarneo/cliamp/cliamp" >&2
+  fi
+fi
 # Checksums are an INSTALL-time policy, not just an upgrade-time one: a fresh
 # machine gets its casks from here, long before update-all ever runs.
 # HOMEBREW_CASK_OPTS is how --require-sha reaches `brew bundle`'s cask installs.
