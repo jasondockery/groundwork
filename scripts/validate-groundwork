@@ -776,6 +776,25 @@ assert_not_contains() {
   fi
 }
 
+# docs/troubleshooting.html names the taps Groundwork adds, so this allowlist
+# and that sentence have to move together. cliamp is the single entry: it ships
+# only from its maintainer's tap, and the Brewfile states that tradeoff. Any
+# other tap fails closed. The tap and the package it provides must also appear
+# together, so neither can be left behind in a profile that dropped the other.
+assert_taps_approved() {
+  local file="$1" context="$2" unapproved
+  unapproved="$(grep -E '^tap ' "$file" | grep -vxF 'tap "bjarneo/cliamp"' || true)"
+  if [[ -n "$unapproved" ]]; then
+    fail "an unapproved tap entered the $context Brewfile: $unapproved"
+  fi
+  if grep -qxF 'tap "bjarneo/cliamp"' "$file" && ! grep -qxF 'brew "cliamp"' "$file"; then
+    fail "$context taps bjarneo/cliamp without installing the package it exists for"
+  fi
+  if grep -qxF 'brew "cliamp"' "$file" && ! grep -qxF 'tap "bjarneo/cliamp"' "$file"; then
+    fail "$context installs cliamp without tapping bjarneo/cliamp"
+  fi
+}
+
 assert_recovery_hierarchy() {
   local file="$1" context="$2"
   local normal_count maintenance_count command_count
@@ -15419,11 +15438,14 @@ PY
           "$case_name current posture selected Chrome Beta"
       fi
     fi
-    # The tap-trust troubleshooting docs state categorically that Groundwork
-    # adds no third-party taps; keep that claim true. A tap line or a
-    # tap-qualified package would put Groundwork in the tap-trust business.
-    assert_not_contains '^tap |^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
-      "a third-party tap entered the $case_name Brewfile — the docs promise Groundwork adds none"
+    # The tap-trust troubleshooting docs name every tap Groundwork adds. That
+    # list is exactly one, so any other tap fails closed here rather than
+    # silently putting Groundwork in the tap-trust business. A tap-qualified
+    # package stays banned outright: the approved tap resolves `brew "cliamp"`
+    # on its own, so a slash in a package name is never needed.
+    assert_not_contains '^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
+      "a tap-qualified package entered the $case_name Brewfile"
+    assert_taps_approved "$out_dir/$case_name/Brewfile" "$case_name"
 
     check "rendered ignore ($case_name)"
     render "$os" "$headless" "$arch" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"

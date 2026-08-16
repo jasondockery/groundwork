@@ -1,0 +1,66 @@
+# cliamp — terminal music player
+#
+# Groundwork owns this file. Edit it with `chezmoi edit --apply ~/.config/cliamp/config.toml`
+# so your change survives `chezmoi update`; editing the copy in $HOME directly
+# will be reverted on the next apply.
+#
+# Do NOT run `cliamp setup`. That wizard rewrites this file in place to add
+# provider credentials, which puts it in permanent conflict with chezmoi AND
+# writes secrets to disk in cleartext. Use the environment-variable path below
+# instead — cliamp interpolates a value that is exactly `$VAR` or `${VAR}`.
+#
+# Keybindings are not remappable and need no tuning: cliamp already ships vim
+# motions (j/k, g/G, h/l, / to search, Ctrl+U/Ctrl+D to page, Ctrl+N/Ctrl+P in
+# results). It binds no Ctrl+A, so it does not collide with the tmux prefix.
+# Press `?` or Ctrl+K in the player for the full keymap.
+
+# Playback defaults. volume is dB; volume_min is how far the control can fall.
+volume = 0
+volume_min = -50
+repeat = "off"
+shuffle = false
+mono = false
+
+# Where `o` (file browser) opens.
+initial_directory = "~/Music"
+
+# Shift+Left / Shift+Right jump.
+seek_large_step_sec = 30
+
+# Flat leaves the recording alone; `e` cycles presets live when you want colour.
+eq_preset = "Flat"
+
+# Matches the Ghostty theme Groundwork sets (Catppuccin Mocha), so the player
+# does not fight the rest of the terminal. `t` opens the theme picker.
+theme = "catppuccin"
+
+# `v` cycles visualizers, Ctrl+V picks from a live-preview list, V goes full
+# screen. Decoupling from volume keeps the bars readable when you are listening
+# quietly next to a running agent, instead of flattening them to nothing.
+visualizer = "Bars"
+vis_volume_linked = false
+
+# Full-width. cliamp already degrades to compact and minimal layouts on its own
+# as a tmux pane gets smaller, so capping at 80 columns only wastes a wide pane.
+compact = false
+
+# Leave false so the visualizer works. Start with `cliamp --low-power` on the
+# occasions you want the CPU back without editing this file.
+low_power = false
+
+# Quieter than the "info" default; ~/.config/cliamp/cliamp.log stays small.
+log_level = "warn"
+
+# Provider credentials, when you want them, go in blocks like the ones below.
+# Keep the value as a bare $VAR / ${VAR} reference and export the real secret
+# from ~/.zshrc.local (unmanaged and gitignored) or your password manager's CLI.
+# Never write the literal secret here — this file is tracked in Git.
+#
+# [navidrome]
+# url = "https://music.example.com"
+# user = "you"
+# password = "${NAVIDROME_PASSWORD}"
+#
+# [plex]
+# url = "http://plex.local:32400"
+# token = "$PLEX_TOKEN"
