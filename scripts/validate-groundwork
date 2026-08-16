@@ -15118,6 +15118,31 @@ EOF
   test -f docs/assets/favicon.svg
   test -f docs/assets/social-card.png
   test -f docs/platforms.html
+  check "release proof economy contract"
+  grep -qF 'Exact-release-SHA hosted Full passes.' skills/cut-release/SKILL.md \
+    || fail "cut-release must accept exact-release-SHA hosted Linux/macOS Full"
+  grep -qF 'Do not rerun local Full merely because merging created a new commit SHA.' \
+    skills/cut-release/SKILL.md \
+    || fail "cut-release regressed to duplicate post-merge local Full"
+  grep -qF 'Cheap release preflight passes.' skills/cut-release/SKILL.md \
+    || fail "cut-release lost the read-only post-merge preflight"
+  grep -qF '## Release proof economy' specs/verification-and-proof.md \
+    || fail "the verification spec lost the release proof-economy contract"
+  grep -qF 'An exact-release-SHA hosted `Full validation` run satisfies' \
+    specs/verification-and-proof.md \
+    || fail "the verification spec must bind release Full to hosted exact-SHA proof"
+  grep -qF 'Do not repeat release Full merely because a merge created a new commit SHA.' \
+    AGENTS.md \
+    || fail "the always-loaded agent contract regressed to duplicate release Full"
+  assert_no_matches "release guidance must not require duplicate local validation after hosted exact-SHA Full" \
+    rg -n 'Complete validation passes locally and remotely|Local validation</td>' \
+    skills/cut-release/SKILL.md docs/skills-playbooks.html
+  rendered_batch_marker='performance-contract: rendered-shellcheck-''batched'
+  [[ "$(grep -cF "$rendered_batch_marker" scripts/validate-groundwork)" -eq 1 ]] \
+    || fail "rendered shell profiles must use one ShellCheck batch per profile"
+  legacy_rendered_call='run_shellcheck "$''rendered"'
+  assert_no_matches "rendered profiles must not launch ShellCheck once per template" \
+    rg -nF -- "$legacy_rendered_call" scripts/validate-groundwork
   for page in docs/*.html; do
     # Search-engine verification stubs (google*.html) live in docs/ but are
     # not pages; the same marker rule generate-discovery uses.
@@ -15347,12 +15372,18 @@ PY
     [[ -n "$case_name" && "$case_name" != \#* ]] || continue
     mkdir -p "$out_dir/$case_name"
     check "rendered shell templates ($case_name)"
+    rendered_shell_scripts=()
     for script in "${shell_templates[@]}"; do
       rendered="$out_dir/$case_name/$(basename "${script%.tmpl}")"
       render "$os" "$headless" "$arch" "$script" "$rendered" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
       bash -n "$rendered"
-      run_shellcheck "$rendered"
+      rendered_shell_scripts+=("$rendered")
     done
+    # performance-contract: rendered-shellcheck-batched
+    # ShellCheck accepts multiple paths in one invocation. Batching the complete
+    # profile preserves every rendered-file assertion while avoiding one
+    # analyzer startup per template (about 190 processes across this matrix).
+    run_shellcheck "${rendered_shell_scripts[@]}"
 
     check "rendered zsh ($case_name)"
     render "$os" "$headless" "$arch" home/dot_zshrc.tmpl "$out_dir/$case_name/zshrc" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"

@@ -8,19 +8,20 @@ after the work is verified, never aspirationally.
 ## Current continuity
 
 Reconciled 2026-08-16 against `origin/main` at
-`5b74bd221473cabf5be130984ac6704e5ec5820d` (tree
-`7addf306b14960535f1cd01f5c86c7880ecfe0e7`). `v1.17.0` is the current
-published release and points to that same commit. This section is the durable
-handoff record; detailed acceptance criteria remain in the specs.
+`c6b2ba38957b1c995f7efc890cdec31ae3cc5dcd` (tree
+`625bc1880900c1208bfe295de91a192d14b6654a`). `v1.17.0` remains the current
+published release at `5b74bd221473cabf5be130984ac6704e5ec5820d`; main is
+the accepted unreleased successor. This section is the durable handoff record;
+detailed acceptance criteria remain in the specs.
 
 | Boundary | Current evidence and disposition |
 | --- | --- |
-| Accepted release and main | `v1.17.0`, local `main`, and `origin/main` share the exact identity above. PR #19 starts from that accepted baseline and does not rewrite it. |
-| Accepted but unreleased | PR #19 on `codex/update-all-field-receipts` adds exact per-app MAS authorization, deadlines, cancellation and receipts; truthful Homebrew sub-lane failures; one supported chezmoi refresh boundary; and separate default-no ChatGPT adoption and Classic-removal actions. The review checkpoint was `09925eeead8e8f835512f4c1af7758b7ed9ee7f1`; the PR head supersedes that checkpoint when later review repairs land. |
+| Accepted release | `v1.17.0` is immutable at `5b74bd221473cabf5be130984ac6704e5ec5820d`. It does not contain PR #19 or this proof-economy successor. |
+| Accepted but unreleased main | PR #19 is merged at the exact main identity above. Exact-main CI, CodeQL, Pages, and hosted Linux/macOS Full passed. The proposed `v1.18.0` publication stopped after the one permitted local Full retry reached the unchanged 300s deadline; no tag or release exists. |
 | Field evidence still open | The sanitized fixture preserves the observed shape of a silent Homebrew exit 1 and the MAS authentication/hang sequence. The retained work-laptop `homebrew-upgrade-latest.log` is unavailable on this personal laptop, so the original Homebrew sub-lane/root cause remains unknown and must not be described as repaired. |
 | Upstream handoffs | Compass `8713d212` and the earlier Groundwork Compass scaffold `b62fbaa` are superseded diagnostic evidence and are not adoptable here. Compass adoption and container/resource lifecycle work remain separate successor tranches pending their own formal accepted handoffs. |
-| Next step | Stabilize PR #19, run one exact-clean Full on its final commit, push the unchanged SHA, require exact-head CI/CodeQL/Pages and hosted Linux/macOS Full where applicable, then present the owner merge packet. |
-| Owner gates | PR #19 merge remains owner-only. The change is release-affecting and is expected to require `v1.18.0` because it adds interactive post-update actions; no tag or release is authorized. Live laptop adoption, removal, or update mutation also requires a separate owner decision on the named machine. |
+| Next step | Finish `codex/release-proof-economy`: make exact-main hosted Linux/macOS Full the release platform gate, preserve fail-closed identical-tree PR-head reuse, and remove redundant rendered-profile ShellCheck startup without weakening profile coverage. |
+| Owner gates | This successor may be committed, pushed, and opened as a draft checkpoint; merge remains owner-only. The held `v1.18.0` lane requires a new exact publication decision after this separate successor is accepted. Live laptop adoption, removal, or update mutation also requires a separate owner decision on the named machine. |
 
 The future container/resource-lifecycle tranche may add read-only inventory and
 exact-object cleanup only after its formal Compass authority handoff. It is not
@@ -65,6 +66,19 @@ container state.
    launcher costs; next profile Docker tidy's real-runtime proof before changing
    it. Do not raise targets or replace runtime contracts with policy-only
    fixtures to obtain green timing.
+   PR #19's accepted local Full completed in 267s, leaving only 3s below the
+   270s advisory target and 33s below the 300s hard deadline. Its slowest
+   measured checks were Docker tidy's real deadline/process-tree runtime (102s),
+   the update-all launcher transaction (97s), and cleanup's real
+   deadline/process-tree runtime (56s). Two later exact-main local release runs
+   reached the unchanged 300s deadline before Full could import a complete
+   Update result; the retry stopped while rendered shell profiles were still
+   being checked. Exact-main hosted Linux/macOS Full remained green, so the
+   release-proof contract now reuses that authenticated platform evidence
+   instead of demanding duplicate local release work. Keep the timing boundary
+   open: batch redundant rendered-profile analyzer startup first, then remeasure
+   the exact final tree. Do not raise the advisory target or hard deadline to
+   manufacture headroom.
 4. **Fail-closed CI change classification.** Only after suite and receipt
    contracts stabilize: keep every required job visible, widen unknown/shared
    runner/validator/workflow/template changes to all suites, and permit an
