@@ -1282,7 +1282,7 @@ if command -v mas >/dev/null 2>&1; then
   fi
   if [[ "$mas_status" -eq 0 ]]; then
     run_bounded_internal "check Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_outdated" mas outdated --json --accurate || mas_status=$?
+      "$mas_outdated" mas outdated --json --inaccurate || mas_status=$?
     case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
   fi
   if [[ "$mas_status" -eq 0 ]]; then
@@ -1414,7 +1414,7 @@ if command -v mas >/dev/null 2>&1; then
   fi
   if [[ "$mas_observe_status" -eq 0 ]]; then
     run_bounded_internal "verify Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_remaining" mas outdated --json --accurate || mas_observe_status=$?
+      "$mas_remaining" mas outdated --json --inaccurate || mas_observe_status=$?
   fi
   case "$mas_observe_status" in 125 | 129 | 130 | 143) exit "$mas_observe_status" ;; esac
   if [[ "$mas_observe_status" -eq 0 ]]; then
@@ -2323,8 +2323,15 @@ EOF
     adopt_check_status=0
     "$HOME/.local/bin/groundwork-app-adopt" --check chatgpt \
       || adopt_check_status=$?
-    if [[ "$adopt_check_status" -eq 0 ]]; then
-      if groundwork_action_confirm "Let Homebrew manage ChatGPT.app?"; then
+    case "$adopt_check_status" in
+      0)
+        chatgpt_owned_after=1
+        append_action_receipt chatgpt-adoption not-applicable \
+          became-homebrew-owned || exit 1
+        echo "  ChatGPT.app became Homebrew-owned before consent; no adoption was offered."
+        ;;
+      3)
+        if groundwork_action_confirm "Let Homebrew manage ChatGPT.app?"; then
         "$HOME/.local/bin/groundwork-app-adopt" --yes chatgpt \
           || action_center_status=$?
         action_inventory_after_status=0
@@ -2343,15 +2350,17 @@ EOF
             "ownership-observation:$action_inventory_after_status" || exit 1
           echo "Groundwork: ChatGPT adoption did not complete; Classic removal was not offered." >&2
         fi
-      else
-        append_action_receipt chatgpt-adoption declined unchanged || exit 1
-        echo "  Kept current ChatGPT ownership unchanged."
-      fi
-    else
-      append_action_receipt chatgpt-adoption not-offered \
-        "eligibility-check:$adopt_check_status" || exit 1
-      echo "Groundwork: ChatGPT adoption was not offered because current eligibility could not be verified." >&2
-    fi
+        else
+          append_action_receipt chatgpt-adoption declined unchanged || exit 1
+          echo "  Kept current ChatGPT ownership unchanged."
+        fi
+        ;;
+      *)
+        append_action_receipt chatgpt-adoption not-offered \
+          "eligibility-check:$adopt_check_status" || exit 1
+        echo "Groundwork: ChatGPT adoption was not offered because current eligibility could not be verified." >&2
+        ;;
+    esac
   else
     append_action_receipt chatgpt-adoption not-offered noninteractive || exit 1
     echo "  Noninteractive run: no ownership change was attempted."
@@ -2367,12 +2376,18 @@ if [[ "$chatgpt_classic_present" -eq 1 && "$chatgpt_owned_after" -eq 1 ]]; then
   classic_check_status=0
   "$HOME/.local/bin/groundwork-app-remove" --check chatgpt-classic \
     || classic_check_status=$?
-  if [[ "$classic_check_status" -eq 0 ]]; then
-    echo
-    echo "ChatGPT Classic.app is also installed."
-    echo "ChatGPT.app is preferred; keep Classic only for a known compatibility or Enterprise need."
-    if [[ "$groundwork_interactive_tty_available" -eq 1 ]]; then
-      if groundwork_action_confirm "Remove ChatGPT Classic.app while preserving shared data?"; then
+  case "$classic_check_status" in
+    0)
+      append_action_receipt chatgpt-classic-removal not-applicable \
+        no-longer-installed || exit 1
+      echo "  ChatGPT Classic.app is no longer installed; no removal was offered."
+      ;;
+    3)
+      echo
+      echo "ChatGPT Classic.app is also installed."
+      echo "ChatGPT.app is preferred; keep Classic only for a known compatibility or Enterprise need."
+      if [[ "$groundwork_interactive_tty_available" -eq 1 ]]; then
+        if groundwork_action_confirm "Remove ChatGPT Classic.app while preserving shared data?"; then
         "$HOME/.local/bin/groundwork-app-remove" --yes chatgpt-classic \
           || action_center_status=$?
         if [[ "$action_center_status" -eq 0 ]]; then
@@ -2380,20 +2395,22 @@ if [[ "$chatgpt_classic_present" -eq 1 && "$chatgpt_owned_after" -eq 1 ]]; then
         else
           append_action_receipt chatgpt-classic-removal failed "$action_center_status" || exit 1
         fi
+        else
+          append_action_receipt chatgpt-classic-removal declined unchanged || exit 1
+          echo "  Kept ChatGPT Classic.app unchanged."
+        fi
       else
-        append_action_receipt chatgpt-classic-removal declined unchanged || exit 1
-        echo "  Kept ChatGPT Classic.app unchanged."
+        append_action_receipt chatgpt-classic-removal not-offered noninteractive || exit 1
+        echo "  Noninteractive run: no removal was attempted."
+        echo "  Review interactively: groundwork-app-remove chatgpt-classic"
       fi
-    else
-      append_action_receipt chatgpt-classic-removal not-offered noninteractive || exit 1
-      echo "  Noninteractive run: no removal was attempted."
-      echo "  Review interactively: groundwork-app-remove chatgpt-classic"
-    fi
-  else
-    append_action_receipt chatgpt-classic-removal not-offered \
-      "eligibility-check:$classic_check_status" || exit 1
-    echo "Groundwork: ChatGPT Classic removal was not offered because its exact identity or ownership could not be verified." >&2
-  fi
+      ;;
+    *)
+      append_action_receipt chatgpt-classic-removal not-offered \
+        "eligibility-check:$classic_check_status" || exit 1
+      echo "Groundwork: ChatGPT Classic removal was not offered because its exact identity or ownership could not be verified." >&2
+      ;;
+  esac
 elif [[ "$chatgpt_classic_present" -eq 1 ]]; then
   append_action_receipt chatgpt-classic-removal suppressed \
     current-chatgpt-not-homebrew-owned || exit 1

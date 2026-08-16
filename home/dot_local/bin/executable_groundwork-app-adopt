@@ -17,6 +17,10 @@ Supported app mappings are explicit and local. Adoption uses Homebrew's
 exact-artifact check and never forces, removes, reinstalls, deletes, or zaps an
 existing application. The command refuses a running app, an unexpected bundle
 or signing team, symlinked paths, and a Mac whose ownership may be managed.
+Check exit status:
+  0  the requested Homebrew-owned state is already satisfied
+  3  safe adoption is available, but --check made no change
+  other nonzero  eligibility could not be proved; do not adopt
 EOF
 }
 
@@ -103,6 +107,24 @@ cask_ownership_state() {
   fi
 }
 
+cask_declares_exact_app() {
+  local token="$1" expected_app="$2" metadata_file="$3"
+  local expected_target="/Applications/$expected_app"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --cask "$token" \
+    >"$metadata_file" 2>/dev/null || return 1
+  jq -e --arg token "$token" --arg app "$expected_app" \
+    --arg target "$expected_target" '
+    (.formulae == []) and
+    (.casks | length == 1) and
+    (.casks[0].token == $token) and
+    ([.casks[0].artifacts[]? | select(has("app")) |
+      {app: .app[0], target: (.target // "")}] ==
+      [{app: $app, target: $target}]) and
+    (all(.casks[0].artifacts[]?;
+      ((keys - ["app", "target", "uninstall", "zap"]) | length) == 0))
+  ' "$metadata_file" >/dev/null 2>&1
+}
+
 app_process_state() {
   local executable_path="$1" snapshot="$2"
   if ! ps -axo pid=,command= >"$snapshot" 2>/dev/null; then
@@ -164,7 +186,7 @@ mapping_file="${GROUNDWORK_APP_ADOPTION_MAP:-$HOME/.local/share/groundwork/app-a
 applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
 [[ "$(uname -s)" == Darwin ]] \
   || die "application adoption is supported only on macOS"
-for required_command in brew codesign plutil ps; do
+for required_command in brew codesign jq plutil ps shasum; do
   command -v "$required_command" >/dev/null 2>&1 \
     || die "$required_command is unavailable; application state cannot be verified"
 done
@@ -218,10 +240,13 @@ groundwork_lock_acquire "groundwork-app-adopt $requested_token" || exit $?
 
 cask_inventory="$(mktemp "${TMPDIR:-/tmp}/groundwork-app-adopt-casks.XXXXXX")"
 cask_inventory_after="${cask_inventory}.after"
+cask_metadata="${cask_inventory}.metadata"
+cask_metadata_after="${cask_inventory}.metadata-after"
 process_snapshot="${cask_inventory}.processes"
 process_snapshot_after="${cask_inventory}.processes-after"
 cleanup_inventory() {
   rm -f -- "$cask_inventory" "$cask_inventory_after" \
+    "$cask_metadata" "$cask_metadata_after" \
     "$process_snapshot" "$process_snapshot_after"
 }
 trap 'cleanup_inventory; cleanup' EXIT
@@ -232,6 +257,8 @@ if [[ "$homebrew_owner" == owned ]]; then
   printf '%s is already owned by Homebrew. No change was made.\n' "$display_name"
   exit 0
 fi
+cask_declares_exact_app "$cask_token" "$app_bundle" "$cask_metadata" \
+  || die "Homebrew metadata does not bind $cask_token to only $app_bundle; no change was made"
 
 app_path="$applications_dir/$app_bundle"
 identity_before="$(read_app_identity "$app_path" "$expected_bundle_id" \
@@ -268,7 +295,7 @@ EOF
 if [[ "$check_only" -eq 1 ]]; then
   printf '%s is ready for a separate consent-gated adoption. No change was made.\n' \
     "$display_name"
-  exit 0
+  exit 3
 fi
 
 if [[ "$assume_yes" -ne 1 ]]; then
@@ -301,6 +328,10 @@ if [[ "$homebrew_owner_after" == owned ]]; then
   printf '%s became Homebrew-owned before adoption. No change was made.\n' "$display_name"
   exit 0
 fi
+cask_declares_exact_app "$cask_token" "$app_bundle" "$cask_metadata_after" \
+  || die "Homebrew cask metadata changed or became unsafe after consent; no change was made"
+[[ "$(shasum -a 256 "$cask_metadata" | awk '{print $1}')" == "$(shasum -a 256 "$cask_metadata_after" | awk '{print $1}')" ]] \
+  || die "Homebrew cask metadata changed after consent; no change was made"
 identity_after="$(read_app_identity "$app_path" "$expected_bundle_id" \
   "$executable_name" "$expected_team_id")"
 [[ "$identity_after" == "$identity_before" ]] \

@@ -1879,7 +1879,7 @@ fi
 [[ "${1:-}" == -dv ]] || exit 64
 printf 'TeamIdentifier=%s\n' "${ADOPT_TEAM_ID:-2DC432GLL2}" >&2
 SH
-cat >"$adoption_bin/profiles" <<'SH'
+  cat >"$adoption_bin/profiles" <<'SH'
 #!/usr/bin/env bash
 [[ "${ADOPT_MDM_STATUS:-0}" == 0 ]] || exit "$ADOPT_MDM_STATUS"
 if [[ "${ADOPT_MDM:-0}" == 1 ]]; then
@@ -1906,7 +1906,7 @@ if [[ "${ADOPT_RUNNING:-0}" == 1 ||
   printf '4242 %s/ChatGPT.app/Contents/MacOS/ChatGPT\n' "$GROUNDWORK_APPLICATIONS_DIR"
 fi
 SH
-cat >"$adoption_bin/brew" <<'SH'
+  cat >"$adoption_bin/brew" <<'SH'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$ADOPT_LOG"
 if [[ "${1:-}" == list && "${2:-}" == --cask && "$#" -eq 2 ]]; then
@@ -1914,6 +1914,28 @@ if [[ "${1:-}" == list && "${2:-}" == --cask && "$#" -eq 2 ]]; then
   if [[ "${ADOPT_OWNED:-0}" == 1 || -f "$HOME/.chatgpt-adopted" ]]; then
     printf 'chatgpt\n'
   fi
+  exit 0
+fi
+if [[ "${1:-}" == info && "${2:-}" == --json=v2 && "${3:-}" == --cask \
+  && "${4:-}" == chatgpt && "$#" -eq 4 ]]; then
+  info_count_file="$HOME/.adopt-info-count"
+  info_count="$(cat "$info_count_file" 2>/dev/null || echo 0)"
+  info_count=$((info_count + 1))
+  printf '%s\n' "$info_count" >"$info_count_file"
+  target=/Applications/ChatGPT.app
+  if [[ "${ADOPT_TARGET_MISMATCH:-0}" == 1 ]]; then
+    target=/Applications/Unexpected.app
+  fi
+  variant=stable
+  if [[ "${ADOPT_METADATA_CHANGE_AFTER_CONSENT:-0}" == 1 && "$info_count" -ge 2 ]]; then
+    variant=changed
+  fi
+  extra_artifact=""
+  if [[ "${ADOPT_EXTRA_ARTIFACT:-0}" == 1 ]]; then
+    extra_artifact=',{"pkg":["Unexpected.pkg"]}'
+  fi
+  printf '{"formulae":[],"casks":[{"token":"chatgpt","fixture_variant":"%s","artifacts":[{"uninstall":[{"quit":"com.openai.codex"}]},{"app":["ChatGPT.app"],"target":"%s"},{"zap":[{"trash":["~/Library/Application Support/fixture"]}]}%s]}]}\n' \
+    "$variant" "$target" "$extra_artifact"
   exit 0
 fi
 if [[ "${1:-}" == install ]]; then
@@ -1939,6 +1961,9 @@ SH
   : >"$adoption_fixture/commands.log"
   env "${adoption_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --help \
     >"$adoption_fixture/help"
+  grep -qF '3  safe adoption is available, but --check made no change' \
+    "$adoption_fixture/help" \
+    || fail "groundwork-app-adopt help omitted the stable actionable status"
   if env "${adoption_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-adopt \
     'chatgpt;touch-owned' >"$adoption_fixture/invalid" 2>&1; then
     fail "groundwork-app-adopt accepted an injection-like app name"
@@ -1951,6 +1976,16 @@ SH
   grep -qF 'already owned by Homebrew' "$adoption_fixture/already-owned"
   assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
     "an already owned app was adopted again"
+  adoption_check_noop_status=0
+  env "${adoption_env[@]}" ADOPT_OWNED=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --check chatgpt \
+    >"$adoption_fixture/already-owned-check" \
+    || adoption_check_noop_status=$?
+  [[ "$adoption_check_noop_status" -eq 0 ]] \
+    || fail "an already owned adoption check returned $adoption_check_noop_status instead of satisfied status 0"
+  grep -qF 'already owned by Homebrew' "$adoption_fixture/already-owned-check"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "an already owned --check reached Homebrew adoption"
 
   : >"$adoption_fixture/commands.log"
   if env "${adoption_env[@]}" ADOPT_BUNDLE_ID=com.example.hostile \
@@ -1991,9 +2026,12 @@ SH
   fi
   rm -f "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
   : >"$adoption_fixture/commands.log"
+  adoption_check_action_status=0
   env "${adoption_env[@]}" \
     /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --check chatgpt \
-    >"$adoption_fixture/check-only"
+    >"$adoption_fixture/check-only" || adoption_check_action_status=$?
+  [[ "$adoption_check_action_status" -eq 3 ]] \
+    || fail "an actionable adoption check returned $adoption_check_action_status instead of status 3"
   grep -qF 'ready for a separate consent-gated adoption' \
     "$adoption_fixture/check-only" \
     || fail "groundwork-app-adopt --check did not report its nonmutating result"
@@ -2018,6 +2056,23 @@ SH
     "$adoption_fixture/signature-verification-failed"
   assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
     "failed strict signature verification reached Homebrew adoption"
+  for metadata_case in target-mismatch extra-artifact; do
+    metadata_env=()
+    case "$metadata_case" in
+      target-mismatch) metadata_env=(ADOPT_TARGET_MISMATCH=1) ;;
+      extra-artifact) metadata_env=(ADOPT_EXTRA_ARTIFACT=1) ;;
+    esac
+    : >"$adoption_fixture/commands.log"
+    if env "${adoption_env[@]}" "${metadata_env[@]}" \
+      /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+      >"$adoption_fixture/metadata-$metadata_case" 2>&1; then
+      fail "groundwork-app-adopt accepted the $metadata_case cask mapping"
+    fi
+    grep -qF 'does not bind chatgpt to only ChatGPT.app' \
+      "$adoption_fixture/metadata-$metadata_case"
+    assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+      "an unsafe $metadata_case cask mapping reached adoption"
+  done
   for process_case in failed malformed; do
     case "$process_case" in
       failed) process_env=(ADOPT_PS_STATUS=9) ;;
@@ -2097,6 +2152,19 @@ SH
     || fail "post-consent adoption identity drift was not named"
   assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
     "post-consent adoption identity drift reached mutation"
+
+  rm -f "$adoption_home/.adopt-info-count"
+  : >"$adoption_fixture/commands.log"
+  if env "${adoption_env[@]}" ADOPT_METADATA_CHANGE_AFTER_CONSENT=1 \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-adopt --yes chatgpt \
+    >"$adoption_fixture/metadata-changed-after-consent" 2>&1; then
+    fail "groundwork-app-adopt acted after cask metadata changed"
+  fi
+  grep -qF 'metadata changed after consent' \
+    "$adoption_fixture/metadata-changed-after-consent" \
+    || fail "post-consent adoption cask metadata drift was not named"
+  assert_not_contains '^brew install' "$adoption_fixture/commands.log" \
+    "post-consent adoption cask metadata drift reached mutation"
 
   rm -f "$adoption_home/.adopt-codesign-verify-count" \
     "$adoption_home/.adopt-plutil-count" "$adoption_home/.adopt-ps-count"
@@ -2204,7 +2272,7 @@ case "$path" in
   *) exit 1 ;;
 esac
 SH
-cat >"$removal_bin/profiles" <<'SH'
+  cat >"$removal_bin/profiles" <<'SH'
 #!/usr/bin/env bash
 [[ "${REMOVE_MDM_STATUS:-0}" == 0 ]] || exit "$REMOVE_MDM_STATUS"
 if [[ "${REMOVE_MDM:-0}" == 1 ]]; then
@@ -2304,8 +2372,12 @@ if [[ "${1:-}" == info && "${2:-}" == --json=v2 && "${3:-}" == --cask ]]; then
   if [[ "${REMOVE_EXTRA_ARTIFACT_FOR:-}" == "$token" ]]; then
     extra_artifact=',{"pkg":["Unexpected.pkg"]}'
   fi
-  printf '{"formulae":[],"casks":[{"token":"%s","fixture_variant":"%s","artifacts":[{"uninstall":[%s]},{"app":["%s"]},{"zap":[{"trash":["~/Library/Application Support/fixture"]}]}%s]}]}\n' \
-    "$token" "$variant" "$uninstall" "$app" "$extra_artifact"
+  target="/Applications/$app"
+  if [[ "${REMOVE_TARGET_MISMATCH_FOR:-}" == "$token" ]]; then
+    target=/Applications/Unexpected.app
+  fi
+  printf '{"formulae":[],"casks":[{"token":"%s","fixture_variant":"%s","artifacts":[{"uninstall":[%s]},{"app":["%s"],"target":"%s"},{"zap":[{"trash":["~/Library/Application Support/fixture"]}]}%s]}]}\n' \
+    "$token" "$variant" "$uninstall" "$app" "$target" "$extra_artifact"
   exit 0
 fi
 if [[ "${1:-}" == --caskroom && -n "${2:-}" ]]; then
@@ -2353,6 +2425,9 @@ SH
   : >"$removal_fixture/commands.log"
   env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove --help \
     >"$removal_fixture/help"
+  grep -qF '3  safe removal is available, but --check made no change' \
+    "$removal_fixture/help" \
+    || fail "groundwork-app-remove help omitted the stable actionable status"
   if env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
     'chatgpt-classic;touch-owned' >"$removal_fixture/invalid" 2>&1; then
     fail "groundwork-app-remove accepted an injection-like app name"
@@ -2364,6 +2439,13 @@ SH
     chatgpt-classic >"$removal_fixture/current-only"
   grep -qF 'ChatGPT Classic is not installed' "$removal_fixture/current-only" \
     || fail "current-only ChatGPT cleanup was not idempotent"
+  removal_check_noop_status=0
+  env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
+    --check chatgpt-classic >"$removal_fixture/current-only-check" \
+    || removal_check_noop_status=$?
+  [[ "$removal_check_noop_status" -eq 0 ]] \
+    || fail "an absent removal check returned $removal_check_noop_status instead of satisfied status 0"
+  grep -qF 'ChatGPT Classic is not installed' "$removal_fixture/current-only-check"
 
   mv "$removal_current" "$removal_fixture/current-away"
   if env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
@@ -2377,8 +2459,12 @@ SH
   : >"$classic_app/Contents/Info.plist"
   : >"$classic_app/Contents/MacOS/ChatGPT"
   chmod +x "$classic_app/Contents/MacOS/ChatGPT"
+  removal_check_action_status=0
   env "${removal_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-app-remove \
-    --check chatgpt-classic >"$removal_fixture/check-only"
+    --check chatgpt-classic >"$removal_fixture/check-only" \
+    || removal_check_action_status=$?
+  [[ "$removal_check_action_status" -eq 3 ]] \
+    || fail "an actionable removal check returned $removal_check_action_status instead of status 3"
   grep -qF 'ready for a separate consent-gated removal' \
     "$removal_fixture/check-only" \
     || fail "groundwork-app-remove --check did not report its nonmutating result"
@@ -2496,6 +2582,13 @@ SH
   fi
   test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
     || fail "unexpected cask artifacts reached removal"
+  if env "${removal_env[@]}" REMOVE_TARGET_MISMATCH_FOR=chatgpt-classic \
+    /bin/bash home/dot_local/bin/executable_groundwork-app-remove --yes chatgpt-classic \
+    >"$removal_fixture/wrong-cask-target" 2>&1; then
+    fail "groundwork-app-remove accepted a cask mapped to an unexpected target"
+  fi
+  test -f "$removal_home/.classic-receipt" && test -d "$classic_app" \
+    || fail "an unexpected cask target reached removal"
   rm -f "$removal_home/.remove-info-chatgpt" \
     "$removal_home/.remove-info-chatgpt-classic"
   if env "${removal_env[@]}" REMOVE_METADATA_CHANGE_AFTER_CONSENT=chatgpt-classic \
@@ -3002,7 +3095,7 @@ if [[ "$#" -eq 2 && "${1:-}" == -axo && "${2:-}" == command= ]]; then
 fi
 exec /bin/ps "$@"
 SH
-cat >"$update_all_bin/mas" <<'SH'
+  cat >"$update_all_bin/mas" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
   version)
@@ -3022,7 +3115,8 @@ case "${1:-}" in
     exit "${MAS_LIST_STATUS:-0}"
     ;;
   outdated)
-    [[ "$#" -eq 3 && "${2:-}" == --json && "${3:-}" == --accurate ]] || exit 64
+    [[ "$#" -eq 3 && "${2:-}" == --json && "${3:-}" == --inaccurate ]] || exit 64
+    printf 'mas outdated --json --inaccurate\n' >>"$GROUNDWORK_TEST_LOG"
     if [[ -n "${MAS_OUTDATED:-}" ]]; then
       while IFS= read -r mas_line; do
         [[ -n "$mas_line" ]] || continue
@@ -3398,16 +3492,18 @@ EOF
 
   # Drift preflight: an MM file (changed locally AND changed by this update) is
   # named and the overwrite question explained BEFORE chezmoi can ask it. With
-  # a usable terminal (the GROUNDWORK_PROMPT_TTY seam) the run continues into
-  # the runner, which owns the full apply.
-  printf '\n' >"$update_all_fixture/tty-drift"
+  # actual interactive input and error streams the run continues into the
+  # runner, which owns the full apply. A file-backed controlling-terminal seam
+  # is deliberately insufficient.
+  : >"$update_all_fixture/tty-drift-input"
   : >"$update_all_log"
-  printf '' | env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+  run_fixture_pty "$update_all_fixture/drift-output" \
+    "$update_all_fixture/tty-drift-input" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
-    GROUNDWORK_PROMPT_TTY="$update_all_fixture/tty-drift" \
     CHEZMOI_DRIFT='MM .config/karabiner/karabiner.json' \
     CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
-    "$update_all_fixture/old-launcher" >"$update_all_fixture/drift-output" 2>&1 \
+    "$update_all_fixture/old-launcher" \
     || {
       cat "$update_all_fixture/drift-output" >&2
       fail "update-all failed on the drift-with-terminal preflight case"
@@ -3416,8 +3512,12 @@ EOF
     || fail "the drift preflight must explain the upcoming overwrite question"
   grep -qF '.config/karabiner/karabiner.json' "$update_all_fixture/drift-output" \
     || fail "the drift preflight must name the drifted file"
-  grep -qF 'fresh runner color=0' "$update_all_log" \
-    || fail "the run must continue into the runner after the drift preflight"
+  grep -qF 'fresh runner color=1' "$update_all_log" \
+    || {
+      cat "$update_all_fixture/drift-output" >&2
+      cat "$update_all_log" >&2
+      fail "the run must continue into the runner after the drift preflight"
+    }
 
   # Drift with NO usable terminal stops BEFORE any apply with the documented
   # review-required status (2): an agent or cron run must never leave chezmoi
@@ -3426,7 +3526,6 @@ EOF
   set +e
   printf '' | env HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
-    GROUNDWORK_PROMPT_TTY=/nonexistent-groundwork-tty \
     CHEZMOI_DRIFT='MM .config/karabiner/karabiner.json' \
     "$update_all_fixture/old-launcher" >"$update_all_fixture/drift-no-tty" 2>&1
   update_all_status=$?
@@ -3437,6 +3536,9 @@ EOF
     || fail "the no-terminal drift stop must say it stopped before the apply"
   assert_not_contains 'chezmoi apply' "$update_all_log" \
     "drift without a terminal must not reach any chezmoi apply"
+  assert_not_contains 'GROUNDWORK_PROMPT_TTY|/dev/tty' \
+    "$update_all_fixture/old-launcher" \
+    "update-all retained a file-backed prompt path"
 
   # A failed `chezmoi status` fails CLOSED before any apply: it means the
   # source cannot be rendered against this machine, and applying anyway would
@@ -3918,7 +4020,7 @@ test ! -d "$HOME/.local/state/groundwork/update-all.lock"
 test -z "${GROUNDWORK_UPDATE_LOCK_HELD:-}"
 test -z "${GROUNDWORK_UPDATE_LOCK_TOKEN:-}"
 case "$*" in
-  '--check chatgpt') exit "${ACTION_ADOPT_CHECK_STATUS:-0}" ;;
+  '--check chatgpt') exit "${ACTION_ADOPT_CHECK_STATUS:-3}" ;;
   '--yes chatgpt')
     [[ "${ACTION_ADOPT_STATUS:-0}" == 0 ]] || exit "$ACTION_ADOPT_STATUS"
     : >"$HOME/.chatgpt-adopted"
@@ -3933,7 +4035,7 @@ test ! -d "$HOME/.local/state/groundwork/update-all.lock"
 test -z "${GROUNDWORK_UPDATE_LOCK_HELD:-}"
 test -z "${GROUNDWORK_UPDATE_LOCK_TOKEN:-}"
 case "$*" in
-  '--check chatgpt-classic') exit "${ACTION_REMOVE_CHECK_STATUS:-0}" ;;
+  '--check chatgpt-classic') exit "${ACTION_REMOVE_CHECK_STATUS:-3}" ;;
   '--yes chatgpt-classic')
     [[ "${ACTION_REMOVE_STATUS:-0}" == 0 ]] || exit "$ACTION_REMOVE_STATUS"
     mv "$GROUNDWORK_APPLICATIONS_DIR/ChatGPT Classic.app" \
@@ -3970,6 +4072,8 @@ brew upgrade --formula git auto=1 casks=unset hb-color=unset
 brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset
 brew-repair
 apps-start
+mas outdated --json --inaccurate
+mas outdated --json --inaccurate
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -4244,6 +4348,10 @@ EOF
     || fail "Xcode was not updated by its exact discovered ID"
   grep -qxF 'mas update 1593408455' "$update_all_log" \
     || fail "Anybox was not updated by its exact discovered ID"
+  [[ "$(grep -c '^mas outdated --json --inaccurate$' "$update_all_log")" -eq 2 ]] \
+    || fail "MAS inventory and verification did not use the exact non-downloading query"
+  assert_not_contains '^mas outdated --json --accurate$' "$update_all_log" \
+    "MAS observation used the download-starting accurate query"
   grep -qF 'Mac App Store apps      updated-and-verified' \
     "$update_all_fixture/darwin-mas-exact" \
     || fail "the Mac App Store exact-ID lane was not reflected in the final receipt"
@@ -4715,11 +4823,10 @@ EOF
   bound_maintenance_digest="$(awk -F '\t' '$1 == "maintenance-sha256" { print $2; exit }' \
     "$action_receipt_latest")"
   bound_maintenance_path="$update_all_home/.local/state/groundwork/receipts/$bound_maintenance_name"
-  [[ "$bound_maintenance_name" == "update-all-maintenance-$maintenance_invocation.tsv" \
-    && -f "$bound_maintenance_path" ]] \
+  [[ "$bound_maintenance_name" == "update-all-maintenance-$maintenance_invocation.tsv" &&
+    -f "$bound_maintenance_path" ]] \
     || fail "the action receipt did not name its immutable maintenance receipt"
-  [[ "$(shasum -a 256 "$bound_maintenance_path" | awk '{print $1}')" \
-    == "$bound_maintenance_digest" ]] \
+  [[ "$(shasum -a 256 "$bound_maintenance_path" | awk '{print $1}')" == "$bound_maintenance_digest" ]] \
     || fail "the action receipt did not bind the exact maintenance receipt digest"
   cmp -s "$maintenance_receipt_latest" "$bound_maintenance_path" \
     || fail "latest maintenance truth drifted from the invocation-bound receipt"
@@ -4784,6 +4891,48 @@ EOF
   grep -qxF 'app-adopt --check chatgpt' "$update_all_log"
   assert_not_contains '^app-adopt --yes|^app-remove' "$update_all_log" \
     "failed ChatGPT eligibility still reached adoption or Classic removal"
+
+  # A helper check can discover that the requested state became satisfied during
+  # the long updater transaction. Status 0 is a no-action observation, never
+  # permission to show a stale prompt or invoke a mutation.
+  : >"$update_all_log"
+  run_fixture_pty_after "$update_all_fixture/darwin-chatgpt-became-owned" \
+    'Remove ChatGPT Classic.app while preserving shared data? [y/N]' '\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    ACTION_ADOPT_CHECK_STATUS=0 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-work-runner" \
+    || fail "a no-longer-needed adoption check failed completed maintenance"
+  grep -qxF 'app-adopt --check chatgpt' "$update_all_log"
+  assert_not_contains '^app-adopt --yes' "$update_all_log" \
+    "an already owned --check result still invoked adoption"
+  grep -qxF 'app-remove --check chatgpt-classic' "$update_all_log"
+  assert_not_contains '^app-remove --yes' "$update_all_log" \
+    "declining the later Classic action still invoked removal"
+  grep -qF $'chatgpt-adoption\tnot-applicable\tbecame-homebrew-owned' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+
+  rm -f "$update_all_home/.chatgpt-adopted"
+  : >"$update_all_log"
+  run_fixture_pty_after "$update_all_fixture/darwin-chatgpt-classic-disappeared" \
+    'Let Homebrew manage ChatGPT.app? [y/N]' 'yes\n' env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    GROUNDWORK_APPLICATIONS_DIR="$manual_apps" BREW_FORMULAE='' BREW_CASKS='ghostty' \
+    ACTION_REMOVE_CHECK_STATUS=0 FAKE_PLATFORM=darwin \
+    "$update_all_fixture/darwin-work-runner" \
+    || fail "a no-longer-needed Classic removal check failed completed maintenance"
+  grep -qxF 'app-adopt --yes chatgpt' "$update_all_log"
+  grep -qxF 'app-remove --check chatgpt-classic' "$update_all_log"
+  assert_not_contains '^app-remove --yes' "$update_all_log" \
+    "an absent Classic --check result still invoked removal"
+  assert_not_contains 'Remove ChatGPT Classic.app while preserving shared data' \
+    "$update_all_fixture/darwin-chatgpt-classic-disappeared" \
+    "an absent Classic --check result still showed a stale prompt"
+  grep -qF $'chatgpt-classic-removal\tnot-applicable\tno-longer-installed' \
+    "$update_all_home/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+  rm -f "$update_all_home/.chatgpt-adopted"
 
   : >"$update_all_log"
   action_receipt_failure_exit=0
@@ -5484,7 +5633,7 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner reported a failed metadata refresh as complete"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmas outdated --json --inaccurate\nmas outdated --json --inaccurate\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
   grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
     "$update_all_fixture/darwin-brew-fail" \
     || fail "Homebrew failure did not isolate later package-manager mutation on macOS"
@@ -15395,6 +15544,15 @@ EOF
 
   check "docs links and coverage"
   scripts/audit-docs-coverage --check
+
+  check "continuity record: release, field evidence, and owner gates"
+  grep -qF '5b74bd221473cabf5be130984ac6704e5ec5820d' ROADMAP.md
+  grep -qF "\`v1.17.0\` is the current published release" ROADMAP.md
+  grep -qF "PR #19 on \`codex/update-all-field-receipts\`" ROADMAP.md
+  grep -qF 'original Homebrew sub-lane/root cause remains unknown' ROADMAP.md
+  grep -qF "Compass \`8713d212\` and the earlier Groundwork Compass scaffold \`b62fbaa\` are superseded diagnostic evidence" ROADMAP.md
+  grep -qF 'PR #19 merge remains owner-only' ROADMAP.md
+  grep -qF "expected to require \`v1.18.0\`" ROADMAP.md
 
   check "workflow timeout checker behaves as specified"
   # The checker is proven against fixtures rather than by mutating live workflow
