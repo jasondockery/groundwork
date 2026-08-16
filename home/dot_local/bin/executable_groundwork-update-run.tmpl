@@ -74,6 +74,7 @@ applications_dir=""
 mas_app_deadline="${GROUNDWORK_MAS_APP_DEADLINE_SECONDS:-1800}"
 mas_auth_deadline="${GROUNDWORK_MAS_AUTH_DEADLINE_SECONDS:-120}"
 mas_observe_deadline="${GROUNDWORK_MAS_OBSERVE_DEADLINE_SECONDS:-30}"
+mas_auth_kill_grace="${GROUNDWORK_TEST_MAS_AUTH_KILL_GRACE_SECONDS:-1}"
 applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
 if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ \
   || "$applications_dir" == */../* || "$applications_dir" == */.. \
@@ -87,6 +88,10 @@ for mas_bound in "$mas_app_deadline" "$mas_auth_deadline" "$mas_observe_deadline
     exit 64
   fi
 done
+[[ "$mas_auth_kill_grace" =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] || {
+  echo "groundwork-update-run: invalid test-only Mac App Store authorization grace: $mas_auth_kill_grace" >&2
+  exit 64
+}
 {{- end }}
 
 # Fail closed before any bootstrap apply or package stage: the support contract
@@ -1100,7 +1105,13 @@ if command -v mas >/dev/null 2>&1; then
   }
   # shellcheck disable=SC2034 # Sourced runner API.
   declare deadline="$mas_app_deadline" observe_deadline="$mas_observe_deadline" \
-    heartbeat=15 cancel_grace=2 poll_seconds=0.2 orphan_grace=5
+    heartbeat="${GROUNDWORK_TEST_MAS_HEARTBEAT_SECONDS:-15}" \
+    cancel_grace="${GROUNDWORK_TEST_MAS_CANCEL_GRACE_SECONDS:-2}" \
+    poll_seconds=0.2 orphan_grace=5
+  [[ "$heartbeat" =~ ^[1-9][0-9]*$ && "$cancel_grace" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Groundwork: invalid test-only Mac App Store runner timing override." >&2
+    exit 64
+  }
   # shellcheck source=/dev/null
   . "$mas_runner_lib"
   mas_installed="$(mktemp "$runner_receipt_dir/mas-installed.XXXXXX")"
@@ -1176,7 +1187,7 @@ if command -v mas >/dev/null 2>&1; then
             }')"
           for pid in $descendants; do kill -TERM "$pid" 2>/dev/null || true; done
           kill -TERM "$auth_pid" 2>/dev/null || true
-          sleep 1
+          sleep "$mas_auth_kill_grace"
           for pid in $descendants; do kill -KILL "$pid" 2>/dev/null || true; done
           kill -KILL "$auth_pid" 2>/dev/null || true
           : >"$deadline_file"
