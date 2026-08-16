@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The post-sync half of update-all. The launcher pulls the source
-# (`chezmoi update --init --apply=false`), preflights drift, installs and
+# (`chezmoi update --apply=false`, then one `chezmoi init`), preflights drift, installs and
 # verifies this runner plus its lock library, then execs it — so every stage
 # below, including the full `chezmoi apply` and its install hooks, runs the
 # implementation the sync just delivered. Stages guard on `command -v`, so the
@@ -58,10 +58,23 @@ while (($#)); do
   shift
 done
 
+# Preserve only an invocation that began with real interactive stdin and
+# stderr. Earlier bounded updater stages may temporarily detach fd 0; keeping
+# these exact descriptors lets later authorization and consent stay attached
+# to the caller without falling back to /dev/tty for redirected or automated
+# runs.
+groundwork_interactive_tty_available=0
+if [[ -t 0 && -t 2 ]]; then
+  exec 6>&2 7<&0
+  groundwork_interactive_tty_available=1
+fi
+
 applications_dir=""
 {{- if eq .chezmoi.os "darwin" }}
-mas_deadline="${GROUNDWORK_MAS_UPDATE_DEADLINE_SECONDS:-900}"
+mas_app_deadline="${GROUNDWORK_MAS_APP_DEADLINE_SECONDS:-1800}"
+mas_auth_deadline="${GROUNDWORK_MAS_AUTH_DEADLINE_SECONDS:-120}"
 mas_observe_deadline="${GROUNDWORK_MAS_OBSERVE_DEADLINE_SECONDS:-30}"
+mas_auth_kill_grace="${GROUNDWORK_TEST_MAS_AUTH_KILL_GRACE_SECONDS:-1}"
 applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
 if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ \
   || "$applications_dir" == */../* || "$applications_dir" == */.. \
@@ -69,12 +82,16 @@ if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ \
   echo "groundwork-update-run: the applications directory is unsafe: $applications_dir" >&2
   exit 64
 fi
-for mas_bound in "$mas_deadline" "$mas_observe_deadline"; do
+for mas_bound in "$mas_app_deadline" "$mas_auth_deadline" "$mas_observe_deadline"; do
   if [[ ! "$mas_bound" =~ ^[1-9][0-9]*$ ]]; then
     echo "groundwork-update-run: Mac App Store deadlines must be positive integers" >&2
     exit 64
   fi
 done
+[[ "$mas_auth_kill_grace" =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] || {
+  echo "groundwork-update-run: invalid test-only Mac App Store authorization grace: $mas_auth_kill_grace" >&2
+  exit 64
+}
 {{- end }}
 
 # Fail closed before any bootstrap apply or package stage: the support contract
@@ -132,6 +149,8 @@ groundwork_lock_acquire "groundwork-update-run" || exit $?
 runner_temp=""
 runner_temp_final=""
 runner_receipt_dir=""
+maintenance_receipt_work=""
+maintenance_receipt_published=0
 docker_backend_restore_required=0
 runner_exit() {
   local status=$? restore_status=0
@@ -174,6 +193,12 @@ runner_exit() {
       [[ "$status" -ne 0 ]] || status=1
     fi
   fi
+  if declare -F publish_maintenance_receipt >/dev/null 2>&1; then
+    publish_maintenance_receipt "$status" || {
+      echo "Groundwork: the durable maintenance receipt could not be published." >&2
+      [[ "$status" -ne 0 ]] || status=1
+    }
+  fi
   groundwork_lock_release || true
   if [[ -n "$runner_temp" ]]; then
     if [[ -n "$runner_temp_final" ]]; then
@@ -185,8 +210,11 @@ runner_exit() {
   if [[ -n "$runner_receipt_dir" ]]; then
     rm -f -- "$runner_receipt_dir/homebrew-bundle.tsv" \
       "$runner_receipt_dir/homebrew-upgrade.tsv" \
-      "$runner_receipt_dir/package-maintenance.tsv" 2>/dev/null || true
+      "$runner_receipt_dir/package-maintenance.tsv" \
+      "$runner_receipt_dir/maintenance.tsv" \
+      "$runner_receipt_dir/actions.tsv" 2>/dev/null || true
     rm -f -- "$runner_receipt_dir"/homebrew-cask-* 2>/dev/null || true
+    rm -f -- "$runner_receipt_dir"/action-casks* 2>/dev/null || true
     rm -f -- "$runner_receipt_dir"/homebrew-formula-* \
       "$runner_receipt_dir"/homebrew-pinned \
       "$runner_receipt_dir"/mas-* 2>/dev/null || true
@@ -229,6 +257,93 @@ fi
 runner_receipt_dir="$(mktemp -d "${TMPDIR:-/tmp}/groundwork-update-receipt.XXXXXX")"
 chmod 700 "$runner_receipt_dir"
 export GROUNDWORK_UPDATE_RECEIPT_DIR="$runner_receipt_dir"
+
+durable_receipt_dir="$HOME/.local/state/groundwork/receipts"
+maintenance_receipt_final="$durable_receipt_dir/update-all-maintenance-latest.tsv"
+action_receipt_final="$durable_receipt_dir/update-all-actions-latest.tsv"
+maintenance_receipt_work="$runner_receipt_dir/maintenance.tsv"
+mkdir -p "$durable_receipt_dir"
+chmod 700 "$durable_receipt_dir"
+update_started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+update_invocation_id="${update_started_at//[-:]/}-$$-${RANDOM}${RANDOM}"
+[[ "$update_invocation_id" =~ ^[0-9]{8}T[0-9]{6}Z-[1-9][0-9]*-[0-9]+$ ]] || {
+  echo "Groundwork: could not create a safe update invocation identity." >&2
+  exit 1
+}
+maintenance_receipt_named="$durable_receipt_dir/update-all-maintenance-$update_invocation_id.tsv"
+action_receipt_named="$durable_receipt_dir/update-all-actions-$update_invocation_id.tsv"
+maintenance_receipt_digest=""
+printf 'schema\t2\ninvocation-id\t%s\nstarted-at\t%s\nplatform\t%s\n' \
+  "$update_invocation_id" "$update_started_at" "$platform" \
+  >"$maintenance_receipt_work"
+chmod 600 "$maintenance_receipt_work"
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+receipt_field_safe() {
+  [[ "$1" != *$'\t'* && "$1" != *$'\n'* && "$1" != *$'\r'* ]]
+}
+
+append_maintenance_receipt() {
+  local field
+  for field in "$@"; do
+    receipt_field_safe "$field" || return 1
+  done
+  local first=1
+  for field in "$@"; do
+    if [[ "$first" -eq 1 ]]; then
+      first=0
+    else
+      printf '\t' >>"$maintenance_receipt_work"
+    fi
+    printf '%s' "$field" >>"$maintenance_receipt_work"
+  done
+  printf '\n' >>"$maintenance_receipt_work"
+}
+
+publish_maintenance_receipt() {
+  local result_status="$1" named_temporary latest_temporary
+  [[ "$maintenance_receipt_published" -eq 0 ]] || return 0
+  [[ -n "$maintenance_receipt_work" && -r "$maintenance_receipt_work" ]] || return 0
+  [[ ! -e "$maintenance_receipt_named" ]] || return 1
+  append_maintenance_receipt ended-at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    || return 1
+  append_maintenance_receipt process-status "$result_status" || return 1
+  named_temporary="${maintenance_receipt_named}.tmp.$$"
+  latest_temporary="${maintenance_receipt_final}.tmp.$$"
+  cp "$maintenance_receipt_work" "$named_temporary" || return 1
+  chmod 600 "$named_temporary" || return 1
+  mv -- "$named_temporary" "$maintenance_receipt_named" || return 1
+  maintenance_receipt_digest="$(sha256_file "$maintenance_receipt_named")" \
+    || return 1
+  [[ "$maintenance_receipt_digest" =~ ^[0-9a-f]{64}$ ]] || return 1
+  cp "$maintenance_receipt_named" "$latest_temporary" || return 1
+  chmod 600 "$latest_temporary" || return 1
+  mv -f -- "$latest_temporary" "$maintenance_receipt_final" || return 1
+  maintenance_receipt_published=1
+}
+
+publish_action_receipt() {
+  local action_work="$1" result_status="$2" named_temporary latest_temporary
+  [[ ! -e "$action_receipt_named" ]] || return 1
+  append_action_receipt ended-at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    || return 1
+  append_action_receipt process-status "$result_status" || return 1
+  named_temporary="${action_receipt_named}.tmp.$$"
+  latest_temporary="${action_receipt_final}.tmp.$$"
+  cp "$action_work" "$named_temporary" || return 1
+  chmod 600 "$named_temporary" || return 1
+  mv -- "$named_temporary" "$action_receipt_named" || return 1
+  cp "$action_receipt_named" "$latest_temporary" || return 1
+  chmod 600 "$latest_temporary" || return 1
+  mv -f -- "$latest_temporary" "$action_receipt_final" || return 1
+}
 
 update_pending_dir="$HOME/.local/state/groundwork/update-all-pending"
 mark_update_pending() {
@@ -285,11 +400,28 @@ chatgpt_bundle_id=""
 chatgpt_short_version=""
 chatgpt_build_version=""
 chatgpt_architecture=""
-if command -v brew >/dev/null 2>&1 \
-  && brew list --cask chatgpt >/dev/null 2>&1; then
+preapply_cask_inventory="$runner_receipt_dir/homebrew-cask-preapply"
+preapply_cask_inventory_status=127
+: >"$preapply_cask_inventory"
+if command -v brew >/dev/null 2>&1; then
+  preapply_cask_inventory_status=0
+  HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask >"$preapply_cask_inventory" 2>/dev/null \
+    || preapply_cask_inventory_status=$?
+  if [[ "$preapply_cask_inventory_status" -eq 0 ]] \
+    && ! awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' \
+      "$preapply_cask_inventory"; then
+    preapply_cask_inventory_status=65
+  fi
+fi
+if [[ "$preapply_cask_inventory_status" -eq 0 ]] \
+  && grep -qxF chatgpt "$preapply_cask_inventory"; then
   chatgpt_owner="homebrew"
 elif [[ -e "$chatgpt_app" || -L "$chatgpt_app" ]]; then
-  chatgpt_owner="external-unverified"
+  if [[ "$preapply_cask_inventory_status" -eq 0 ]]; then
+    chatgpt_owner="external-unverified"
+  else
+    chatgpt_owner="ownership-unresolved"
+  fi
   if [[ -d "$chatgpt_app" && -r "$chatgpt_info" ]] \
     && command -v plutil >/dev/null 2>&1; then
     chatgpt_bundle_id="$(plutil -extract CFBundleIdentifier raw "$chatgpt_info" 2>/dev/null || true)"
@@ -302,47 +434,16 @@ elif [[ -e "$chatgpt_app" || -L "$chatgpt_app" ]]; then
     fi
   fi
 fi
-if [[ "$chatgpt_owner" == "external-unverified" ]]; then
+if [[ "$chatgpt_owner" == "external-unverified" \
+  || "$chatgpt_owner" == "ownership-unresolved" ]]; then
   machine_app_action_count=$((machine_app_action_count + 1))
   export GROUNDWORK_BREWFILE_SKIP_CASKS="chatgpt"
-  cat >&2 <<EOF
-Groundwork action required: ChatGPT is installed, but no supported package
-manager owns the existing app.
-
-  Path:          $chatgpt_app
-  Bundle ID:     ${chatgpt_bundle_id:-unreadable}
-  Version:       ${chatgpt_short_version:-unreadable}
-  Build:         ${chatgpt_build_version:-unreadable}
-  Architecture:  ${chatgpt_architecture:-unreadable}
-
-Groundwork cannot distinguish a manual/vendor installation from an MDM-owned
-copy safely enough to change its updater. The conflicting ChatGPT cask will be
-omitted from this apply; every other safe updater lane will continue.
-
-If you own this app and want Homebrew to manage it, run this separately:
-  groundwork-app-adopt chatgpt
-
-That command uses Homebrew's identical-artifact adoption and separate consent.
-update-all never invokes it and never adds --force, uninstall, delete, or --zap.
-EOF
 fi
 chatgpt_classic_app="$applications_dir/ChatGPT Classic.app"
+chatgpt_classic_present=0
 if [[ -e "$chatgpt_classic_app" || -L "$chatgpt_classic_app" ]]; then
+  chatgpt_classic_present=1
   machine_app_action_count=$((machine_app_action_count + 1))
-  cat >&2 <<EOF
-Groundwork owner choice: ChatGPT Classic is installed and was kept unchanged.
-ChatGPT.app is the preferred current app. Classic is a legacy duplicate for
-most people; Groundwork recommends removing it after the current app is
-installed and updater-managed. Keep Classic only when you knowingly require it
-for compatibility or an existing Enterprise workflow.
-
-  Keep Classic: no action is required.
-  Inspect optional removal: groundwork-app-remove chatgpt-classic
-
-The removal command proves the current app and updater ownership, shows exactly
-what would be deleted and preserved, and asks "Remove ChatGPT Classic?".
-update-all never invokes it.
-EOF
 fi
 {{- end }}
 chezmoi apply
@@ -751,6 +852,16 @@ EOF
     local label="$1" repair_allowed="$2"
     shift 2
     local lane_log lane_receipt lane_status=0 repair_status=0 retry_upgrade=0
+    local lane_arg lane_tokens=""
+    for lane_arg in "$@"; do
+      case "$lane_arg" in brew | upgrade | --*) continue ;; esac
+      if [[ -n "$lane_tokens" ]]; then
+        lane_tokens="$lane_tokens, $lane_arg"
+      else
+        lane_tokens="$lane_arg"
+      fi
+    done
+    [[ -n "$lane_tokens" ]] || lane_tokens="none"
     lane_log="$(mktemp "$brew_log_dir/homebrew-upgrade-lane.XXXXXX")"
     lane_receipt="$(mktemp "$runner_receipt_dir/homebrew-upgrade-lane.XXXXXX")"
     chmod 600 "$lane_log" "$lane_receipt"
@@ -791,6 +902,20 @@ EOF
       HOMEBREW_NO_AUTO_UPDATE=1 \
         gw_brew_run_logged "$lane_log" "$lane_receipt" append "$label retry" -- "$@" \
         || lane_status=$?
+    fi
+    if [[ "$lane_status" -ne 0 ]]; then
+      printf 'command-failure\t%s\t%s\t%s\n' \
+        "$label" "$lane_status" "$lane_tokens" >>"$lane_receipt"
+      printf 'Groundwork: %s failed for exact token(s): %s (exit %s).\n' \
+        "$label" "$lane_tokens" "$lane_status" >&2
+      echo 'Groundwork: bounded final Homebrew output follows:' >&2
+      if [[ -s "$lane_log" ]]; then
+        tail -n 20 "$lane_log" >&2
+      else
+        echo '  (Homebrew produced no output.)' >&2
+      fi
+      append_maintenance_receipt homebrew-lane "$label" "$lane_status" \
+        "$lane_tokens" "$upgrade_log_final" || return 1
     fi
     cat "$lane_log" >>"$upgrade_log"
     cat "$lane_receipt" >>"$upgrade_receipt"
@@ -963,6 +1088,14 @@ fi
 
 mas_lane_status="skipped"
 mas_status=0
+mas_attempted_count=0
+mas_verified_updated_count=0
+mas_remaining_count=0
+mas_timed_out_count=0
+mas_failed_count=0
+mas_action_required_count=0
+mas_no_longer_outdated_count=0
+mas_unexplained_count=0
 {{- if eq .chezmoi.os "darwin" }}
 if command -v mas >/dev/null 2>&1; then
   mas_runner_lib="$HOME/.local/share/groundwork/lib/maintenance-runner.sh"
@@ -971,103 +1104,431 @@ if command -v mas >/dev/null 2>&1; then
     exit 1
   }
   # shellcheck disable=SC2034 # Sourced runner API.
-  declare deadline="$mas_deadline" observe_deadline="$mas_observe_deadline" \
-    heartbeat=15 cancel_grace=2 poll_seconds=0.2 orphan_grace=5
+  declare deadline="$mas_app_deadline" observe_deadline="$mas_observe_deadline" \
+    heartbeat="${GROUNDWORK_TEST_MAS_HEARTBEAT_SECONDS:-15}" \
+    cancel_grace="${GROUNDWORK_TEST_MAS_CANCEL_GRACE_SECONDS:-2}" \
+    poll_seconds=0.2 orphan_grace=5
+  [[ "$heartbeat" =~ ^[1-9][0-9]*$ && "$cancel_grace" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Groundwork: invalid test-only Mac App Store runner timing override." >&2
+    exit 64
+  }
   # shellcheck source=/dev/null
   . "$mas_runner_lib"
   mas_installed="$(mktemp "$runner_receipt_dir/mas-installed.XXXXXX")"
   mas_outdated="$(mktemp "$runner_receipt_dir/mas-outdated.XXXXXX")"
+  mas_post_installed="$(mktemp "$runner_receipt_dir/mas-post-installed.XXXXXX")"
   mas_remaining="$(mktemp "$runner_receipt_dir/mas-remaining.XXXXXX")"
+  mas_installed_items="$runner_receipt_dir/mas-installed-items"
+  mas_outdated_items="$runner_receipt_dir/mas-outdated-items"
+  mas_remaining_items="$runner_receipt_dir/mas-remaining-items"
+  mas_post_installed_items="$runner_receipt_dir/mas-post-installed-items"
   mas_installed_ids="$runner_receipt_dir/mas-installed-ids"
   mas_outdated_ids="$runner_receipt_dir/mas-outdated-ids"
   mas_remaining_ids="$runner_receipt_dir/mas-remaining-ids"
-  chmod 600 "$mas_installed" "$mas_outdated" "$mas_remaining"
+  mas_post_installed_ids="$runner_receipt_dir/mas-post-installed-ids"
+  mas_attempted_ids="$runner_receipt_dir/mas-attempted-ids"
+  mas_timed_out_ids="$runner_receipt_dir/mas-timed-out-ids"
+  mas_failed_ids="$runner_receipt_dir/mas-failed-ids"
+  mas_action_required_ids="$runner_receipt_dir/mas-action-required-ids"
+  mas_outcomes="$runner_receipt_dir/mas-outcomes"
+  chmod 600 "$mas_installed" "$mas_outdated" "$mas_post_installed" "$mas_remaining"
+  : >"$mas_installed_items"
+  : >"$mas_outdated_items"
+  : >"$mas_remaining_items"
+  : >"$mas_post_installed_items"
   : >"$mas_installed_ids"
   : >"$mas_outdated_ids"
   : >"$mas_remaining_ids"
-  select_mas_ids() {
-    local label="$1" input_file="$2" output_file="$3"
-    if ! awk '
-        NF == 0 { next }
-        $1 !~ /^[0-9]+$/ || NF < 2 { exit 1 }
-        { print $1 }
-      ' "$input_file" >"$output_file"; then
+  : >"$mas_post_installed_ids"
+  : >"$mas_attempted_ids"
+  : >"$mas_timed_out_ids"
+  : >"$mas_failed_ids"
+  : >"$mas_action_required_ids"
+  : >"$mas_outcomes"
+  run_foreground_mas_authorization() {
+    local label="$1" seconds="$2" pid_file deadline_file done_file
+    local watchdog status=0 timed_out=0 interrupted=0
+    local saved_hup saved_int saved_term
+    saved_hup="$(trap -p HUP || true)"
+    saved_int="$(trap -p INT || true)"
+    saved_term="$(trap -p TERM || true)"
+    pid_file="$(mktemp "$runner_receipt_dir/mas-auth-pid.XXXXXX")"
+    deadline_file="${pid_file}.deadline"
+    done_file="${pid_file}.done"
+    (
+      local started now auth_pid descendants pid
+      started="$(date +%s)"
+      while [[ ! -s "$pid_file" && ! -e "$done_file" ]]; do
+        now="$(date +%s)"
+        if [[ "$now" -ge $((started + seconds)) ]]; then
+          : >"$deadline_file"
+          exit 0
+        fi
+        sleep 0.1
+      done
+      [[ ! -e "$done_file" && -s "$pid_file" ]] || exit 0
+      auth_pid="$(cat "$pid_file" 2>/dev/null || true)"
+      [[ "$auth_pid" =~ ^[1-9][0-9]*$ ]] || {
+        : >"$deadline_file"
+        exit 0
+      }
+      while kill -0 "$auth_pid" 2>/dev/null && [[ ! -e "$done_file" ]]; do
+        now="$(date +%s)"
+        if [[ "$now" -ge $((started + seconds)) ]]; then
+          echo "  Groundwork: $label exceeded its ${seconds}s hard deadline; cancelling its owned process tree." >&2
+          descendants="$(LC_ALL=C ps -eo pid=,ppid= 2>/dev/null | awk -v root="$auth_pid" '
+            { pid[NR]=$1; parent[NR]=$2 }
+            END {
+              owned[root]=1
+              for (pass=1; pass<=NR; pass++)
+                for (i=1; i<=NR; i++)
+                  if (owned[parent[i]]) owned[pid[i]]=1
+              for (i=1; i<=NR; i++) if (owned[pid[i]] && pid[i] != root) print pid[i]
+            }')"
+          for pid in $descendants; do kill -TERM "$pid" 2>/dev/null || true; done
+          kill -TERM "$auth_pid" 2>/dev/null || true
+          sleep "$mas_auth_kill_grace"
+          for pid in $descendants; do kill -KILL "$pid" 2>/dev/null || true; done
+          kill -KILL "$auth_pid" 2>/dev/null || true
+          : >"$deadline_file"
+          exit 0
+        fi
+        sleep 0.1
+      done
+    ) &
+    watchdog=$!
+    trap 'interrupted=129' HUP
+    trap 'interrupted=130' INT
+    trap 'interrupted=143' TERM
+    # This wrapper is deliberately foreground. It inherits the caller's
+    # foreground terminal process group, records its exact PID for the bounded
+    # watchdog, then execs sudo so password input never belongs to a background
+    # job or a second pseudo-terminal.
+    /bin/sh -c 'printf "%s\n" "$$" >"$1"; shift; exec "$@"' \
+      groundwork-mas-auth "$pid_file" sudo -v <&7 >&6 2>&6 || status=$?
+    : >"$done_file"
+    wait "$watchdog" 2>/dev/null || true
+    if [[ -n "$saved_hup" ]]; then eval "$saved_hup"; else trap - HUP; fi
+    if [[ -n "$saved_int" ]]; then eval "$saved_int"; else trap - INT; fi
+    if [[ -n "$saved_term" ]]; then eval "$saved_term"; else trap - TERM; fi
+    [[ -e "$deadline_file" ]] && timed_out=1
+    rm -f -- "$pid_file" "$deadline_file" "$done_file"
+    if [[ "$interrupted" -ne 0 ]]; then
+      return "$interrupted"
+    fi
+    if [[ "$timed_out" -eq 1 ]]; then
+      return 124
+    fi
+    return "$status"
+  }
+  select_mas_installed_items() {
+    local label="$1" input_file="$2" items_file="$3" ids_file="$4"
+    if [[ ! -s "$input_file" ]]; then
+      : >"$items_file"
+    elif ! jq -er '
+        def safe_text:
+          type == "string" and length > 0 and
+          (test("[\\x00-\\x1F\\x7F]") | not);
+        if type == "object" and
+          (.trackId | type == "number" and . == floor) and
+          (.trackName | safe_text) and (.version | safe_text)
+        then [(.trackId | tostring), .trackName, .version] | @tsv
+        else error("invalid mas installed object")
+        end
+      ' "$input_file" >"$items_file"; then
       printf 'Groundwork: Mac App Store returned a malformed %s item; no App Store update was attempted.\n' \
         "$label" >&2
       return 1
     fi
-    if [[ -n "$(LC_ALL=C sort "$output_file" | uniq -d)" ]]; then
+    cut -f 1 "$items_file" >"$ids_file"
+    if [[ -n "$(LC_ALL=C sort "$ids_file" | uniq -d)" ]]; then
       printf 'Groundwork: Mac App Store returned a duplicate %s ID; no App Store update was attempted.\n' \
         "$label" >&2
       return 1
     fi
   }
+  select_mas_outdated_items() {
+    local label="$1" input_file="$2" items_file="$3" ids_file="$4"
+    if [[ ! -s "$input_file" ]]; then
+      : >"$items_file"
+    elif ! jq -er '
+        def safe_text:
+          type == "string" and length > 0 and
+          (test("[\\x00-\\x1F\\x7F]") | not);
+        if type == "object" and
+          (.trackId | type == "number" and . == floor) and
+          (.trackName | safe_text) and (.version | safe_text) and
+          (.newVersion | safe_text)
+        then [(.trackId | tostring), .trackName, .version, .newVersion] | @tsv
+        else error("invalid mas outdated object")
+        end
+      ' "$input_file" >"$items_file"; then
+      printf 'Groundwork: Mac App Store returned a malformed %s item; no App Store update was attempted.\n' \
+        "$label" >&2
+      return 1
+    fi
+    cut -f 1 "$items_file" >"$ids_file"
+    if [[ -n "$(LC_ALL=C sort "$ids_file" | uniq -d)" ]]; then
+      printf 'Groundwork: Mac App Store returned a duplicate %s ID; no App Store update was attempted.\n' \
+        "$label" >&2
+      return 1
+    fi
+  }
+  mas_version_status=0
+  mas_version="$(mas version 2>/dev/null)" || mas_version_status=$?
+  if [[ "$mas_version_status" -ne 0 || ! "$mas_version" =~ ^7[.] ]]; then
+    printf 'Groundwork: Mac App Store JSON inventory requires reviewed mas 7.x; observed %s. No App Store update was attempted.\n' \
+      "${mas_version:-unavailable}" >&2
+    mas_status=1
+  fi
   runner_temp="$mas_installed"
-  run_bounded_internal "inventory Mac App Store applications" "$mas_observe_deadline" \
-    "$mas_installed" mas list || mas_status=$?
   if [[ "$mas_status" -eq 0 ]]; then
-    select_mas_ids "installed" "$mas_installed" "$mas_installed_ids" || mas_status=$?
+    run_bounded_internal "inventory Mac App Store applications" "$mas_observe_deadline" \
+      "$mas_installed" mas list --json || mas_status=$?
+  fi
+  case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
+  if [[ "$mas_status" -eq 0 ]]; then
+    select_mas_installed_items "installed" "$mas_installed" "$mas_installed_items" \
+      "$mas_installed_ids" || mas_status=$?
   fi
   if [[ "$mas_status" -eq 0 ]]; then
     run_bounded_internal "check Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_outdated" mas outdated || mas_status=$?
+      "$mas_outdated" mas outdated --json --inaccurate || mas_status=$?
+    case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
   fi
-  mas_ids=()
   if [[ "$mas_status" -eq 0 ]]; then
-    select_mas_ids "outdated" "$mas_outdated" "$mas_outdated_ids" || mas_status=$?
+    select_mas_outdated_items "outdated" "$mas_outdated" "$mas_outdated_items" \
+      "$mas_outdated_ids" || mas_status=$?
   fi
   if [[ "$mas_status" -eq 0 ]] \
     && [[ -n "$(comm -23 <(LC_ALL=C sort "$mas_outdated_ids") <(LC_ALL=C sort "$mas_installed_ids"))" ]]; then
     echo "Groundwork: Mac App Store's outdated result was outside the exact installed ID set; no App Store update was attempted." >&2
     mas_status=1
   fi
-  if [[ "$mas_status" -eq 0 ]]; then
-    while IFS= read -r mas_id; do
-      [[ -n "$mas_id" ]] || continue
-      mas_ids+=("$mas_id")
-    done <"$mas_outdated_ids"
-  fi
-  if [[ "$mas_status" -eq 0 ]] && ((${#mas_ids[@]} > 0)); then
+  if [[ "$mas_status" -eq 0 && -s "$mas_outdated_ids" ]]; then
     mark_update_pending "mac-app-store" \
       "Mac App Store update started, but completion has not been proven"
-    run_bounded_internal "update exact Mac App Store applications" "$mas_deadline" "" \
-      mas update "${mas_ids[@]}" || mas_status=$?
+    while IFS= read -r mas_id; do
+      [[ -n "$mas_id" ]] || continue
+      mas_name="$(awk -F '\t' -v wanted="$mas_id" \
+        '$1 == wanted { print $2; exit }' "$mas_installed_items")"
+      mas_pre_version="$(awk -F '\t' -v wanted="$mas_id" \
+        '$1 == wanted { print $3; exit }' "$mas_installed_items")"
+      mas_outdated_name="$(awk -F '\t' -v wanted="$mas_id" \
+        '$1 == wanted { print $2; exit }' "$mas_outdated_items")"
+      mas_outdated_from="$(awk -F '\t' -v wanted="$mas_id" \
+        '$1 == wanted { print $3; exit }' "$mas_outdated_items")"
+      mas_target_version="$(awk -F '\t' -v wanted="$mas_id" \
+        '$1 == wanted { print $4; exit }' "$mas_outdated_items")"
+      [[ -n "$mas_name" && -n "$mas_pre_version" \
+        && "$mas_outdated_name" == "$mas_name" \
+        && "$mas_outdated_from" == "$mas_pre_version" \
+        && -n "$mas_target_version" ]] || {
+        printf 'Groundwork: Mac App Store app ID %s lost its installed identity before update.\n' \
+          "$mas_id" >&2
+        mas_unexplained_count=$((mas_unexplained_count + 1))
+        printf '%s\tunexplained\t65\tidentity-mismatch\n' "$mas_id" >>"$mas_outcomes"
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+        continue
+      }
+      if [[ "$groundwork_interactive_tty_available" -ne 1 ]]; then
+        printf '%s\n' "$mas_id" >>"$mas_action_required_ids"
+        mas_action_required_count=$((mas_action_required_count + 1))
+        printf 'Groundwork action required: Mac App Store update for %s (ID %s) needs an interactive terminal for macOS authorization.\n' \
+          "$mas_name" "$mas_id" >&2
+        printf '  Run interactively: sudo -v && sudo -n mas update %s\n' "$mas_id" >&2
+        printf '%s\taction-required\t0\tnot-started\n' "$mas_id" >>"$mas_outcomes"
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+        continue
+      fi
+      if ! command -v sudo >/dev/null 2>&1; then
+        printf '%s\n' "$mas_id" >>"$mas_action_required_ids"
+        mas_action_required_count=$((mas_action_required_count + 1))
+        printf 'Groundwork action required: attached authorization support is unavailable for Mac App Store update %s (ID %s).\n' \
+          "$mas_name" "$mas_id" >&2
+        printf '%s\taction-required\t127\tnot-started\n' "$mas_id" >>"$mas_outcomes"
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+        continue
+      fi
+      printf 'Groundwork: authorize Mac App Store update for %s (ID %s).\n' \
+        "$mas_name" "$mas_id"
+      mas_auth_status=0
+      run_foreground_mas_authorization \
+        "Mac App Store authorization for $mas_name (ID $mas_id)" \
+        "$mas_auth_deadline" || mas_auth_status=$?
+      case "$mas_auth_status" in
+        125 | 129 | 130 | 143)
+          append_maintenance_receipt mas-app "$mas_id" "$mas_name" \
+            "$mas_pre_version" "$mas_target_version" cancelled \
+            "$mas_auth_status" authorization "not-observed" unknown \
+            || exit 1
+          exit "$mas_auth_status"
+          ;;
+      esac
+      if [[ "$mas_auth_status" -ne 0 ]]; then
+        printf '%s\n' "$mas_id" >>"$mas_action_required_ids"
+        mas_action_required_count=$((mas_action_required_count + 1))
+        printf 'Groundwork action required: macOS authorization did not complete for %s (ID %s; exit %s); continuing with the next exact app.\n' \
+          "$mas_name" "$mas_id" "$mas_auth_status" >&2
+        printf '%s\taction-required\t%s\tauthorization\n' \
+          "$mas_id" "$mas_auth_status" >>"$mas_outcomes"
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+        continue
+      fi
+      printf '%s\n' "$mas_id" >>"$mas_attempted_ids"
+      mas_attempted_count=$((mas_attempted_count + 1))
+      printf 'Groundwork: Mac App Store update: %s (ID %s; deadline %ss).\n' \
+        "$mas_name" "$mas_id" "$mas_app_deadline"
+      mark_update_pending "mac-app-store" \
+        "Mac App Store app $mas_name (ID $mas_id) is being updated"
+      mas_app_status=0
+      run_bounded_internal "Mac App Store update for $mas_name (ID $mas_id)" \
+        "$mas_app_deadline" "" sudo -n mas update "$mas_id" || mas_app_status=$?
+      case "$mas_app_status" in
+        0)
+          printf '%s\tcommand-succeeded\t0\texited\n' "$mas_id" >>"$mas_outcomes"
+          ;;
+        124)
+          printf '%s\n' "$mas_id" >>"$mas_timed_out_ids"
+          mas_timed_out_count=$((mas_timed_out_count + 1))
+          printf 'Groundwork: Mac App Store update timed out for %s (ID %s); continuing with the next exact app.\n' \
+            "$mas_name" "$mas_id" >&2
+          printf '%s\ttimed-out\t124\ttimed-out\n' "$mas_id" >>"$mas_outcomes"
+          [[ "$mas_status" -ne 0 ]] || mas_status=1
+          ;;
+        125 | 129 | 130 | 143)
+          append_maintenance_receipt mas-app "$mas_id" "$mas_name" \
+            "$mas_pre_version" "$mas_target_version" cancelled \
+            "$mas_app_status" mutation "not-observed" unknown \
+            || exit 1
+          exit "$mas_app_status"
+          ;;
+        *)
+          printf '%s\n' "$mas_id" >>"$mas_failed_ids"
+          mas_failed_count=$((mas_failed_count + 1))
+          printf 'Groundwork: Mac App Store update failed for %s (ID %s; exit %s); continuing with the next exact app.\n' \
+            "$mas_name" "$mas_id" "$mas_app_status" >&2
+          printf '%s\tfailed\t%s\texited\n' "$mas_id" "$mas_app_status" >>"$mas_outcomes"
+          [[ "$mas_status" -ne 0 ]] || mas_status="$mas_app_status"
+          ;;
+      esac
+    done <"$mas_outdated_ids"
   fi
-  if [[ "$mas_status" -eq 0 ]]; then
+  mas_observe_status=0
+  run_bounded_internal "re-inventory Mac App Store applications" "$mas_observe_deadline" \
+    "$mas_post_installed" mas list --json || mas_observe_status=$?
+  case "$mas_observe_status" in 125 | 129 | 130 | 143) exit "$mas_observe_status" ;; esac
+  if [[ "$mas_observe_status" -eq 0 ]]; then
+    select_mas_installed_items "post-update installed" "$mas_post_installed" \
+      "$mas_post_installed_items" "$mas_post_installed_ids" \
+      || mas_observe_status=$?
+  fi
+  if [[ "$mas_observe_status" -eq 0 ]]; then
     run_bounded_internal "verify Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_remaining" mas outdated || mas_status=$?
+      "$mas_remaining" mas outdated --json --inaccurate || mas_observe_status=$?
   fi
-  if [[ "$mas_status" -eq 0 ]]; then
-    select_mas_ids "remaining outdated" "$mas_remaining" "$mas_remaining_ids" || mas_status=$?
+  case "$mas_observe_status" in 125 | 129 | 130 | 143) exit "$mas_observe_status" ;; esac
+  if [[ "$mas_observe_status" -eq 0 ]]; then
+    select_mas_outdated_items "remaining outdated" "$mas_remaining" \
+      "$mas_remaining_items" "$mas_remaining_ids" || mas_observe_status=$?
   fi
-  if [[ "$mas_status" -eq 0 ]] \
-    && [[ -n "$(comm -23 <(LC_ALL=C sort "$mas_remaining_ids") <(LC_ALL=C sort "$mas_installed_ids"))" ]]; then
-    echo "Groundwork: Mac App Store's post-update result was outside the exact installed ID set." >&2
-    mas_status=1
+  if [[ "$mas_observe_status" -eq 0 ]]; then
+    mas_unknown_ids="$(comm -23 <(LC_ALL=C sort "$mas_remaining_ids") \
+      <(LC_ALL=C sort "$mas_post_installed_ids"))"
+    if [[ -n "$mas_unknown_ids" ]]; then
+      unknown_count="$(printf '%s\n' "$mas_unknown_ids" | awk 'NF { count++ } END { print count + 0 }')"
+      mas_unexplained_count=$((mas_unexplained_count + unknown_count))
+      echo "Groundwork: Mac App Store's post-update result contained IDs outside the authenticated post-update installed set." >&2
+      [[ "$mas_status" -ne 0 ]] || mas_status=1
+    fi
+    while IFS= read -r mas_id; do
+      [[ -n "$mas_id" ]] || continue
+      mas_name="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { print $2; exit }' \
+        "$mas_installed_items")"
+      mas_pre_version="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { print $3; exit }' \
+        "$mas_installed_items")"
+      mas_target_version="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { print $4; exit }' \
+        "$mas_outdated_items")"
+      mas_post_name="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { print $2; exit }' \
+        "$mas_post_installed_items")"
+      mas_post_version="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { print $3; exit }' \
+        "$mas_post_installed_items")"
+      mas_outcome_row="$(awk -F '\t' -v wanted="$mas_id" '$1 == wanted { count++; row=$0 } END { if (count == 1) print row; else exit 1 }' \
+        "$mas_outcomes" 2>/dev/null || true)"
+      IFS=$'\t' read -r _mas_outcome_id mas_command_outcome mas_command_status \
+        mas_termination <<<"$mas_outcome_row"
+      [[ -n "$mas_command_outcome" ]] || {
+        mas_command_outcome="not-attempted"
+        mas_command_status="0"
+        mas_termination="not-started"
+      }
+      if [[ -z "$mas_post_name" || -z "$mas_post_version" \
+        || "$mas_post_name" != "$mas_name" ]]; then
+        mas_unexplained_count=$((mas_unexplained_count + 1))
+        printf 'Groundwork: Mac App Store app %s (ID %s) lost or changed its installed identity after update.\n' \
+          "$mas_name" "$mas_id" >&2
+        append_maintenance_receipt mas-app "$mas_id" "$mas_name" \
+          "$mas_pre_version" "$mas_target_version" "$mas_command_outcome" \
+          "$mas_command_status" "$mas_termination" "missing-or-changed" unknown \
+          || mas_observe_status=1
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+        continue
+      fi
+      if grep -qxF -- "$mas_id" "$mas_remaining_ids"; then
+        mas_post_outdated=remaining
+        mas_remaining_count=$((mas_remaining_count + 1))
+        printf 'Groundwork failed: Mac App Store still reports %s (ID %s) outdated at installed version %s.\n' \
+          "$mas_name" "$mas_id" "$mas_post_version" >&2
+        [[ "$mas_status" -ne 0 ]] || mas_status=1
+      else
+        mas_post_outdated=not-reported
+        if [[ "$mas_post_version" != "$mas_pre_version" ]]; then
+          mas_verified_updated_count=$((mas_verified_updated_count + 1))
+          printf 'Groundwork verified: %s (ID %s) changed from %s to %s and is no longer reported outdated.\n' \
+            "$mas_name" "$mas_id" "$mas_pre_version" "$mas_post_version"
+        else
+          mas_no_longer_outdated_count=$((mas_no_longer_outdated_count + 1))
+          printf 'Groundwork current: %s (ID %s) is no longer reported outdated; installed version remained %s, so no update is claimed.\n' \
+            "$mas_name" "$mas_id" "$mas_post_version"
+        fi
+      fi
+      append_maintenance_receipt mas-app "$mas_id" "$mas_name" \
+        "$mas_pre_version" "$mas_target_version" "$mas_command_outcome" \
+        "$mas_command_status" "$mas_termination" "$mas_post_version" \
+        "$mas_post_outdated" || mas_observe_status=1
+    done <"$mas_outdated_ids"
+  else
+    mas_unexplained_count=$((mas_unexplained_count + 1))
+    [[ "$mas_status" -ne 0 ]] || mas_status="$mas_observe_status"
+    echo "Groundwork: Mac App Store post-update installed/version state could not be verified." >&2
   fi
-  if [[ "$mas_status" -eq 0 && -s "$mas_remaining" ]]; then
-    while IFS= read -r mas_line; do
-      [[ -n "$mas_line" ]] || continue
-      printf 'Groundwork failed: Mac App Store still reports %s\n' "$mas_line" >&2
-    done <"$mas_remaining"
-    mas_status=1
-  fi
-  if [[ "$mas_status" -eq 0 ]]; then
+  [[ "$mas_observe_status" -eq 0 ]] || {
+    [[ "$mas_status" -ne 0 ]] || mas_status="$mas_observe_status"
+  }
+  if [[ "$mas_status" -eq 0 && "$mas_remaining_count" -eq 0 \
+    && "$mas_timed_out_count" -eq 0 && "$mas_failed_count" -eq 0 \
+    && "$mas_action_required_count" -eq 0 && "$mas_unexplained_count" -eq 0 ]]; then
     clear_update_pending "mac-app-store"
-    if ((${#mas_ids[@]} > 0)); then
+    if [[ "$mas_verified_updated_count" -gt 0 ]]; then
       mas_lane_status="updated-and-verified"
+    elif [[ "$mas_no_longer_outdated_count" -gt 0 ]]; then
+      mas_lane_status="current-after-recheck"
     else
       mas_lane_status="current"
     fi
   else
     mark_update_pending "mac-app-store" \
-      "Mac App Store inventory or update failed (exit $mas_status)"
+      "Mac App Store incomplete: attempted=$mas_attempted_count verified=$mas_verified_updated_count remaining=$mas_remaining_count timed-out=$mas_timed_out_count failed=$mas_failed_count action-required=$mas_action_required_count unexplained=$mas_unexplained_count"
     mas_lane_status="failed"
   fi
-  rm -f -- "$mas_installed" "$mas_outdated" "$mas_remaining" \
-    "$mas_installed_ids" "$mas_outdated_ids" "$mas_remaining_ids"
+  rm -f -- "$mas_installed" "$mas_outdated" "$mas_post_installed" "$mas_remaining" \
+    "$mas_installed_items" "$mas_outdated_items" "$mas_post_installed_items" \
+    "$mas_remaining_items" "$mas_installed_ids" "$mas_outdated_ids" \
+    "$mas_post_installed_ids" "$mas_remaining_ids" \
+    "$mas_attempted_ids" "$mas_timed_out_ids" "$mas_failed_ids" \
+    "$mas_action_required_ids" "$mas_outcomes"
   runner_temp=""
-  case "$mas_status" in 124 | 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
+  case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
 fi
 {{- end }}
 
@@ -1355,32 +1816,23 @@ docker_backend_is_manageable() {
 }
 
 prompt_start_docker_backend() {
-  local prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}" prompt_fd=0 answer
-  if [[ -t 0 ]]; then
-    prompt_fd=0
-  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
-    prompt_fd=8
-  else
-    return 2
-  fi
+  local answer
+  [[ "$groundwork_interactive_tty_available" -eq 1 ]] || return 2
   while true; do
     printf 'Start %s temporarily for Groundwork scratch maintenance? [y/N] ' \
-      "$(docker_backend_label)" >&2
-    if ! read -r -u "$prompt_fd" answer; then
-      [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
-      echo >&2
+      "$(docker_backend_label)" >&6
+    if ! read -r -u 7 answer; then
+      echo >&6
       return 1
     fi
     case "$answer" in
       y | Y | [yY][eE][sS])
-        [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
         return 0
         ;;
       "" | n | N | [nN][oO])
-        [[ "$prompt_fd" -eq 0 ]] || exec 8<&-
         return 1
         ;;
-      *) echo "Please answer yes or no." >&2 ;;
+      *) echo "Please answer yes or no." >&6 ;;
     esac
   done
 }
@@ -1566,6 +2018,17 @@ fi
 # An incomplete maintenance stage is an incomplete transaction. Earlier
 # upgrades remain complete, but the success timestamp is withheld and callers
 # see a nonzero status. Per-stage pending records keep the shell reminder active.
+append_maintenance_receipt homebrew-summary "$homebrew_status" \
+  "$brew_attempted_count" "$brew_verified_updated_count" \
+  "${upgrade_log_final:-not-created}" || exit 1
+append_maintenance_receipt mas-summary "$mas_status" "$mas_attempted_count" \
+  "$mas_verified_updated_count" "$mas_remaining_count" "$mas_timed_out_count" \
+  "$mas_failed_count" "$mas_action_required_count" \
+  "$mas_no_longer_outdated_count" "$mas_unexplained_count" || exit 1
+append_maintenance_receipt package-maintenance "$maintenance_status" \
+  "$maintenance_homebrew" "$maintenance_npm" "$maintenance_pnpm" || exit 1
+append_maintenance_receipt docker-maintenance "$docker_maintenance_status" \
+  "$docker_maintenance_result" || exit 1
 if [[ "$update_status" -ne 0 || "$maintenance_status" -ne 0 || "$docker_maintenance_status" -ne 0 ]]; then
   final_status="$update_status"
   [[ "$final_status" -ne 0 ]] || final_status="$maintenance_status"
@@ -1589,6 +2052,13 @@ EOF
   fi
   if [[ "$mas_status" -ne 0 ]]; then
     echo "  Mac App Store inventory or updates are incomplete." >&2
+    printf '  Mac App Store attempted: %s\n' "$mas_attempted_count" >&2
+    printf '  Mac App Store verified updated: %s\n' "$mas_verified_updated_count" >&2
+    printf '  Mac App Store remaining: %s\n' "$mas_remaining_count" >&2
+    printf '  Mac App Store timed out: %s\n' "$mas_timed_out_count" >&2
+    printf '  Mac App Store failed: %s\n' "$mas_failed_count" >&2
+    printf '  Mac App Store action required: %s\n' "$mas_action_required_count" >&2
+    printf '  Mac App Store unexplained: %s\n' "$mas_unexplained_count" >&2
   fi
   if [[ "$maintenance_status" -ne 0 ]]; then
     cat >&2 <<'EOF'
@@ -1683,6 +2153,16 @@ Updates
   Mac App Store apps      $mas_lane_status
   mise runtimes           $mise_lane_status
 
+Mac App Store inventory
+  Attempted               $mas_attempted_count
+  Verified updated        $mas_verified_updated_count
+  No longer outdated     $mas_no_longer_outdated_count (installed version unchanged; no update claimed)
+  Remaining               $mas_remaining_count
+  Timed out               $mas_timed_out_count
+  Failed                  $mas_failed_count
+  Action required         $mas_action_required_count
+  Unexplained             $mas_unexplained_count
+
 Homebrew inventory
   Discovered              $brew_discovered_count installed formulae and casks
   Current                 $brew_inventory_current_count
@@ -1756,3 +2236,210 @@ echo "  The shell reminder will stay quiet until the next stale window."
 if [[ "$brew_lane_status" != "skipped" ]]; then
   echo "  Homebrew details: ~/.local/state/groundwork/logs/homebrew-upgrade-latest.log"
 fi
+echo "  Maintenance receipt: ~/.local/state/groundwork/receipts/update-all-maintenance-latest.tsv"
+
+# Maintenance has completed independently of any optional action below. Bind
+# that truth durably before releasing its lock or asking for separate consent.
+publish_maintenance_receipt 0 || {
+  echo "Groundwork: the durable maintenance receipt could not be published." >&2
+  exit 1
+}
+
+{{- if eq .chezmoi.os "darwin" }}
+# Optional ownership cleanup is deliberately outside the completed updater
+# transaction. Release the machine-wide lock and remove its inherited token
+# before invoking either separately locked helper, otherwise update-all would
+# deadlock against itself. The helpers revalidate every identity immediately
+# before their own mutation.
+groundwork_lock_release
+unset GROUNDWORK_UPDATE_LOCK_HELD GROUNDWORK_UPDATE_LOCK_TOKEN
+
+action_receipt_work="$runner_receipt_dir/actions.tsv"
+[[ "$maintenance_receipt_published" -eq 1 \
+  && "$maintenance_receipt_digest" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "Groundwork: the post-update action receipt cannot bind the completed maintenance receipt." >&2
+  exit 1
+}
+printf 'schema\t2\ninvocation-id\t%s\nstarted-at\t%s\nmaintenance-status\tsucceeded\nmaintenance-receipt\t%s\nmaintenance-sha256\t%s\n' \
+  "$update_invocation_id" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+  "$(basename "$maintenance_receipt_named")" "$maintenance_receipt_digest" \
+  >"$action_receipt_work"
+chmod 600 "$action_receipt_work"
+append_action_receipt() {
+  local field first=1
+  for field in "$@"; do receipt_field_safe "$field" || return 1; done
+  for field in "$@"; do
+    if [[ "$first" -eq 1 ]]; then first=0; else printf '\t' >>"$action_receipt_work"; fi
+    printf '%s' "$field" >>"$action_receipt_work"
+  done
+  printf '\n' >>"$action_receipt_work"
+}
+
+observe_action_casks() {
+  local output="$1"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask >"$output" 2>/dev/null \
+    || return 1
+  awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' "$output"
+}
+
+groundwork_action_confirm() {
+  local prompt="$1" answer
+  while true; do
+    printf '%s [y/N] ' "$prompt" >&6
+    if ! IFS= read -r -u 7 answer; then
+      echo >&6
+      return 1
+    fi
+    case "$answer" in
+      y | Y | yes | Yes | YES) return 0 ;;
+      "" | n | N | no | No | NO) return 1 ;;
+      *) echo "Please answer yes or no." >&6 ;;
+    esac
+  done
+}
+
+action_cask_inventory="$runner_receipt_dir/action-casks"
+action_cask_inventory_after="$runner_receipt_dir/action-casks-after"
+chatgpt_owned_after=0
+action_inventory_status=0
+if command -v brew >/dev/null 2>&1; then
+  observe_action_casks "$action_cask_inventory" || action_inventory_status=$?
+else
+  action_inventory_status=127
+fi
+if [[ "$action_inventory_status" -eq 0 ]] \
+  && grep -qxF chatgpt "$action_cask_inventory"; then
+  chatgpt_owned_after=1
+fi
+action_center_status=0
+if [[ "$action_inventory_status" -ne 0 ]]; then
+  append_action_receipt chatgpt-adoption not-offered \
+    "homebrew-ownership-unresolved:$action_inventory_status" || exit 1
+  echo "Groundwork: ChatGPT actions were not offered because Homebrew cask ownership could not be observed." >&2
+elif [[ "$chatgpt_owner" == "ownership-unresolved" ]]; then
+  append_action_receipt chatgpt-adoption not-offered ownership-unresolved || exit 1
+  echo "Groundwork: ChatGPT actions were not offered because its pre-update ownership was unresolved." >&2
+elif [[ "$chatgpt_owner" == "external-unverified" && "$chatgpt_owned_after" -eq 0 ]]; then
+  cat <<EOF
+
+Post-update action
+  ChatGPT.app is installed but not package-manager-owned.
+  Path:          $chatgpt_app
+  Bundle ID:     ${chatgpt_bundle_id:-unreadable}
+  Version:       ${chatgpt_short_version:-unreadable}
+  Build:         ${chatgpt_build_version:-unreadable}
+  Architecture:  ${chatgpt_architecture:-unreadable}
+EOF
+  if [[ "$groundwork_interactive_tty_available" -eq 1 ]]; then
+    adopt_check_status=0
+    "$HOME/.local/bin/groundwork-app-adopt" --check chatgpt \
+      || adopt_check_status=$?
+    case "$adopt_check_status" in
+      0)
+        chatgpt_owned_after=1
+        append_action_receipt chatgpt-adoption not-applicable \
+          became-homebrew-owned || exit 1
+        echo "  ChatGPT.app became Homebrew-owned before consent; no adoption was offered."
+        ;;
+      3)
+        if groundwork_action_confirm "Let Homebrew manage ChatGPT.app?"; then
+        "$HOME/.local/bin/groundwork-app-adopt" --yes chatgpt \
+          || action_center_status=$?
+        action_inventory_after_status=0
+        if [[ "$action_center_status" -eq 0 ]]; then
+          observe_action_casks "$action_cask_inventory_after" \
+            || action_inventory_after_status=$?
+        fi
+        if [[ "$action_center_status" -eq 0 \
+          && "$action_inventory_after_status" -eq 0 ]] \
+          && grep -qxF chatgpt "$action_cask_inventory_after"; then
+          chatgpt_owned_after=1
+          append_action_receipt chatgpt-adoption completed homebrew-owned || exit 1
+        else
+          [[ "$action_center_status" -ne 0 ]] || action_center_status=1
+          append_action_receipt chatgpt-adoption failed "$action_center_status" \
+            "ownership-observation:$action_inventory_after_status" || exit 1
+          echo "Groundwork: ChatGPT adoption did not complete; Classic removal was not offered." >&2
+        fi
+        else
+          append_action_receipt chatgpt-adoption declined unchanged || exit 1
+          echo "  Kept current ChatGPT ownership unchanged."
+        fi
+        ;;
+      *)
+        append_action_receipt chatgpt-adoption not-offered \
+          "eligibility-check:$adopt_check_status" || exit 1
+        echo "Groundwork: ChatGPT adoption was not offered because current eligibility could not be verified." >&2
+        ;;
+    esac
+  else
+    append_action_receipt chatgpt-adoption not-offered noninteractive || exit 1
+    echo "  Noninteractive run: no ownership change was attempted."
+    echo "  Review interactively: groundwork-app-adopt chatgpt"
+  fi
+elif [[ "$chatgpt_owned_after" -eq 1 ]]; then
+  append_action_receipt chatgpt-adoption not-applicable already-homebrew-owned || exit 1
+else
+  append_action_receipt chatgpt-adoption not-applicable not-installed || exit 1
+fi
+
+if [[ "$chatgpt_classic_present" -eq 1 && "$chatgpt_owned_after" -eq 1 ]]; then
+  classic_check_status=0
+  "$HOME/.local/bin/groundwork-app-remove" --check chatgpt-classic \
+    || classic_check_status=$?
+  case "$classic_check_status" in
+    0)
+      append_action_receipt chatgpt-classic-removal not-applicable \
+        no-longer-installed || exit 1
+      echo "  ChatGPT Classic.app is no longer installed; no removal was offered."
+      ;;
+    3)
+      echo
+      echo "ChatGPT Classic.app is also installed."
+      echo "ChatGPT.app is preferred; keep Classic only for a known compatibility or Enterprise need."
+      if [[ "$groundwork_interactive_tty_available" -eq 1 ]]; then
+        if groundwork_action_confirm "Remove ChatGPT Classic.app while preserving shared data?"; then
+        "$HOME/.local/bin/groundwork-app-remove" --yes chatgpt-classic \
+          || action_center_status=$?
+        if [[ "$action_center_status" -eq 0 ]]; then
+          append_action_receipt chatgpt-classic-removal completed moved-or-uninstalled || exit 1
+        else
+          append_action_receipt chatgpt-classic-removal failed "$action_center_status" || exit 1
+        fi
+        else
+          append_action_receipt chatgpt-classic-removal declined unchanged || exit 1
+          echo "  Kept ChatGPT Classic.app unchanged."
+        fi
+      else
+        append_action_receipt chatgpt-classic-removal not-offered noninteractive || exit 1
+        echo "  Noninteractive run: no removal was attempted."
+        echo "  Review interactively: groundwork-app-remove chatgpt-classic"
+      fi
+      ;;
+    *)
+      append_action_receipt chatgpt-classic-removal not-offered \
+        "eligibility-check:$classic_check_status" || exit 1
+      echo "Groundwork: ChatGPT Classic removal was not offered because its exact identity or ownership could not be verified." >&2
+      ;;
+  esac
+elif [[ "$chatgpt_classic_present" -eq 1 ]]; then
+  append_action_receipt chatgpt-classic-removal suppressed \
+    current-chatgpt-not-homebrew-owned || exit 1
+else
+  append_action_receipt chatgpt-classic-removal not-applicable not-installed || exit 1
+fi
+if [[ "$action_center_status" -ne 0 ]]; then
+  publish_action_receipt "$action_receipt_work" "$action_center_status" || {
+    echo "Groundwork: the failed post-update action could not be recorded durably." >&2
+    exit 1
+  }
+  printf '\nPost-update action result\n  Maintenance: succeeded\n  Requested action: failed (exit %s)\n' \
+    "$action_center_status" >&2
+  exit "$action_center_status"
+fi
+publish_action_receipt "$action_receipt_work" 0 || {
+  echo "Groundwork: the durable post-update action receipt could not be published." >&2
+  exit 1
+}
+echo "  Action receipt: ~/.local/state/groundwork/receipts/update-all-actions-latest.tsv"
+{{- end }}

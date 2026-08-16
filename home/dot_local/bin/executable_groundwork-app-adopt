@@ -9,168 +9,274 @@ Adopt a supported manually installed macOS app into Homebrew ownership.
 
 Usage:
   groundwork-app-adopt <app>          inspect, confirm, and adopt one app
-  groundwork-app-adopt --yes <app>    adopt without an interactive prompt
+  groundwork-app-adopt --check <app>  verify adoption is currently safe
+  groundwork-app-adopt --yes <app>    adopt after non-interactive consent
   groundwork-app-adopt -h|--help      show this help
 
 Supported app mappings are explicit and local. Adoption uses Homebrew's
 exact-artifact check and never forces, removes, reinstalls, deletes, or zaps an
-existing application. The command refuses a running app, an unexpected bundle,
-symlinked paths, and a Mac whose app ownership may be device-managed.
+existing application. The command refuses a running app, an unexpected bundle
+or signing team, symlinked paths, and a Mac whose ownership may be managed.
+Check exit status:
+  0  the requested Homebrew-owned state is already satisfied
+  3  safe adoption is available, but --check made no change
+  other nonzero  eligibility could not be proved; do not adopt
 EOF
 }
 
+die() {
+  printf 'groundwork-app-adopt: %s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+reject_symlink_chain() {
+  local candidate="$1" current="/" component remainder
+  [[ "$candidate" == /* ]] || return 1
+  remainder="${candidate#/}"
+  while [[ -n "$remainder" ]]; do
+    component="${remainder%%/*}"
+    if [[ "$remainder" == */* ]]; then remainder="${remainder#*/}"; else remainder=""; fi
+    [[ -n "$component" && "$component" != . && "$component" != .. ]] || return 1
+    current="${current%/}/$component"
+    [[ ! -L "$current" ]] || return 1
+  done
+}
+
+read_app_identity() {
+  local app_path="$1" expected_id="$2" expected_executable="$3" expected_team="$4"
+  local info_path bundle_id short_version build_version executable_path
+  local signature_details team_id
+  info_path="$app_path/Contents/Info.plist"
+  reject_symlink_chain "$info_path" \
+    || die "refusing a symlinked or unsafe application path: $app_path"
+  [[ -d "$app_path" && -r "$info_path" ]] \
+    || die "the application is missing or unreadable: $app_path"
+  bundle_id="$(plutil -extract CFBundleIdentifier raw "$info_path" 2>/dev/null || true)"
+  short_version="$(plutil -extract CFBundleShortVersionString raw "$info_path" 2>/dev/null || true)"
+  build_version="$(plutil -extract CFBundleVersion raw "$info_path" 2>/dev/null || true)"
+  executable_path="$app_path/Contents/MacOS/$expected_executable"
+  [[ "$bundle_id" == "$expected_id" && -n "$short_version" && -n "$build_version" &&
+    -f "$executable_path" && -x "$executable_path" && ! -L "$executable_path" ]] \
+    || die "the application did not match its expected bundle identity and executable"
+  codesign --verify --deep --strict "$app_path" >/dev/null 2>&1 \
+    || die "the application signature failed strict verification; no change was made"
+  signature_details="$(codesign -dv --verbose=4 "$app_path" 2>&1)" \
+    || die "the application signing identity could not be read; no change was made"
+  team_id="$(printf '%s\n' "$signature_details" \
+    | awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"
+  [[ "$team_id" == "$expected_team" ]] \
+    || die "the application has an unexpected signing-team identity; no change was made"
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$bundle_id" "$short_version" "$build_version" "$executable_path" "$team_id"
+}
+
+device_management_state() {
+  local enrollment
+  command -v profiles >/dev/null 2>&1 || {
+    echo unknown
+    return 0
+  }
+  enrollment="$(profiles status -type enrollment 2>&1)" || {
+    echo unknown
+    return 0
+  }
+  if grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes' \
+    <<<"$enrollment"; then
+    echo managed
+  elif grep -Eqi 'MDM enrollment:[[:space:]]*No' <<<"$enrollment" \
+    && grep -Eqi 'Enrolled via DEP:[[:space:]]*No' <<<"$enrollment"; then
+    echo unmanaged
+  else
+    echo unknown
+  fi
+}
+
+read_cask_inventory() {
+  local output="$1"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask >"$output" 2>/dev/null \
+    || return 1
+  awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' "$output"
+}
+
+cask_ownership_state() {
+  local inventory="$1" token="$2"
+  if grep -qxF -- "$token" "$inventory"; then
+    echo owned
+  else
+    echo unowned
+  fi
+}
+
+cask_declares_exact_app() {
+  local token="$1" expected_app="$2" metadata_file="$3"
+  local expected_target="/Applications/$expected_app"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --cask "$token" \
+    >"$metadata_file" 2>/dev/null || return 1
+  jq -e --arg token "$token" --arg app "$expected_app" \
+    --arg target "$expected_target" '
+    (.formulae == []) and
+    (.casks | length == 1) and
+    (.casks[0].token == $token) and
+    ([.casks[0].artifacts[]? | select(has("app")) |
+      {app: .app[0], target: (.target // "")}] ==
+      [{app: $app, target: $target}]) and
+    (all(.casks[0].artifacts[]?;
+      ((keys - ["app", "target", "uninstall", "zap"]) | length) == 0))
+  ' "$metadata_file" >/dev/null 2>&1
+}
+
+app_process_state() {
+  local executable_path="$1" snapshot="$2"
+  if ! ps -axo pid=,command= >"$snapshot" 2>/dev/null; then
+    printf 'unknown\n'
+    return 0
+  fi
+  if ! awk '
+      NF == 0 { next }
+      $1 !~ /^[0-9]+$/ || NF < 2 { exit 1 }
+    ' "$snapshot"; then
+    printf 'unknown\n'
+    return 0
+  fi
+  if awk -v executable="$executable_path" '
+      NF == 0 { next }
+      {
+        $1 = ""
+        sub(/^[[:space:]]+/, "")
+        command = $0
+      }
+      command == executable || index(command, executable " ") == 1 { found=1 }
+      END { exit !found }
+    ' "$snapshot"; then
+    printf 'running\n'
+  else
+    printf 'stopped\n'
+  fi
+}
+
 assume_yes=0
+check_only=0
 requested_token=""
 while (($#)); do
   case "$1" in
     --yes) assume_yes=1 ;;
+    --check) check_only=1 ;;
     -h | --help)
       usage
       exit 0
       ;;
-    -*)
-      printf 'groundwork-app-adopt: unknown option: %s\n' "$1" >&2
-      exit 64
-      ;;
+    -*) die "unknown option: $1" 64 ;;
     *)
-      if [[ -n "$requested_token" ]]; then
-        printf 'groundwork-app-adopt: unexpected argument: %s\n' "$1" >&2
-        exit 64
-      fi
+      [[ -z "$requested_token" ]] || die "unexpected argument: $1" 64
       requested_token="$1"
       ;;
   esac
   shift
 done
-
+[[ "$assume_yes" -eq 0 || "$check_only" -eq 0 ]] \
+  || die "--check and --yes cannot be combined" 64
 [[ -n "$requested_token" ]] || {
-  echo "groundwork-app-adopt: an app name is required" >&2
   usage >&2
-  exit 64
+  die "an app name is required" 64
 }
-[[ "$requested_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ]] || {
-  printf 'groundwork-app-adopt: invalid app name: %s\n' "$requested_token" >&2
-  exit 64
-}
+[[ "$requested_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ]] \
+  || die "invalid app name: $requested_token" 64
 
 mapping_file="${GROUNDWORK_APP_ADOPTION_MAP:-$HOME/.local/share/groundwork/app-adoption.tsv}"
 applications_dir="${GROUNDWORK_APPLICATIONS_DIR:-/Applications}"
-if [[ ! "$applications_dir" =~ ^/[^[:cntrl:]]+$ ||
-  "$applications_dir" == */../* || "$applications_dir" == */.. ||
-  "$applications_dir" == *//* || -L "$applications_dir" ]]; then
-  echo "groundwork-app-adopt: the applications directory is unsafe: $applications_dir" >&2
-  exit 1
-fi
-[[ -f "$mapping_file" && -r "$mapping_file" && ! -L "$mapping_file" ]] || {
-  echo "groundwork-app-adopt: the app-adoption mapping is missing or unsafe: $mapping_file" >&2
-  exit 1
-}
+[[ "$(uname -s)" == Darwin ]] \
+  || die "application adoption is supported only on macOS"
+for required_command in brew codesign jq plutil ps shasum; do
+  command -v "$required_command" >/dev/null 2>&1 \
+    || die "$required_command is unavailable; application state cannot be verified"
+done
+reject_symlink_chain "$applications_dir" \
+  || die "the applications directory has a symlinked or unsafe ancestor: $applications_dir"
+reject_symlink_chain "$mapping_file" \
+  || die "the adoption mapping has a symlinked or unsafe ancestor: $mapping_file"
+[[ -f "$mapping_file" && -r "$mapping_file" ]] \
+  || die "the adoption mapping is missing or unreadable: $mapping_file"
 
 display_name=""
 cask_token=""
 app_bundle=""
 expected_bundle_id=""
 executable_name=""
-while IFS=$'\t' read -r map_token map_display map_cask map_app map_bundle map_executable map_extra; do
+expected_team_id=""
+while IFS=$'\t' read -r map_token map_display map_cask map_app map_bundle \
+  map_executable map_team map_extra; do
   case "$map_token" in "" | \#*) continue ;; esac
   if [[ -n "$map_extra" || ! "$map_token" =~ ^[a-z0-9][a-z0-9+._-]*$ ||
     ! "$map_cask" =~ ^[A-Za-z0-9@+._-]+$ ||
     ! "$map_app" =~ ^[^/[:cntrl:]]+[.]app$ ||
     ! "$map_bundle" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ||
+    ! "$map_team" =~ ^[A-Z0-9]+$ ||
     -z "$map_display" || "$map_display" == *$'\n'* ||
     -z "$map_executable" || "$map_executable" == */* ]]; then
-    echo "groundwork-app-adopt: the app-adoption mapping is malformed" >&2
-    exit 1
+    die "the adoption mapping is malformed"
   fi
   if [[ "$map_token" == "$requested_token" ]]; then
-    [[ -z "$display_name" ]] || {
-      printf 'groundwork-app-adopt: duplicate app mapping: %s\n' "$requested_token" >&2
-      exit 1
-    }
+    [[ -z "$display_name" ]] || die "duplicate app mapping: $requested_token"
     display_name="$map_display"
     cask_token="$map_cask"
     app_bundle="$map_app"
     expected_bundle_id="$map_bundle"
     executable_name="$map_executable"
+    expected_team_id="$map_team"
   fi
 done <"$mapping_file"
-
-[[ -n "$display_name" ]] || {
-  printf 'groundwork-app-adopt: unsupported app: %s\n' "$requested_token" >&2
-  echo "Run 'groundwork-app-adopt --help' for the contract." >&2
-  exit 64
-}
-app_path="$applications_dir/$app_bundle"
-[[ "$(uname -s)" == "Darwin" ]] || {
-  printf 'groundwork-app-adopt: %s adoption is supported only on macOS\n' "$display_name" >&2
-  exit 1
-}
-command -v brew >/dev/null 2>&1 || {
-  echo "groundwork-app-adopt: Homebrew is not on PATH" >&2
-  exit 1
-}
-command -v plutil >/dev/null 2>&1 || {
-  echo "groundwork-app-adopt: plutil is unavailable; bundle identity cannot be verified" >&2
-  exit 1
-}
+[[ -n "$display_name" ]] || die "unsupported app: $requested_token" 64
 
 lock_lib="$HOME/.local/lib/groundwork/update-lock.sh"
-[[ -r "$lock_lib" && ! -L "$lock_lib" ]] || {
-  echo "groundwork-app-adopt: the machine-maintenance lock helper is missing or unsafe: $lock_lib" >&2
-  exit 1
-}
+[[ -r "$lock_lib" && ! -L "$lock_lib" ]] \
+  || die "the machine-maintenance lock helper is missing or unsafe: $lock_lib"
 # shellcheck source=/dev/null
 source "$lock_lib"
-adoption_cleanup() {
+cleanup() {
   groundwork_lock_release || true
 }
-trap adoption_cleanup EXIT
+trap cleanup EXIT
 groundwork_lock_acquire "groundwork-app-adopt $requested_token" || exit $?
 
-if brew list --cask "$cask_token" >/dev/null 2>&1; then
+cask_inventory="$(mktemp "${TMPDIR:-/tmp}/groundwork-app-adopt-casks.XXXXXX")"
+cask_inventory_after="${cask_inventory}.after"
+cask_metadata="${cask_inventory}.metadata"
+cask_metadata_after="${cask_inventory}.metadata-after"
+process_snapshot="${cask_inventory}.processes"
+process_snapshot_after="${cask_inventory}.processes-after"
+cleanup_inventory() {
+  rm -f -- "$cask_inventory" "$cask_inventory_after" \
+    "$cask_metadata" "$cask_metadata_after" \
+    "$process_snapshot" "$process_snapshot_after"
+}
+trap 'cleanup_inventory; cleanup' EXIT
+read_cask_inventory "$cask_inventory" \
+  || die "Homebrew cask ownership could not be observed; no change was made"
+homebrew_owner="$(cask_ownership_state "$cask_inventory" "$cask_token")"
+if [[ "$homebrew_owner" == owned ]]; then
   printf '%s is already owned by Homebrew. No change was made.\n' "$display_name"
   exit 0
 fi
+cask_declares_exact_app "$cask_token" "$app_bundle" "$cask_metadata" \
+  || die "Homebrew metadata does not bind $cask_token to only $app_bundle; no change was made"
 
-info_path="$app_path/Contents/Info.plist"
-for path_part in "$applications_dir" "$app_path" "$app_path/Contents" "$info_path"; do
-  [[ ! -L "$path_part" ]] || {
-    printf 'groundwork-app-adopt: refusing symlinked application path: %s\n' "$path_part" >&2
-    exit 1
-  }
-done
-[[ -d "$app_path" && -r "$info_path" ]] || {
-  printf 'groundwork-app-adopt: %s is missing or unreadable: %s\n' "$display_name" "$app_path" >&2
-  exit 1
-}
-
-bundle_id="$(plutil -extract CFBundleIdentifier raw "$info_path" 2>/dev/null || true)"
-short_version="$(plutil -extract CFBundleShortVersionString raw "$info_path" 2>/dev/null || true)"
-build_version="$(plutil -extract CFBundleVersion raw "$info_path" 2>/dev/null || true)"
-[[ "$bundle_id" == "$expected_bundle_id" && -n "$short_version" && -n "$build_version" ]] || {
-  printf 'groundwork-app-adopt: the existing %s bundle is unsupported (identifier: %s)\n' \
-    "$display_name" "${bundle_id:-unreadable}" >&2
-  echo "No ownership change was attempted." >&2
-  exit 1
-}
-
-if command -v profiles >/dev/null 2>&1 \
-  && profiles status -type enrollment 2>&1 | grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes'; then
-  cat >&2 <<EOF
-groundwork-app-adopt: this Mac is device-managed, so Groundwork cannot prove
-that $display_name is owner-managed rather than MDM-managed. Ask the device
-administrator before changing updater ownership. No change was made.
-EOF
-  exit 2
-fi
-
-executable_path="$app_path/Contents/MacOS/$executable_name"
-if command -v ps >/dev/null 2>&1 \
-  && ps -axo command= 2>/dev/null | awk -v executable="$executable_path" \
-    '$0 == executable || index($0, executable " ") == 1 { found = 1 } END { exit !found }'; then
-  printf 'groundwork-app-adopt: quit %s before changing updater ownership\n' "$display_name" >&2
-  exit 2
-fi
+app_path="$applications_dir/$app_bundle"
+identity_before="$(read_app_identity "$app_path" "$expected_bundle_id" \
+  "$executable_name" "$expected_team_id")"
+IFS=$'\t' read -r bundle_id short_version build_version executable_path team_id \
+  <<<"$identity_before"
+management_state="$(device_management_state)"
+case "$management_state" in
+  unmanaged) ;;
+  managed) die "this Mac is device-managed, so application ownership is ambiguous; no change was made" 2 ;;
+  *) die "device-management state could not be verified; no change was made" 2 ;;
+esac
+process_state="$(app_process_state "$executable_path" "$process_snapshot")"
+case "$process_state" in
+  stopped) ;;
+  running) die "quit $display_name before changing updater ownership" 2 ;;
+  *) die "running application state could not be observed; no change was made" 2 ;;
+esac
 
 cat <<EOF
 $display_name is installed but Homebrew does not own it.
@@ -179,28 +285,27 @@ Path:       $app_path
 Bundle ID:  $bundle_id
 Version:    $short_version
 Build:      $build_version
+Team ID:    $team_id
 
 Homebrew will adopt the app only if its installed artifact is identical to the
 current cask artifact. Groundwork will not force, remove, reinstall, delete, or
 zap it.
 EOF
 
+if [[ "$check_only" -eq 1 ]]; then
+  printf '%s is ready for a separate consent-gated adoption. No change was made.\n' \
+    "$display_name"
+  exit 3
+fi
+
 if [[ "$assume_yes" -ne 1 ]]; then
-  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
-  if [[ -t 0 ]]; then
-    prompt_fd=0
-  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
-    prompt_fd=8
-  else
-    echo "groundwork-app-adopt: confirmation requires a terminal; rerun interactively or use --yes" >&2
-    exit 2
-  fi
+  [[ -t 0 && -t 2 ]] \
+    || die "confirmation requires interactive stdin and stderr; rerun interactively or use --yes" 2
   while true; do
     printf 'Adopt %s into Homebrew ownership now? [y/N] ' "$display_name" >&2
-    if ! IFS= read -r answer <&"$prompt_fd"; then
+    if ! IFS= read -r answer; then
       echo >&2
-      echo "groundwork-app-adopt: confirmation input ended; no change was made" >&2
-      exit 2
+      die "confirmation input ended; no change was made" 2
     fi
     case "$answer" in
       y | Y | yes | Yes | YES) break ;;
@@ -213,6 +318,34 @@ if [[ "$assume_yes" -ne 1 ]]; then
   done
 fi
 
+# Consent is not authority to act on stale observations. Recheck ownership,
+# identity, signing team, management state, and process state under the same
+# machine-wide lock immediately before the first mutation.
+read_cask_inventory "$cask_inventory_after" \
+  || die "Homebrew cask ownership could not be re-observed after consent; no change was made"
+homebrew_owner_after="$(cask_ownership_state "$cask_inventory_after" "$cask_token")"
+if [[ "$homebrew_owner_after" == owned ]]; then
+  printf '%s became Homebrew-owned before adoption. No change was made.\n' "$display_name"
+  exit 0
+fi
+cask_declares_exact_app "$cask_token" "$app_bundle" "$cask_metadata_after" \
+  || die "Homebrew cask metadata changed or became unsafe after consent; no change was made"
+[[ "$(shasum -a 256 "$cask_metadata" | awk '{print $1}')" == "$(shasum -a 256 "$cask_metadata_after" | awk '{print $1}')" ]] \
+  || die "Homebrew cask metadata changed after consent; no change was made"
+identity_after="$(read_app_identity "$app_path" "$expected_bundle_id" \
+  "$executable_name" "$expected_team_id")"
+[[ "$identity_after" == "$identity_before" ]] \
+  || die "application identity changed after consent; no change was made"
+management_state_after="$(device_management_state)"
+[[ "$management_state_after" == unmanaged ]] \
+  || die "device-management state changed or became unverifiable after consent; no change was made" 2
+process_state_after="$(app_process_state "$executable_path" "$process_snapshot_after")"
+case "$process_state_after" in
+  stopped) ;;
+  running) die "$display_name started after consent; no change was made" 2 ;;
+  *) die "running application state could not be re-observed; no change was made" 2 ;;
+esac
+
 adopt_status=0
 brew install --cask --require-sha --adopt "$cask_token" || adopt_status=$?
 if [[ "$adopt_status" -ne 0 ]]; then
@@ -224,8 +357,9 @@ deliberately and rerun this command.
 EOF
   exit "$adopt_status"
 fi
-if ! brew list --cask "$cask_token" >/dev/null 2>&1; then
-  printf 'Groundwork: Homebrew returned success but did not record %s ownership.\n' "$display_name" >&2
-  exit 1
+read_cask_inventory "$cask_inventory_after" \
+  || die "Homebrew returned success, but cask ownership could not be verified"
+if [[ "$(cask_ownership_state "$cask_inventory_after" "$cask_token")" != owned ]]; then
+  die "Homebrew returned success but did not record $display_name ownership"
 fi
 printf '%s is now owned by Homebrew and will be included in update-all.\n' "$display_name"

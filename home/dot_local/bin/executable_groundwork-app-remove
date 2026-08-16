@@ -9,6 +9,7 @@ Remove one explicitly mapped legacy macOS app while preserving its replacement.
 
 Usage:
   groundwork-app-remove <app>          inspect, confirm, and remove one app
+  groundwork-app-remove --check <app>  verify removal is currently safe
   groundwork-app-remove --yes <app>    remove after non-interactive consent
   groundwork-app-remove -h|--help      show this help
 
@@ -19,6 +20,10 @@ move or be removed and what will remain; and then asks for literal consent.
 Manual app bundles move to Trash. Homebrew-owned targets use an exact mapped
 cask uninstall. The command never uses --zap and never removes preferences,
 chats, credentials, Application Support, or other user data.
+Check exit status:
+  0  the requested absent state is already satisfied
+  3  safe removal is available, but --check made no change
+  other nonzero  eligibility could not be proved; do not remove
 EOF
 }
 
@@ -57,6 +62,8 @@ read_bundle_identity() {
   [[ "$bundle_id" == "$expected_id" && -n "$short_version" && -n "$build_version" &&
     -f "$executable_path" && -x "$executable_path" && ! -L "$executable_path" ]] \
     || die "$label did not match its expected bundle identity and executable"
+  codesign --verify --deep --strict "$app_path" >/dev/null 2>&1 \
+    || die "$label signature failed strict verification; no change was made"
   signature_details="$(codesign -dv --verbose=4 "$app_path" 2>&1)" \
     || die "$label signing identity could not be read; no change was made"
   team_id="$(printf '%s\n' "$signature_details" \
@@ -70,16 +77,21 @@ read_bundle_identity() {
 cask_declares_exact_app() {
   local token="$1" expected_app="$2" expected_quit="$3"
   local expected_launchctl="$4" metadata_file="$5"
+  local expected_target="/Applications/$expected_app"
   [[ "$expected_launchctl" != - ]] || expected_launchctl=""
   HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --cask "$token" \
     >"$metadata_file" 2>/dev/null || return 1
   jq -e --arg token "$token" --arg app "$expected_app" \
+    --arg target "$expected_target" \
     --arg quit "$expected_quit" --arg launchctl "$expected_launchctl" '
     (.formulae == []) and
     (.casks | length == 1) and
     (.casks[0].token == $token) and
-    ([.casks[0].artifacts[]? | select(has("app")) | .app[0]] == [$app]) and
-    (all(.casks[0].artifacts[]?; ((keys - ["app", "uninstall", "zap"]) | length) == 0)) and
+    ([.casks[0].artifacts[]? | select(has("app")) |
+      {app: .app[0], target: (.target // "")}] ==
+      [{app: $app, target: $target}]) and
+    (all(.casks[0].artifacts[]?;
+      ((keys - ["app", "target", "uninstall", "zap"]) | length) == 0)) and
     ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?] | length == 1) and
     ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?][0] as $uninstall |
       (($uninstall | keys) - ["launchctl", "quit"] | length) == 0 and
@@ -88,34 +100,83 @@ cask_declares_exact_app() {
   ' "$metadata_file" >/dev/null 2>&1
 }
 
-device_is_managed() {
-  command -v profiles >/dev/null 2>&1 || return 1
-  profiles status -type enrollment 2>&1 \
-    | grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes'
+device_management_state() {
+  local enrollment
+  command -v profiles >/dev/null 2>&1 || {
+    echo unknown
+    return 0
+  }
+  enrollment="$(profiles status -type enrollment 2>&1)" || {
+    echo unknown
+    return 0
+  }
+  if grep -Eqi 'MDM enrollment:[[:space:]]*Yes|Enrolled via DEP:[[:space:]]*Yes' \
+    <<<"$enrollment"; then
+    echo managed
+  elif grep -Eqi 'MDM enrollment:[[:space:]]*No' <<<"$enrollment" \
+    && grep -Eqi 'Enrolled via DEP:[[:space:]]*No' <<<"$enrollment"; then
+    echo unmanaged
+  else
+    echo unknown
+  fi
 }
 
-related_app_is_running() {
+read_cask_inventory() {
+  local output="$1"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew list --cask >"$output" 2>/dev/null \
+    || return 1
+  awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' "$output"
+}
+
+cask_ownership_state() {
+  local inventory="$1" token="$2"
+  if grep -qxF -- "$token" "$inventory"; then
+    echo owned
+  else
+    echo unowned
+  fi
+}
+
+related_app_process_state() {
   local snapshot="$1" required_executable_path="$2" removed_executable_path="$3"
   local removed_suffix="$4"
-  ps -axo command= >"$snapshot" || return 2
+  if ! ps -axo pid=,command= >"$snapshot" 2>/dev/null; then
+    printf 'unknown\n'
+    return 0
+  fi
+  if ! awk '
+      NF == 0 { next }
+      $1 !~ /^[0-9]+$/ || NF < 2 { exit 1 }
+    ' "$snapshot"; then
+    printf 'unknown\n'
+    return 0
+  fi
   if awk -v required="$required_executable_path" -v removed="$removed_executable_path" \
     -v removed_suffix="$removed_suffix" '
-    { command=$0; sub(/^[[:space:]]+/, "", command) }
+    NF == 0 { next }
+    {
+      $1 = ""
+      sub(/^[[:space:]]+/, "")
+      command=$0
+    }
     command == required || index(command, required " ") == 1 ||
       command == removed || index(command, removed " ") == 1 ||
       index(command, removed_suffix) > 0 { found=1 }
     END { exit !found }
   ' "$snapshot"; then
-    return 1
+    printf 'running\n'
+  else
+    printf 'stopped\n'
   fi
-  return 0
 }
 
 assume_yes=0
+check_only=0
 requested_token=""
 while (($#)); do
   case "$1" in
     --yes) assume_yes=1 ;;
+    --check) check_only=1 ;;
     -h | --help)
       usage
       exit 0
@@ -128,6 +189,8 @@ while (($#)); do
   esac
   shift
 done
+[[ "$assume_yes" -eq 0 || "$check_only" -eq 0 ]] \
+  || die "--check and --yes cannot be combined" 64
 [[ -n "$requested_token" ]] || {
   usage >&2
   die "an app name is required" 64
@@ -220,7 +283,9 @@ cleanup() {
   if [[ -n "$temporary_dir" ]]; then
     rm -f -- "$temporary_dir/required.json" "$temporary_dir/remove.json" \
       "$temporary_dir/required-after.json" "$temporary_dir/remove-after.json" \
-      "$temporary_dir/processes" "$temporary_dir/processes-after"
+      "$temporary_dir/processes" "$temporary_dir/processes-after" \
+      "$temporary_dir/casks" "$temporary_dir/casks-after" \
+      "$temporary_dir/casks-final"
     rmdir "$temporary_dir" 2>/dev/null || true
   fi
   groundwork_lock_release || true
@@ -235,23 +300,32 @@ required_metadata_after="$temporary_dir/required-after.json"
 remove_metadata_after="$temporary_dir/remove-after.json"
 process_snapshot="$temporary_dir/processes"
 process_snapshot_after="$temporary_dir/processes-after"
+cask_inventory="$temporary_dir/casks"
+cask_inventory_after="$temporary_dir/casks-after"
+cask_inventory_final="$temporary_dir/casks-final"
 required_path="$applications_dir/$required_app"
 remove_path="$applications_dir/$remove_app"
 required_identity="$(read_bundle_identity "$required_path" "$required_bundle_id" \
   "$required_executable" "$required_team_id" "required current app")"
 IFS=$'\t' read -r observed_required_id required_version required_build \
   required_executable_path observed_required_team <<<"$required_identity"
-brew list --cask "$required_cask" >/dev/null 2>&1 \
+read_cask_inventory "$cask_inventory" \
+  || die "Homebrew cask ownership could not be observed; no change was made"
+[[ "$(cask_ownership_state "$cask_inventory" "$required_cask")" == owned ]] \
   || die "$required_app is not Homebrew-owned; reconcile its updater before removing anything"
 cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
   "$required_uninstall_launchctl" "$required_metadata" \
   || die "Homebrew metadata has unexpected artifacts or does not bind $required_cask to $required_app"
-if device_is_managed; then
-  die "this Mac is device-managed, so application ownership is ambiguous; no change was made" 2
-fi
+management_state="$(device_management_state)"
+case "$management_state" in
+  unmanaged) ;;
+  managed) die "this Mac is device-managed, so application ownership is ambiguous; no change was made" 2 ;;
+  *) die "device-management state could not be verified; no change was made" 2 ;;
+esac
 
 remove_receipt=0
-brew list --cask "$remove_cask" >/dev/null 2>&1 && remove_receipt=1
+[[ "$(cask_ownership_state "$cask_inventory" "$remove_cask")" == owned ]] \
+  && remove_receipt=1
 remove_present=0
 [[ -e "$remove_path" || -L "$remove_path" ]] && remove_present=1
 if [[ "$remove_receipt" -eq 0 && "$remove_present" -eq 0 ]]; then
@@ -274,13 +348,12 @@ if [[ "$remove_present" -eq 1 ]]; then
     remove_executable_path observed_remove_team <<<"$remove_identity"
 fi
 remove_executable_suffix="/$remove_app/Contents/MacOS/$remove_executable"
-running_status=0
-related_app_is_running "$process_snapshot" "$required_executable_path" \
-  "$remove_executable_path" "$remove_executable_suffix" || running_status=$?
-case "$running_status" in
-  0) ;;
-  1) die "quit both $required_app and $remove_app before removing anything" 2 ;;
-  *) die "running application state could not be observed; no change was made" ;;
+process_state="$(related_app_process_state "$process_snapshot" "$required_executable_path" \
+  "$remove_executable_path" "$remove_executable_suffix")"
+case "$process_state" in
+  stopped) ;;
+  running) die "quit both $required_app and $remove_app before removing anything" 2 ;;
+  *) die "running application state could not be observed; no change was made" 2 ;;
 esac
 
 trash_destination=""
@@ -335,22 +408,22 @@ Groundwork will not use --zap or remove shared Application Support,
 preferences, chats, credentials, or unrelated data.
 EOF
 
+if [[ "$check_only" -eq 1 ]]; then
+  printf '%s is ready for a separate consent-gated removal. No change was made.\n' \
+    "$display_name"
+  exit 3
+fi
+
 if [[ "$assume_yes" -ne 1 ]]; then
-  prompt_tty="${GROUNDWORK_PROMPT_TTY:-/dev/tty}"
-  if [[ -t 0 ]]; then
-    prompt_fd=0
-  elif { exec 8<"$prompt_tty"; } 2>/dev/null; then
-    prompt_fd=8
-  else
-    die "confirmation requires a terminal; rerun interactively or use --yes" 2
-  fi
+  [[ -t 0 && -t 2 ]] \
+    || die "confirmation requires interactive stdin and stderr; rerun interactively or use --yes" 2
   while true; do
     if [[ "$requested_token" == chatgpt-classic ]]; then
       printf 'Remove ChatGPT Classic? [y/N] ' >&2
     else
       printf 'Remove %s? [y/N] ' "$display_name" >&2
     fi
-    if ! IFS= read -r answer <&"$prompt_fd"; then
+    if ! IFS= read -r answer; then
       echo >&2
       die "confirmation input ended; no change was made" 2
     fi
@@ -372,7 +445,9 @@ required_identity_after="$(read_bundle_identity "$required_path" "$required_bund
   "$required_executable" "$required_team_id" "required current app")"
 [[ "$required_identity_after" == "$required_identity" ]] \
   || die "$required_app changed after consent; no change was made"
-brew list --cask "$required_cask" >/dev/null 2>&1 \
+read_cask_inventory "$cask_inventory_after" \
+  || die "Homebrew cask ownership could not be re-observed after consent; no change was made"
+[[ "$(cask_ownership_state "$cask_inventory_after" "$required_cask")" == owned ]] \
   || die "$required_cask ownership changed after consent; no change was made"
 cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
   "$required_uninstall_launchctl" "$required_metadata_after" \
@@ -380,7 +455,8 @@ cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_qu
 [[ "$(shasum -a 256 "$required_metadata" | awk '{print $1}')" == "$(shasum -a 256 "$required_metadata_after" | awk '{print $1}')" ]] \
   || die "$required_cask metadata changed after consent; no change was made"
 remove_receipt_after=0
-brew list --cask "$remove_cask" >/dev/null 2>&1 && remove_receipt_after=1
+[[ "$(cask_ownership_state "$cask_inventory_after" "$remove_cask")" == owned ]] \
+  && remove_receipt_after=1
 remove_present_after=0
 [[ -e "$remove_path" || -L "$remove_path" ]] && remove_present_after=1
 [[ "$remove_receipt_after" -eq "$remove_receipt" &&
@@ -399,16 +475,15 @@ if [[ "$remove_present" -eq 1 ]]; then
   [[ "$remove_identity_after" == "$remove_identity" ]] \
     || die "$display_name changed after consent; no change was made"
 fi
-if device_is_managed; then
-  die "device management changed after consent; no change was made" 2
-fi
-running_status=0
-related_app_is_running "$process_snapshot_after" "$required_executable_path" \
-  "$remove_executable_path" "$remove_executable_suffix" || running_status=$?
-case "$running_status" in
-  0) ;;
-  1) die "a related app started after consent; no change was made" 2 ;;
-  *) die "running application state could not be re-observed; no change was made" ;;
+management_state_after="$(device_management_state)"
+[[ "$management_state_after" == unmanaged ]] \
+  || die "device-management state changed or became unverifiable after consent; no change was made" 2
+process_state_after="$(related_app_process_state "$process_snapshot_after" \
+  "$required_executable_path" "$remove_executable_path" "$remove_executable_suffix")"
+case "$process_state_after" in
+  stopped) ;;
+  running) die "a related app started after consent; no change was made" 2 ;;
+  *) die "running application state could not be re-observed; no change was made" 2 ;;
 esac
 if [[ -n "$trash_destination" &&
   (-e "$trash_destination" || -L "$trash_destination") ]]; then
@@ -423,12 +498,14 @@ fi
 
 [[ ! -e "$remove_path" && ! -L "$remove_path" ]] \
   || die "$remove_app remains after the removal command; review it manually"
-if brew list --cask "$remove_cask" >/dev/null 2>&1; then
+read_cask_inventory "$cask_inventory_final" \
+  || die "Homebrew cask ownership could not be verified after removal"
+if [[ "$(cask_ownership_state "$cask_inventory_final" "$remove_cask")" == owned ]]; then
   die "$remove_cask remains installed after the removal command; review it manually"
 fi
 read_bundle_identity "$required_path" "$required_bundle_id" \
   "$required_executable" "$required_team_id" "required current app" >/dev/null
-brew list --cask "$required_cask" >/dev/null 2>&1 \
+[[ "$(cask_ownership_state "$cask_inventory_final" "$required_cask")" == owned ]] \
   || die "$required_cask ownership disappeared during cleanup"
 cask_declares_exact_app "$required_cask" "$required_app" "$required_uninstall_quit" \
   "$required_uninstall_launchctl" "$required_metadata_after" \

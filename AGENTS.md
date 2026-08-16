@@ -12,6 +12,8 @@ Groundwork aimed at an AI-native Mac, Linux, and headless developer environment.
 - Shared operational agent behavior: this file.
 - Human learning material: `docs/`.
 - Durable design decisions and the detail behind rules here: `specs/`.
+- Current release, active delivery boundary, blockers, and owner gates:
+  `ROADMAP.md` under "Current continuity".
 - Repeatable procedures: Compass-owned shared skills and Groundwork-owned local
   skills under `skills/`, loaded on demand.
 - Do not create parallel `AI_RULES.md`, Cursor rules, or similar files unless the
