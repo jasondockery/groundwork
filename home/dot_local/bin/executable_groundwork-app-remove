@@ -20,6 +20,10 @@ move or be removed and what will remain; and then asks for literal consent.
 Manual app bundles move to Trash. Homebrew-owned targets use an exact mapped
 cask uninstall. The command never uses --zap and never removes preferences,
 chats, credentials, Application Support, or other user data.
+Check exit status:
+  0  the requested absent state is already satisfied
+  3  safe removal is available, but --check made no change
+  other nonzero  eligibility could not be proved; do not remove
 EOF
 }
 
@@ -73,16 +77,21 @@ read_bundle_identity() {
 cask_declares_exact_app() {
   local token="$1" expected_app="$2" expected_quit="$3"
   local expected_launchctl="$4" metadata_file="$5"
+  local expected_target="/Applications/$expected_app"
   [[ "$expected_launchctl" != - ]] || expected_launchctl=""
   HOMEBREW_NO_AUTO_UPDATE=1 brew info --json=v2 --cask "$token" \
     >"$metadata_file" 2>/dev/null || return 1
   jq -e --arg token "$token" --arg app "$expected_app" \
+    --arg target "$expected_target" \
     --arg quit "$expected_quit" --arg launchctl "$expected_launchctl" '
     (.formulae == []) and
     (.casks | length == 1) and
     (.casks[0].token == $token) and
-    ([.casks[0].artifacts[]? | select(has("app")) | .app[0]] == [$app]) and
-    (all(.casks[0].artifacts[]?; ((keys - ["app", "uninstall", "zap"]) | length) == 0)) and
+    ([.casks[0].artifacts[]? | select(has("app")) |
+      {app: .app[0], target: (.target // "")}] ==
+      [{app: $app, target: $target}]) and
+    (all(.casks[0].artifacts[]?;
+      ((keys - ["app", "target", "uninstall", "zap"]) | length) == 0)) and
     ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?] | length == 1) and
     ([.casks[0].artifacts[]? | select(has("uninstall")) | .uninstall[]?][0] as $uninstall |
       (($uninstall | keys) - ["launchctl", "quit"] | length) == 0 and
@@ -402,7 +411,7 @@ EOF
 if [[ "$check_only" -eq 1 ]]; then
   printf '%s is ready for a separate consent-gated removal. No change was made.\n' \
     "$display_name"
-  exit 0
+  exit 3
 fi
 
 if [[ "$assume_yes" -ne 1 ]]; then
