@@ -782,7 +782,7 @@ assert_not_contains() {
 # other tap fails closed. The tap and the package it provides must also appear
 # together, so neither can be left behind in a profile that dropped the other.
 assert_taps_approved() {
-  local file="$1" context="$2" unapproved
+  local file="$1" context="$2" installer="${3:-}" unapproved
   unapproved="$(grep -E '^tap ' "$file" | grep -vxF 'tap "bjarneo/cliamp"' || true)"
   if [[ -n "$unapproved" ]]; then
     fail "an unapproved tap entered the $context Brewfile: $unapproved"
@@ -792,6 +792,17 @@ assert_taps_approved() {
   fi
   if grep -qxF 'brew "cliamp"' "$file" && ! grep -qxF 'tap "bjarneo/cliamp"' "$file"; then
     fail "$context installs cliamp without tapping bjarneo/cliamp"
+  fi
+  # v1.18.0 shipped a declared tap with no trust step, and Homebrew refuses to
+  # LOAD an untrusted third-party formula — which failed the entire bundle, not
+  # just cliamp. Declaring a tapped package and trusting it are one decision, so
+  # the rendered installer must carry the matching trust for what the Brewfile
+  # asks for. This proves the pair stays coupled; it does not prove Homebrew
+  # accepts the formula, which needs a real bundle run.
+  if [[ -n "$installer" ]] && grep -qxF 'brew "cliamp"' "$file"; then
+    if ! grep -qF 'brew trust --formula bjarneo/cliamp/cliamp' "$installer"; then
+      fail "$context installs a tapped formula that the rendered installer never trusts"
+    fi
   fi
 }
 
@@ -15445,7 +15456,8 @@ PY
     # on its own, so a slash in a package name is never needed.
     assert_not_contains '^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
       "a tap-qualified package entered the $case_name Brewfile"
-    assert_taps_approved "$out_dir/$case_name/Brewfile" "$case_name"
+    assert_taps_approved "$out_dir/$case_name/Brewfile" "$case_name" \
+      "$out_dir/$case_name/run_onchange_after_10-brew-bundle.sh"
 
     check "rendered ignore ($case_name)"
     render "$os" "$headless" "$arch" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
