@@ -10499,8 +10499,15 @@ EOF
     || fail "the brew bundle stage must preserve terminal ownership through the bounded Homebrew runner"
   grep -qF 'brew bundle install --no-upgrade --verbose' "$chrome_current" \
     || fail "chezmoi apply must install missing Brewfile entries without upgrading existing casks"
-  [[ "$(grep -cF 'brew bundle install --no-upgrade --verbose' "$chrome_current")" -eq 2 ]] \
-    || fail "the initial Homebrew bundle and its retry must share the install-only policy"
+  # Every lane that actually runs brew bundle -- the initial install, its retry,
+  # and the optional manifest -- must share the install-only policy. Comparing
+  # the two counts states that invariant directly, so adding a lane cannot
+  # silently introduce one that upgrades. Only executed lines count here;
+  # comments and recovery messages also say "brew bundle".
+  bundle_invocations="$(grep -cE '^[[:space:]]*brew bundle ' "$chrome_current")"
+  install_only_invocations="$(grep -cE '^[[:space:]]*brew bundle install --no-upgrade --verbose' "$chrome_current")"
+  [[ "$bundle_invocations" -ge 2 && "$bundle_invocations" -eq "$install_only_invocations" ]] \
+    || fail "every Homebrew bundle lane must share the install-only policy (ran $bundle_invocations, install-only $install_only_invocations)"
   assert_not_contains "gw_brew_classify_stream \"\\\$bundle_log\"" \
     "$chrome_current" \
     "brew bundle bypassed the terminal-preserving Homebrew runner"
@@ -15456,8 +15463,26 @@ PY
     # on its own, so a slash in a package name is never needed.
     assert_not_contains '^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile" \
       "a tap-qualified package entered the $case_name Brewfile"
-    assert_taps_approved "$out_dir/$case_name/Brewfile" "$case_name" \
+    # The required manifest stays tap-free. A tapped formula can need a source
+    # build, and a source build can fail for reasons that have nothing to do
+    # with the package -- which must never stop git, chezmoi, or an editor from
+    # installing. Taps belong in the optional manifest, which is checked below.
+    assert_not_contains '^tap ' "$out_dir/$case_name/Brewfile" \
+      "a tap entered the required $case_name Brewfile instead of the optional manifest"
+
+    check "rendered optional Brewfile ($case_name)"
+    render "$os" "$headless" "$arch" home/dot_config/homebrew/Brewfile.optional.tmpl "$out_dir/$case_name/Brewfile.optional" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
+    assert_not_contains '^(brew|cask) "[^"]*/' "$out_dir/$case_name/Brewfile.optional" \
+      "a tap-qualified package entered the $case_name optional Brewfile"
+    assert_taps_approved "$out_dir/$case_name/Brewfile.optional" "$case_name" \
       "$out_dir/$case_name/run_onchange_after_10-brew-bundle.sh"
+    # Optional means nothing depends on it. A cask that other tooling expects,
+    # or a work profile quietly gaining a personal package, would both break
+    # that promise.
+    if [[ "$work" == "true" || "$os" != "darwin" || "$headless" == "true" ]]; then
+      assert_not_contains '^(tap|brew|cask) ' "$out_dir/$case_name/Brewfile.optional" \
+        "$case_name must not receive optional personal packages"
+    fi
 
     check "rendered ignore ($case_name)"
     render "$os" "$headless" "$arch" home/.chezmoiignore "$out_dir/$case_name/chezmoiignore" "$work" "$xcode" "$beta" "$game_dev" "$password_manager" "$profile_preset" "$environment_role" "$release_posture"
