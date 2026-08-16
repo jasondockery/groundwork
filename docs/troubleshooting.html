@@ -252,6 +252,11 @@
 <span class="prompt">$ </span>brew untap someuser/sometap                     <span class="comment"># or drop a tap you no longer use</span></code></pre>
       </div>
 
+      <h3>cliamp fails to install: "Your Xcode is too outdated"</h3>
+      <p>The whole package run stops with something like <code>Your Xcode (26.6) is too outdated. Please update to Xcode 27.0</code>, and nothing else installs that run. Two things combine to cause it. Homebrew ships no prebuilt bottle for cliamp, so it always installs from source; and on a pre-release macOS, Homebrew has no bottles of its own either and needs a matching Xcode to build. On a released macOS with a current Xcode you will not see this.</p>
+      <p>Installing or updating Xcode to the version Homebrew names fixes it. Be aware of the ongoing cost before you do: because there is no bottle, <strong>every</strong> cliamp release builds from source, and that tap publishes often. Nothing is left half-installed when this fails — packages that installed stay installed, and the next <code>chezmoi apply</code> retries only what is missing.</p>
+      <p>If you would rather not carry that, cliamp is a music player and nothing else depends on it. Remove <code>tap "bjarneo/cliamp"</code> and <code>brew "cliamp"</code> from your Brewfile with <code>chezmoi edit --apply ~/.config/homebrew/Brewfile</code>, and the rest of your packages update normally.</p>
+
       <h3>A Python tool tries to build SciPy or asks for gfortran</h3>
       <p>Global Python tools intentionally use a proven Python version, not the newest Python release. Heavy dependencies such as NumPy and SciPy need mature wheel coverage; when a tool runs on a too-new Python, <code>uv</code> can fall back to a slow source build and fail on a normal Mac because no Fortran compiler is installed. Keep the global tool Python on the Groundwork-managed version, and choose newer Python versions per project with <code>mise use python@...</code> only when that project needs them.</p>
 
