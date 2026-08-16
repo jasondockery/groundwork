@@ -15582,13 +15582,14 @@ EOF
 
   check "continuity record: release, field evidence, and owner gates"
   grep -qF '5b74bd221473cabf5be130984ac6704e5ec5820d' ROADMAP.md
-  grep -qF "\`v1.17.0\` is the current" ROADMAP.md
-  grep -qF 'published release and points to that same commit' ROADMAP.md
-  grep -qF "PR #19 on \`codex/update-all-field-receipts\`" ROADMAP.md
+  grep -qF 'c6b2ba38957b1c995f7efc890cdec31ae3cc5dcd' ROADMAP.md
+  grep -qF 'remains the current' ROADMAP.md
+  grep -qF 'PR #19 is merged at the exact main identity above' ROADMAP.md
+  grep -qF 'publication stopped after the one permitted local Full retry' ROADMAP.md
   grep -qF 'original Homebrew sub-lane/root cause remains unknown' ROADMAP.md
   grep -qF "Compass \`8713d212\` and the earlier Groundwork Compass scaffold \`b62fbaa\` are superseded diagnostic evidence" ROADMAP.md
-  grep -qF 'PR #19 merge remains owner-only' ROADMAP.md
-  grep -qF "expected to require \`v1.18.0\`" ROADMAP.md
+  grep -qF 'This successor may be committed, pushed, and opened as a draft checkpoint; merge remains owner-only.' ROADMAP.md
+  grep -qF 'lane requires a new exact publication decision' ROADMAP.md
 
   check "workflow timeout checker behaves as specified"
   # The checker is proven against fixtures rather than by mutating live workflow
