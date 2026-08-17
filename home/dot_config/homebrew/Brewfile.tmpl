@@ -135,16 +135,6 @@ cask "ollama-app"            # local LLM runtime; serves localhost:11434 for Sma
 cask "discord"               # communities / gaming / dev servers
 cask "whatsapp"              # messaging
 cask "iina"                  # modern media player (mpv-backed); plays what QuickTime won't
-# cliamp: terminal music player. This is the only third-party tap Groundwork
-# uses, so state the tradeoff plainly. The formula pins a per-platform sha256,
-# so --require-sha still holds; but the pin is authored by the same single
-# maintainer who builds the binary, in a repo they can force-push. A checksum
-# proves transfer integrity, not review. Recreational, not part of the agent
-# workflow — hence personal machines only. Its ffmpeg and yt-dlp dependencies
-# are :recommended, so Homebrew installs them transitively; they are cliamp's
-# footprint, not separately declared Groundwork tools.
-tap "bjarneo/cliamp"
-brew "cliamp"
 cask "appcleaner"            # remove plain dragged-in apps and their related files after checking the vendor/Homebrew path first
 {{ if $gameDev -}}
 cask "unity-hub"             # optional game-dev track: installs Unity Hub; install Unity 6 LTS inside Hub

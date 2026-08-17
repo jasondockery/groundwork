@@ -1,0 +1,34 @@
+{{- $work := false -}}
+{{- if hasKey . "work" }}{{- $work = .work -}}{{- end -}}
+{{- $headless := false -}}
+{{- if hasKey . "headless" }}{{- $headless = .headless -}}{{- end -}}
+# Optional packages: wanted, but never worth failing an update over.
+#
+# Everything in the main Brewfile is required — a failure there means the
+# machine is not set up and the run must stop. Nothing in THIS file is depended
+# on by anything else, so a failure here is reported and the update still
+# succeeds. It is retried on the next apply, so a package that cannot install
+# today lands by itself once its blocker clears.
+#
+# Keep this file small and keep the rule literal: if something else would break
+# without it, it belongs in the main Brewfile instead.
+{{ if and (eq .chezmoi.os "darwin") (not $headless) (not $work) -}}
+# cliamp: terminal music player, recreational and not part of the agent
+# workflow. Two reasons it is optional rather than required:
+#
+# 1. It is the only third-party tap Groundwork uses. The formula pins a
+#    per-platform sha256, so --require-sha still holds, but that pin is
+#    authored by the same single maintainer who builds the binary, in a repo
+#    they can force-push. A checksum proves transfer integrity, not review.
+# 2. The tap publishes no bottle, so Homebrew always builds it from source. On
+#    macOS that needs developer tools Homebrew accepts for the running OS, and
+#    an Xcode older than the current macOS fails the install outright — which
+#    is common right after a major macOS upgrade. A music player must not hold
+#    back git, chezmoi, or an editor while that is true.
+#
+# Its ffmpeg and yt-dlp dependencies are :recommended, so Homebrew installs
+# them transitively; they are cliamp's footprint, not separately declared
+# Groundwork tools.
+tap "bjarneo/cliamp"
+brew "cliamp"
+{{- end }}
