@@ -61,8 +61,27 @@ defaults write NSGlobalDomain InitialKeyRepeat -int 15
 # Dock: hide recently-used apps.
 defaults write com.apple.dock show-recents -bool false
 
+# Screenshots: save to ~/Pictures/Screenshots instead of the Desktop. Screenshot
+# churn is the single biggest source of Desktop clutter, and the Desktop is
+# often synced through iCloud Drive, so every throwaway capture becomes upload
+# traffic. Pictures is where macOS already expects image files to live.
+#
+# This is a supported preference, not a hack: the Screenshot app exposes the
+# same "Save to" choice in its Options menu, so the GUI and this write agree.
+# Groundwork does NOT change whether desktop items are visible; that is a
+# subjective UI preference and stays at the macOS default. Use System Settings →
+# Desktop & Dock → Desktop & Stage Manager → "Show Items" if you want it.
+#
+# The directory is created first because the setting points at a path macOS
+# does not create for you; screencapture fails silently if it is missing.
+mkdir -p "$HOME/Pictures/Screenshots"
+defaults write com.apple.screencapture location -string "$HOME/Pictures/Screenshots"
+
 killall Finder 2>/dev/null || true
 killall Dock 2>/dev/null || true
+# SystemUIServer owns the screencapture preference; without this the new
+# location applies only after the next login.
+killall SystemUIServer 2>/dev/null || true
 
 # Stop Chrome's built-in password manager from competing with your third-party
 # manager. Verify at chrome://policy. Safari and iOS are toggled manually.

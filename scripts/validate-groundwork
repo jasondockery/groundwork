@@ -8893,6 +8893,22 @@ SH
   grep -qF 'defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false' <<<"$kr_out" \
     || fail "press-and-hold must stay disabled regardless of key repeat choice (vim motions depend on it)"
 
+  check "every managed macOS default is backed up before it is written"
+  # skills/macos-default-change couples these: a default Groundwork writes must
+  # also be captured in the first-run backup, or `groundwork-restore` silently
+  # cannot put the machine back. Deriving both lists from the rendered scripts
+  # keeps that true for defaults added later, instead of pinning today's keys.
+  md_written="$(_kr_apply home/run_onchange_after_30-macos-defaults.sh.tmpl darwin '"key_repeat":"fast",')" \
+    || fail "macOS defaults must render for the backup-coverage check"
+  md_backup="$(_kr_apply home/run_before_05-backup-current-settings.sh.tmpl darwin '"key_repeat":"fast",')" \
+    || fail "the first-run backup must render for the backup-coverage check"
+  while IFS=$'\t' read -r md_domain md_key; do
+    [[ -n "$md_domain" ]] || continue
+    grep -qE "^${md_domain}[[:space:]]+${md_key}$" <<<"$md_backup" \
+      || fail "macOS default ${md_domain} ${md_key} is written but never backed up; restore could not undo it"
+  done < <(grep -oE '^defaults write [A-Za-z0-9.-]+ [A-Za-z0-9_.-]+' <<<"$md_written" \
+    | awk '{print $3"\t"$4}' | sort -u)
+
   check "key repeat: the Linux path is scoped, isolated, and never touches this host"
   kr_lin=home/run_after_31-linux-input-defaults.sh.tmpl
   # Linux: the same three intents expressed natively.
