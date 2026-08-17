@@ -252,6 +252,21 @@
 <span class="prompt">$ </span>brew untap someuser/sometap                     <span class="comment"># or drop a tap you no longer use</span></code></pre>
       </div>
 
+      <h3>An optional package fails: "Your Xcode is too outdated"</h3>
+      <p>You may see <code>Your Xcode (26.6) at /Applications/Xcode.app is too outdated. Please update to Xcode 27.0 (or delete it)</code> while cliamp installs. <strong>This does not fail your update.</strong> cliamp lives in <code>Brewfile.optional</code>, which runs only after every required package has installed and whose failures are reported rather than fatal. Groundwork retries it on the next apply, so it installs by itself once the cause clears and you need do nothing.</p>
+      <p>Almost everything Groundwork installs arrives as a prebuilt bottle, which needs no compiler. cliamp's tap publishes none, so Homebrew treats it as a source build even though its install step only copies a released binary — and a macOS source build requires developer tools Homebrew accepts for the macOS you are running. This is not specific to cliamp or to a beta macOS: any formula without a bottle hits it whenever your installed Xcode is older than the minimum for your macOS version, which is common right after a major macOS upgrade.</p>
+      <p>Check what Homebrew actually sees before changing anything:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">developer tools</span></div>
+        <pre><code><span class="prompt">$ </span>brew config | grep -E 'macOS|CLT|Xcode'</code></pre>
+      </div>
+      <p>Two separate toolchains appear there. Command Line Tools are enough to build on their own, but Homebrew still checks an installed <code>Xcode.app</code> and refuses when it is too old — even when <code>xcode-select -p</code> points at Command Line Tools instead. So if your <code>CLT</code> line already matches your macOS version and only <code>Xcode</code> lags, updating Xcode is what unblocks it. Groundwork installs <code>xcodes</code> when you opt into the Xcode track:</p>
+      <div class="terminal">
+        <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">update xcode</span></div>
+        <pre><code><span class="prompt">$ </span>xcodes install --latest</code></pre>
+      </div>
+      <p>Worth knowing before you settle in: because that tap ships no bottle, <strong>every</strong> cliamp release rebuilds from source, and it publishes often. If you would rather not carry that, cliamp is a music player and nothing depends on it — remove it with <code>chezmoi edit --apply ~/.config/homebrew/Brewfile.optional</code>. Leaving it costs you a failed optional line on each apply and nothing more.</p>
+
       <h3>A Python tool tries to build SciPy or asks for gfortran</h3>
       <p>Global Python tools intentionally use a proven Python version, not the newest Python release. Heavy dependencies such as NumPy and SciPy need mature wheel coverage; when a tool runs on a too-new Python, <code>uv</code> can fall back to a slow source build and fail on a normal Mac because no Fortran compiler is installed. Keep the global tool Python on the Groundwork-managed version, and choose newer Python versions per project with <code>mise use python@...</code> only when that project needs them.</p>
 

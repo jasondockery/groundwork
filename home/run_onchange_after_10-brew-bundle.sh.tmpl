@@ -8,6 +8,10 @@ set -euo pipefail
 {{- if stat $browserBrewfile }}
 # Browser Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.browser.tmpl" . | sha256sum }}
 {{- end }}
+{{- $optionalBrewfile := joinPath .chezmoi.sourceDir "dot_config/homebrew/Brewfile.optional.tmpl" }}
+{{- if stat $optionalBrewfile }}
+# Optional Brewfile hash: {{ includeTemplate "dot_config/homebrew/Brewfile.optional.tmpl" . | sha256sum }}
+{{- end }}
 
 # Selection stays canonical and absolute. `shellenv` output is EVAL'd, so
 # resolving this from PATH would execute whatever a planted `brew` earlier on
@@ -158,22 +162,6 @@ if [[ "$groundwork_color" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 bundle_status=0
-# Homebrew refuses to LOAD a formula from an untrusted third-party tap, so a
-# declared tap that is never trusted fails the whole bundle rather than just
-# its own package. Groundwork declares exactly one tap, and the troubleshooting
-# docs prefer trusting the formula you actually use over the whole tap, which
-# would also cover everything that tap publishes later. So trust exactly that
-# one formula, and only while the Brewfile still asks for it.
-#
-# This is not a new supply-chain decision: it applies the one already recorded
-# in the Brewfile and enforced by the validator's tap allowlist. `brew trust`
-# is idempotent, so a repeat run is a no-op.
-if grep -qxF 'brew "cliamp"' "$bundle_file"; then
-  if ! brew trust --formula bjarneo/cliamp/cliamp >/dev/null 2>&1; then
-    echo "Groundwork: could not trust bjarneo/cliamp/cliamp; cliamp will fail to load." >&2
-    echo "  Trust it yourself with: brew trust --formula bjarneo/cliamp/cliamp" >&2
-  fi
-fi
 # Checksums are an INSTALL-time policy, not just an upgrade-time one: a fresh
 # machine gets its casks from here, long before update-all ever runs.
 # HOMEBREW_CASK_OPTS is how --require-sha reaches `brew bundle`'s cask installs.
@@ -312,3 +300,43 @@ for browser_cask in "${browser_casks[@]}"; do
   HOMEBREW_CASK_OPTS="$user_cask_opts" brew install --cask "$browser_cask"
 done
 {{- end }}
+
+# ---- Optional packages, and ONLY after every required package succeeded ----
+#
+# Nothing in Brewfile.optional is depended on by anything else, so a failure
+# here is reported and this run still succeeds. It is retried on the next
+# apply, which is what lets a package blocked today land by itself once its
+# blocker clears. A failed required lane must never reach this point: an
+# incomplete machine is not the place to start optional work.
+optional_manifest="$HOME/.config/homebrew/Brewfile.optional"
+if [[ -s "$optional_manifest" ]] && grep -qvE '^[[:space:]]*(#.*)?$' "$optional_manifest"; then
+  # Homebrew refuses to LOAD a formula from an untrusted third-party tap, and
+  # that refusal fails the whole manifest rather than just its own package.
+  # This applies the supply-chain decision already recorded in the manifest and
+  # enforced by the validator's tap allowlist; it does not make a new one.
+  # Formula-level rather than whole-tap trust, so it never covers whatever that
+  # tap publishes next. `brew trust` is idempotent.
+  if grep -qxF 'brew "cliamp"' "$optional_manifest"; then
+    if ! brew trust --formula bjarneo/cliamp/cliamp >/dev/null 2>&1; then
+      echo "Groundwork: could not trust bjarneo/cliamp/cliamp; it will fail to load." >&2
+      echo "  Trust it yourself with: brew trust --formula bjarneo/cliamp/cliamp" >&2
+    fi
+  fi
+  optional_status=0
+  HOMEBREW_CASK_OPTS="$safe_cask_opts" \
+    gw_brew_run_logged "$bundle_log" "$bundle_receipt" append "Homebrew bundle (optional)" -- \
+      brew bundle install --no-upgrade --verbose --file="$optional_manifest" \
+      || optional_status=$?
+  if [[ "$optional_status" -ne 0 ]]; then
+    cat >&2 <<'OPTIONAL'
+Groundwork: an optional package did not install. This did NOT fail your update.
+  Every required package above is installed; only Brewfile.optional is affected.
+  Groundwork retries it on the next apply, so no action is needed to recover.
+  A common cause on macOS is a package with no prebuilt bottle: Homebrew builds
+  it from source, and an Xcode older than your macOS version stops that build.
+  Compare the versions with: brew config | grep -E 'macOS|CLT|Xcode'
+  To stop installing it at all, remove it from Brewfile.optional with:
+    chezmoi edit --apply ~/.config/homebrew/Brewfile.optional
+OPTIONAL
+  fi
+fi
