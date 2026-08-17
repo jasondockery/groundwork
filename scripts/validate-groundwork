@@ -2958,17 +2958,32 @@ case "${1:-}" in
     shift
     mode=ordinary-cask
     candidates=()
+    named_arguments=0
     for arg in "$@"; do
       case "$arg" in
         --quiet | --cask) ;;
         --formula) mode=formula ;;
         --greedy-auto-updates) mode=auto ;;
         --greedy-latest) mode=latest ;;
-        *) candidates+=("$arg") ;;
+        *)
+          candidates+=("$arg")
+          named_arguments=1
+          ;;
       esac
     done
+    # Real `brew outdated` with NO package arguments considers everything
+    # installed; naming packages only narrows it. This fixture modelled the
+    # narrow form alone, so production could pass a package list indefinitely
+    # without the difference ever showing up here.
+    if [[ "$named_arguments" -eq 0 ]]; then
+      case "$mode" in
+        formula) candidates=(${BREW_FORMULAE-git}) ;;
+        *) candidates=(${BREW_CASKS-ghostty}) ;;
+      esac
+    fi
     [[ "${BREW_OUTDATED_STATUS:-0}" == 0 ]] || exit "$BREW_OUTDATED_STATUS"
-    for token in "${candidates[@]}"; do
+    reported_outdated=0
+    for token in "${candidates[@]+"${candidates[@]}"}"; do
       remain_outdated=0
       [[ "${BREW_REMAIN_OUTDATED:-0}" == 1 ]] && remain_outdated=1
       for retained in ${BREW_REMAIN_OUTDATED_TOKENS:-}; do
@@ -2985,9 +3000,20 @@ case "${1:-}" in
         *) wanted="${BREW_CASK_OUTDATED:-}" ;;
       esac
       for outdated in $wanted; do
-        [[ "$outdated" == "$token" ]] && printf '%s\n' "$token"
+        if [[ "$outdated" == "$token" ]]; then
+          printf '%s\n' "$token"
+          reported_outdated=1
+        fi
       done
     done
+    # The contract that made the production defect invisible: when packages are
+    # NAMED, brew outdated uses its exit status as a predicate -- 1 means the
+    # named packages are outdated, 0 means they are current. The argument-free
+    # form always exits 0. Modelling this makes any caller that passes a package
+    # list and treats nonzero as failure fail here instead of on a real machine.
+    if [[ "$named_arguments" -eq 1 && "$reported_outdated" -eq 1 ]]; then
+      exit 1
+    fi
     exit 0
     ;;
   upgrade)
@@ -16172,6 +16198,14 @@ LAUNCHER_BAD
   # exists to close; per-formula `brew trust` is the documented narrow path.
   assert_no_matches "never disable Homebrew tap trust; trust specific formulae instead" \
     rg -n 'HOMEBREW_NO_REQUIRE_TAP_TRUST' home bootstrap-mac.sh docker
+  # `brew outdated <names>` uses its exit status as a PREDICATE: 1 means the
+  # named packages ARE outdated, 0 means they are current. Passing a package
+  # list therefore made a successful observation look like a failure in exactly
+  # the case update-all exists for, and update-all only appeared healthy while
+  # there was nothing to install. Argument-free `brew outdated` lists everything
+  # and exits 0, so the intersection with our candidates must stay on our side.
+  assert_no_matches "brew outdated must take no package arguments; its exit status reports outdated-ness, not failure" \
+    rg -n 'brew outdated[^|>]*\$\{[A-Za-z_]*(tokens|candidates|packages)' home scripts
   # The declined-reset branch is the steady state on most machines and must be
   # SILENT on routine updates — a future template edit must not quietly bring
   # back per-run no-op chatter. (Static guard first: this render must be the
