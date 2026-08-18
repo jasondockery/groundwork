@@ -2991,7 +2991,10 @@ case "${1:-}" in
         *) candidates=(${BREW_CASKS-ghostty}) ;;
       esac
     fi
-    [[ "${BREW_OUTDATED_STATUS:-0}" == 0 ]] || exit "$BREW_OUTDATED_STATUS"
+    if [[ "${BREW_OUTDATED_STATUS:-0}" != 0 ]]; then
+      echo 'Error: fixture cannot read the formula inventory' >&2
+      exit "$BREW_OUTDATED_STATUS"
+    fi
     reported_outdated=0
     for token in "${candidates[@]+"${candidates[@]}"}"; do
       remain_outdated=0
@@ -5733,6 +5736,33 @@ EOF
   grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
     "$update_all_fixture/darwin-brew-fail" \
     || fail "Homebrew failure did not isolate later package-manager mutation on macOS"
+  test ! -e "$update_all_stamp"
+
+  # A failed inventory observation stops the Homebrew lane and takes package
+  # and Docker maintenance with it, so it is the most expensive thing that can
+  # go wrong here and was the least explained: a label, an exit code, and a log
+  # path. Report Homebrew's own words and a command that reproduces exactly
+  # what Groundwork ran.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+    FAKE_PLATFORM=darwin BREW_OUTDATED_STATUS=1 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-outdated-fail" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "the darwin runner reported an unobservable Homebrew inventory as complete"
+  grep -qF 'installed Homebrew formulae could not be observed (exit 1)' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "a failed Homebrew observation did not name the lane and status"
+  grep -qF 'fixture cannot read the formula inventory' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "Homebrew's own explanation was dropped from a failed observation"
+  grep -qF 'Reproduce it exactly: brew outdated --quiet --formula' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "a failed Homebrew observation did not print the exact command to reproduce it"
   test ! -e "$update_all_stamp"
 
   check "update-all Homebrew download-cache cleanup"
