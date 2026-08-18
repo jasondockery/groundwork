@@ -1748,13 +1748,13 @@ EOF
   cat >"$brew_output_fixture/cask-classification.expected" <<'EOF'
 ordinary-outdated	eligible	ordinary	1.0	1.1
 ordinary-current	current	ordinary	1.1	1.1
-docker-desktop	review	self-updating+privileged-replacement	4.85.0,235549	4.86.0,236216
+docker-desktop	consent	self-updating+privileged-replacement	4.85.0,235549	4.86.0,236216
 self-current	current	self-updating	2.0	2.0
 chatgpt	auto-check	targeted-greedy-auto-updates	1.0	1.1
 cursor	auto-check	targeted-greedy-auto-updates	1.0	1.1
 claude	auto-check	targeted-greedy-auto-updates	1.0	1.1
 obsidian	auto-check	targeted-greedy-auto-updates	1.0	1.1
-privileged-only	review	privileged-replacement	3.0	3.1
+privileged-only	consent	privileged-replacement	3.0	3.1
 pinned-cask	review	pinned	1.0	1.1
 latest-cask	latest-check	targeted-greedy-latest	0	latest
 latest-unchecked	review	latest-no-checksum	0	latest
@@ -5269,9 +5269,15 @@ EOF
     || fail "the safe cask did not retain its automatic update lane"
   assert_not_contains '^brew upgrade .*docker-desktop' "$update_all_log" \
     "Docker Desktop entered automatic privileged replacement"
-  grep -qF 'docker-desktop 4.85.0,235549 -> 4.86.0,236216 was not upgraded automatically (self-updating+privileged-replacement)' \
+  grep -qF 'docker-desktop 4.85.0,235549 -> 4.86.0,236216 (self-updating+privileged-replacement)' \
     "$update_all_fixture/darwin-privileged-cask-review" \
     || fail "the Docker Desktop review omitted the exact observed versions and reason"
+  grep -qF 'No terminal is attached, so nothing was asked and nothing was changed' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    || fail "a run with no terminal did not say why it never offered the privileged upgrade"
+  assert_not_contains 'Upgrade these apps now' \
+    "$update_all_fixture/darwin-privileged-cask-review" \
+    "a run with no terminal printed a prompt nothing could answer"
   grep -qF 'Quit it if running, then run: brew upgrade --cask --require-sha docker-desktop' \
     "$update_all_fixture/darwin-privileged-cask-review" \
     || fail "the Docker Desktop review omitted owner-run recovery"
@@ -5283,6 +5289,86 @@ EOF
     || fail "a safe privileged-cask deferral was not summarized as owner review"
   test -f "$update_all_stamp" \
     || fail "a safe privileged-cask deferral withheld an otherwise complete update"
+  # With a person at the terminal the same cask becomes a question instead of a
+  # standing instruction. Every state is exercised on a real pty, because the
+  # prompt only exists when one is attached -- which is precisely why a
+  # redirected fixture cannot prove any of this.
+  printf 'y\n' >"$update_all_fixture/pty-consent-yes"
+  printf 'n\n' >"$update_all_fixture/pty-consent-no"
+  printf 'maybe\nn\n' >"$update_all_fixture/pty-consent-invalid"
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  if ! run_fixture_pty "$update_all_fixture/darwin-privileged-consent-yes" \
+    "$update_all_fixture/pty-consent-yes" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty docker-desktop' BREW_AUTO_OUTDATED='docker-desktop' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner"; then
+    cat "$update_all_fixture/darwin-privileged-consent-yes" >&2
+    fail "an authorized privileged cask upgrade failed the update"
+  fi
+  grep -qF 'Upgrade these apps now? [y/N]' \
+    "$update_all_fixture/darwin-privileged-consent-yes" \
+    || fail "the privileged cask offer never asked"
+  # Consent routes the token through the ordinary greedy-aware lane: same
+  # checksum requirement, same no-quit guard. It does not invent a command.
+  grep -qF 'brew upgrade --cask --require-sha --no-quit --greedy-auto-updates docker-desktop' \
+    "$update_all_log" \
+    || fail "an authorized privileged cask did not enter its exact preclassified lane"
+  grep -qF 'you authorized 1 privileged cask upgrade(s) for this run' \
+    "$update_all_fixture/darwin-privileged-consent-yes" \
+    || fail "the authorized privileged upgrade was not named in the run"
+  grep -qF 'Owner-authorized        1 privileged cask(s) you approved this run' \
+    "$update_all_fixture/darwin-privileged-consent-yes" \
+    || fail "the receipt did not separate an owner-authorized upgrade from a routine one"
+  assert_not_contains 'unresolved/privileged item' \
+    "$update_all_fixture/darwin-privileged-consent-yes" \
+    "an upgraded privileged cask was still counted as owner review"
+
+  # Declining is a complete answer: nothing runs, and the standing instruction
+  # comes back so the person can act later.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  if ! run_fixture_pty "$update_all_fixture/darwin-privileged-consent-no" \
+    "$update_all_fixture/pty-consent-no" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty docker-desktop' BREW_AUTO_OUTDATED='docker-desktop' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner"; then
+    cat "$update_all_fixture/darwin-privileged-consent-no" >&2
+    fail "declining a privileged cask upgrade failed the otherwise safe update"
+  fi
+  assert_not_contains 'brew upgrade .*docker-desktop' "$update_all_log" \
+    "a declined privileged cask was upgraded anyway"
+  grep -qF 'left unchanged for this run' \
+    "$update_all_fixture/darwin-privileged-consent-no" \
+    || fail "a declined privileged cask offer did not say what it did"
+  grep -qF 'Quit it if running, then run: brew upgrade --cask --require-sha docker-desktop' \
+    "$update_all_fixture/darwin-privileged-consent-no" \
+    || fail "a declined offer withheld the owner-run command"
+  grep -qF 'Homebrew casks          1 unresolved/privileged item(s) named above' \
+    "$update_all_fixture/darwin-privileged-consent-no" \
+    || fail "a declined privileged cask left the receipt claiming nothing was pending"
+
+  # An unrecognized answer must re-ask rather than fall through to either
+  # outcome; the second answer is the one that counts.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  if ! run_fixture_pty "$update_all_fixture/darwin-privileged-consent-invalid" \
+    "$update_all_fixture/pty-consent-invalid" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty docker-desktop' BREW_AUTO_OUTDATED='docker-desktop' \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner"; then
+    cat "$update_all_fixture/darwin-privileged-consent-invalid" >&2
+    fail "an unrecognized consent answer failed the update"
+  fi
+  grep -qF 'Please answer yes or no.' \
+    "$update_all_fixture/darwin-privileged-consent-invalid" \
+    || fail "an unrecognized consent answer did not visibly re-ask"
+  assert_not_contains 'brew upgrade .*docker-desktop' "$update_all_log" \
+    "an unrecognized answer was treated as consent"
+
   mv "$update_all_fixture/Brewfile.before-privileged-cask" \
     "$update_all_home/.config/homebrew/Brewfile"
 
