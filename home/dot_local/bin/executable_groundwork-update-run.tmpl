@@ -689,6 +689,8 @@ EOF
     local label="$1" candidates_file="$2" selected_file="$3"
     shift 3
     local observed_file="${selected_file}.observed" observation_status=0
+    local observed_errors="${selected_file}.stderr"
+    : >"$observed_errors"
     : >"$selected_file"
     [[ -s "$candidates_file" ]] || return 0
     # Deliberately NO package arguments. `brew outdated <names>` uses its exit
@@ -700,12 +702,25 @@ EOF
     # exits 0, so a nonzero status here is a real observation failure again.
     # The candidate intersection happens below, where it is ours to control.
     HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet "$@" \
-      >"$observed_file" || observation_status=$?
+      >"$observed_file" 2>"$observed_errors" || observation_status=$?
     if [[ "$observation_status" -ne 0 ]]; then
       printf 'Groundwork: %s could not be observed (exit %s).\n' "$label" "$observation_status" >&2
-      rm -f -- "$observed_file"
+      # An exit code and a log path is a dead end: this failure stops the whole
+      # Homebrew lane and takes package and Docker maintenance with it, so the
+      # person needs to know WHY here, and be able to reproduce it in one line.
+      # Only Homebrew's own words can say why, and a status with no words is
+      # itself worth naming -- it means the failure was a status, not an error.
+      if [[ -s "$observed_errors" ]]; then
+        echo '  Homebrew said:' >&2
+        head -n 5 "$observed_errors" | sed 's/^/    /' >&2
+      else
+        echo '  Homebrew printed no explanation with that status.' >&2
+      fi
+      printf '  Reproduce it exactly: brew outdated --quiet %s\n' "$*" >&2
+      rm -f -- "$observed_file" "$observed_errors"
       return "$observation_status"
     fi
+    rm -f -- "$observed_errors"
     # Argument-free brew outdated reports EVERY outdated package, including the
     # ones this lane deliberately excluded: pinned formulae, deprecated casks,
     # and self-updating apps that Groundwork refuses to replace automatically.
