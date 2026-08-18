@@ -60,6 +60,36 @@ ALLOWED_PLATFORM_SKIPS = {
     },
 }
 
+# Checks whose subject belongs to the machine, not the repository: the external
+# contract lane runs real binaries, and a hosted runner may not have the tool,
+# the App Store library, or an outdated package to name. For these, an approved
+# skip is an honest result on EVERY platform -- including macOS, and including
+# the case where no platform could observe it at all.
+#
+# This exists because the full gate enforces two rules the CI gate does not:
+# macOS may not skip a required check, and some platform must pass each
+# canonical check. Both are right for a check that tests Groundwork. Neither
+# can be satisfied by a check that tests mas, which no hosted runner can run.
+# Membership is deliberately narrow and the approved codes are still taken from
+# ALLOWED_PLATFORM_SKIPS, so the two registries cannot drift apart: an
+# unapproved skip code fails here exactly as it does there.
+HOSTED_OPTIONAL_CHECKS = frozenset(
+    {
+        "external contract: brew outdated exit status is a predicate, not a failure",
+        "external contract: brew upgrade can be told not to ask",
+        "external contract: brew trust supports per-formula trust",
+        "external contract: mas exposes installed items with an id, name, and version",
+        "external contract: sfltool still offers no way to add a Finder favorite",
+    }
+)
+
+_unregistered = HOSTED_OPTIONAL_CHECKS - ALLOWED_PLATFORM_SKIPS.keys()
+if _unregistered:
+    raise SystemExit(
+        "aggregate-ci-receipts: hosted-optional checks must declare their approved "
+        f"skip codes in ALLOWED_PLATFORM_SKIPS: {sorted(_unregistered)}"
+    )
+
 
 class Parser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
@@ -315,9 +345,21 @@ def main() -> int:
             for name in sorted(linux_checks.keys() | mac_checks.keys()):
                 linux_result = linux_checks.get(name, {}).get("result")
                 mac_result = mac_checks.get(name, {}).get("result")
-                if mac_result == "skipped":
+
+                def approved_environment_skip(checks: dict[str, dict]) -> bool:
+                    if name not in HOSTED_OPTIONAL_CHECKS:
+                        return False
+                    entry = checks.get(name, {})
+                    if entry.get("result") != "skipped":
+                        return False
+                    return entry.get("skipCode") in ALLOWED_PLATFORM_SKIPS[name]
+
+                if mac_result == "skipped" and not approved_environment_skip(mac_checks):
                     errors.append(f"full macOS skipped required check: {name}")
-                if "passed" not in {linux_result, mac_result}:
+                if "passed" not in {linux_result, mac_result} and not (
+                    approved_environment_skip(linux_checks)
+                    and approved_environment_skip(mac_checks)
+                ):
                     errors.append(f"no required platform passed canonical check: {name}")
 
         required_lane_span = int((max(finishes) - min(starts)).total_seconds()) if starts and finishes else None

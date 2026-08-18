@@ -365,6 +365,256 @@ def assert_secret_scan_source_transaction(
     generated_report.unlink()
 
 
+# The full gate enforces two rules the CI gate does not: macOS may not skip a
+# required check, and some platform must pass each canonical check. Nothing
+# exercised either one locally, so a check that legitimately skips on both
+# hosted platforms passed every CI lane and only failed 25 minutes into a
+# dispatched release proof. These builders make that path a one-second local
+# test.
+FULL_LANES = (
+    "full_linux|Full Linux|fixture|full|allow-platform",
+    "full_macos|Full macOS|fixture|full|allow-platform",
+)
+HOSTED_OPTIONAL_NAME = (
+    "external contract: mas exposes installed items with an id, name, and version"
+)
+
+
+def full_detail(workspace: pathlib.Path, env: dict[str, str], *, checks: list[dict]) -> dict:
+    snapshot = tree_snapshot(workspace)
+    now = int(time.time())
+    with with_environment(env):
+        receipt = common_envelope(
+            repo=workspace,
+            receipt_kind="validation-suite",
+            result="passed",
+            started_epoch=now - 20,
+            finished_epoch=now - 10,
+            platform_os="linux",
+            platform_image="ubuntu24",
+            platform_arch="X64",
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+    receipt["body"] = {
+        "suite": "full",
+        "scope": "fixture",
+        "proofType": "fixture",
+        "cacheState": "unavailable",
+        "suiteDurationSeconds": 10,
+        "suiteBudgetSeconds": 30,
+        "suiteBudgetState": "within",
+        "hardDeadlineSeconds": 540,
+        "checkCount": len(checks),
+        "passedCount": sum(1 for check in checks if check["result"] == "passed"),
+        "skippedCount": sum(1 for check in checks if check["result"] == "skipped"),
+        "failedCount": 0,
+        "checks": checks,
+        "commands": {"localEquivalent": "fixture"},
+    }
+    return validate_receipt(receipt, expected_kind="validation-suite")
+
+
+def full_job_receipt(workspace: pathlib.Path, env: dict[str, str], *, checks: list[dict]) -> dict:
+    snapshot = tree_snapshot(workspace)
+    now = int(time.time())
+    with with_environment(env):
+        receipt = common_envelope(
+            repo=workspace,
+            receipt_kind="ci-job",
+            result="passed",
+            started_epoch=now - 25,
+            finished_epoch=now - 5,
+            platform_os="linux",
+            platform_image="ubuntu24",
+            platform_arch="X64",
+            source_before=snapshot,
+            source_after=snapshot,
+        )
+    receipt["body"] = {
+        "title": "Full validation",
+        "scope": "fixture",
+        "proofType": "fixture",
+        "cacheState": "unavailable",
+        "jobDurationSeconds": 20,
+        "jobBudgetSeconds": 30,
+        "jobBudgetState": "within",
+        "workflowSafetyTimeoutSeconds": 60,
+        "phases": [
+            {"name": "validator", "durationSeconds": 10, "result": "passed"},
+            {"name": "Homebrew cask integrity", "durationSeconds": 1, "result": "passed"},
+        ],
+        "facts": {"Fixture": "true"},
+        "commands": {"localEquivalent": "fixture"},
+        "validationDetails": [full_detail(workspace, env, checks=checks)],
+    }
+    return validate_receipt(receipt, expected_kind="ci-job")
+
+
+def invoke_full(
+    artifact_directory: pathlib.Path,
+    output: pathlib.Path,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    summary = output.with_suffix(".md")
+    gate_env = {**env, "GITHUB_JOB": "full_gate"}
+    command = [
+        str(AGGREGATOR),
+        "--mode",
+        "full",
+        "--needs-json",
+        json.dumps(
+            {"full_linux": {"result": "success"}, "full_macos": {"result": "success"}}
+        ),
+        "--download-outcome",
+        "success",
+        "--receipt-directory",
+        str(artifact_directory),
+        "--output",
+        str(output),
+        "--summary",
+        str(summary),
+        "--budget-seconds",
+        "60",
+        "--started-epoch",
+        str(int(time.time()) - 4),
+    ]
+    for lane in FULL_LANES:
+        command += ["--lane", lane]
+    return subprocess.run(
+        command,
+        cwd=REPO,
+        env=gate_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def write_full_pair(
+    directory: pathlib.Path,
+    workspace: pathlib.Path,
+    sha: str,
+    *,
+    linux_checks: list[dict],
+    mac_checks: list[dict],
+) -> dict[str, str]:
+    linux_env = environment(workspace, sha, "full_linux")
+    mac_env = environment(workspace, sha, "full_macos")
+    write_job(
+        directory,
+        full_job_receipt(workspace, linux_env, checks=linux_checks),
+        "groundwork-job-full-linux.json",
+    )
+    write_job(
+        directory,
+        full_job_receipt(workspace, mac_env, checks=mac_checks),
+        "groundwork-job-full-macos.json",
+    )
+    return linux_env
+
+
+def skipped_check(name: str, code: str) -> dict:
+    return {
+        "name": name,
+        "durationSeconds": 1,
+        "result": "skipped",
+        "skipCode": code,
+        "reason": "fixture dependency unavailable",
+    }
+
+
+def passed_check(name: str) -> dict:
+    return {"name": name, "durationSeconds": 1, "result": "passed"}
+
+
+def assert_full_gate_contract(temporary: pathlib.Path, workspace: pathlib.Path, sha: str) -> None:
+    # A hosted-optional check that neither platform could observe is the exact
+    # shape that failed the release proof: mas exists on no GitHub runner.
+    unobservable = temporary / "full-unobservable"
+    unobservable.mkdir()
+    env = write_full_pair(
+        unobservable,
+        workspace,
+        sha,
+        linux_checks=[skipped_check(HOSTED_OPTIONAL_NAME, "requires-mas")],
+        mac_checks=[skipped_check(HOSTED_OPTIONAL_NAME, "requires-mas")],
+    )
+    output = temporary / "full-unobservable-gate.json"
+    completed = invoke_full(unobservable, output, env)
+    assert completed.returncode == 0, completed.stderr
+    gate = validate_receipt(
+        json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate"
+    )
+    assert gate["result"] == "passed", gate["body"]["errors"]
+
+    # The approval is per skip code, not per check name.
+    wrong_code = temporary / "full-wrong-code"
+    wrong_code.mkdir()
+    env = write_full_pair(
+        wrong_code,
+        workspace,
+        sha,
+        linux_checks=[skipped_check(HOSTED_OPTIONAL_NAME, "invented-reason")],
+        mac_checks=[skipped_check(HOSTED_OPTIONAL_NAME, "invented-reason")],
+    )
+    output = temporary / "full-wrong-code-gate.json"
+    completed = invoke_full(wrong_code, output, env)
+    assert_failed_receipt(completed, output)
+    gate = validate_receipt(
+        json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate"
+    )
+    assert any(
+        "no required platform passed canonical check" in error
+        for error in gate["body"]["errors"]
+    ), gate["body"]["errors"]
+
+    # The third full-mode-only rule, equally uncovered until now: the two
+    # platforms must have run the same canonical checks. A suite that silently
+    # stops registering a check on one platform would otherwise satisfy every
+    # per-check rule by never appearing in half the comparison.
+    mismatched = temporary / "full-mismatched"
+    mismatched.mkdir()
+    env = write_full_pair(
+        mismatched,
+        workspace,
+        sha,
+        linux_checks=[passed_check("source check"), passed_check("extra check")],
+        mac_checks=[passed_check("source check")],
+    )
+    output = temporary / "full-mismatched-gate.json"
+    completed = invoke_full(mismatched, output, env)
+    assert_failed_receipt(completed, output)
+    gate = validate_receipt(
+        json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate"
+    )
+    assert any(
+        "do not contain the same canonical checks" in error
+        for error in gate["body"]["errors"]
+    ), gate["body"]["errors"]
+
+    # Everything else keeps the strict rule: a check that tests Groundwork
+    # itself must still pass somewhere, and must not skip on macOS.
+    ordinary = temporary / "full-ordinary-skip"
+    ordinary.mkdir()
+    env = write_full_pair(
+        ordinary,
+        workspace,
+        sha,
+        linux_checks=[passed_check("source check")],
+        mac_checks=[skipped_check("source check", "requires-macos-native-host")],
+    )
+    output = temporary / "full-ordinary-skip-gate.json"
+    completed = invoke_full(ordinary, output, env)
+    assert_failed_receipt(completed, output)
+    gate = validate_receipt(
+        json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate"
+    )
+    assert any(
+        "full macOS skipped required check" in error for error in gate["body"]["errors"]
+    ), gate["body"]["errors"]
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="groundwork-gate-test.") as temporary_name:
         temporary = pathlib.Path(temporary_name)
@@ -638,6 +888,8 @@ def main() -> int:
         assert len(retry_guidance) == 1
         assert "Re-run failed jobs cannot reproduce attempt-bound receipts" in retry_guidance[0]
         assert "Re-run all jobs" in missing_output.with_suffix(".md").read_text(encoding="utf-8")
+
+        assert_full_gate_contract(temporary, workspace, sha)
 
     print("test-aggregate-ci-receipts: passed")
     return 0
