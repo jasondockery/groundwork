@@ -2820,6 +2820,16 @@ SH
     "$update_all_home/.local/bin/groundwork-brew-refetch"
   cat >"$update_all_bin/brew" <<'SH'
 #!/usr/bin/env bash
+# Real Homebrew asks for confirmation before install/upgrade/reinstall unless
+# ask mode is disabled, and it asks ONLY with a terminal attached -- so no
+# fixture can reproduce the prompt itself. Record what each mutating call
+# inherited instead, in its own file so the ordered command log stays exact.
+case "${1:-}" in
+  install | upgrade | reinstall | bundle)
+    printf '%s no-ask=%s\n' "$1" "${HOMEBREW_NO_ASK:-unset}" \
+      >>"$HOME/.brew-ask-modes"
+    ;;
+esac
 case "${1:-}" in
   --cache)
     # A size query, not a stage: it stays out of the command log so the
@@ -2981,7 +2991,10 @@ case "${1:-}" in
         *) candidates=(${BREW_CASKS-ghostty}) ;;
       esac
     fi
-    [[ "${BREW_OUTDATED_STATUS:-0}" == 0 ]] || exit "$BREW_OUTDATED_STATUS"
+    if [[ "${BREW_OUTDATED_STATUS:-0}" != 0 ]]; then
+      echo 'Error: fixture cannot read the formula inventory' >&2
+      exit "$BREW_OUTDATED_STATUS"
+    fi
     reported_outdated=0
     for token in "${candidates[@]+"${candidates[@]}"}"; do
       remain_outdated=0
@@ -3160,6 +3173,10 @@ case "${1:-}" in
     ;;
   list)
     [[ "$#" -eq 2 && "${2:-}" == --json ]] || exit 64
+    # Real mas writes a Spotlight-index warning block to stderr on every read,
+    # once per app it cannot resolve. A fixture that stays silent cannot show
+    # where that output lands.
+    printf 'Warning: fixture app is not indexed in Spotlight\n' >&2
     mas_installed_output="${MAS_INSTALLED:-}"
     shopt -s nullglob
     mas_markers=("$HOME"/.mas-updated-*)
@@ -3172,6 +3189,7 @@ case "${1:-}" in
     ;;
   outdated)
     [[ "$#" -eq 3 && "${2:-}" == --json && "${3:-}" == --inaccurate ]] || exit 64
+    printf 'Warning: fixture app is not indexed in Spotlight\n' >&2
     printf 'mas outdated --json --inaccurate\n' >>"$GROUNDWORK_TEST_LOG"
     if [[ -n "${MAS_OUTDATED:-}" ]]; then
       while IFS= read -r mas_line; do
@@ -4121,6 +4139,25 @@ SH
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-success" 2>&1
+  # An empty Mac App Store inventory is reported once and ends the lane: the
+  # outdated query has nothing to compare against, and asking anyway reprints
+  # mas's warning block for an answer that cannot be used. mas's own output is
+  # kept, in its log rather than across the person's terminal.
+  grep -qF 'mas reported no installed Mac App Store apps' "$update_all_fixture/darwin-success" \
+    || fail "an empty Mac App Store inventory was not reported"
+  grep -qF 'Mac App Store apps      no-items-observed' "$update_all_fixture/darwin-success" \
+    || fail "an empty Mac App Store inventory was reported as a current lane"
+  assert_not_contains 'not indexed in Spotlight' "$update_all_fixture/darwin-success" \
+    "mas's Spotlight warnings reached the terminal instead of the Mac App Store log"
+  grep -qF 'not indexed in Spotlight' \
+    "$update_all_home/.local/state/groundwork/logs/mac-app-store-latest.log" \
+    || fail "mas's own output was dropped instead of kept in its log"
+  # Ask mode is the difference between an update that runs and one that stops
+  # on a [y/n] nobody in CI ever sees.
+  grep -qxF 'upgrade no-ask=1' "$update_all_home/.brew-ask-modes" \
+    || fail "the Homebrew upgrade lane did not disable Homebrew ask mode"
+  assert_not_contains 'no-ask=unset' "$update_all_home/.brew-ask-modes" \
+    "a Groundwork Homebrew mutation ran with ask mode left on; attached to a real terminal it would stop for confirmation"
   cat >"$update_all_fixture/expected-darwin" <<'EOF'
 chezmoi apply color=0
 brew-update
@@ -4128,8 +4165,6 @@ brew upgrade --formula git auto=1 casks=unset hb-color=unset
 brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset
 brew-repair
 apps-start
-mas outdated --json --inaccurate
-mas outdated --json --inaccurate
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -5122,6 +5157,10 @@ EOF
       || fail "a cancelled Homebrew bundle ($cancel_status) retried the bundle"
     grep -qF 'cancelled' "$bundle_output" \
       || fail "a cancelled Homebrew bundle ($cancel_status) did not say so"
+    grep -qxF 'bundle no-ask=1' "$update_all_home/.brew-ask-modes" \
+      || fail "the Homebrew bundle hook did not disable Homebrew ask mode; a fresh install would stop for confirmation on every package"
+    assert_not_contains 'no-ask=unset' "$update_all_home/.brew-ask-modes" \
+      "a Groundwork Homebrew mutation ran with ask mode left on"
   done
 
   # The retry lane too: a first attempt that merely FAILS may reach repair and
@@ -5693,10 +5732,37 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner reported a failed metadata refresh as complete"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmas outdated --json --inaccurate\nmas outdated --json --inaccurate\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
   grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
     "$update_all_fixture/darwin-brew-fail" \
     || fail "Homebrew failure did not isolate later package-manager mutation on macOS"
+  test ! -e "$update_all_stamp"
+
+  # A failed inventory observation stops the Homebrew lane and takes package
+  # and Docker maintenance with it, so it is the most expensive thing that can
+  # go wrong here and was the least explained: a label, an exit code, and a log
+  # path. Report Homebrew's own words and a command that reproduces exactly
+  # what Groundwork ran.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  set +e
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
+    FAKE_PLATFORM=darwin BREW_OUTDATED_STATUS=1 "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-outdated-fail" 2>&1
+  update_all_status=$?
+  set -e
+  [[ "$update_all_status" -ne 0 ]] \
+    || fail "the darwin runner reported an unobservable Homebrew inventory as complete"
+  grep -qF 'installed Homebrew formulae could not be observed (exit 1)' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "a failed Homebrew observation did not name the lane and status"
+  grep -qF 'fixture cannot read the formula inventory' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "Homebrew's own explanation was dropped from a failed observation"
+  grep -qF 'Reproduce it exactly: brew outdated --quiet --formula' \
+    "$update_all_fixture/darwin-outdated-fail" \
+    || fail "a failed Homebrew observation did not print the exact command to reproduce it"
   test ! -e "$update_all_stamp"
 
   check "update-all Homebrew download-cache cleanup"
@@ -10425,6 +10491,36 @@ EOF
     || fail "the brew bundle hook must export HOMEBREW_CURL_RETRIES"
   grep -qF 'HOMEBREW_CURL_RETRIES=3' home/dot_local/bin/executable_groundwork-update-run.tmpl \
     || fail "the update runner must export HOMEBREW_CURL_RETRIES"
+  # Homebrew asks before installing or upgrading whenever its plan reaches past
+  # the named packages, and it asks only when a terminal is attached. Nothing
+  # unattended can observe that prompt, so the guard has to be structural:
+  # every Groundwork file that mutates through Homebrew disables ask mode.
+  # A run that has already selected, classified, and printed its exact set is
+  # not asking the person a new question -- it is waiting on one they answered
+  # by running the command.
+  ask_mode_gaps=""
+  while IFS= read -r ask_file; do
+    grep -qE '^[[:space:]]*([A-Z_]+=[^[:space:]]*[[:space:]]+)*brew (install|upgrade|reinstall|bundle)([[:space:]]|$)' \
+      "$ask_file" || continue
+    grep -qF 'HOMEBREW_NO_ASK=1' "$ask_file" && continue
+    ask_mode_gaps="$ask_mode_gaps $ask_file"
+  done < <(git ls-files 'home/*')
+  [[ -z "$ask_mode_gaps" ]] \
+    || fail "these files run a mutating brew command with Homebrew ask mode left on:$ask_mode_gaps"
+  unset ask_file ask_mode_gaps
+  # The scan above proves the switch is present in each mutating file; these
+  # name where it has to be, so a later edit cannot satisfy it from a comment
+  # or an unrelated branch.
+  grep -qF 'export HOMEBREW_NO_ASK=1' home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    || fail "the update runner must disable Homebrew ask mode for the whole run"
+  grep -qF 'export HOMEBREW_NO_ASK=1' home/run_onchange_after_10-brew-bundle.sh.tmpl \
+    || fail "the brew bundle hook must disable Homebrew ask mode"
+  grep -qF 'HOMEBREW_NO_ASK=1 brew install --cask --require-sha --adopt' \
+    home/dot_local/bin/executable_groundwork-app-adopt \
+    || fail "groundwork-app-adopt must disable Homebrew ask mode for an adoption it already confirmed"
+  # shellcheck disable=SC2016 # $cmd is literal source under test.
+  grep -qF 'HOMEBREW_NO_ASK=1 $cmd' home/dot_local/bin/executable_groundwork-brew-repair \
+    || fail "groundwork-brew-repair must disable Homebrew ask mode for the repair the person approved"
   grep -qF "groundwork-brew-repair\" \"\$lane_log\"" home/dot_local/bin/executable_groundwork-update-run.tmpl \
     || fail "the update runner must feed the active lane log to groundwork-brew-repair"
   grep -qF "groundwork-brew-repair\" \"\$bundle_log\"" home/run_onchange_after_10-brew-bundle.sh.tmpl \
@@ -16398,6 +16494,25 @@ validate_external_tool_contracts() {
     # and every tapped install fails to load.
     HOMEBREW_NO_ANALYTICS=1 brew trust --help 2>&1 | grep -qE -- '--formula' \
       || fail "brew trust no longer documents --formula; the optional lane grants per-formula trust"
+  fi
+
+  check "external contract: brew upgrade can be told not to ask"
+  if ! command -v brew >/dev/null 2>&1; then
+    skip_current_check requires-homebrew "the Homebrew ask-mode contract requires Homebrew"
+  else
+    # Homebrew asks for confirmation before installing and upgrading by
+    # default, and skips the prompt when no terminal is attached. update-all
+    # runs attached on purpose so a sudo password stays visible, which is
+    # exactly where the prompt lands: every unattended proof passed while a
+    # real machine stopped and waited. Groundwork answers with the documented
+    # switch, so its disappearance must fail here rather than in someone's
+    # terminal.
+    HOMEBREW_NO_ANALYTICS=1 brew upgrade --help >"$out_dir/brew-upgrade-help" 2>&1 \
+      || fail "brew upgrade --help failed; the ask-mode contract could not be read"
+    grep -qE -- '--no-ask' "$out_dir/brew-upgrade-help" \
+      || fail "brew upgrade no longer documents --no-ask; Groundwork's non-interactive upgrade contract must be revisited"
+    grep -qF 'HOMEBREW_NO_ASK' "$out_dir/brew-upgrade-help" \
+      || fail "brew upgrade no longer documents \$HOMEBREW_NO_ASK; every Groundwork Homebrew mutation relies on it"
   fi
 
   check "external contract: mas exposes installed items with an id, name, and version"

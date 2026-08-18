@@ -73,7 +73,9 @@ case "$answer" in
   y | Y | yes | YES)
     while IFS= read -r cmd; do
       echo "Groundwork: running: $cmd"
-      if ! $cmd; then
+      # The exact commands were shown and approved a moment ago; Homebrew
+      # asking again for the same repair is a second gate on one decision.
+      if ! HOMEBREW_NO_ASK=1 $cmd; then
         echo "Groundwork: the repair you approved FAILED at: $cmd"
         echo "Earlier commands in the sequence may have run; review the output above."
         exit "$EXIT_FAILED"

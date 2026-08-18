@@ -48,6 +48,7 @@ ALLOWED_PLATFORM_SKIPS = {
         "requires-homebrew",
         "no-outdated-formula",
     },
+    "external contract: brew upgrade can be told not to ask": {"requires-homebrew"},
     "external contract: brew trust supports per-formula trust": {"requires-homebrew"},
     "external contract: mas exposes installed items with an id, name, and version": {
         "requires-mas",
