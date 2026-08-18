@@ -49,6 +49,12 @@ export HOMEBREW_VERBOSE_USING_DOTS=1
 # retryable (timeouts, 5xx). The curl-92 stream errors it does NOT retry are
 # handled after the fact by groundwork-brew-refetch below.
 export HOMEBREW_CURL_RETRIES=3
+# `brew bundle` shells out to `brew install`, so Homebrew's default ask mode
+# applies to every package here. On a fresh machine that plan is nothing but
+# dependencies, so an attached terminal turns the first install into a wall of
+# confirmations; without a terminal it never asks and the proof stays green.
+# The Brewfile IS the approved set, so Groundwork answers for it.
+export HOMEBREW_NO_ASK=1
 # Applying managed files installs anything missing but deliberately does not
 # upgrade already-installed packages. update-all owns upgrades after it has
 # classified the exact candidate set; this keeps a routine chezmoi apply from

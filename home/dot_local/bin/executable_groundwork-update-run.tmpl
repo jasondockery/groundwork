@@ -251,6 +251,17 @@ if [[ "$GROUNDWORK_COLOR" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 
+# Homebrew asks for confirmation before installing or upgrading whenever its
+# plan reaches past the named packages -- a new dependency, a dependent, a
+# cask's own requirement -- and it asks ONLY when a terminal is attached. That
+# is why every unattended proof stays green while a real person watching
+# update-all gets a [y/n] and a run that stops until they answer. Groundwork
+# already selected and classified this exact set and printed what it will do,
+# so a second confirmation asks the person to re-approve a decision they made
+# by running the command. HOMEBREW_NO_ASK is Homebrew's documented switch for
+# that; it does not disable an explicit --ask, and it never widens the set.
+export HOMEBREW_NO_ASK=1
+
 # One private, transaction-scoped directory lets the Brewfile hook and
 # package-maintenance child return small typed facts to this exact runner. Raw
 # upstream logs live separately under the user's Groundwork state directory.
@@ -678,6 +689,8 @@ EOF
     local label="$1" candidates_file="$2" selected_file="$3"
     shift 3
     local observed_file="${selected_file}.observed" observation_status=0
+    local observed_errors="${selected_file}.stderr"
+    : >"$observed_errors"
     : >"$selected_file"
     [[ -s "$candidates_file" ]] || return 0
     # Deliberately NO package arguments. `brew outdated <names>` uses its exit
@@ -689,12 +702,25 @@ EOF
     # exits 0, so a nonzero status here is a real observation failure again.
     # The candidate intersection happens below, where it is ours to control.
     HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet "$@" \
-      >"$observed_file" || observation_status=$?
+      >"$observed_file" 2>"$observed_errors" || observation_status=$?
     if [[ "$observation_status" -ne 0 ]]; then
       printf 'Groundwork: %s could not be observed (exit %s).\n' "$label" "$observation_status" >&2
-      rm -f -- "$observed_file"
+      # An exit code and a log path is a dead end: this failure stops the whole
+      # Homebrew lane and takes package and Docker maintenance with it, so the
+      # person needs to know WHY here, and be able to reproduce it in one line.
+      # Only Homebrew's own words can say why, and a status with no words is
+      # itself worth naming -- it means the failure was a status, not an error.
+      if [[ -s "$observed_errors" ]]; then
+        echo '  Homebrew said:' >&2
+        head -n 5 "$observed_errors" | sed 's/^/    /' >&2
+      else
+        echo '  Homebrew printed no explanation with that status.' >&2
+      fi
+      printf '  Reproduce it exactly: brew outdated --quiet %s\n' "$*" >&2
+      rm -f -- "$observed_file" "$observed_errors"
       return "$observation_status"
     fi
+    rm -f -- "$observed_errors"
     # Argument-free brew outdated reports EVERY outdated package, including the
     # ones this lane deliberately excluded: pinned formulae, deprecated casks,
     # and self-updating apps that Groundwork refuses to replace automatically.
@@ -1133,6 +1159,19 @@ if command -v mas >/dev/null 2>&1; then
   }
   # shellcheck source=/dev/null
   . "$mas_runner_lib"
+  # mas writes a Spotlight-index warning block to stderr -- one paragraph per
+  # app it cannot resolve, repeated in full for every invocation. Attached to a
+  # terminal that is dozens of lines per run, none of it actionable while the
+  # update is still going, and it buries the lines that are. Keep the stream,
+  # move it to a log beside Homebrew's, and say once what it means.
+  mas_log_dir="$HOME/.local/state/groundwork/logs"
+  mkdir -p "$mas_log_dir"
+  mas_log="$mas_log_dir/mac-app-store-latest.log"
+  : >"$mas_log"
+  chmod 600 "$mas_log"
+  mas_logged() {
+    mas "$@" 2>>"$mas_log"
+  }
   mas_installed="$(mktemp "$runner_receipt_dir/mas-installed.XXXXXX")"
   mas_outdated="$(mktemp "$runner_receipt_dir/mas-outdated.XXXXXX")"
   mas_post_installed="$(mktemp "$runner_receipt_dir/mas-post-installed.XXXXXX")"
@@ -1310,19 +1349,30 @@ if command -v mas >/dev/null 2>&1; then
   runner_temp="$mas_installed"
   if [[ "$mas_status" -eq 0 ]]; then
     run_bounded_internal "inventory Mac App Store applications" "$mas_observe_deadline" \
-      "$mas_installed" mas list --json || mas_status=$?
+      "$mas_installed" mas_logged list --json || mas_status=$?
   fi
   case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
   if [[ "$mas_status" -eq 0 ]]; then
     select_mas_installed_items "installed" "$mas_installed" "$mas_installed_items" \
       "$mas_installed_ids" || mas_status=$?
   fi
-  if [[ "$mas_status" -eq 0 ]]; then
+  # No installed items means there is nothing to check and nothing to compare
+  # an outdated answer against. Querying anyway repeats mas's whole warning
+  # block for a result that cannot be used. Report the observation once --
+  # including that it may be mas that cannot see the apps, which is not the
+  # same claim as "no App Store apps are installed".
+  mas_inventory_empty=0
+  if [[ "$mas_status" -eq 0 && ! -s "$mas_installed_ids" ]]; then
+    mas_inventory_empty=1
+    echo "Groundwork: mas reported no installed Mac App Store apps, so no App Store update was checked."
+    echo "  If you do have App Store apps, mas could not read them; its own output is in ~/.local/state/groundwork/logs/mac-app-store-latest.log"
+  fi
+  if [[ "$mas_status" -eq 0 && "$mas_inventory_empty" -eq 0 ]]; then
     run_bounded_internal "check Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_outdated" mas outdated --json --inaccurate || mas_status=$?
+      "$mas_outdated" mas_logged outdated --json --inaccurate || mas_status=$?
     case "$mas_status" in 125 | 129 | 130 | 143) exit "$mas_status" ;; esac
   fi
-  if [[ "$mas_status" -eq 0 ]]; then
+  if [[ "$mas_status" -eq 0 && "$mas_inventory_empty" -eq 0 ]]; then
     select_mas_outdated_items "outdated" "$mas_outdated" "$mas_outdated_items" \
       "$mas_outdated_ids" || mas_status=$?
   fi
@@ -1440,21 +1490,28 @@ if command -v mas >/dev/null 2>&1; then
       esac
     done <"$mas_outdated_ids"
   fi
+  # Verification exists to prove what an attempt changed. With nothing outdated
+  # there was no attempt, every per-app comparison below iterates an empty set,
+  # and the two extra mas reads buy nothing but a repeat of its warnings.
+  mas_verify_needed=0
+  [[ ! -s "$mas_outdated_ids" ]] || mas_verify_needed=1
   mas_observe_status=0
-  run_bounded_internal "re-inventory Mac App Store applications" "$mas_observe_deadline" \
-    "$mas_post_installed" mas list --json || mas_observe_status=$?
+  if [[ "$mas_verify_needed" -eq 1 ]]; then
+    run_bounded_internal "re-inventory Mac App Store applications" "$mas_observe_deadline" \
+      "$mas_post_installed" mas_logged list --json || mas_observe_status=$?
+  fi
   case "$mas_observe_status" in 125 | 129 | 130 | 143) exit "$mas_observe_status" ;; esac
-  if [[ "$mas_observe_status" -eq 0 ]]; then
+  if [[ "$mas_verify_needed" -eq 1 && "$mas_observe_status" -eq 0 ]]; then
     select_mas_installed_items "post-update installed" "$mas_post_installed" \
       "$mas_post_installed_items" "$mas_post_installed_ids" \
       || mas_observe_status=$?
   fi
-  if [[ "$mas_observe_status" -eq 0 ]]; then
+  if [[ "$mas_verify_needed" -eq 1 && "$mas_observe_status" -eq 0 ]]; then
     run_bounded_internal "verify Mac App Store updates" "$mas_observe_deadline" \
-      "$mas_remaining" mas outdated --json --inaccurate || mas_observe_status=$?
+      "$mas_remaining" mas_logged outdated --json --inaccurate || mas_observe_status=$?
   fi
   case "$mas_observe_status" in 125 | 129 | 130 | 143) exit "$mas_observe_status" ;; esac
-  if [[ "$mas_observe_status" -eq 0 ]]; then
+  if [[ "$mas_verify_needed" -eq 1 && "$mas_observe_status" -eq 0 ]]; then
     select_mas_outdated_items "remaining outdated" "$mas_remaining" \
       "$mas_remaining_items" "$mas_remaining_ids" || mas_observe_status=$?
   fi
@@ -1539,6 +1596,8 @@ if command -v mas >/dev/null 2>&1; then
       mas_lane_status="updated-and-verified"
     elif [[ "$mas_no_longer_outdated_count" -gt 0 ]]; then
       mas_lane_status="current-after-recheck"
+    elif [[ "$mas_inventory_empty" -eq 1 ]]; then
+      mas_lane_status="no-items-observed"
     else
       mas_lane_status="current"
     fi
