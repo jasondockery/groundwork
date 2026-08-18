@@ -1339,11 +1339,23 @@ if command -v mas >/dev/null 2>&1; then
       return 1
     fi
   }
+  # This gate is the ONLY thing standing between "mas said something odd" and
+  # the receipt reading four all-zero counters with no explanation -- exactly
+  # what shipped once already, from the sibling check on brew's own exit
+  # status. mas's stderr on failure goes to the App Store log beside its other
+  # output, and a mismatched-but-successful version is named exactly, since
+  # that alone is enough to tell a future major-version bump from a broken
+  # install.
   mas_version_status=0
-  mas_version="$(mas version 2>/dev/null)" || mas_version_status=$?
+  mas_version="$(mas version 2>>"$mas_log")" || mas_version_status=$?
   if [[ "$mas_version_status" -ne 0 || ! "$mas_version" =~ ^7[.] ]]; then
-    printf 'Groundwork: Mac App Store JSON inventory requires reviewed mas 7.x; observed %s. No App Store update was attempted.\n' \
-      "${mas_version:-unavailable}" >&2
+    if [[ "$mas_version_status" -ne 0 ]]; then
+      printf 'Groundwork: Mac App Store JSON inventory requires reviewed mas 7.x; the version check failed (exit %s). Its own output is in ~/.local/state/groundwork/logs/mac-app-store-latest.log\n' \
+        "$mas_version_status" >&2
+    else
+      printf 'Groundwork: Mac App Store JSON inventory requires reviewed mas 7.x; observed %s. No App Store update was attempted.\n' \
+        "$mas_version" >&2
+    fi
     mas_status=1
   fi
   runner_temp="$mas_installed"
