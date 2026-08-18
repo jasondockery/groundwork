@@ -347,7 +347,10 @@ case "$process_state_after" in
 esac
 
 adopt_status=0
-brew install --cask --require-sha --adopt "$cask_token" || adopt_status=$?
+# The adoption was confirmed above; Homebrew must not ask again for the same
+# decision, and it would ask only when a terminal is attached.
+HOMEBREW_NO_ASK=1 brew install --cask --require-sha --adopt "$cask_token" \
+  || adopt_status=$?
 if [[ "$adopt_status" -ne 0 ]]; then
   cat >&2 <<EOF
 Groundwork: Homebrew could not adopt $display_name (exit $adopt_status).
