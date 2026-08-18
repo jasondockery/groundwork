@@ -692,7 +692,7 @@ jobs:
           --lane "static_linux|Static Linux|lint, docs, profiles|static|forbid"
           --lane "update_contract_linux|Update contract|locks, signals, package maintenance|update|forbid"
           --lane "docker_contract_linux|Docker contract|exact-resource lifecycle|docker|forbid"
-          --lane "platform_macos|Platform macOS|tmux, PTY, BSD, Homebrew|platform-macos|forbid"
+          --lane "platform_macos|Platform macOS|tmux, PTY, BSD, Homebrew|platform-macos|allow-platform"
           --lane "docker-build|Docker image|build, smoke, exact-ID disposal|-|none"
           --lane "workflow-lint|Workflow security|Zizmor and SARIF|-|none"
           --lane "secret-scan|Security|full-history secret scan|-|none"

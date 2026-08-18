@@ -29,7 +29,7 @@ suite_registry=(
   'static|validate_static|validate_static_foundation validate_static_configuration validate_static_runtime validate_static_helpers validate_static_repository'
   'update|validate_update|validate_update'
   'docker|validate_docker|validate_docker'
-  'platform-macos|validate_platform_macos|validate_platform_terminal validate_platform_tmux validate_platform_native_processes'
+  'platform-macos|validate_platform_macos|validate_platform_terminal validate_platform_tmux validate_platform_native_processes validate_external_tool_contracts'
 )
 suite_function=""
 suite_owners=""
@@ -16352,10 +16352,102 @@ validate_static() {
   validate_static_repository
 }
 
+# Contracts Groundwork depends on that live in OTHER tools. Every check here
+# runs the real binary and asserts an observable behavior, because the defects
+# these prevent all shipped past suites that were green: fixtures modelled the
+# contract we assumed rather than the one the tool has. A stand-in cannot fail
+# when upstream changes; only the tool can. All checks are read-only, and each
+# skips explicitly when its tool is absent so Linux and lean CI stay honest.
+validate_external_tool_contracts() {
+  check "external contract: brew outdated exit status is a predicate, not a failure"
+  if ! command -v brew >/dev/null 2>&1; then
+    skip_current_check requires-homebrew \
+      "the brew outdated contract requires Homebrew"
+  else
+    # v1.19.0 shipped a broken update-all because Groundwork passed a package
+    # list and read nonzero as "could not observe". With names, brew outdated
+    # returns 1 when those packages ARE outdated; argument-free it always
+    # exits 0. update-all therefore failed exactly when updates existed.
+    local bare_status=0
+    HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 brew outdated --quiet --formula \
+      >"$out_dir/brew-outdated-bare" 2>/dev/null || bare_status=$?
+    [[ "$bare_status" -eq 0 ]] \
+      || fail "argument-free brew outdated must exit 0; Groundwork reads a nonzero status as an observation failure (got $bare_status)"
+    # The predicate half is only observable while something is actually
+    # outdated. Skipping the assertion is honest; weakening it is not.
+    local first_outdated=""
+    first_outdated="$(head -n 1 "$out_dir/brew-outdated-bare" 2>/dev/null || true)"
+    if [[ -z "$first_outdated" ]]; then
+      mark_current_check_skipped no-outdated-formula \
+        "no formula is currently outdated, so the named-argument predicate cannot be observed"
+    else
+      local named_status=0
+      HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 brew outdated --quiet --formula "$first_outdated" \
+        >/dev/null 2>&1 || named_status=$?
+      [[ "$named_status" -ne 0 ]] \
+        || fail "brew outdated named an outdated formula ($first_outdated) and exited 0; the predicate contract changed and select_brew_outdated must be revisited"
+    fi
+  fi
+
+  check "external contract: brew trust supports per-formula trust"
+  if ! command -v brew >/dev/null 2>&1; then
+    skip_current_check requires-homebrew "per-formula brew trust requires Homebrew"
+  else
+    # The optional Brewfile lane trusts one named formula rather than a whole
+    # tap. If --formula disappears, that narrow grant silently becomes no grant
+    # and every tapped install fails to load.
+    HOMEBREW_NO_ANALYTICS=1 brew trust --help 2>&1 | grep -qE -- '--formula' \
+      || fail "brew trust no longer documents --formula; the optional lane grants per-formula trust"
+  fi
+
+  check "external contract: mas exposes installed items with an id, name, and version"
+  if ! command -v mas >/dev/null 2>&1; then
+    skip_current_check requires-mas "the mas installed-item contract requires mas"
+  elif ! command -v jq >/dev/null 2>&1; then
+    skip_current_check requires-jq "the mas installed-item contract requires jq"
+  else
+    # mas 7.0.0 renamed trackId -> adamID and trackName -> name, so every App
+    # Store item became "malformed" and no update was attempted. Accepting
+    # either spelling only helps while at least one still exists.
+    local mas_status=0
+    mas list --json >"$out_dir/mas-installed-contract.json" 2>/dev/null || mas_status=$?
+    if [[ "$mas_status" -ne 0 || ! -s "$out_dir/mas-installed-contract.json" ]]; then
+      mark_current_check_skipped no-app-store-items \
+        "mas reported no installed App Store items, so the record shape cannot be observed"
+    else
+      jq -er '
+        def safe_text: type == "string" and length > 0;
+        (.adamID // .trackId) as $id
+        | (.name // .trackName) as $label
+        | if ($id | type == "number" and . == floor) and ($label | safe_text) and (.version | safe_text)
+          then "ok"
+          else error("mas installed record lost its id, name, or version")
+          end
+      ' "$out_dir/mas-installed-contract.json" >/dev/null 2>"$out_dir/mas-contract.err" \
+        || fail "mas installed records no longer expose an integer adamID/trackId, a name/trackName, and a version: $(head -n 1 "$out_dir/mas-contract.err" 2>/dev/null)"
+    fi
+  fi
+
+  check "external contract: sfltool still offers no way to add a Finder favorite"
+  if ! command -v sfltool >/dev/null 2>&1; then
+    skip_current_check requires-sfltool "the Finder favorites contract requires sfltool"
+  else
+    # docs/macos.html tells users to add the screenshots folder to the sidebar
+    # themselves BECAUSE macOS ships no supported way to do it. If Apple adds
+    # one, that documented reasoning is stale and Groundwork could automate it.
+    sfltool 2>&1 | grep -qE '^Usage: sfltool ' \
+      || fail "sfltool no longer prints its usage; the Finder favorites reasoning cannot be confirmed"
+    if sfltool 2>&1 | grep -qE '(^|\|)add(\||[[:space:]])'; then
+      fail "sfltool now exposes an add subcommand; revisit documenting the Finder sidebar as unautomatable"
+    fi
+  fi
+}
+
 validate_platform_macos() {
   validate_platform_terminal
   validate_platform_tmux
   validate_platform_native_processes
+  validate_external_tool_contracts
 }
 
 validate_full() {
