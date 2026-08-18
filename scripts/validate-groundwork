@@ -3170,6 +3170,10 @@ case "${1:-}" in
     ;;
   list)
     [[ "$#" -eq 2 && "${2:-}" == --json ]] || exit 64
+    # Real mas writes a Spotlight-index warning block to stderr on every read,
+    # once per app it cannot resolve. A fixture that stays silent cannot show
+    # where that output lands.
+    printf 'Warning: fixture app is not indexed in Spotlight\n' >&2
     mas_installed_output="${MAS_INSTALLED:-}"
     shopt -s nullglob
     mas_markers=("$HOME"/.mas-updated-*)
@@ -3182,6 +3186,7 @@ case "${1:-}" in
     ;;
   outdated)
     [[ "$#" -eq 3 && "${2:-}" == --json && "${3:-}" == --inaccurate ]] || exit 64
+    printf 'Warning: fixture app is not indexed in Spotlight\n' >&2
     printf 'mas outdated --json --inaccurate\n' >>"$GROUNDWORK_TEST_LOG"
     if [[ -n "${MAS_OUTDATED:-}" ]]; then
       while IFS= read -r mas_line; do
@@ -4131,6 +4136,19 @@ SH
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-success" 2>&1
+  # An empty Mac App Store inventory is reported once and ends the lane: the
+  # outdated query has nothing to compare against, and asking anyway reprints
+  # mas's warning block for an answer that cannot be used. mas's own output is
+  # kept, in its log rather than across the person's terminal.
+  grep -qF 'mas reported no installed Mac App Store apps' "$update_all_fixture/darwin-success" \
+    || fail "an empty Mac App Store inventory was not reported"
+  grep -qF 'Mac App Store apps      no-items-observed' "$update_all_fixture/darwin-success" \
+    || fail "an empty Mac App Store inventory was reported as a current lane"
+  assert_not_contains 'not indexed in Spotlight' "$update_all_fixture/darwin-success" \
+    "mas's Spotlight warnings reached the terminal instead of the Mac App Store log"
+  grep -qF 'not indexed in Spotlight' \
+    "$update_all_home/.local/state/groundwork/logs/mac-app-store-latest.log" \
+    || fail "mas's own output was dropped instead of kept in its log"
   # Ask mode is the difference between an update that runs and one that stops
   # on a [y/n] nobody in CI ever sees.
   grep -qxF 'upgrade no-ask=1' "$update_all_home/.brew-ask-modes" \
@@ -4144,8 +4162,6 @@ brew upgrade --formula git auto=1 casks=unset hb-color=unset
 brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset
 brew-repair
 apps-start
-mas outdated --json --inaccurate
-mas outdated --json --inaccurate
 mise upgrade --minimum-release-age 5d
 brew autoremove
 brew cleanup --prune=all
@@ -5713,7 +5729,7 @@ EOF
   update_all_status=$?
   set -e
   [[ "$update_all_status" -ne 0 ]] || fail "the darwin runner reported a failed metadata refresh as complete"
-  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmas outdated --json --inaccurate\nmas outdated --json --inaccurate\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
+  diff -u <(printf 'chezmoi apply color=0\nbrew-update\nmise upgrade --minimum-release-age 5d\n') "$update_all_log"
   grep -qF 'Package-manager maintenance skipped because Homebrew inventory or update failed' \
     "$update_all_fixture/darwin-brew-fail" \
     || fail "Homebrew failure did not isolate later package-manager mutation on macOS"
