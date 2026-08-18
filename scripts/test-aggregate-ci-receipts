@@ -569,6 +569,30 @@ def assert_full_gate_contract(temporary: pathlib.Path, workspace: pathlib.Path, 
         for error in gate["body"]["errors"]
     ), gate["body"]["errors"]
 
+    # The third full-mode-only rule, equally uncovered until now: the two
+    # platforms must have run the same canonical checks. A suite that silently
+    # stops registering a check on one platform would otherwise satisfy every
+    # per-check rule by never appearing in half the comparison.
+    mismatched = temporary / "full-mismatched"
+    mismatched.mkdir()
+    env = write_full_pair(
+        mismatched,
+        workspace,
+        sha,
+        linux_checks=[passed_check("source check"), passed_check("extra check")],
+        mac_checks=[passed_check("source check")],
+    )
+    output = temporary / "full-mismatched-gate.json"
+    completed = invoke_full(mismatched, output, env)
+    assert_failed_receipt(completed, output)
+    gate = validate_receipt(
+        json.loads(output.read_text(encoding="utf-8")), expected_kind="ci-gate"
+    )
+    assert any(
+        "do not contain the same canonical checks" in error
+        for error in gate["body"]["errors"]
+    ), gate["body"]["errors"]
+
     # Everything else keeps the strict rule: a check that tests Groundwork
     # itself must still pass somewhere, and must not skip on macOS.
     ordinary = temporary / "full-ordinary-skip"
