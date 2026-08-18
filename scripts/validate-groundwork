@@ -16216,12 +16216,17 @@ LAUNCHER_JSON
     sed -i.bak "s/LAUNCHER_PNPM_VERSION/$launcher_pnpm_version/" "$launcher_dir/repo/package.json"
     rm -f "$launcher_dir/repo/package.json.bak"
 
+    # This resolution DOWNLOADS the pinned pnpm: COREPACK_HOME above is a scratch
+    # cache on purpose, so every run fetches from the registry. A network failure
+    # therefore reads as an empty answer, and discarding the reason turned an
+    # unreachable registry into "got 'none'" -- a toolchain defect that is not
+    # one. Keep what the tool said and put it in the failure.
     launcher_parent_pnpm="$(
       cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-        pnpm --version 2>/dev/null || true
+        pnpm --version 2>"$out_dir/launcher-parent.err" || true
     )"
     [ "$launcher_parent_pnpm" = "$launcher_pnpm_version" ] \
-      || fail "bare pnpm must honor the fixture's packageManager pin (got '${launcher_parent_pnpm:-none}', expected $launcher_pnpm_version)"
+      || fail "bare pnpm must honor the fixture's packageManager pin (got '${launcher_parent_pnpm:-none}', expected $launcher_pnpm_version); Corepack said: $(head -n 3 "$out_dir/launcher-parent.err" 2>/dev/null | tr '\n' ' ')"
 
     launcher_child="$(
       cd "$launcher_dir/repo" && PATH="$launcher_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
