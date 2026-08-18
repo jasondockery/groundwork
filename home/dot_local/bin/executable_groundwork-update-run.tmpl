@@ -678,16 +678,35 @@ EOF
     local label="$1" candidates_file="$2" selected_file="$3"
     shift 3
     local observed_file="${selected_file}.observed" observation_status=0
-    local candidate_tokens=()
     : >"$selected_file"
     [[ -s "$candidates_file" ]] || return 0
-    while IFS= read -r candidate_token; do candidate_tokens+=("$candidate_token"); done <"$candidates_file"
-    HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet "$@" "${candidate_tokens[@]}" \
+    # Deliberately NO package arguments. `brew outdated <names>` uses its exit
+    # status as a PREDICATE: it returns 1 when the named packages are outdated,
+    # and 0 when they are current. Passing the candidate list therefore made
+    # Homebrew report "failure" in exactly the case this command exists for --
+    # having updates to install -- while succeeding whenever there was nothing
+    # to do. Argument-free `brew outdated` reports every outdated package and
+    # exits 0, so a nonzero status here is a real observation failure again.
+    # The candidate intersection happens below, where it is ours to control.
+    HOMEBREW_NO_AUTO_UPDATE=1 brew outdated --quiet "$@" \
       >"$observed_file" || observation_status=$?
     if [[ "$observation_status" -ne 0 ]]; then
       printf 'Groundwork: %s could not be observed (exit %s).\n' "$label" "$observation_status" >&2
       rm -f -- "$observed_file"
       return "$observation_status"
+    fi
+    # Argument-free brew outdated reports EVERY outdated package, including the
+    # ones this lane deliberately excluded: pinned formulae, deprecated casks,
+    # and self-updating apps that Groundwork refuses to replace automatically.
+    # Narrow to the candidate set here, because gw_brew_select_exact_tokens
+    # rejects an observation containing anything outside it -- a correct rule
+    # when the tokens were named, and an impossible one once they are not.
+    # Its token-shape and duplicate checks still run on the narrowed result.
+    if [[ -s "$observed_file" ]]; then
+      LC_ALL=C sort "$observed_file" >"${observed_file}.all"
+      LC_ALL=C sort -u "$candidates_file" >"${observed_file}.wanted"
+      LC_ALL=C comm -12 "${observed_file}.all" "${observed_file}.wanted" >"$observed_file"
+      rm -f -- "${observed_file}.all" "${observed_file}.wanted"
     fi
     if ! gw_brew_select_exact_tokens "$candidates_file" "$observed_file" "$selected_file"; then
       rm -f -- "$observed_file"
@@ -1229,12 +1248,19 @@ if command -v mas >/dev/null 2>&1; then
         def safe_text:
           type == "string" and length > 0 and
           (test("[\\x00-\\x1F\\x7F]") | not);
-        if type == "object" and
-          (.trackId | type == "number" and . == floor) and
-          (.trackName | safe_text) and (.version | safe_text)
-        then [(.trackId | tostring), .trackName, .version] | @tsv
-        else error("invalid mas installed object")
-        end
+        # mas renamed these in 7.0.0: trackId -> adamID, trackName -> name.
+        # Accept either spelling so one installed mas version does not decide
+        # whether App Store updates run at all, and keep every validation --
+        # the identifier must still be a whole number, and both text fields
+        # must still be non-empty and free of control characters.
+        (.adamID // .trackId) as $id
+        | (.name // .trackName) as $label
+        | if type == "object" and
+            ($id | type == "number" and . == floor) and
+            ($label | safe_text) and (.version | safe_text)
+          then [($id | tostring), $label, .version] | @tsv
+          else error("invalid mas installed object")
+          end
       ' "$input_file" >"$items_file"; then
       printf 'Groundwork: Mac App Store returned a malformed %s item; no App Store update was attempted.\n' \
         "$label" >&2
