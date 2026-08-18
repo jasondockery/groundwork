@@ -40,6 +40,23 @@ ALLOWED_PLATFORM_SKIPS = {
     "macOS representative rendered apply smoke": {"requires-macos-native-host"},
     "macOS native process and filesystem primitives": {"requires-macos-native-host"},
     "Homebrew interactive terminal ownership": {"requires-macos-native-host"},
+    # External tool contracts run the real binary, so they are only observable
+    # where that tool exists and has something to report. The tool being absent
+    # is a fact about the runner; every other skip in these checks is still a
+    # gate failure.
+    "external contract: brew outdated exit status is a predicate, not a failure": {
+        "requires-homebrew",
+        "no-outdated-formula",
+    },
+    "external contract: brew trust supports per-formula trust": {"requires-homebrew"},
+    "external contract: mas exposes installed items with an id, name, and version": {
+        "requires-mas",
+        "requires-jq",
+        "no-app-store-items",
+    },
+    "external contract: sfltool still offers no way to add a Finder favorite": {
+        "requires-sfltool",
+    },
 }
 
 
