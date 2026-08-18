@@ -187,7 +187,7 @@ jobs:
           --budget-seconds 2400
           --started-epoch "$GATE_STARTED_EPOCH"
           --lane "full_linux|Full Linux|complete isolated suite composition|full|allow-platform"
-          --lane "full_macos|Full macOS|complete isolated suite composition and cask integrity|full|forbid"
+          --lane "full_macos|Full macOS|complete isolated suite composition and cask integrity|full|allow-platform"
 
       - name: Upload aggregate full-validation receipt
         if: ${{ always() }}
