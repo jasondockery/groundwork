@@ -251,6 +251,17 @@ if [[ "$GROUNDWORK_COLOR" == "1" ]]; then
   export HOMEBREW_COLOR=1
 fi
 
+# Homebrew asks for confirmation before installing or upgrading whenever its
+# plan reaches past the named packages -- a new dependency, a dependent, a
+# cask's own requirement -- and it asks ONLY when a terminal is attached. That
+# is why every unattended proof stays green while a real person watching
+# update-all gets a [y/n] and a run that stops until they answer. Groundwork
+# already selected and classified this exact set and printed what it will do,
+# so a second confirmation asks the person to re-approve a decision they made
+# by running the command. HOMEBREW_NO_ASK is Homebrew's documented switch for
+# that; it does not disable an explicit --ask, and it never widens the set.
+export HOMEBREW_NO_ASK=1
+
 # One private, transaction-scoped directory lets the Brewfile hook and
 # package-maintenance child return small typed facts to this exact runner. Raw
 # upstream logs live separately under the user's Groundwork state directory.
