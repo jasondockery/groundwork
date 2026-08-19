@@ -15949,6 +15949,44 @@ EOF
   check "every CI job declares a bounded timeout"
   scripts/check-workflow-timeouts >/dev/null
 
+  check "workflow setup-step timeout checker behaves as specified"
+  # Same fixture discipline as the sibling job-timeout checker above, and the
+  # same reason: an "Install validation tools" step talks to apt mirrors,
+  # get.chezmoi.io, or Homebrew before Groundwork's own bounded validator ever
+  # runs. Until this checker existed, that step's only bound was the job's
+  # outer timeout-minutes -- collapsing the outer envelope and the inner
+  # deadline into one number is exactly what check-workflow-timeouts' own
+  # header calls out as wrong, and it shipped that way in every Linux and
+  # macOS CI job for as long as this workflow has existed.
+  setup_step_fixtures="tests/fixtures/workflow-setup-step-timeouts"
+  expect_setup_step_check() {
+    local want="$1" dir="$2" needle="$3" out rc
+    set +e
+    out="$(scripts/check-workflow-setup-step-timeouts "$setup_step_fixtures/$dir" 2>&1)"
+    rc=$?
+    set -e
+    if [[ "$rc" != "$want" ]]; then
+      echo "workflow-setup-step-timeout checker: $dir exited $rc, expected $want" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+    if [[ "$needle" != "-" && "$out" != *"$needle"* ]]; then
+      echo "workflow-setup-step-timeout checker: $dir output missing \"$needle\"" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+  }
+  expect_setup_step_check 0 valid 'ok: every "Install validation tools"'
+  expect_setup_step_check 0 no-setup-step 'ok: every "Install validation tools"'
+  expect_setup_step_check 0 valid-yaml-ext 'ok: every "Install validation tools"'
+  expect_setup_step_check 1 missing-step-timeout "has no step-level timeout-minutes"
+  expect_setup_step_check 1 equal-to-job "must be strictly less than the job timeout-minutes"
+  expect_setup_step_check 1 over-job "must be strictly less than the job timeout-minutes"
+  expect_setup_step_check 1 multi "has no step-level timeout-minutes"
+
+  check "every CI setup step bounds itself under its job timeout"
+  scripts/check-workflow-setup-step-timeouts >/dev/null
+
   check "workflow toolchain checker behaves as specified"
   # Same fixture discipline as the timeout checker: never mutate live workflow
   # files to produce a red proof. The fixture scripts also prove the reaching-set

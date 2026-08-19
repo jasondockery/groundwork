@@ -173,10 +173,8 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+        timeout-minutes: 3
+        run: scripts/ci-install-linux-tools
 
       - name: Register shellcheck problem matcher
         run: echo "::add-matcher::.github/problem-matchers/shellcheck-gcc.json"
@@ -234,10 +232,8 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+        timeout-minutes: 3
+        run: scripts/ci-install-linux-tools
 
       - name: Validate update contracts and publish final job receipt
         env:
@@ -289,10 +285,8 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+        timeout-minutes: 3
+        run: scripts/ci-install-linux-tools
 
       - name: Validate Docker contracts and publish final job receipt
         env:
@@ -344,6 +338,13 @@ jobs:
           corepack install
 
       - name: Install validation tools
+        timeout-minutes: 5
+        env:
+          # Same reasoning as scripts/ci-install-linux-tools: this step's only
+          # bound used to be the outer job timeout, and a transient bottle
+          # download failure looked identical to a real hang. Homebrew already
+          # retries curl-level failures when told to; nothing had told it to.
+          HOMEBREW_CURL_RETRIES: "3"
         run: |
           if brew tap | grep -qxF aws/tap; then
             brew untap --force aws/tap

@@ -1,0 +1,8 @@
+jobs:
+  static_linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install validation tools
+        timeout-minutes: 3 # deliberately short
+        run: scripts/ci-install-linux-tools
