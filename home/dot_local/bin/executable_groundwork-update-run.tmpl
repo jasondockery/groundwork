@@ -69,6 +69,26 @@ if [[ -t 0 && -t 2 ]]; then
   groundwork_interactive_tty_available=1
 fi
 
+# Defined with the descriptors it reads and writes, because more than one stage
+# now asks a yes/no question. Unreadable input (a closed stdin) answers no, the
+# same as an explicit no: a consent prompt that cannot be answered has not been
+# answered. Anything unrecognized re-asks rather than falling through.
+groundwork_action_confirm() {
+  local prompt="$1" answer
+  while true; do
+    printf '%s [y/N] ' "$prompt" >&6
+    if ! IFS= read -r -u 7 answer; then
+      echo >&6
+      return 1
+    fi
+    case "$answer" in
+      y | Y | yes | Yes | YES) return 0 ;;
+      "" | n | N | no | No | NO) return 1 ;;
+      *) echo "Please answer yes or no." >&6 ;;
+    esac
+  done
+}
+
 applications_dir=""
 {{- if eq .chezmoi.os "darwin" }}
 mas_app_deadline="${GROUNDWORK_MAS_APP_DEADLINE_SECONDS:-1800}"
@@ -467,6 +487,7 @@ brew_vendor_covered_count=0
 brew_deprecated_count=0
 brew_disabled_count=0
 brew_deferred_running_count=0
+brew_consent_count=0
 brew_discovered_count=0
 brew_inventory_current_count=0
 brew_attempted_count=0
@@ -566,11 +587,88 @@ if command -v brew >/dev/null 2>&1; then
   ordinary_cask_file="$runner_receipt_dir/homebrew-cask-ordinary"
   auto_check_file="$runner_receipt_dir/homebrew-cask-auto-check"
   latest_check_file="$runner_receipt_dir/homebrew-cask-latest-check"
+  consent_cask_file="$runner_receipt_dir/homebrew-cask-consent"
   cask_apps_file="$runner_receipt_dir/homebrew-cask-apps.tsv"
   : >"$ordinary_cask_file"
   : >"$auto_check_file"
   : >"$latest_check_file"
+  : >"$consent_cask_file"
   : >"$cask_apps_file"
+
+  # Unasked and declined are different reasons for the same outcome, and the
+  # receipt owes the outcome either way: these apps are still outdated and
+  # still waiting on their owner.
+  count_privileged_casks_as_review() {
+    local token
+    while IFS=$'\t' read -r token _; do
+      [[ -n "$token" ]] || continue
+      brew_cask_review_count=$((brew_cask_review_count + 1))
+    done <"$consent_cask_file"
+  }
+
+  print_privileged_cask_commands() {
+    local token
+    while IFS=$'\t' read -r token _; do
+      [[ -n "$token" ]] || continue
+      printf '  Quit it if running, then run: brew upgrade --cask --require-sha %s\n' "$token"
+    done <"$consent_cask_file"
+  }
+
+  # A cask that installs privileged helpers is never replaced automatically:
+  # that replacement can stop for a password, an application dialog, or helper
+  # teardown, so it needs a person present. The policy is right and the outcome
+  # was not -- the same apps printed the same commands every single run, which
+  # is how a safety rule turns into noise people stop reading.
+  #
+  # So ask, once, before anything mutates. A yes routes them through the exact
+  # lanes every other cask uses: the same checksum requirement, the same
+  # no-quit guard, the same deferral of anything still open. Consent authorizes
+  # a privileged replacement; it never authorizes an unverified artifact, which
+  # is why an unchecksummed cask stays in review and is not offered here. A no,
+  # an unanswerable prompt, or no terminal leaves the run exactly as it was.
+  offer_privileged_cask_consent() {
+    local token reason installed available
+    echo
+    echo "Groundwork: these installed apps manage privileged helpers, so Groundwork does not replace them on its own:"
+    while IFS=$'\t' read -r token reason installed available; do
+      [[ -n "$token" ]] || continue
+      printf '  %s %s -> %s (%s)\n' "$token" "$installed" "$available" "$reason"
+    done <"$consent_cask_file"
+    echo "  Upgrading them runs Homebrew's normal replacement, which may ask for your password."
+    echo "  An app that is still open is skipped unless you rerun with --allow-app-quit."
+    if [[ "$groundwork_interactive_tty_available" -ne 1 ]]; then
+      echo "  No terminal is attached, so nothing was asked and nothing was changed."
+      print_privileged_cask_commands
+      count_privileged_casks_as_review
+      return 0
+    fi
+    if ! groundwork_action_confirm "Upgrade these apps now?"; then
+      echo "Groundwork: left unchanged for this run."
+      print_privileged_cask_commands
+      count_privileged_casks_as_review
+      return 0
+    fi
+    while IFS=$'\t' read -r token reason installed available; do
+      [[ -n "$token" ]] || continue
+      case "$reason" in
+        self-updating+privileged-replacement)
+          printf '%s\n' "$token" >>"$auto_check_file"
+          ;;
+        privileged-replacement)
+          printf '%s\n' "$token" >>"$ordinary_cask_file"
+          ;;
+        *)
+          printf 'Groundwork: %s has an unknown privileged ownership (%s); it was not upgraded.\n' \
+            "$token" "$reason" >&2
+          brew_cask_review_count=$((brew_cask_review_count + 1))
+          continue
+          ;;
+      esac
+      brew_consent_count=$((brew_consent_count + 1))
+    done <"$consent_cask_file"
+    printf 'Groundwork: you authorized %s privileged cask upgrade(s) for this run.\n' \
+      "$brew_consent_count"
+  }
   if [[ "$homebrew_status" -eq 0 && -s "$cask_inventory" ]]; then
     vendor_updater_policy="$HOME/.local/share/groundwork/vendor-updater-casks.txt"
     cask_metadata="$(mktemp "$runner_receipt_dir/homebrew-cask-metadata.XXXXXX")"
@@ -615,6 +713,11 @@ if command -v brew >/dev/null 2>&1; then
           ;;
         latest-check)
           printf '%s\n' "$cask_token" >>"$latest_check_file"
+          ;;
+        consent)
+          printf '%s\t%s\t%s\t%s\n' \
+            "$cask_token" "$cask_reason" "$cask_installed" "$cask_available" \
+            >>"$consent_cask_file"
           ;;
         current)
           brew_inventory_current_count=$((brew_inventory_current_count + 1))
@@ -673,15 +776,20 @@ EOF
     done <"$cask_classification"
     rm -f -- "$cask_metadata" "$cask_classification"
     runner_temp=""
+    if [[ "$homebrew_status" -eq 0 && -s "$consent_cask_file" ]]; then
+      offer_privileged_cask_consent
+    fi
   fi
   {{- else }}
   ordinary_cask_file="$runner_receipt_dir/homebrew-cask-ordinary"
   auto_check_file="$runner_receipt_dir/homebrew-cask-auto-check"
   latest_check_file="$runner_receipt_dir/homebrew-cask-latest-check"
+  consent_cask_file="$runner_receipt_dir/homebrew-cask-consent"
   cask_apps_file="$runner_receipt_dir/homebrew-cask-apps.tsv"
   : >"$ordinary_cask_file"
   : >"$auto_check_file"
   : >"$latest_check_file"
+  : >"$consent_cask_file"
   : >"$cask_apps_file"
   {{- end }}
 
@@ -2254,6 +2362,7 @@ Homebrew inventory
   Attempted               $brew_attempted_count exact eligible item(s)
   Verified updated        $brew_verified_updated_count
   Vendor-covered          $brew_vendor_covered_count self-updating cask(s)
+  Owner-authorized        $brew_consent_count privileged cask(s) you approved this run
   Pinned                  $((brew_formula_pinned_count + brew_cask_pinned_count))
 
 Deferred
@@ -2367,21 +2476,6 @@ observe_action_casks() {
   awk 'NF != 1 || $0 !~ /^[A-Za-z0-9@+._-]+$/ { exit 1 }' "$output"
 }
 
-groundwork_action_confirm() {
-  local prompt="$1" answer
-  while true; do
-    printf '%s [y/N] ' "$prompt" >&6
-    if ! IFS= read -r -u 7 answer; then
-      echo >&6
-      return 1
-    fi
-    case "$answer" in
-      y | Y | yes | Yes | YES) return 0 ;;
-      "" | n | N | no | No | NO) return 1 ;;
-      *) echo "Please answer yes or no." >&6 ;;
-    esac
-  done
-}
 
 action_cask_inventory="$runner_receipt_dir/action-casks"
 action_cask_inventory_after="$runner_receipt_dir/action-casks-after"

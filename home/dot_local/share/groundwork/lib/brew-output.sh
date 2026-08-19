@@ -216,10 +216,13 @@ gw_brew_classify_formula_metadata() {
 # replacement. Checksummed self-updating casks enter a separate outdated-driven
 # exact-token lane. Casks whose uninstall stanza removes launchd services or
 # privileged files stay owner-run because those replacements can stop for a
-# password, an application dialog, or helper teardown. The output is a typed TSV
-# consumed without eval or command construction:
+# password, an application dialog, or helper teardown -- "consent" marks the
+# ones a person may authorize in the run itself, and it is a narrower set than
+# "privileged": an unverifiable artifact stays "review", because consent cannot
+# substitute for a checksum. The output is a typed TSV consumed without eval or
+# command construction:
 #
-#   token  eligible|auto-check|latest-check|current|review|vendor-covered|deprecated|disabled  reason  installed  available  app-bundles
+#   token  eligible|auto-check|latest-check|consent|current|review|vendor-covered|deprecated|disabled  reason  installed  available  app-bundles
 gw_brew_classify_cask_metadata() {
   local metadata_file="$1" expected_tokens_file="$2" vendor_policy_file="$3"
   local classification_file="$4"
@@ -305,6 +308,8 @@ gw_brew_classify_cask_metadata() {
        elif $c.disabled then ["disabled", "disabled"]
        elif $c.deprecated then ["deprecated", "deprecated"]
        elif $c.installed == $c.version and ($c.outdated | not) then ["current", $ownership]
+       elif $privileged_replacement and $c.sha256 != "no_check" and
+         $c.version != "latest" then ["consent", $ownership]
        elif $privileged_replacement then ["review", $ownership]
        elif $c.sha256 == "no_check" and $c.auto_updates and
          (($vendor_tokens | index($c.token)) != null) then ["vendor-covered", "declared-vendor-self-updater"]
