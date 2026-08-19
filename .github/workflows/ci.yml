@@ -148,7 +148,13 @@ jobs:
   static_linux:
     name: static-linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # 13 min = the setup step's own 6-min worst case + this job's 300s (5-min)
+    # validator budget below + ~1 min checkout/Node/Corepack overhead, with a
+    # small margin. Sized against what the validator is declared entitled to
+    # use, not against two lucky observed run totals -- a run that legitimately
+    # needs its full validator budget must not be truncated by setup's own
+    # worst case eating into it.
+    timeout-minutes: 13
     steps:
       - name: Record job start
         id: job-start
@@ -173,7 +179,13 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        timeout-minutes: 3
+        # 6 min = the shared script's own worst-case single-call retry cycle
+        # (4 attempts x 60s + 5+10+20s backoff = ~4.6 min, see
+        # ci-install-linux-tools) plus normal remaining setup time. Real
+        # normal-run durations are 2-3.5 minutes total (measured against
+        # actual job runs, not assumed); this is a failure-detection ceiling,
+        # not the expected duration.
+        timeout-minutes: 6
         run: scripts/ci-install-linux-tools
 
       - name: Register shellcheck problem matcher
@@ -189,7 +201,7 @@ jobs:
           --job-output "$RUNNER_TEMP/groundwork-job-static-linux.json"
           --summary "$GITHUB_STEP_SUMMARY"
           --job-budget-seconds 300
-          --workflow-safety-timeout-seconds 600
+          --workflow-safety-timeout-seconds 780
           --validation-deadline-seconds 540
           --job-started-epoch "$JOB_STARTED_EPOCH"
 
@@ -207,7 +219,12 @@ jobs:
   update_contract_linux:
     name: update-contract-linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # 17 min = the setup step's own 6-min worst case + this job's 480s (8-min)
+    # validator budget below + ~1 min checkout/Node/Corepack overhead, with a
+    # small margin. Was already 15 min before this change, which left the
+    # setup step's new worst case zero real slack against the validator's own
+    # declared budget once combined.
+    timeout-minutes: 17
     steps:
       - name: Record job start
         id: job-start
@@ -232,7 +249,13 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        timeout-minutes: 3
+        # 6 min = the shared script's own worst-case single-call retry cycle
+        # (4 attempts x 60s + 5+10+20s backoff = ~4.6 min, see
+        # ci-install-linux-tools) plus normal remaining setup time. Real
+        # normal-run durations are 2-3.5 minutes total (measured against
+        # actual job runs, not assumed); this is a failure-detection ceiling,
+        # not the expected duration.
+        timeout-minutes: 6
         run: scripts/ci-install-linux-tools
 
       - name: Validate update contracts and publish final job receipt
@@ -244,7 +267,7 @@ jobs:
           --job-output "$RUNNER_TEMP/groundwork-job-update-contract-linux.json"
           --summary "$GITHUB_STEP_SUMMARY"
           --job-budget-seconds 480
-          --workflow-safety-timeout-seconds 900
+          --workflow-safety-timeout-seconds 1020
           --validation-deadline-seconds 840
           --job-started-epoch "$JOB_STARTED_EPOCH"
 
@@ -262,7 +285,11 @@ jobs:
   docker_contract_linux:
     name: docker-contract-linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # 15 min = the setup step's own 6-min worst case + this job's 420s (7-min)
+    # validator budget below + ~1 min checkout/Node/Corepack overhead, with a
+    # small margin. Same reasoning as static-linux: sized against what the
+    # validator is declared entitled to use, not a lucky observed total.
+    timeout-minutes: 15
     steps:
       - name: Record job start
         id: job-start
@@ -285,7 +312,13 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        timeout-minutes: 3
+        # 6 min = the shared script's own worst-case single-call retry cycle
+        # (4 attempts x 60s + 5+10+20s backoff = ~4.6 min, see
+        # ci-install-linux-tools) plus normal remaining setup time. Real
+        # normal-run durations are 2-3.5 minutes total (measured against
+        # actual job runs, not assumed); this is a failure-detection ceiling,
+        # not the expected duration.
+        timeout-minutes: 6
         run: scripts/ci-install-linux-tools
 
       - name: Validate Docker contracts and publish final job receipt
@@ -297,7 +330,7 @@ jobs:
           --job-output "$RUNNER_TEMP/groundwork-job-docker-contract-linux.json"
           --summary "$GITHUB_STEP_SUMMARY"
           --job-budget-seconds 420
-          --workflow-safety-timeout-seconds 600
+          --workflow-safety-timeout-seconds 900
           --validation-deadline-seconds 540
           --job-started-epoch "$JOB_STARTED_EPOCH"
 

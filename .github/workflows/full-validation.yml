@@ -49,7 +49,13 @@ jobs:
           corepack install
 
       - name: Install validation tools
-        timeout-minutes: 3
+        # 6 min = the shared script's own worst-case single-call retry cycle
+        # (4 attempts x 60s + 5+10+20s backoff = ~4.6 min, see
+        # ci-install-linux-tools) plus normal remaining setup time. Real
+        # normal-run durations are 2-3.5 minutes total (measured against
+        # actual job runs, not assumed); this is a failure-detection ceiling,
+        # not the expected duration.
+        timeout-minutes: 6
         run: scripts/ci-install-linux-tools
 
       - name: Register shellcheck problem matcher
