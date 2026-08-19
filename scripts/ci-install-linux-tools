@@ -18,15 +18,22 @@ set -euo pipefail
 # A command that FAILS is not the only failure shape: one that HANGS never
 # returns to retry() at all, and a retry loop with no per-attempt bound is
 # still unbounded, the same mistake this whole script exists to fix, just
-# relocated one level in. Real apt-get update/install and a small curl fetch
-# never legitimately need more than a few seconds each; ATTEMPT_TIMEOUT_SECONDS
-# kills a stalled attempt and counts it as a failure the loop can retry,
-# instead of silently consuming the calling step's whole timeout-minutes on
-# one attempt that was never going to return.
+# relocated one level in. ATTEMPT_TIMEOUT_SECONDS kills a stalled attempt and
+# counts it as a failure the loop can retry, instead of silently consuming the
+# calling step's whole timeout-minutes on one attempt that was never coming
+# back.
+#
+# 20s was the first value here and was too tight: on a real merge to main,
+# `apt-get update` legitimately took longer than that on one runner's network
+# path, on all 4 attempts, while sibling jobs in the SAME run succeeded --
+# not a hang, just genuine mirror latency this bound mistook for one. 60s
+# gives real GitHub-runner apt-mirror variance room to finish normally; a
+# command that is actually stuck for a full minute is still caught and
+# retried, not waited on forever.
 #
 # Usage: scripts/ci-install-linux-tools
 
-ATTEMPT_TIMEOUT_SECONDS="${CI_INSTALL_ATTEMPT_TIMEOUT_SECONDS:-20}"
+ATTEMPT_TIMEOUT_SECONDS="${CI_INSTALL_ATTEMPT_TIMEOUT_SECONDS:-60}"
 
 retry() {
   local attempt=1 max_attempts=4 delay=5 status=0
