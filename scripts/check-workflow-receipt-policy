@@ -13,9 +13,9 @@ POLICIES = {
     ".github/workflows/ci.yml": {
         "gate": "ci_gate",
         "validation": {
-            "static_linux": ("static", 600, 540),
-            "update_contract_linux": ("update", 900, 840),
-            "docker_contract_linux": ("docker", 600, 540),
+            "static_linux": ("static", 780, 540),
+            "update_contract_linux": ("update", 1020, 840),
+            "docker_contract_linux": ("docker", 900, 540),
             "platform_macos": ("platform-macos", 900, 840),
         },
         "receipt_timeouts": {
