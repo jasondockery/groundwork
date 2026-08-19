@@ -38,7 +38,21 @@ retry sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
 
 # The curl fetch and the install it pipes into are split so a transient
 # download failure retries the download alone, not a partially-run installer.
+#
+# `sh -c "$script" -- -b /usr/local/bin` uses the `-c` form, where `--`
+# becomes $0 and `-b`/`/usr/local/bin` land at $1/$2 -- that leading `--` is
+# NOT an option terminator the installer's own parser ever sees. Running the
+# same script from a file (`sh "$file" ...`) has no $0 slot to fill; passing
+# the same `--` here shifts every argument right by one, so the installer's
+# flag loop never sees `-b` in the position it expects. It still "succeeds"
+# silently into the wrong directory (`bin/chezmoi` instead of the requested
+# one) before failing on an unrelated stray argument -- verified against the
+# real get.chezmoi.io script both ways.
+# Overridable so a local proof can point this at scratch space instead of
+# mutating the real system directory; CI never sets it, so real runs are
+# unaffected.
+chezmoi_bin_dir="${CI_INSTALL_BIN_DIR:-/usr/local/bin}"
 chezmoi_installer="$(mktemp)"
 trap 'rm -f -- "$chezmoi_installer"' EXIT
 retry curl -fsLS get.chezmoi.io -o "$chezmoi_installer"
-sh "$chezmoi_installer" -- -b /usr/local/bin
+sh "$chezmoi_installer" -b "$chezmoi_bin_dir"

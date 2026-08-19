@@ -15987,6 +15987,81 @@ EOF
   check "every CI setup step bounds itself under its job timeout"
   scripts/check-workflow-setup-step-timeouts >/dev/null
 
+  check "ci-install-linux-tools invokes the chezmoi installer the way it expects"
+  # This is a logic bug the checks above cannot see: the real get.chezmoi.io
+  # installer parses `-b DIR` with `getopts "b:dh?t:"`, then
+  # `shift "$((OPTIND - 1))"`, then execs the freshly-installed chezmoi binary
+  # with whatever is left in "$@" as passthrough chezmoi-args. A leading `--`
+  # (correct for `sh -c "$script" -- -b DIR`, where it fills the $0 slot) makes
+  # getopts stop at "--" before ever reaching `-b`, so `-b DIR` survives into
+  # that trailing exec and the real binary rejects it as an unknown flag. It
+  # still "succeeds" into the wrong directory first, which is why this needs
+  # its own check rather than trusting a nonzero exit to appear.
+  #
+  # This fixture reproduces that exact getopts/shift/exec contract, faithfully
+  # transcribed from the real installer, entirely offline: the installer body
+  # never runs on this machine, only its argument-handling shape.
+  chezmoi_installer_fixture="$out_dir/chezmoi-installer-fixture"
+  mkdir -p "$chezmoi_installer_fixture/bin"
+  cat >"$chezmoi_installer_fixture/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+out=""
+prev=""
+for a in "$@"; do
+  [[ "$prev" == "-o" ]] && out="$a"
+  prev="$a"
+done
+cat >"$out" <<'INSTALLER'
+#!/bin/sh
+set -eu
+BINDIR="bin"
+parse_args() {
+  while getopts "b:dh?t:" arg; do
+    case "${arg}" in
+      b) BINDIR="${OPTARG}" ;;
+      *) return 1 ;;
+    esac
+  done
+}
+parse_args "${@}"
+shift "$((OPTIND - 1))"
+mkdir -p "${BINDIR}"
+printf '#!/bin/sh
+' >"${BINDIR}/chezmoi"
+chmod +x "${BINDIR}/chezmoi"
+echo "installed ${BINDIR}/chezmoi"
+if [ -n "${1+n}" ]; then
+  echo "chezmoi: unknown shorthand flag: '${1#-}' in ${1}" >&2
+  exit 1
+fi
+INSTALLER
+EOF
+  cat >"$chezmoi_installer_fixture/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+exec "$@"
+EOF
+  cat >"$chezmoi_installer_fixture/bin/apt-get" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$chezmoi_installer_fixture"/bin/*
+  chezmoi_fixture_home="$out_dir/chezmoi-installer-fixture-home"
+  chezmoi_fixture_bin_dir="$out_dir/chezmoi-installer-fixture-bindir"
+  mkdir -p "$chezmoi_fixture_home"
+  chezmoi_invoke_status=0
+  (
+    cd "$chezmoi_fixture_home" \
+      && PATH="$chezmoi_installer_fixture/bin:/usr/bin:/bin" \
+        CI_INSTALL_BIN_DIR="$chezmoi_fixture_bin_dir" \
+        "$repo/scripts/ci-install-linux-tools"
+  ) >"$chezmoi_installer_fixture/run.out" 2>&1 || chezmoi_invoke_status=$?
+  [[ "$chezmoi_invoke_status" -eq 0 ]] \
+    || fail "ci-install-linux-tools failed against a faithful chezmoi-installer fixture: $(cat "$chezmoi_installer_fixture/run.out")"
+  test -x "$chezmoi_fixture_bin_dir/chezmoi" \
+    || fail "the chezmoi installer fixture did not report installing to the requested -b directory"
+  assert_not_contains 'unknown shorthand flag' "$chezmoi_installer_fixture/run.out" \
+    "the chezmoi installer fixture saw a leftover argument it treated as a flag; the -b invocation shape regressed"
+
   check "workflow toolchain checker behaves as specified"
   # Same fixture discipline as the timeout checker: never mutate live workflow
   # files to produce a red proof. The fixture scripts also prove the reaching-set
