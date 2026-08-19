@@ -1428,13 +1428,19 @@ if command -v mas >/dev/null 2>&1; then
         def safe_text:
           type == "string" and length > 0 and
           (test("[\\x00-\\x1F\\x7F]") | not);
-        if type == "object" and
-          (.trackId | type == "number" and . == floor) and
-          (.trackName | safe_text) and (.version | safe_text) and
-          (.newVersion | safe_text)
-        then [(.trackId | tostring), .trackName, .version, .newVersion] | @tsv
-        else error("invalid mas outdated object")
-        end
+        # Same rename as the installed-item contract above: mas 7.0.0 renamed
+        # trackId -> adamID and trackName -> name in `outdated --json` too.
+        # Verified against real mas 7.x output: newVersion and version kept
+        # their names, only the identifier and label moved.
+        (.adamID // .trackId) as $id
+        | (.name // .trackName) as $label
+        | if type == "object" and
+            ($id | type == "number" and . == floor) and
+            ($label | safe_text) and (.version | safe_text) and
+            (.newVersion | safe_text)
+          then [($id | tostring), $label, .version, .newVersion] | @tsv
+          else error("invalid mas outdated object")
+          end
       ' "$input_file" >"$items_file"; then
       printf 'Groundwork: Mac App Store returned a malformed %s item; no App Store update was attempted.\n' \
         "$label" >&2
