@@ -55,6 +55,11 @@ ALLOWED_PLATFORM_SKIPS = {
         "requires-jq",
         "no-app-store-items",
     },
+    "external contract: mas outdated exposes items with an id, name, version, and new version": {
+        "requires-mas",
+        "requires-jq",
+        "no-outdated-app-store-items",
+    },
     "external contract: sfltool still offers no way to add a Finder favorite": {
         "requires-sfltool",
     },
@@ -79,6 +84,7 @@ HOSTED_OPTIONAL_CHECKS = frozenset(
         "external contract: brew upgrade can be told not to ask",
         "external contract: brew trust supports per-formula trust",
         "external contract: mas exposes installed items with an id, name, and version",
+        "external contract: mas outdated exposes items with an id, name, version, and new version",
         "external contract: sfltool still offers no way to add a Finder favorite",
     }
 )

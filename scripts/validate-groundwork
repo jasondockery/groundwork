@@ -3194,8 +3194,12 @@ case "${1:-}" in
     if [[ -n "${MAS_OUTDATED:-}" ]]; then
       while IFS= read -r mas_line; do
         [[ -n "$mas_line" ]] || continue
+        # A renamed fixture line (adamID rather than trackId) must resolve to the
+        # same numeric id: this stub gates the marker check that lets a second
+        # `mas outdated` call stop reporting an already-updated app, and it must
+        # not silently disagree with production about which key names an app.
         mas_id="$(printf '%s\n' "$mas_line" \
-          | sed -n 's/.*"trackId"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p')"
+          | sed -nE 's/.*"(adamID|trackId)"[[:space:]]*:[[:space:]]*([0-9]+).*/\2/p')"
         [[ "$mas_id" =~ ^[0-9]+$ ]] || exit 65
         [[ -f "$HOME/.mas-updated-$mas_id" ]] || printf '%s\n' "$mas_line"
       done <<<"$MAS_OUTDATED"
@@ -4446,6 +4450,39 @@ EOF
   grep -qF 'Mac App Store apps      updated-and-verified' \
     "$update_all_fixture/darwin-mas-exact" \
     || fail "the Mac App Store exact-ID lane was not reflected in the final receipt"
+  rm -f "$update_all_home"/.mas-updated-*
+
+  # `mas outdated --json --inaccurate` renames the same two fields
+  # `mas list --json` does: trackId -> adamID, trackName -> name. Verified
+  # against real mas 7.x output on a work machine, where `mas outdated`
+  # returned adamID/name and select_mas_outdated_items -- unlike its installed-
+  # item sibling -- still required the legacy names, so a live mas 7.x rejected
+  # every outdated item as malformed and update-all failed with every counter
+  # at zero. This repeats the exact-ID proof above with the renamed schema on
+  # both the installed and outdated reads, so the two validators cannot drift
+  # apart again without failing here.
+  mas_xcode_264_renamed='{"adamID":497799835,"name":"Xcode","version":"26.4"}'
+  mas_xcode_outdated_renamed='{"adamID":497799835,"name":"Xcode","version":"26.4","newVersion":"26.5"}'
+  mas_xcode_265_renamed='{"adamID":497799835,"name":"Xcode","version":"26.5"}'
+  : >"$update_all_log"
+  if ! run_fixture_pty "$update_all_fixture/darwin-mas-renamed-schema" \
+    "$update_all_fixture/pty-mas-passwords" env \
+    HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_FORMULA_OUTDATED='' BREW_CASKS='' \
+    MAS_INSTALLED="$mas_xcode_264_renamed" MAS_OUTDATED="$mas_xcode_outdated_renamed" \
+    MAS_POST_INSTALLED="$mas_xcode_265_renamed" \
+    SUDO_AUTH_PROMPT=1 SUDO_AUTH_READ=1 \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    ; then
+    cat "$update_all_fixture/darwin-mas-renamed-schema" >&2
+    fail "mas's renamed outdated-item schema (adamID/name) failed the update"
+  fi
+  grep -qxF 'mas update 497799835' "$update_all_log" \
+    || fail "an outdated item under mas's renamed schema was not recognized and updated"
+  grep -qF 'Mac App Store apps      updated-and-verified' \
+    "$update_all_fixture/darwin-mas-renamed-schema" \
+    || fail "mas's renamed outdated-item schema was not reflected as a verified update"
   rm -f "$update_all_home"/.mas-updated-*
 
   # An item disappearing from `mas outdated` proves only that it is no longer
@@ -16545,6 +16582,36 @@ validate_external_tool_contracts() {
           end
       ' "$out_dir/mas-installed-contract.json" >/dev/null 2>"$out_dir/mas-contract.err" \
         || fail "mas installed records no longer expose an integer adamID/trackId, a name/trackName, and a version: $(head -n 1 "$out_dir/mas-contract.err" 2>/dev/null)"
+    fi
+  fi
+
+  check "external contract: mas outdated exposes items with an id, name, version, and new version"
+  if ! command -v mas >/dev/null 2>&1; then
+    skip_current_check requires-mas "the mas outdated-item contract requires mas"
+  elif ! command -v jq >/dev/null 2>&1; then
+    skip_current_check requires-jq "the mas outdated-item contract requires jq"
+  else
+    # The installed-item check above proved the rename in isolation, but
+    # `outdated` is a DIFFERENT command with its own JSON contract. It shipped
+    # broken once already: mas 7.x renamed trackId/trackName here too, and
+    # nothing checked this command's actual output against the fix, so
+    # every outdated item read as malformed on a real machine while this
+    # exact suite stayed green.
+    local mas_outdated_status=0
+    mas outdated --json --inaccurate >"$out_dir/mas-outdated-contract.json" 2>/dev/null || mas_outdated_status=$?
+    if [[ "$mas_outdated_status" -ne 0 || ! -s "$out_dir/mas-outdated-contract.json" ]]; then
+      mark_current_check_skipped no-outdated-app-store-items "mas reported nothing outdated, so the outdated record shape cannot be observed"
+    else
+      jq -er '
+        def safe_text: type == "string" and length > 0;
+        (.adamID // .trackId) as $id
+        | (.name // .trackName) as $label
+        | if ($id | type == "number" and . == floor) and ($label | safe_text) and
+            (.version | safe_text) and (.newVersion | safe_text)
+          then "ok"
+          else error("mas outdated record lost its id, name, version, or new version")
+          end
+      ' "$out_dir/mas-outdated-contract.json" >/dev/null 2>"$out_dir/mas-outdated-contract.err" || fail "mas outdated records no longer expose an integer adamID/trackId, a name/trackName, a version, and a newVersion: $(head -n 1 "$out_dir/mas-outdated-contract.err" 2>/dev/null)"
     fi
   fi
 
