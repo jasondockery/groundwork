@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Every CI job on Linux hits the same three external services before its own
+# validator ever runs: Ubuntu's apt mirrors (twice) and get.chezmoi.io. None of
+# that was bounded or retried -- the only thing that could stop it was
+# GitHub's blunt job-level timeout-minutes, which kills whichever step happens
+# to be running when the clock runs out and reports nothing but "The operation
+# was canceled." A transient mirror hiccup therefore looked identical to a real
+# hang, and the only recovery was a person noticing and rerunning the whole
+# job by hand.
+#
+# This script is the single place that install sequence lives (four workflow
+# jobs called it separately before, and duplicated command blocks drift). It
+# retries each network call with backoff -- transient failures are exactly what
+# retry-with-backoff is for.
+#
+# A command that FAILS is not the only failure shape: one that HANGS never
+# returns to retry() at all, and a retry loop with no per-attempt bound is
+# still unbounded, the same mistake this whole script exists to fix, just
+# relocated one level in. Real apt-get update/install and a small curl fetch
+# never legitimately need more than a few seconds each; ATTEMPT_TIMEOUT_SECONDS
+# kills a stalled attempt and counts it as a failure the loop can retry,
+# instead of silently consuming the calling step's whole timeout-minutes on
+# one attempt that was never going to return.
+#
+# Usage: scripts/ci-install-linux-tools
+
+ATTEMPT_TIMEOUT_SECONDS="${CI_INSTALL_ATTEMPT_TIMEOUT_SECONDS:-20}"
+
+retry() {
+  local attempt=1 max_attempts=4 delay=5 status=0
+  # --kill-after: SIGTERM alone depends on the child (sudo, in two of the
+  # three calls below) actually forwarding it. sudo does by default, but nothing
+  # here re-verifies that assumption at every future sudo version -- a
+  # follow-up SIGKILL after a short grace period makes the bound unconditional
+  # instead of resting on it.
+  until timeout --kill-after=5 "$ATTEMPT_TIMEOUT_SECONDS" "$@"; do
+    status=$?
+    if [[ "$status" -eq 124 ]]; then
+      echo "ci-install-linux-tools: '$*' did not finish within ${ATTEMPT_TIMEOUT_SECONDS}s" >&2
+    fi
+    if ((attempt >= max_attempts)); then
+      echo "ci-install-linux-tools: '$*' failed after $max_attempts attempts (exit $status)" >&2
+      return "$status"
+    fi
+    echo "ci-install-linux-tools: '$*' failed (exit $status); retrying in ${delay}s (attempt $((attempt + 1))/$max_attempts)" >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
+
+retry sudo apt-get update -qq
+retry sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
+
+# The curl fetch and the install it pipes into are split so a transient
+# download failure retries the download alone, not a partially-run installer.
+#
+# `sh -c "$script" -- -b /usr/local/bin` uses the `-c` form, where `--`
+# becomes $0 and `-b`/`/usr/local/bin` land at $1/$2 -- that leading `--` is
+# NOT an option terminator the installer's own parser ever sees. Running the
+# same script from a file (`sh "$file" ...`) has no $0 slot to fill; passing
+# the same `--` here shifts every argument right by one, so the installer's
+# flag loop never sees `-b` in the position it expects. It still "succeeds"
+# silently into the wrong directory (`bin/chezmoi` instead of the requested
+# one) before failing on an unrelated stray argument -- verified against the
+# real get.chezmoi.io script both ways.
+# Overridable so a local proof can point this at scratch space instead of
+# mutating the real system directory; CI never sets it, so real runs are
+# unaffected.
+chezmoi_bin_dir="${CI_INSTALL_BIN_DIR:-/usr/local/bin}"
+chezmoi_installer="$(mktemp)"
+trap 'rm -f -- "$chezmoi_installer"' EXIT
+retry curl -fsLS get.chezmoi.io -o "$chezmoi_installer"
+sh "$chezmoi_installer" -b "$chezmoi_bin_dir"

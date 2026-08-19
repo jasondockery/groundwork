@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Every "Install validation tools" step declares its own step-level
+# timeout-minutes, strictly less than its job's timeout-minutes.
+#
+# That step talks to external services (apt mirrors, get.chezmoi.io, or
+# Homebrew) before Groundwork's own bounded validator ever runs. Until this
+# check existed, its only bound was the job's outer timeout-minutes -- which
+# check-workflow-timeouts calls "the OUTER envelope only" and explicitly
+# requires inner deadlines to expire before it, "so a failure names the real
+# phase rather than the wrapper." This step violated that with no bound of
+# its own at all: a slow mirror looked identical to a genuine hang, and
+# GitHub's kill landed wherever the outer clock happened to run out, reporting
+# nothing but "The operation was canceled."
+#
+# Policy: any step named exactly "Install validation tools" must declare
+# timeout-minutes, and that value must be strictly less than its enclosing
+# job's timeout-minutes -- real margin for checkout, Node setup, and Corepack
+# to run before this step even starts, not a value equal to the outer bound.
+#
+# Usage: check-workflow-setup-step-timeouts [workflow-directory]
+set -euo pipefail
+
+workflow_dir="${1:-.github/workflows}"
+
+status=0
+found_any=0
+
+shopt -s nullglob
+workflows=("$workflow_dir"/*.yml "$workflow_dir"/*.yaml)
+shopt -u nullglob
+
+if [[ ${#workflows[@]} -eq 0 ]]; then
+  echo "no workflow files found in $workflow_dir" >&2
+  exit 1
+fi
+
+for workflow in "${workflows[@]}"; do
+  found_any=1
+  awk -v file="$workflow" '
+    function flush_step() {
+      if (step != "Install validation tools") return
+      if (job_timeout == "") {
+        printf "%s: job %s step \"Install validation tools\" has no enclosing job timeout-minutes to bound against\n", file, job
+        bad = 1
+        return
+      }
+      if (step_timeout == "") {
+        printf "%s: job %s step \"Install validation tools\" has no step-level timeout-minutes; its only bound is the job timeout, which names the wrong phase on failure\n", file, job
+        bad = 1
+        return
+      }
+      if (step_timeout + 0 >= job_timeout + 0) {
+        printf "%s: job %s step \"Install validation tools\" timeout-minutes (%s) must be strictly less than the job timeout-minutes (%s)\n", file, job, step_timeout, job_timeout
+        bad = 1
+      }
+    }
+    function flush_job() {
+      flush_step()
+    }
+    /^jobs:[ \t]*$/ { in_jobs = 1; next }
+    !in_jobs { next }
+    /^[^ \t#]/ { flush_job(); job = ""; in_jobs = 0; next }
+    /^  [A-Za-z_][A-Za-z0-9_-]*:[ \t]*(#.*)?$/ {
+      flush_job()
+      job = $1; sub(/:$/, "", job)
+      job_timeout = ""; step = ""; step_timeout = ""
+      next
+    }
+    job == "" { next }
+    /^    timeout-minutes:[ \t]/ {
+      value = $2
+      sub(/[ \t]*#.*$/, "", value)
+      job_timeout = value
+      next
+    }
+    /^      - name:[ \t]/ {
+      flush_step()
+      step = $0
+      sub(/^      - name:[ \t]*/, "", step)
+      sub(/[ \t]*#.*$/, "", step)
+      step_timeout = ""
+      next
+    }
+    /^        timeout-minutes:[ \t]/ {
+      value = $2
+      sub(/[ \t]*#.*$/, "", value)
+      step_timeout = value
+      next
+    }
+    END { flush_job(); exit bad ? 1 : 0 }
+  ' "$workflow" || status=1
+done
+
+if [[ $found_any -eq 1 && $status -eq 0 ]]; then
+  echo "ok: every \"Install validation tools\" step in $workflow_dir bounds itself under its job timeout"
+fi
+exit "$status"
