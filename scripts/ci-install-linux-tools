@@ -13,15 +13,33 @@ set -euo pipefail
 # This script is the single place that install sequence lives (four workflow
 # jobs called it separately before, and duplicated command blocks drift). It
 # retries each network call with backoff -- transient failures are exactly what
-# retry-with-backoff is for -- and every command still runs under the calling
-# step's own timeout-minutes, so a genuine hang still fails fast and named.
+# retry-with-backoff is for.
+#
+# A command that FAILS is not the only failure shape: one that HANGS never
+# returns to retry() at all, and a retry loop with no per-attempt bound is
+# still unbounded, the same mistake this whole script exists to fix, just
+# relocated one level in. Real apt-get update/install and a small curl fetch
+# never legitimately need more than a few seconds each; ATTEMPT_TIMEOUT_SECONDS
+# kills a stalled attempt and counts it as a failure the loop can retry,
+# instead of silently consuming the calling step's whole timeout-minutes on
+# one attempt that was never going to return.
 #
 # Usage: scripts/ci-install-linux-tools
 
+ATTEMPT_TIMEOUT_SECONDS="${CI_INSTALL_ATTEMPT_TIMEOUT_SECONDS:-20}"
+
 retry() {
   local attempt=1 max_attempts=4 delay=5 status=0
-  until "$@"; do
+  # --kill-after: SIGTERM alone depends on the child (sudo, in two of the
+  # three calls below) actually forwarding it. sudo does by default, but nothing
+  # here re-verifies that assumption at every future sudo version -- a
+  # follow-up SIGKILL after a short grace period makes the bound unconditional
+  # instead of resting on it.
+  until timeout --kill-after=5 "$ATTEMPT_TIMEOUT_SECONDS" "$@"; do
     status=$?
+    if [[ "$status" -eq 124 ]]; then
+      echo "ci-install-linux-tools: '$*' did not finish within ${ATTEMPT_TIMEOUT_SECONDS}s" >&2
+    fi
     if ((attempt >= max_attempts)); then
       echo "ci-install-linux-tools: '$*' failed after $max_attempts attempts (exit $status)" >&2
       return "$status"
