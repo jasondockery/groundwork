@@ -16044,6 +16044,16 @@ EOF
 #!/usr/bin/env bash
 exit 0
 EOF
+  # retry() bounds every attempt with GNU coreutils' timeout, absent on this
+  # machine when validate-groundwork runs on macOS. A faithful pass-through
+  # shim keeps this fixture proving the real script's argument-invocation
+  # logic on every platform, not just Linux.
+  cat >"$chezmoi_installer_fixture/bin/timeout" <<'EOF'
+#!/usr/bin/env bash
+[[ "$1" == --kill-after=* ]] && shift
+shift
+exec "$@"
+EOF
   chmod +x "$chezmoi_installer_fixture"/bin/*
   chezmoi_fixture_home="$out_dir/chezmoi-installer-fixture-home"
   chezmoi_fixture_bin_dir="$out_dir/chezmoi-installer-fixture-bindir"
