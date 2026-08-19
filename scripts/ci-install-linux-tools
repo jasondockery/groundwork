@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Every CI job on Linux hits the same three external services before its own
+# validator ever runs: Ubuntu's apt mirrors (twice) and get.chezmoi.io. None of
+# that was bounded or retried -- the only thing that could stop it was
+# GitHub's blunt job-level timeout-minutes, which kills whichever step happens
+# to be running when the clock runs out and reports nothing but "The operation
+# was canceled." A transient mirror hiccup therefore looked identical to a real
+# hang, and the only recovery was a person noticing and rerunning the whole
+# job by hand.
+#
+# This script is the single place that install sequence lives (four workflow
+# jobs called it separately before, and duplicated command blocks drift). It
+# retries each network call with backoff -- transient failures are exactly what
+# retry-with-backoff is for -- and every command still runs under the calling
+# step's own timeout-minutes, so a genuine hang still fails fast and named.
+#
+# Usage: scripts/ci-install-linux-tools
+
+retry() {
+  local attempt=1 max_attempts=4 delay=5 status=0
+  until "$@"; do
+    status=$?
+    if ((attempt >= max_attempts)); then
+      echo "ci-install-linux-tools: '$*' failed after $max_attempts attempts (exit $status)" >&2
+      return "$status"
+    fi
+    echo "ci-install-linux-tools: '$*' failed (exit $status); retrying in ${delay}s (attempt $((attempt + 1))/$max_attempts)" >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
+
+retry sudo apt-get update -qq
+retry sudo apt-get install -y -qq --no-install-recommends ripgrep zsh tmux jq
+
+# The curl fetch and the install it pipes into are split so a transient
+# download failure retries the download alone, not a partially-run installer.
+chezmoi_installer="$(mktemp)"
+trap 'rm -f -- "$chezmoi_installer"' EXIT
+retry curl -fsLS get.chezmoi.io -o "$chezmoi_installer"
+sh "$chezmoi_installer" -- -b /usr/local/bin
