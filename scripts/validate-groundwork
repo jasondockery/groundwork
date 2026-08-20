@@ -15372,6 +15372,36 @@ EOF
   grep -qF 'Install optional Unity game development tools, a large download' home/.chezmoi.toml.tmpl
   grep -qF 'Install Xcode for native Apple and iOS development, large at ~15GB+' home/.chezmoi.toml.tmpl
 
+  check "docker/chezmoi.headless.toml applies the real source tree cleanly"
+  # This is a genuinely separate, hand-maintained [data] source -- not derived
+  # from home/.chezmoi.toml.tmpl's regeneration -- and Go templates error on a
+  # bare `.someKey` access when a key is truly absent, not merely empty. A new
+  # field added to home/.chezmoi.toml.tmpl's persisted data can be referenced
+  # unguarded in a shipped template and pass every other check while still
+  # breaking the Docker image build outright, because nothing else renders
+  # against this exact file. Verified 2026-08-20: a bare `{{ .browser_navigation }}`
+  # in executable_browser-extensions.tmpl did exactly this -- passed static
+  # otherwise, broke `chezmoi apply` in the real docker-build CI job.
+  #
+  # Run the literal command the Docker image build runs, against the real
+  # committed config, not a synthetic proxy for it that could drift out of
+  # sync with what the build actually uses.
+  docker_headless_apply_dest="$out_dir/docker-headless-apply"
+  rm -rf "$docker_headless_apply_dest"
+  mkdir -p "$docker_headless_apply_dest"
+  # chezmoi's persistent state defaults to a path relative to --config, not
+  # --destination -- unpinned, this writes docker/chezmoistate.boltdb into the
+  # real repo tree on every run, which the validator's own tree-fingerprint
+  # check then (correctly) reports as an unexplained mutation, invalidating
+  # every check that already passed. Verified 2026-08-20: reproduced twice.
+  if ! chezmoi --config docker/chezmoi.headless.toml --source "$repo" \
+    --destination "$docker_headless_apply_dest" \
+    --persistent-state "$out_dir/docker-headless-chezmoistate.boltdb" apply \
+    >"$out_dir/docker-headless-apply.out" 2>&1; then
+    cat "$out_dir/docker-headless-apply.out" >&2
+    fail "chezmoi apply against docker/chezmoi.headless.toml failed; this is exactly what the Docker image build runs"
+  fi
+
   check "no create_ seed files"
   create_seeds="$(find home -name 'create_*' -print)"
   if [[ -n "$create_seeds" ]]; then
