@@ -3,8 +3,14 @@ set -euo pipefail
 
 catalog="${GROUNDWORK_BROWSER_EXTENSIONS_CATALOG:-$HOME/.local/share/groundwork/browser-extensions.tsv}"
 password_manager="{{ .password_manager }}"
-browser_navigation="{{ .browser_navigation }}"
-release_posture="{{ .release_posture }}"
+{{/* Not every chezmoi data source that renders this template goes through
+home/.chezmoi.toml.tmpl's regeneration -- docker/chezmoi.headless.toml is a
+separate, hand-maintained [data] block for the container image build, and a
+bare `.browser_navigation` map access fails template execution outright when
+the key is genuinely absent there. Same guarded-default form release_posture
+already uses in executable_groundwork-profile.tmpl. */}}
+browser_navigation="{{ if hasKey . "browser_navigation" }}{{ .browser_navigation }}{{ else }}standard{{ end }}"
+release_posture="{{ if hasKey . "release_posture" }}{{ .release_posture }}{{ else }}current{{ end }}"
 browser="chrome"
 tier="recommended"
 open_links="false"
