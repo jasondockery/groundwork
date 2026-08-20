@@ -751,9 +751,10 @@ render() {
   local profile_preset="${11:-personal-current}"
   local environment_role="${12:-personal}"
   local release_posture="${13:-current}"
+  local browser_navigation="${14:-standard}"
   local os_release='{}'
   [[ "$os" == "linux" ]] && os_release='{"ID":"ubuntu"}'
-  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"game_dev\":${game_dev},\"password_manager\":\"${password_manager}\",\"profile_preset\":\"${profile_preset}\",\"environment_role\":\"${environment_role}\",\"release_posture\":\"${release_posture}\",\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
+  local data="{${base_data},\"work\":${work},\"headless\":${headless},\"xcode\":${xcode},\"beta\":${beta},\"game_dev\":${game_dev},\"password_manager\":\"${password_manager}\",\"profile_preset\":\"${profile_preset}\",\"environment_role\":\"${environment_role}\",\"release_posture\":\"${release_posture}\",\"browser_navigation\":\"${browser_navigation}\",\"chezmoi\":{\"os\":\"${os}\",\"arch\":\"${arch}\",\"osRelease\":${os_release}}}"
   chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" --override-data "$data" execute-template <"$input" >"$output"
 }
 
@@ -9007,6 +9008,13 @@ SH
     rg -n 'promptChoiceOnce \. "profile_preset"|Starting profile' home/.chezmoi.toml.tmpl
   assert_no_matches "chezmoi init must not ask for an Xcode beta preference" \
     rg -n 'promptBoolOnce \. "beta"' home/.chezmoi.toml.tmpl
+  # Same reasoning, and the same reason selecting Vim as an editor must not
+  # imply this: Groundwork has no editor choice today (Neovim and Vim both
+  # install unconditionally), so there is nothing for this preference to be
+  # inferred from even by accident. It stays independent on principle, not
+  # because nothing currently could couple them.
+  assert_no_matches "chezmoi init must not ask for a browser-navigation preference" \
+    rg -n 'promptChoiceOnce \. "browser_navigation"|promptBoolOnce \. "browser_navigation"' home/.chezmoi.toml.tmpl
   _profile_render() {
     local override_data="$1"
     chezmoi --config "$empty_config" --source "$PWD" --destination "$out_dir/home" \
@@ -9023,13 +9031,17 @@ SH
     || fail "a fresh personal install must seed personal-current without another prompt"
   grep -qF 'release_posture = "current"' <<<"$preset_out" \
     || fail "a fresh install must default to stable/current release posture"
+  grep -qF 'browser_navigation = "standard"' <<<"$preset_out" \
+    || fail "a fresh install must default to standard browser navigation, not Vimium"
   preset_out="$(_profile_render '{"work":true,"chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
     || fail "fresh work profile did not render"
   grep -qF 'profile_preset = "work-managed"' <<<"$preset_out" \
     || fail "a fresh work install must seed work-managed from the work answer"
   grep -qF 'release_posture = "current"' <<<"$preset_out" \
     || fail "a fresh work install must default to stable/current release posture"
-  preset_out="$(_profile_render '{"work":false,"profile_preset":"personal-preview","release_posture":"preview","xcode":true,"beta":true,"chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
+  grep -qF 'browser_navigation = "standard"' <<<"$preset_out" \
+    || fail "a fresh work install must default to standard browser navigation"
+  preset_out="$(_profile_render '{"work":false,"profile_preset":"personal-preview","release_posture":"preview","xcode":true,"beta":true,"browser_navigation":"vimium","chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
     || fail "stored preview preferences did not render"
   grep -qF 'profile_preset = "personal-preview"' <<<"$preset_out" \
     || fail "an existing personal-preview preset must survive regeneration"
@@ -9037,8 +9049,33 @@ SH
     || fail "an existing preview posture must survive regeneration"
   grep -qF 'beta = true' <<<"$preset_out" \
     || fail "an existing Xcode beta preference must survive regeneration"
+  grep -qF 'browser_navigation = "vimium"' <<<"$preset_out" \
+    || fail "an existing Vimium browser-navigation preference must survive regeneration"
   grep -qF 'environment_role = "personal"' <<<"$preset_out" \
     || fail "changing posture must not change the personal role"
+  # A config saved before this preference existed has no browser_navigation
+  # key at all -- exactly what an upgrading existing user's stored config
+  # looks like. It must default to standard, not fail and not silently pick
+  # Vimium.
+  preset_out="$(_profile_render '{"work":false,"profile_preset":"personal-current","release_posture":"current","chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
+    || fail "a config predating this preference did not render"
+  grep -qF 'browser_navigation = "standard"' <<<"$preset_out" \
+    || fail "a config with no stored browser_navigation key must default to standard, not fail or infer Vimium"
+  # An invalid stored value (hand-edited or from a future Groundwork version)
+  # must fall back to the safe default rather than persist garbage forward.
+  preset_out="$(_profile_render '{"work":false,"profile_preset":"personal-current","release_posture":"current","browser_navigation":"banana","chezmoi":{"os":"darwin","arch":"arm64","osRelease":{}}}')" \
+    || fail "a config with an invalid stored browser_navigation value did not render"
+  grep -qF 'browser_navigation = "standard"' <<<"$preset_out" \
+    || fail "an invalid stored browser_navigation value must fall back to standard, not persist forward"
+  # Idempotency: feeding a render's own stored value back in as input must
+  # reach a fixed point, for both values -- a second `chezmoi apply` must not
+  # drift the preference or silently reset it.
+  for bn_value in standard vimium; do
+    preset_out="$(_profile_render "{\"work\":false,\"profile_preset\":\"personal-current\",\"release_posture\":\"current\",\"browser_navigation\":\"$bn_value\",\"chezmoi\":{\"os\":\"darwin\",\"arch\":\"arm64\",\"osRelease\":{}}}")" \
+      || fail "browser_navigation=$bn_value did not render"
+    grep -qF "browser_navigation = \"$bn_value\"" <<<"$preset_out" \
+      || fail "browser_navigation=$bn_value is not a fixed point; a repeated apply would drift it"
+  done
 
   check "chezmoi interview: key repeat menu, dual return domain, and where it is asked"
   # Key repeat keeps its existing numbered-menu contract plus a scope rule: key
@@ -9297,6 +9334,32 @@ KRXS
   [[ "$gc_kr_kind" == "keyrepeat" ]] \
     || fail "key_repeat must use the keyrepeat menu kind, not '$gc_kr_kind' (parallel arrays drifted)"
 
+  check "groundwork-configure exposes browser keyboard navigation"
+  grep -qE '^browsernav_values=\(standard vimium\)$' "$gc_bin" \
+    || fail "groundwork-configure must offer exactly standard and vimium"
+  grep -qE '^fields_key=\(.*\bbrowser_navigation\b' "$gc_bin" \
+    || fail "browser_navigation must appear in the groundwork-configure field registry"
+  gc_bn_index="$(
+    sed -n 's/^fields_key=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | grep -n '^browser_navigation$' | cut -d: -f1
+  )"
+  [[ -n "$gc_bn_index" ]] || fail "could not locate browser_navigation in the field registry"
+  gc_bn_kind="$(sed -n 's/^fields_kind=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | sed -n "${gc_bn_index}p")"
+  [[ "$gc_bn_kind" == "browsernav" ]] \
+    || fail "browser_navigation must use the browsernav menu kind, not '$gc_bn_kind' (parallel arrays drifted)"
+  gc_bn_clear="$(sed -n 's/^fields_clear=(\(.*\))[[:space:]]*$/\1/p' "$gc_bin" | tr ' ' '\n' | sed -n "${gc_bn_index}p")"
+  [[ "$gc_bn_clear" == "no" ]] \
+    || fail "browser_navigation must not be clearable to an unset state; standard/vimium are its only valid values"
+  # Every kind-dispatch case list in the editor must recognize browsernav, or
+  # a field that looks wired in the registry silently falls through to the
+  # generic display/edit path (a raw string editor, no menu) at runtime.
+  for gc_dispatch_context in \
+    'posture | keyrepeat | multiplexer | browsernav' \
+    'posture | role | keyrepeat | multiplexer | pw | browsernav' \
+    'posture | role | keyrepeat | multiplexer | browsernav'; do
+    grep -qF "$gc_dispatch_context" "$gc_bin" \
+      || fail "groundwork-configure kind-dispatch site missing browsernav: $gc_dispatch_context"
+  done
+
   check "groundwork-configure settings editor"
   gc_bin=home/dot_local/bin/executable_groundwork-configure
   test -x "$gc_bin" || fail "groundwork-configure must exist and be executable"
@@ -9315,10 +9378,10 @@ KRXS
   gc_rc=0
   bash "$gc_bin" --release-posture sideways >/dev/null 2>&1 || gc_rc=$?
   [[ "$gc_rc" -eq 64 ]] || fail "groundwork-configure must reject an invalid release posture with exit 64"
-  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta work ' "$gc_bin" \
+  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta browser_navigation work ' "$gc_bin" \
     || fail "groundwork-configure must expose independent posture/role and dependent Xcode beta settings"
-  grep -qE '^fields_kind=\(posture role multiplexer bool bool ' "$gc_bin" \
-    || fail "release posture, environment role, terminal multiplexer, and Xcode beta must use the matching guarded field types"
+  grep -qE '^fields_kind=\(posture role multiplexer bool browsernav bool ' "$gc_bin" \
+    || fail "release posture, environment role, terminal multiplexer, Xcode beta, and browser navigation must use the matching guarded field types"
   grep -qE '^role_values=\(personal managed disposable\)$' "$gc_bin" \
     || fail "groundwork-configure must keep every supported environment role reachable"
   grep -qF 'pending_origin=()' "$gc_bin" \
@@ -10756,6 +10819,63 @@ EOF
     /bin/bash "$browser_extensions" --browser unsupported >/dev/null 2>&1 || browser_extensions_rc=$?
   [[ "$browser_extensions_rc" -eq 2 ]] \
     || fail "the browser extension helper must reject an unsupported browser target"
+
+  check "optional Vimium capability: default off, opt-in, per-channel fan-out"
+  vimium_catalog="$PWD/home/dot_local/share/groundwork/browser-extensions.tsv"
+
+  # Default: standard navigation. Vimium must not appear under the surfaces a
+  # person actually browses (core, recommended) without an explicit --tier all.
+  vimium_std="$out_dir/browser-extensions-std-current"
+  render darwin false arm64 home/dot_local/bin/executable_browser-extensions.tmpl "$vimium_std" \
+    false false false false bitwarden personal-current personal current standard
+  assert_not_contains 'Vimium' \
+    <(GROUNDWORK_BROWSER_EXTENSIONS_CATALOG="$vimium_catalog" /bin/bash "$vimium_std" --tier core) \
+    "default browser navigation (standard) must not offer Vimium under --tier core"
+  assert_not_contains 'Vimium' \
+    <(GROUNDWORK_BROWSER_EXTENSIONS_CATALOG="$vimium_catalog" /bin/bash "$vimium_std" --tier recommended) \
+    "default browser navigation (standard) must not offer Vimium under --tier recommended"
+
+  # Opted in, stable posture: Vimium appears exactly once, targeting chrome
+  # only -- no Chrome Beta line when preview is off. The header row is
+  # "target  tier  name" on one line (see the script's own printf), so match
+  # it precisely rather than any line merely starting with the target.
+  vimium_on_current="$out_dir/browser-extensions-vimium-current"
+  render darwin false arm64 home/dot_local/bin/executable_browser-extensions.tmpl "$vimium_on_current" \
+    false false false false bitwarden personal-current personal current vimium
+  vimium_on_current_out="$(GROUNDWORK_BROWSER_EXTENSIONS_CATALOG="$vimium_catalog" /bin/bash "$vimium_on_current" --tier core)"
+  [[ "$(grep -cE '^chrome[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_current_out")" -eq 1 ]] \
+    || fail "opting into Vimium under stable posture must offer it exactly once, targeting chrome"
+  assert_not_contains 'chrome-beta' <(printf '%s' "$vimium_on_current_out") \
+    "stable posture must not offer a Chrome Beta target"
+
+  # Opted in, preview posture: the SAME catalog row fans out to both Chrome
+  # Stable and Chrome Beta -- one row, two lines, identical URL -- proving no
+  # divergent per-channel catalog entry exists.
+  vimium_on_preview="$out_dir/browser-extensions-vimium-preview"
+  render darwin false arm64 home/dot_local/bin/executable_browser-extensions.tmpl "$vimium_on_preview" \
+    false false false false bitwarden personal-preview personal preview vimium
+  vimium_on_preview_out="$(GROUNDWORK_BROWSER_EXTENSIONS_CATALOG="$vimium_catalog" /bin/bash "$vimium_on_preview" --tier core)"
+  [[ "$(grep -cE '^chrome[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_preview_out")" -eq 1 ]] \
+    || fail "preview posture must still offer Vimium exactly once for chrome (stable)"
+  [[ "$(grep -cE '^chrome-beta[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_preview_out")" -eq 1 ]] \
+    || fail "preview posture must additionally offer Vimium exactly once for chrome-beta"
+  vimium_current_url="$(grep -A1 -E '^chrome[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_current_out" | grep chromewebstore)"
+  vimium_preview_stable_url="$(grep -A1 -E '^chrome[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_preview_out" | grep chromewebstore)"
+  vimium_preview_beta_url="$(grep -A1 -E '^chrome-beta[[:space:]]+core[[:space:]]+Vimium$' <<<"$vimium_on_preview_out" | grep chromewebstore)"
+  [[ -n "$vimium_current_url" && "$vimium_current_url" == "$vimium_preview_stable_url" &&
+    "$vimium_current_url" == "$vimium_preview_beta_url" ]] \
+    || fail "stable and beta must resolve to the identical Chrome Web Store URL from one catalog row, not a duplicated divergent entry"
+
+  # Groundwork never mutates browser-owned state and never re-opens or
+  # re-prompts on its own: the whole mechanism is this one user-invoked
+  # command, called by nothing else in the managed tree.
+  grep -qF 'open -a' home/dot_local/bin/executable_browser-extensions.tmpl \
+    || fail "browser-extensions must be the only thing that opens a store link"
+  assert_no_matches "nothing in the mutation pipeline may invoke or even mention browser-extensions (it must stay strictly user-invoked, or its Vimium offer would repeat/nag on every run)" \
+    rg -n 'browser-extensions' \
+    home/dot_local/bin/executable_update-all \
+    home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    home/run_onchange_after_10-brew-bundle.sh.tmpl
 
   chrome_current="$out_dir/brew-bundle-chrome-current"
   chrome_preview="$out_dir/brew-bundle-chrome-preview"
@@ -15086,7 +15206,7 @@ EOF
   # If that preservation is ever removed, the editor starts printing "Proposed
   # changes" receipts for values that never move — so the two are asserted
   # together, right here, rather than in separate places that can drift apart.
-  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta work .*\bkey_repeat\b' home/dot_local/bin/executable_groundwork-configure \
+  grep -qE '^fields_key=\(release_posture environment_role terminal_multiplexer beta browser_navigation work .*\bkey_repeat\b' home/dot_local/bin/executable_groundwork-configure \
     || fail "groundwork-configure must own mutable role/release preferences and preserve existing baseline settings"
   # Role and posture are stored separately from the preset PRECISELY so they can
   # diverge (specs/environment-profiles-and-release-posture.md): a managed
@@ -15251,6 +15371,36 @@ EOF
   # prompt, so nobody agrees to a multi-gigabyte download by reflex.
   grep -qF 'Install optional Unity game development tools, a large download' home/.chezmoi.toml.tmpl
   grep -qF 'Install Xcode for native Apple and iOS development, large at ~15GB+' home/.chezmoi.toml.tmpl
+
+  check "docker/chezmoi.headless.toml applies the real source tree cleanly"
+  # This is a genuinely separate, hand-maintained [data] source -- not derived
+  # from home/.chezmoi.toml.tmpl's regeneration -- and Go templates error on a
+  # bare `.someKey` access when a key is truly absent, not merely empty. A new
+  # field added to home/.chezmoi.toml.tmpl's persisted data can be referenced
+  # unguarded in a shipped template and pass every other check while still
+  # breaking the Docker image build outright, because nothing else renders
+  # against this exact file. Verified 2026-08-20: a bare `{{ .browser_navigation }}`
+  # in executable_browser-extensions.tmpl did exactly this -- passed static
+  # otherwise, broke `chezmoi apply` in the real docker-build CI job.
+  #
+  # Run the literal command the Docker image build runs, against the real
+  # committed config, not a synthetic proxy for it that could drift out of
+  # sync with what the build actually uses.
+  docker_headless_apply_dest="$out_dir/docker-headless-apply"
+  rm -rf "$docker_headless_apply_dest"
+  mkdir -p "$docker_headless_apply_dest"
+  # chezmoi's persistent state defaults to a path relative to --config, not
+  # --destination -- unpinned, this writes docker/chezmoistate.boltdb into the
+  # real repo tree on every run, which the validator's own tree-fingerprint
+  # check then (correctly) reports as an unexplained mutation, invalidating
+  # every check that already passed. Verified 2026-08-20: reproduced twice.
+  if ! chezmoi --config docker/chezmoi.headless.toml --source "$repo" \
+    --destination "$docker_headless_apply_dest" \
+    --persistent-state "$out_dir/docker-headless-chezmoistate.boltdb" apply \
+    >"$out_dir/docker-headless-apply.out" 2>&1; then
+    cat "$out_dir/docker-headless-apply.out" >&2
+    fail "chezmoi apply against docker/chezmoi.headless.toml failed; this is exactly what the Docker image build runs"
+  fi
 
   check "no create_ seed files"
   create_seeds="$(find home -name 'create_*' -print)"
@@ -16351,6 +16501,35 @@ SH
   grep -qF 'Current release posture: preview' <<<"$browser_doctor_out"
   grep -qF 'headless profile selects no GUI browser' <<<"$browser_doctor_out"
   grep -qF -- '--browser' < <(/bin/bash home/dot_local/bin/executable_groundwork-doctor --help)
+  # A config with no browser_navigation key at all (every existing fixture
+  # above) must default to "not selected", never crash and never claim Vimium
+  # on the reader's behalf.
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"current","environment_role":"personal","xcode":false,"beta":false}' \
+    'google-chrome')"
+  grep -qF 'Vim-style browser navigation (Vimium) is not selected' <<<"$browser_doctor_out" \
+    || fail "a config with no browser_navigation key must report Vimium as not selected, not crash or infer it"
+  # Selected, stable posture: report once, no preview-only beta note.
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"current","environment_role":"personal","xcode":false,"beta":false,"browser_navigation":"vimium"}' \
+    'google-chrome')"
+  grep -qF 'Vim-style browser navigation (Vimium) is selected' <<<"$browser_doctor_out" \
+    || fail "an opted-in Vimium preference must be reported as selected"
+  grep -qF 'browser-extensions --tier core --open' <<<"$browser_doctor_out" \
+    || fail "doctor must point at the actual command to open the store link, not just say Vimium is selected"
+  assert_not_contains 'the same preference applies to Chrome Beta' <(printf '%s\n' "$browser_doctor_out") \
+    "stable posture must not mention a Chrome Beta channel that is not installed"
+  # Selected, preview posture: the same preference additionally names Beta.
+  browser_doctor_out="$(run_browser_doctor \
+    '{"headless":false,"release_posture":"preview","environment_role":"personal","xcode":false,"beta":false,"browser_navigation":"vimium"}' \
+    'google-chrome google-chrome@beta')"
+  grep -qF 'Vim-style browser navigation (Vimium) is selected' <<<"$browser_doctor_out" \
+    || fail "an opted-in Vimium preference must be reported as selected under preview too"
+  grep -qF 'the same preference applies to Chrome Beta' <<<"$browser_doctor_out" \
+    || fail "preview posture must say the preference carries to Chrome Beta"
+  # Read-only: this diagnostic must never open a URL or mutate anything.
+  assert_not_contains 'open -a|open "http' <(sed -n '/browser_section()/,/^}/p' home/dot_local/bin/executable_groundwork-doctor) \
+    "groundwork-doctor's browser section must stay read-only; it may only print the command to run, never run it"
 
   check "doctor: a version-alias symlink is one owner, not two"
   # Real-machine regression, 2026-07-27. mise exposes installs/node/lts as a
