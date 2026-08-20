@@ -180,11 +180,13 @@ browser_section() {
     warn "Groundwork could not read the chezmoi profile; browser status is unknown."
     return 0
   fi
+  local browser_navigation
   headless="$(printf '%s' "$data" | jq -r '.headless // false')"
   posture="$(printf '%s' "$data" | jq -r '.release_posture // "current"')"
   role="$(printf '%s' "$data" | jq -r '.environment_role // (if .work then "managed" else "personal" end)')"
   xcode="$(printf '%s' "$data" | jq -r '.xcode // false')"
   beta="$(printf '%s' "$data" | jq -r '.beta // false')"
+  browser_navigation="$(printf '%s' "$data" | jq -r '.browser_navigation // "standard"')"
 
   local posture_valid=true
   if [[ "$posture" != "current" && "$posture" != "preview" ]]; then
@@ -240,6 +242,16 @@ browser_section() {
     note "organization and device policy outrank this selection; Groundwork never bypasses them."
   fi
   note "Groundwork installs the selected channel but does not change the macOS default-browser association."
+
+  if [[ "$browser_navigation" == "vimium" ]]; then
+    ok "Vim-style browser navigation (Vimium) is selected"
+    note "Chrome still asks you to confirm the install; Groundwork cannot and does not install it for you: browser-extensions --tier core --open"
+    if [[ "$posture" == "preview" ]]; then
+      note "the same preference applies to Chrome Beta; run the command above once for each channel you use"
+    fi
+  else
+    note "Vim-style browser navigation (Vimium) is not selected; enable it with groundwork-configure"
+  fi
 }
 
 docker_section() {
