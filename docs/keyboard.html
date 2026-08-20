@@ -221,6 +221,21 @@
         </div>
       </div>
 
+      <h2 id="vimium"><span class="hash" aria-hidden="true">#</span>Optional: Vim-style browser navigation</h2>
+      <p>Everything above is the baseline — it's on for everyone. The browser is different: Groundwork does not make Chrome Vim-like by default, does not maintain its own browser keymap, and does not repurpose <span class="keys"><kbd>Ctrl</kbd><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span> as tab shortcuts. A browser page isn't a terminal pane, and forcing the same keys onto both doesn't make things more consistent — it makes one keystroke mean two different things depending on which app has focus.</p>
+      <p>If you want <kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd> page navigation in Chrome too, Groundwork can point you at <a href="https://chromewebstore.google.com/detail/vimium/dbepggeogbaibhgnhhndojpepiihcmeb" target="_blank" rel="noopener">Vimium</a> — using its own standard mappings, not a Groundwork layer on top of them. It's opt-in: run <code>groundwork-configure</code> and choose <strong>Browser keyboard navigation → Vim-style</strong>. Choosing Vim as an editor doesn't turn this on by itself; the two are independent settings.</p>
+      <table class="keytable">
+        <tr><td><span class="keys"><kbd>h</kbd>/<kbd>j</kbd>/<kbd>k</kbd>/<kbd>l</kbd></span></td><td>scroll the page</td></tr>
+        <tr><td><kbd>f</kbd> / <kbd>F</kbd></td><td>follow a link / open it in a new tab</td></tr>
+        <tr><td><kbd>/</kbd>, <kbd>n</kbd>/<kbd>N</kbd></td><td>find, next/previous match</td></tr>
+        <tr><td><span class="keys"><kbd>g</kbd><kbd>t</kbd></span> / <span class="keys"><kbd>g</kbd><kbd>T</kbd></span></td><td>next / previous tab</td></tr>
+        <tr><td><kbd>^</kbd></td><td>previously used tab</td></tr>
+      </table>
+      <div class="callout note">
+        <span class="label">Groundwork points; you click "Add to Chrome"</span>
+        <p>Groundwork never installs a browser extension for you — that would bypass Chrome's own install confirmation, which stays yours to approve. Once the preference is on, run <code>browser-extensions --tier core --open</code> to open Vimium's Chrome Web Store page (in every Chrome channel your release posture actually installs — Stable, and Beta too under preview). Want custom mappings? Configure Vimium itself; Groundwork doesn't manage per-shortcut settings. Full rationale: <a href="https://github.com/jasondockery/groundwork/blob/main/specs/browser-keyboard-navigation.md" target="_blank" rel="noopener">specs/browser-keyboard-navigation.md</a>.</p>
+      </div>
+
       <h2><span class="hash" aria-hidden="true">#</span>Going deeper</h2>
       <ul>
         <li><a href="https://karabiner-elements.pqrs.org/docs/" target="_blank" rel="noopener">Karabiner-Elements documentation</a> — for any other remap you dream up (other dual-role keys, app-specific rules, home-row mods).</li>
