@@ -8,9 +8,9 @@
     "check:github-config": "node tools/github-external-config.mjs",
     "test": "node --test tools/*.test.mjs"
   },
-  "packageManager": "pnpm@11.21.0",
+  "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": "24.19.0",
-    "pnpm": "11.21.0"
+    "pnpm": "11.22.0"
   }
 }
