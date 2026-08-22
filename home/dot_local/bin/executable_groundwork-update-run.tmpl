@@ -18,8 +18,9 @@ Complete the post-sync half of update-all.
 Usage:
   groundwork-update-run                    apply and refresh with maintenance
   groundwork-update-run --skip-maintenance apply and refresh without routine maintenance
-  groundwork-update-run --allow-app-quit   permit Homebrew to quit running apps
-                                            selected for cask replacement
+  groundwork-update-run --no-app-quit      keep a running app open instead of
+                                            letting Homebrew quit it for cask
+                                            replacement, for this invocation only
   groundwork-update-run -h|--help          show this help
 
 Run update-all for the normal full transaction. This runner is directly
@@ -30,17 +31,19 @@ backend for scratch maintenance, then ends with the same consent-gated
 Karabiner health postflight. Without a terminal, neither service is restarted.
 The final receipt classifies no-change, maintenance, review, warning, failure,
 and pending-repair outcomes; raw Homebrew streams remain in Groundwork state.
-Running applications are deferred by default. --allow-app-quit permits
-Homebrew's normal quit-and-replace behavior for this invocation only.
+Homebrew's normal quit-and-replace behavior applies by default, the same as
+running `brew upgrade` yourself: a cask that declares a safe quit action may
+be closed and reopened as part of its own upgrade. --no-app-quit keeps every
+running app open instead, deferring its upgrade, for this invocation only.
 EOF
 }
 
 skip_maintenance=0
-allow_app_quit=0
+allow_app_quit=1
 while (($#)); do
   case "$1" in
     --skip-maintenance) skip_maintenance=1 ;;
-    --allow-app-quit) allow_app_quit=1 ;;
+    --no-app-quit) allow_app_quit=0 ;;
     -h | --help)
       usage
       exit 0
@@ -622,7 +625,7 @@ if command -v brew >/dev/null 2>&1; then
   #
   # So ask, once, before anything mutates. A yes routes them through the exact
   # lanes every other cask uses: the same checksum requirement, the same
-  # no-quit guard, the same deferral of anything still open. Consent authorizes
+  # app-quit default (or --no-app-quit deferral). Consent authorizes
   # a privileged replacement; it never authorizes an unverified artifact, which
   # is why an unchecksummed cask stays in review and is not offered here. A no,
   # an unanswerable prompt, or no terminal leaves the run exactly as it was.
@@ -634,8 +637,11 @@ if command -v brew >/dev/null 2>&1; then
       [[ -n "$token" ]] || continue
       printf '  %s %s -> %s (%s)\n' "$token" "$installed" "$available" "$reason"
     done <"$consent_cask_file"
-    echo "  Upgrading them runs Homebrew's normal replacement, which may ask for your password."
-    echo "  An app that is still open is skipped unless you rerun with --allow-app-quit."
+    echo "  Upgrading them runs Homebrew's normal replacement, which may ask for your password"
+    echo "  and, for an app that declares a safe quit action, may close and reopen it."
+    if [[ "$allow_app_quit" -eq 0 ]]; then
+      echo "  This run used --no-app-quit: an app that is still open is deferred instead."
+    fi
     if [[ "$groundwork_interactive_tty_available" -ne 1 ]]; then
       echo "  No terminal is attached, so nothing was asked and nothing was changed."
       print_privileged_cask_commands
@@ -849,12 +855,12 @@ EOF
     rm -f -- "$observed_file"
   }
 
-  # Homebrew may quit an application while replacing its cask. The default
-  # transaction observes the exact executable paths advertised by the cask's
-  # app artifacts and removes running apps from the mutating argv. Every
-  # remaining default cask mutation also carries --no-quit so an app launched
-  # after this snapshot remains protected. An explicit --allow-app-quit applies
-  # only to this invocation and never widens the set.
+  # Homebrew may quit an application while replacing its cask, matching
+  # brew upgrade's own default. --no-app-quit reverses that for this
+  # invocation only: the transaction observes the exact executable paths
+  # advertised by the cask's app artifacts, removes running apps from the
+  # mutating argv, and every remaining cask mutation also carries --no-quit
+  # so an app launched after this snapshot stays protected too.
   cask_process_snapshot="$runner_receipt_dir/homebrew-cask-processes"
   cask_process_snapshot_status=0
   : >"$cask_process_snapshot"
@@ -907,7 +913,7 @@ EOF
       if [[ "$cask_is_running" -eq 1 ]]; then
         brew_deferred_running_count=$((brew_deferred_running_count + 1))
         printf 'Groundwork deferred-running: %s is open and was not upgraded.\n' "$token"
-        printf '  Save your work, then rerun: update-all --allow-app-quit\n'
+        printf '  This run used --no-app-quit. Save your work, then rerun without that flag to upgrade it.\n'
       else
         printf '%s\n' "$token" >>"$ready_file"
       fi

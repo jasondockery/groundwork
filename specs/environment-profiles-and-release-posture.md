@@ -369,9 +369,10 @@ unresolved no-checksum, privileged-replacement, and unknown items remain
 unchanged with an explicit reason. Only tokens in Groundwork's reviewed
 `vendor-updater-casks.txt` policy remain visible as accepted no-checksum vendor
 coverage rather than false failure. Current privileged casks stay quiet;
-running applications are deferred per token and every cask mutation carries
-Homebrew's `--no-quit` guard unless the invocation explicitly uses
-`--allow-app-quit`. Mac App Store updates use exact discovered IDs. A real
+cask mutation matches Homebrew's own default and may quit a running app that
+declares a safe quit action, unless the invocation explicitly uses
+`--no-app-quit`, which defers running applications per token and carries
+Homebrew's `--no-quit` guard instead. Mac App Store updates use exact discovered IDs. A real
 interactive terminal establishes macOS authorization before each mutation; the
 exact non-prompting mutation then owns one process group and a conservative
 30-minute hard backstop. Redirected or automated runs mark each exact app
