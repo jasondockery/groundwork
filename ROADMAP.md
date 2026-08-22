@@ -125,6 +125,21 @@ Owner action (a human enables this when ready, not code work):
       successor in their own projection commit and proof boundary. Superseded
       `043568a`, `681c872`, and `f3e135d` identities remain historical evidence;
       they do not block independent Groundwork commits or releases.
+      **State as of 2026-08-22:** `.compass/receipt.json` still pins `c0a45d8`
+      (2026-08-11). Compass's `authority-registry.json` — the whole Shift to
+      Authority mechanism — did not exist yet at that commit, so all six
+      currently issued candidates postdate this pin and are unreconciled here:
+      `shift-to-authority`, `replaceable-ai-workloads`,
+      `operable-developer-tools`, `reviewable-agent-workspaces`,
+      `concurrent-agent-runtimes`, and the newest, `repeatable-agent-execution`
+      (bootstrap readiness, actual-launcher identity, fail-closed Git-identity
+      binding, named-invariant proof targeting, staged-index attribution —
+      `.compass/COMPASS.md` → "Repeatable agent execution" once projected).
+      Roost reconciled to the current identity in PR #50; that reconciliation
+      (`node scripts/build-artifact.mjs` + `scripts/project-artifact.mjs
+      --replace` from a clean Compass `main`, then updating
+      `scripts/check-compass-adoption.mjs`'s consumer reconciliation record)
+      is the template to repeat here. Not started.
 
 ## Review-derived product backlog (2026-07-31)
 
