@@ -10606,6 +10606,49 @@ EOF
     || fail "a non-brew suggestion must exit 4 (malformed), got $repair_status"
   test ! -s "$repair_cmd_log" || fail "brew-repair ran a command from a malformed suggestion"
 
+  # The Caskroom-collision error is a real field regression (both a personal
+  # and a work-laptop report used these exact tokens/versions): Homebrew
+  # itself suggests no fix, so Groundwork offers its own known-safe one —
+  # clean removal of only the stuck version's bookkeeping, then reinstall.
+  cat >"$prompt_fixture/caskroom-collision.log" <<'EOF'
+==> Upgrading bitwarden
+  2026.6.0 -> 2026.8.0
+==> Quitting application 'com.bitwarden.desktop'...
+Application 'com.bitwarden.desktop' quit successfully.
+==> Purging files for version 2026.8.0 of Cask bitwarden
+Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'.
+EOF
+  : >"$repair_cmd_log"
+  printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+    GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+    /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$prompt_fixture/caskroom-collision.log" \
+    >"$prompt_fixture/repair-caskroom" 2>&1 \
+    || fail "brew-repair must handle the Caskroom-collision error"
+  diff -u <(printf 'brew remove --force --cask bitwarden\nbrew install --cask bitwarden\n') "$repair_cmd_log" \
+    || fail "brew-repair must run exactly the known-safe Caskroom-collision fix, in order"
+  grep -qF "Homebrew hit its own known Caskroom-purge bug" "$prompt_fixture/repair-caskroom" \
+    || fail "the Caskroom-collision fix must be labeled as Groundwork's own, not Homebrew's"
+  assert_not_contains 'reported its own fix' "$prompt_fixture/repair-caskroom" \
+    "a pure Caskroom-collision case wrongly claimed Homebrew suggested the fix"
+  assert_not_contains '\-\-zap' "$prompt_fixture/repair-caskroom" \
+    "the Caskroom-collision fix must never zap application data"
+  # Two casks colliding in one run must each get their own pair, deduplicated
+  # if the same token appears more than once (a retry log can repeat it).
+  cat >"$prompt_fixture/caskroom-collision-multi.log" <<'EOF'
+Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'.
+Error: bitwarden: It seems there is already an App at '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'.
+Error: zed: It seems there is already an App at '/opt/homebrew/Caskroom/zed/1.11.3/Zed.app'.
+EOF
+  : >"$repair_cmd_log"
+  printf '' | env PATH="$prompt_fixture/bin:/usr/bin:/bin" GROUNDWORK_TEST_LOG="$repair_cmd_log" \
+    GROUNDWORK_PROMPT_TTY="$prompt_fixture/tty-repair-yes" \
+    /bin/bash home/dot_local/bin/executable_groundwork-brew-repair "$prompt_fixture/caskroom-collision-multi.log" \
+    >/dev/null 2>&1 \
+    || fail "brew-repair must handle multiple distinct Caskroom collisions in one run"
+  diff -u <(printf 'brew remove --force --cask bitwarden\nbrew install --cask bitwarden\nbrew remove --force --cask zed\nbrew install --cask zed\n') \
+    "$repair_cmd_log" \
+    || fail "brew-repair must dedupe a repeated token but still fix every distinct one"
+
   # groundwork-brew-refetch: curl's ordinary --retry does not cover the
   # curl-92 stream errors from the field transcript, so failed downloads get a
   # targeted, serial re-fetch — and ONLY the failed ones.
