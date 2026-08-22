@@ -11,11 +11,22 @@ set -euo pipefail
 # every upgrade until someone acts on it):
 #   Warning: The cask 'dotnet-sdk' cannot be upgraded as-is. To fix this, run:
 #     brew reinstall --cask --force dotnet-sdk
-# Given a log containing either, offer to run exactly those commands —
-# nothing invented, shown in full, only with a person at the terminal saying
-# yes. The exit code tells the caller what actually happened, because
-# "nothing to do" and "the repair you approved failed" demand opposite
-# responses:
+# A third shape carries no suggested fix from Homebrew at all -- its own
+# known, flaky cask-purge bug leaves a stale Caskroom directory for the
+# version being replaced:
+#   Error: bitwarden: It seems there is already an App at
+#   '/opt/homebrew/Caskroom/bitwarden/2026.6.0/Bitwarden.app'.
+# For that one, Groundwork supplies its own known-safe fix instead of
+# Homebrew's: remove only Homebrew's bookkeeping for the stuck version, then
+# reinstall clean. Neither command touches the app's data or preferences
+# (no --zap), and the caller retries the original upgrade afterward either
+# way, so a cask already brought current here is simply a harmless no-op
+# retry, not a duplicate install.
+# Given a log containing any of the above, offer to run exactly those
+# commands -- shown in full, only with a person at the terminal saying yes,
+# and always labeled by who is actually suggesting them. The exit code tells
+# the caller what actually happened, because "nothing to do" and "the repair
+# you approved failed" demand opposite responses:
 #   0  remediation found, approved, and completed — a retry is worth it
 #   1  no actionable remediation in the log
 #   2  remediation declined (or no terminal to ask on)
@@ -33,7 +44,7 @@ esc="$(printf '\033')"
 log_text="$(sed "s/${esc}\[[0-9;]*m//g" "$log")"
 
 printf '%s\n' "$log_text" \
-  | grep -qE "Please run the following commands and try again:|cannot be upgraded as-is\. To fix this, run:" \
+  | grep -qE "Please run the following commands and try again:|cannot be upgraded as-is\. To fix this, run:|: It seems there is already an App at " \
   || exit "$EXIT_NOTHING"
 
 # Take the suggested commands after each marker, and accept only plain brew
@@ -44,14 +55,36 @@ block_commands="$(printf '%s\n' "$log_text" | awk '/Please run the following com
 # The cask warning suggests exactly one command on the line after its marker;
 # collect each occurrence (several casks can warn in one run).
 cask_commands="$(printf '%s\n' "$log_text" | awk '/cannot be upgraded as-is\. To fix this, run:/{found=1; next} found && /^[[:space:]]*brew /{sub(/^[[:space:]]+/, ""); print; found=0; next} found{found=0}')"
-commands="$(printf '%s\n%s\n' "$block_commands" "$cask_commands" | awk 'NF && !seen[$0]++')"
+homebrew_commands="$(printf '%s\n%s\n' "$block_commands" "$cask_commands" | awk 'NF && !seen[$0]++')"
+# The Caskroom-collision error names its exact token; several casks can hit
+# it in one run, so collect every distinct one.
+caskroom_tokens="$(printf '%s\n' "$log_text" \
+  | sed -n -E "s/^Error: ([A-Za-z0-9@+._-]+): It seems there is already an App at .*/\\1/p" \
+  | awk '!seen[$0]++')"
+caskroom_commands=""
+if [[ -n "$caskroom_tokens" ]]; then
+  while IFS= read -r caskroom_token; do
+    [[ -n "$caskroom_token" ]] || continue
+    caskroom_commands="$caskroom_commands
+brew remove --force --cask $caskroom_token
+brew install --cask $caskroom_token"
+  done <<<"$caskroom_tokens"
+fi
+commands="$(printf '%s\n%s\n' "$homebrew_commands" "$caskroom_commands" | awk 'NF && !seen[$0]++')"
 [[ -n "$commands" ]] || exit "$EXIT_MALFORMED"
 while IFS= read -r cmd; do
   [[ "$cmd" =~ ^brew[\ ]([a-z-]+)([\ ]--[a-z-]+)*([\ ][A-Za-z0-9@._+-]+)*$ ]] || exit "$EXIT_MALFORMED"
 done <<<"$commands"
 
-echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
-printf '%s\n' "$commands" | awk '{print "  " $0}'
+if [[ -n "$homebrew_commands" ]]; then
+  echo "Groundwork: Homebrew reported a known-broken state and printed its own fix:"
+  printf '%s\n' "$homebrew_commands" | awk '{print "  " $0}'
+fi
+if [[ -n "$caskroom_commands" ]]; then
+  echo "Groundwork: Homebrew hit its own known Caskroom-purge bug (no fix suggested) — a known-safe fix, not Homebrew's own:"
+  printf '%s\n' "$caskroom_commands" | awk 'NF {print "  " $0}'
+  echo "  Application data and preferences are outside this fix's scope."
+fi
 # Ask on the controlling terminal even when stdin is a pipe; only a run with
 # no terminal at all takes the default, and it says which default that is.
 # (The seam lets the validator substitute the terminal device.)
