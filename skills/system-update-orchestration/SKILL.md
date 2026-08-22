@@ -89,6 +89,38 @@ preclassified, installed, exact token list. Candidate selection comes from the
 matching greedy-aware `brew outdated` query, so a current 590 MB application is
 not downloaded merely because its metadata says it can self-update.
 
+## Always-on apps get relaunched, not just reported
+
+Homebrew quits a running GUI app while replacing its cask and never relaunches
+it. `groundwork-apps-start` reopens Karabiner-Elements, Raycast, BetterDisplay,
+and Anybox — the always-on set — when installed but not running, and
+`groundwork-update-run.tmpl` calls it directly after a successful Homebrew
+lane on macOS. This is a deliberate, previously-agreed decision with two
+specific reasons, not an oversight:
+
+1. **Keybindings must not silently die.** Karabiner-Elements owns keyboard
+   remapping; if Homebrew quits it and nothing reopens it, every remap stops
+   working with no error anywhere — the person discovers it by a keystroke
+   doing the wrong thing, possibly minutes or hours later, with no link back
+   to "I ran update-all."
+2. **Gatekeeper approval needs the person present.** A freshly replaced cask's
+   first launch may need explicit user approval (Accessibility, Input
+   Monitoring, "opened from the internet"). Launching it while the person is
+   already at the keyboard watching the update is the one moment that
+   approval is cheap; deferred to whenever they next need the app, it is a
+   confusing, unexplained prompt with no context.
+
+**Do not "fix" this into report-only** (log what changed, print a command to
+run later, never call `open -a` from update-run) to avoid a GUI window
+appearing mid-run. That trade was tried and reverted in this same repo
+(2026-08) specifically because it reintroduces both failures above. The
+launch already explains itself in the terminal
+(`echo "${app_name} is installed but not running; opening it so ${reason}."`)
+before it happens — that is the fix for "surprise," not removing the launch.
+`groundwork-doctor --always-on-apps` (`home/dot_local/share/groundwork/lib/always-on-apps.sh`)
+is a separate, additional **read-only** check for between-run visibility; it
+is not a replacement for update-all's real relaunch.
+
 ## Receipts are epistemically honest
 
 Report categories that match what the run actually established:
