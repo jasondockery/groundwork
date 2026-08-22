@@ -4132,6 +4132,8 @@ gw_karabiner_version() {
   printf '%s\n' "$KARABINER_VERSION_BEFORE"
 }
 SH
+  cp "$repo/home/dot_local/share/groundwork/lib/always-on-apps.sh" \
+    "$update_all_home/.local/share/groundwork/lib/always-on-apps.sh"
   chmod +x "$update_all_bin/groundwork-apps-start" \
     "$update_all_bin/groundwork-karabiner-postflight" \
     "$update_all_bin/groundwork-app-adopt" \
@@ -11940,6 +11942,49 @@ validate_static_helpers() {
   test -x scripts/test-karabiner-diagnostics
   scripts/test-karabiner-diagnostics
 
+  check "doctor: always-on-apps section reports without launching"
+  always_on_doctor_home="$out_dir/always-on-apps-doctor/home"
+  always_on_doctor_apps="$out_dir/always-on-apps-doctor/Applications"
+  always_on_doctor_bin="$out_dir/always-on-apps-doctor/bin"
+  mkdir -p "$always_on_doctor_home/.local/share/groundwork/lib" "$always_on_doctor_apps" \
+    "$always_on_doctor_bin"
+  cp home/dot_local/share/groundwork/lib/always-on-apps.sh \
+    "$always_on_doctor_home/.local/share/groundwork/lib/always-on-apps.sh"
+  cat >"$always_on_doctor_bin/uname" <<'SH'
+#!/bin/sh
+printf 'Darwin\n'
+SH
+  chmod +x "$always_on_doctor_bin/uname"
+  # pgrep -f only matches on a path fragment, not the fixture's exact
+  # GROUNDWORK_APPLICATIONS_DIR, so a real Raycast/Karabiner running on the
+  # machine that executes this test would otherwise false-positive as "found".
+  # Stub it deterministically: nothing the fixture cares about is ever running.
+  cat >"$always_on_doctor_bin/pgrep" <<'SH'
+#!/bin/sh
+exit 1
+SH
+  chmod +x "$always_on_doctor_bin/pgrep"
+  mkdir -p "$always_on_doctor_apps/Raycast.app/Contents/MacOS"
+  GROUNDWORK_APPLICATIONS_DIR="$always_on_doctor_apps" HOME="$always_on_doctor_home" \
+    PATH="$always_on_doctor_bin:$PATH" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --always-on-apps \
+    >"$out_dir/doctor-always-on-apps-missing" 2>&1
+  grep -qF 'Raycast is installed but not running' "$out_dir/doctor-always-on-apps-missing" \
+    || fail "doctor did not report an installed, not-running always-on app"
+  grep -qF 'Reopen them now: groundwork-apps-start' "$out_dir/doctor-always-on-apps-missing" \
+    || fail "doctor omitted the exact relaunch command"
+  rm -rf "$always_on_doctor_apps/Raycast.app"
+  GROUNDWORK_APPLICATIONS_DIR="$always_on_doctor_apps" HOME="$always_on_doctor_home" \
+    PATH="$always_on_doctor_bin:$PATH" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --always-on-apps \
+    >"$out_dir/doctor-always-on-apps-clean" 2>&1
+  grep -qF 'is running' "$out_dir/doctor-always-on-apps-clean" \
+    || fail "doctor did not report a clean always-on-apps state"
+  assert_not_contains 'installed but not running' "$out_dir/doctor-always-on-apps-clean" \
+    "doctor claimed a missing app with none installed"
+  grep -qF -- '--always-on-apps' < <(/bin/bash home/dot_local/bin/executable_groundwork-doctor --help) \
+    || fail "doctor --help omitted --always-on-apps"
+
   check "largest helper"
   test -x home/dot_local/bin/executable_largest
   largest_fixture="$out_dir/largest-fixture"
@@ -14979,14 +15024,25 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
   fi
   test -f home/dot_local/bin/executable_groundwork-apps-start
   test -x home/dot_local/bin/executable_groundwork-apps-start
-  grep -qF 'groundwork-apps-start' home/run_onchange_after_10-brew-bundle.sh.tmpl
-  grep -qF 'groundwork-apps-start' home/dot_local/bin/executable_groundwork-update-run.tmpl
-  # Every always-on app stays in the relaunch guard; Homebrew quits them on
-  # cask upgrades and never brings them back.
+  test -f home/dot_local/share/groundwork/lib/always-on-apps.sh
+  # Homebrew quits a running always-on app while replacing its cask and never
+  # relaunches it. Both the bundle-install hook and update-run call the real
+  # launcher directly -- deliberately, so keybindings and Gatekeeper approval
+  # never wait on the owner remembering a separate command. See
+  # skills/system-update-orchestration#always-on-apps-get-relaunched-not-just-reported
+  # before changing this to report-only again.
+  grep -qF 'groundwork-apps-start' home/run_onchange_after_10-brew-bundle.sh.tmpl \
+    || fail "the bundle-install hook must still relaunch always-on apps directly"
+  # shellcheck disable=SC2016 # Match literal rendered-script source; $HOME is that file's variable.
+  grep -qF '"$HOME/.local/bin/groundwork-apps-start"' \
+    home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    || fail "update-all must still relaunch always-on apps directly, not just report them"
+  # Every always-on app stays in the shared detection library; Homebrew quits
+  # them on cask upgrades and never brings them back.
   for always_on_app in Karabiner-Elements Raycast BetterDisplay Anybox; do
-    grep -qF "start_app \"$always_on_app\"" home/dot_local/bin/executable_groundwork-apps-start \
+    grep -qF "$always_on_app" home/dot_local/share/groundwork/lib/always-on-apps.sh \
       || {
-        echo "groundwork-apps-start must relaunch $always_on_app" >&2
+        echo "always-on-apps.sh must track $always_on_app" >&2
         exit 1
       }
   done
