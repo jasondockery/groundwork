@@ -14,6 +14,7 @@ Options:
   --node-toolchain  run only the Node/pnpm ownership section
   --browser     run only the managed-browser section
   --karabiner   run only the Karabiner compatibility and process section
+  --always-on-apps  run only the always-on-app relaunch section
   --docker      run only the Docker section
   --storage     run the storage report (opt-in: du over large trees can be
                 slow, so the default run skips it)
@@ -40,6 +41,11 @@ Sections (all run by default):
                 owner, elapsed time, RSS, memory footprint, and compressed
                 memory when macOS exposes them. One snapshot never becomes a
                 made-up growth rate.
+  Always-on apps
+                whether Karabiner-Elements, Raycast, BetterDisplay, and Anybox
+                are running. update-all reports the same finding but never
+                relaunches them itself; this is where you'd notice it between
+                runs and where the actual relaunch command is named.
   Docker        daemon reachability, engine hygiene (log rotation, image
                 store), disk usage, and leftovers: containers, dangling
                 images, volumes, and the labeled-ephemeral scratch images —
@@ -160,6 +166,36 @@ karabiner_section() {
   note "Official support source: https://karabiner-elements.pqrs.org/"
   note "Long-run sleep/wake memory growth has been reported upstream; a matching snapshot is evidence to investigate, not proof of that defect: https://github.com/pqrs-org/Karabiner-Elements/issues/4432"
   note "Logs: /var/log/karabiner/core_service.log, /var/log/karabiner/virtual_hid_device_service.log, and ~/.local/share/karabiner/log/"
+}
+
+always_on_apps_section() {
+  heading "Always-on apps"
+
+  if [[ "$(uname -s 2>/dev/null || true)" != "Darwin" ]]; then
+    note "Groundwork's always-on-app relaunch guard is macOS-only; no process state is claimed here."
+    return 0
+  fi
+
+  local always_on_apps_lib="$HOME/.local/share/groundwork/lib/always-on-apps.sh"
+  if [[ ! -r "$always_on_apps_lib" ]]; then
+    warn "Groundwork's always-on-app probe is missing: $always_on_apps_lib"
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
+    return 0
+  fi
+  # shellcheck source=/dev/null
+  . "$always_on_apps_lib"
+
+  local app_name reason found=0
+  while IFS=$'\t' read -r app_name reason; do
+    [[ -n "$app_name" ]] || continue
+    found=1
+    warn "$app_name is installed but not running; $reason won't work until it reopens."
+  done < <(gw_always_on_apps_not_running)
+  if [[ "$found" -eq 1 ]]; then
+    note "Reopen them now: groundwork-apps-start"
+  else
+    ok "Every installed always-on app (Karabiner-Elements, Raycast, BetterDisplay, Anybox) is running"
+  fi
 }
 
 browser_section() {
@@ -1246,6 +1282,7 @@ while (($#)); do
     --runtimes) section="runtimes" ;;
     --node-toolchain) section="node-toolchain" ;;
     --karabiner) section="karabiner" ;;
+    --always-on-apps) section="always-on-apps" ;;
     --storage) section="storage" ;;
     -h | --help)
       usage
@@ -1272,6 +1309,7 @@ case "$section" in
     node_toolchain_section
     browser_section
     karabiner_section
+    always_on_apps_section
     docker_section
     printf '\nRun groundwork-doctor --storage for the (slower) curated disk-usage report.\n'
     ;;
@@ -1280,6 +1318,7 @@ case "$section" in
   node-toolchain) node_toolchain_section ;;
   browser) browser_section ;;
   karabiner) karabiner_section ;;
+  always-on-apps) always_on_apps_section ;;
   docker) docker_section ;;
   storage) storage_section ;;
 esac

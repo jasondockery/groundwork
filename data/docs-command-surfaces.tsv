@@ -77,6 +77,7 @@ groundwork-doctor --docker	command	executable	all	all	docker	platforms.html
 groundwork-doctor --shell	command	executable	all	all	-	platforms.html
 groundwork-doctor --runtimes	command	executable	all	all	-	platforms.html
 groundwork-doctor --karabiner	command	executable	macos	desktop	-	platforms.html
+groundwork-doctor --always-on-apps	command	executable	macos	desktop	-	platforms.html
 groundwork-karabiner-restart	command	executable	macos	desktop	karabiner	troubleshooting.html
 groundwork-doctor --node-toolchain	command	executable	all	all	-	platforms.html
 groundwork-doctor --storage	command	executable	all	all	-	platforms.html

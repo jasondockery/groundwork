@@ -3,6 +3,14 @@ set -euo pipefail
 
 [[ "$(uname -s)" == "Darwin" ]] || exit 0
 
+always_on_apps_lib="$HOME/.local/share/groundwork/lib/always-on-apps.sh"
+if [[ ! -r "$always_on_apps_lib" ]]; then
+  echo "Groundwork: the always-on-app probe is missing: $always_on_apps_lib" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$always_on_apps_lib"
+
 # Homebrew and brew bundle quit GUI apps while replacing their casks and do
 # not relaunch them. For always-on apps — the keyboard driver, the launcher,
 # the display manager, the menu-bar library — that silently removes
@@ -11,21 +19,12 @@ set -euo pipefail
 # channels (password managers, editors, Docker) stay user-managed.
 started=""
 
-start_app() {
-  local app_name="$1" reason="$2"
-  [[ -d "/Applications/${app_name}.app" ]] || return 0
-  if pgrep -f "/${app_name}[.]app/" >/dev/null 2>&1; then
-    return 0
-  fi
+while IFS=$'\t' read -r app_name reason; do
+  [[ -n "$app_name" ]] || continue
   echo "${app_name} is installed but not running; opening it so ${reason}."
   open -a "${app_name}" || true
   started="${started} ${app_name}"
-}
-
-start_app "Karabiner-Elements" "keyboard rules and permission prompts are visible"
-start_app "Raycast" "the launcher hotkey keeps answering"
-start_app "BetterDisplay" "display presets and brightness controls stay available"
-start_app "Anybox" "the bookmark library and its shortcuts stay in the menu bar"
+done < <(gw_always_on_apps_not_running)
 
 case "$started" in
   *Karabiner-Elements*)
