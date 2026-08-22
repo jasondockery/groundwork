@@ -3510,11 +3510,11 @@ EOF
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
     NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' \
     CHEZMOI_INSTALL_RUNNER=1 FRESH_RUNNER="$update_all_fixture/fresh-runner" \
-    "$update_all_fixture/old-launcher" --allow-app-quit \
+    "$update_all_fixture/old-launcher" --no-app-quit \
     >"$update_all_fixture/app-quit-handoff" 2>&1 \
-    || fail "the stable launcher rejected the explicit app-quit option"
-  grep -qxF 'arg=--allow-app-quit' "$update_all_log" \
-    || fail "the stable launcher did not forward --allow-app-quit to the fresh runner"
+    || fail "the stable launcher rejected the explicit no-app-quit option"
+  grep -qxF 'arg=--no-app-quit' "$update_all_log" \
+    || fail "the stable launcher did not forward --no-app-quit to the fresh runner"
 
   # A synchronized config-template change may produce one pre-init warning.
   # Pull first, then initialize once so status/apply/verify cannot repeat it.
@@ -4170,7 +4170,7 @@ SH
 chezmoi apply color=0
 brew-update
 brew upgrade --formula git auto=1 casks=unset hb-color=unset
-brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset
+brew upgrade --cask --require-sha ghostty auto=1 casks=unset hb-color=unset
 brew-repair
 apps-start
 mise upgrade --minimum-release-age 5d
@@ -4198,7 +4198,7 @@ EOF
     BREW_AUTO_OUTDATED='chatgpt cursor claude obsidian' \
     BREW_LATEST_OUTDATED='latest-cask' \
     BREW_LAUNCH_AFTER_SNAPSHOT=1 \
-    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" --no-app-quit \
     >"$update_all_fixture/darwin-dynamic-casks" 2>&1 || dynamic_exit=$?
   [[ "$dynamic_exit" -eq 0 ]] \
     || fail "accepted vendor/deprecated cask outcomes surfaced as exit $dynamic_exit"
@@ -4260,9 +4260,25 @@ EOF
   test -f "$update_all_stamp" \
     || fail "accepted vendor coverage incorrectly withheld the success timestamp"
 
-  # Running applications are removed from the mutating argv by default while
-  # unrelated casks continue. The explicit flag permits Homebrew's normal quit
-  # behavior only for that invocation and does not widen the selected tokens.
+  # By default a cask upgrade matches Homebrew's own default and may quit a
+  # running application. --no-app-quit removes running applications from the
+  # mutating argv for that invocation only and does not widen the tokens.
+  rm -f "$update_all_stamp"
+  : >"$update_all_log"
+  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
+    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
+    BREW_CASKS='ghostty chatgpt cursor' BREW_AUTO_OUTDATED='chatgpt cursor' \
+    BREW_RUNNING_COMMANDS="$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    >"$update_all_fixture/darwin-running-cask-default" 2>&1 \
+    || fail "the default app-quit invocation failed"
+  grep -qxF \
+    'brew upgrade --cask --require-sha --greedy-auto-updates chatgpt cursor auto=1 casks=unset hb-color=unset' \
+    "$update_all_log" \
+    || fail "the default invocation did not preserve the exact selected cask argv"
+  assert_not_contains 'deferred-running' "$update_all_fixture/darwin-running-cask-default" \
+    "the default invocation still claimed a deferral"
+
   rm -f "$update_all_stamp"
   : >"$update_all_log"
   HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
@@ -4270,7 +4286,7 @@ EOF
     BREW_CASKS='ghostty chatgpt cursor' BREW_AUTO_OUTDATED='chatgpt cursor' \
     BREW_RUNNING_COMMANDS="$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window" \
     BREW_PS_TRACE_FILE="$update_all_fixture/running-cask-ps.trace" \
-    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
+    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" --no-app-quit \
     >"$update_all_fixture/darwin-running-cask" 2>&1 \
     || fail "deferring one running cask failed the otherwise safe update"
   diff -u <(printf '%s\n%s\n' 'args=-axo command=' \
@@ -4285,32 +4301,16 @@ EOF
     fail "a running cask prevented an unrelated self-updating cask upgrade"
   }
   assert_not_contains '^brew upgrade .*cursor' "$update_all_log" \
-    "a running application entered the default mutating cask argv"
+    "a running application entered the --no-app-quit mutating cask argv"
   grep -qF 'Groundwork deferred-running: cursor is open and was not upgraded.' \
     "$update_all_fixture/darwin-running-cask" \
     || fail "the running cask was not reported as deferred"
-  grep -qF 'Save your work, then rerun: update-all --allow-app-quit' \
+  grep -qF 'This run used --no-app-quit. Save your work, then rerun without that flag to upgrade it.' \
     "$update_all_fixture/darwin-running-cask" \
-    || fail "the running cask omitted its exact opt-in rerun action"
+    || fail "the running cask omitted its exact rerun action"
   grep -qF 'SUCCESS · 1 DEFERRED-RUNNING' \
     "$update_all_fixture/darwin-running-cask" \
     || fail "running-app deferral was conflated with updater failure"
-
-  rm -f "$update_all_stamp"
-  : >"$update_all_log"
-  HOME="$update_all_home" PATH="$update_all_path" GROUNDWORK_TEST_LOG="$update_all_log" \
-    NO_COLOR='' FORCE_COLOR='' GROUNDWORK_COLOR='' HOMEBREW_COLOR='' \
-    BREW_CASKS='ghostty chatgpt cursor' BREW_AUTO_OUTDATED='chatgpt cursor' \
-    BREW_RUNNING_COMMANDS="$GROUNDWORK_APPLICATIONS_DIR/Cursor.app/Contents/MacOS/Cursor --reuse-window" \
-    FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" --allow-app-quit \
-    >"$update_all_fixture/darwin-running-cask-opt-in" 2>&1 \
-    || fail "the explicit app-quit invocation failed"
-  grep -qxF \
-    'brew upgrade --cask --require-sha --greedy-auto-updates chatgpt cursor auto=1 casks=unset hb-color=unset' \
-    "$update_all_log" \
-    || fail "--allow-app-quit did not preserve the exact selected cask argv"
-  assert_not_contains 'deferred-running' "$update_all_fixture/darwin-running-cask-opt-in" \
-    "the explicit app-quit invocation still claimed a deferral"
 
   # Privileged replacement metadata is only relevant when an update is due.
   # Current AppCleaner, Karabiner, and Zoom equivalents must be quiet/current.
@@ -4917,7 +4917,7 @@ EOF
   grep -qxF 'brew upgrade --formula git auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "manual ChatGPT prevented an unrelated managed formula update"
-  grep -qxF 'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
+  grep -qxF 'brew upgrade --cask --require-sha ghostty auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "manual ChatGPT prevented an unrelated managed cask update"
   grep -qxF 'mise upgrade --minimum-release-age 5d' "$update_all_log" \
@@ -5333,7 +5333,7 @@ EOF
     FAKE_PLATFORM=darwin "$update_all_fixture/darwin-runner" \
     >"$update_all_fixture/darwin-privileged-cask-review" 2>&1 \
     || fail "a review-only privileged cask failed the otherwise safe update"
-  grep -qxF 'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
+  grep -qxF 'brew upgrade --cask --require-sha ghostty auto=1 casks=unset hb-color=unset' \
     "$update_all_log" \
     || fail "the safe cask did not retain its automatic update lane"
   assert_not_contains '^brew upgrade .*docker-desktop' "$update_all_log" \
@@ -5380,8 +5380,8 @@ EOF
     "$update_all_fixture/darwin-privileged-consent-yes" \
     || fail "the privileged cask offer never asked"
   # Consent routes the token through the ordinary greedy-aware lane: same
-  # checksum requirement, same no-quit guard. It does not invent a command.
-  grep -qF 'brew upgrade --cask --require-sha --no-quit --greedy-auto-updates docker-desktop' \
+  # checksum requirement, same app-quit default. It does not invent a command.
+  grep -qF 'brew upgrade --cask --require-sha --greedy-auto-updates docker-desktop' \
     "$update_all_log" \
     || fail "an authorized privileged cask did not enter its exact preclassified lane"
   grep -qF 'you authorized 1 privileged cask upgrade(s) for this run' \
@@ -5819,8 +5819,8 @@ EOF
   [[ "$(grep -c '^brew upgrade --cask --require-sha' "$update_all_log")" -eq 2 ]] \
     || fail "a successful re-fetch must retry the failed upgrade exactly once"
   diff -u <(printf '%s\n%s\n' \
-    'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset' \
-    'brew upgrade --cask --require-sha --no-quit ghostty auto=1 casks=unset hb-color=unset') \
+    'brew upgrade --cask --require-sha ghostty auto=1 casks=unset hb-color=unset' \
+    'brew upgrade --cask --require-sha ghostty auto=1 casks=unset hb-color=unset') \
     <(grep '^brew upgrade --cask --require-sha' "$update_all_log") \
     || fail "the Homebrew retry changed the selected managed candidate set"
   grep -qxF 'brew-refetch' "$update_all_log" \
@@ -15860,7 +15860,7 @@ PY
     "the macOS Homebrew upgrade bypassed the terminal-preserving runner"
   grep -qF 'brew upgrade --cask --require-sha --no-quit "$@"' \
     "$out_dir/darwin-beta/update-run" \
-    || fail "the default cask mutation boundary omitted Homebrew's no-quit guard"
+    || fail "the --no-app-quit cask mutation boundary omitted Homebrew's no-quit guard"
   grep -qF 'run_homebrew_cask_upgrade_lane "Homebrew self-updating cask upgrade"' \
     "$out_dir/darwin-beta/update-run" \
     || fail "the exact self-updating cask lane is missing"

@@ -87,7 +87,7 @@ maintenance	groundwork-cleanup --yes	command	executable	home/dot_local/share/gro
 maintenance	groundwork-cleanup --yes --clear-pending <stage>	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	all
 maintenance	groundwork-cleanup --yes --force	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	yes	all
 maintenance	groundwork-karabiner-restart	command	executable	home/dot_local/share/groundwork/commands.tsv	troubleshooting.html	no	yes	macOS desktop; requires karabiner
-maintenance	update-all --allow-app-quit	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	macOS desktop; requires brew
+maintenance	update-all --no-app-quit	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	macOS desktop; requires brew
 maintenance	update-all --skip-maintenance	command	executable	home/dot_local/share/groundwork/commands.tsv	commands.html	no	no	all
 practice	Practice drill: Agent drill	competency	docs-competency	docs/practice.html	workflow.html	n/a	n/a	all
 practice	Practice drill: Copy drill (keyboard-only)	competency	docs-competency	docs/practice.html	tmux.html	n/a	n/a	all

@@ -16,8 +16,9 @@ Usage:
   update-all                    run the complete refresh and maintenance contract
   update-all --skip-maintenance exceptional fast refresh; skip package-manager
                                 and Docker scratch maintenance
-  update-all --allow-app-quit   allow Homebrew to quit running applications
-                                selected for an eligible cask upgrade
+  update-all --no-app-quit      keep a running app open instead of letting
+                                Homebrew quit it for cask replacement, for
+                                this invocation only
   update-all -h|--help          show this help
 
 The normal command applies current Groundwork configuration, upgrades the safe
@@ -39,10 +40,11 @@ failed, and pending-repair outcomes. Exact known Homebrew no-change warnings
 are summarized as current; unfamiliar warnings remain visible and the complete
 raw Homebrew stream stays under ~/.local/state/groundwork/logs/.
 
-By default, a running application is deferred and every cask mutation carries
-Homebrew's no-quit guard, so an app launched after discovery is protected too.
-The explicit --allow-app-quit option permits Homebrew's normal quit-and-replace
-behavior for this invocation only; it does not widen the selected package set.
+Homebrew's normal quit-and-replace behavior applies by default, matching
+Homebrew's own upgrade command run directly: a cask that declares a safe quit
+action may be closed and reopened as part of its own upgrade. --no-app-quit
+keeps every running app open instead, deferring its upgrade, for this
+invocation only.
 EOF
 }
 
@@ -52,7 +54,7 @@ EOF
 forward_args=("$@")
 while (($#)); do
   case "$1" in
-    --skip-maintenance | --allow-app-quit) ;;
+    --skip-maintenance | --no-app-quit) ;;
     -h | --help)
       usage
       exit 0
