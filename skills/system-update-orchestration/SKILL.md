@@ -75,11 +75,13 @@ unknown                            never; classification unavailable
 Evaluate current before privileged-replacement review: a current privileged
 cask is current, not recurring noise. Bind no-checksum vendor coverage to the
 reviewed Groundwork token policy; metadata flags alone do not grant updater
-authority. Observe running app artifacts before mutation and defer only those
-exact casks by default. Also pass Homebrew's `--no-quit` at every default cask
-mutation boundary so an app launched after that observation remains protected.
-An explicit `--allow-app-quit` may omit that guard for one invocation; it is
-never an ambient environment setting.
+authority. Match Homebrew's own default: a cask upgrade may quit and reopen a
+running app that declares a safe quit action, the same as running
+`brew upgrade` directly. An explicit `--no-app-quit` observes running app
+artifacts before mutation, passes Homebrew's `--no-quit` guard at every
+default cask mutation boundary so an app launched after that observation
+also stays protected, and defers only those exact casks — for one invocation;
+it is never an ambient environment setting.
 
 Bare `--greedy` stays banned outright. The narrower
 `--greedy-auto-updates` and `--greedy-latest` flags may appear only with a
