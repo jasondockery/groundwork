@@ -1,0 +1,4 @@
+interface:
+  display_name: "Developer tool change"
+  short_description: "Prove developer tools are operable, not merely installed"
+  default_prompt: "Use $developer-tool-change to adopt or change a developer tool with explicit workflows, defaults, effective proof, and safe removal."

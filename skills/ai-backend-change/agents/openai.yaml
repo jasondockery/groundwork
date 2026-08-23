@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI backend change"
+  short_description: "Govern AI model and backend lifecycle changes"
+  default_prompt: "Use $ai-backend-change to evaluate or change an AI workload selection without silent fallback."

@@ -1,0 +1,173 @@
+{
+  "schema": "compass.agent-routing-surfaces",
+  "schemaVersion": 3,
+  "authorities": [
+    {
+      "candidateId": "sta-compass-reviewable-agent-workspaces",
+      "canonicalSkillPath": "skills/reviewable-agent-workspaces/SKILL.md",
+      "canonicalSkillSha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb",
+      "versionBinding": "canonical-skill-sha256-and-receipt-source-identity"
+    },
+    {
+      "candidateId": "sta-compass-concurrent-agent-runtimes",
+      "canonicalSkillPath": "skills/concurrent-agent-runtimes/SKILL.md",
+      "canonicalSkillSha256": "bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158",
+      "versionBinding": "canonical-skill-sha256-and-receipt-source-identity"
+    }
+  ],
+  "skills": [
+    { "name": "accessible-product-development", "canonicalSkillPath": "skills/accessible-product-development/SKILL.md", "canonicalSkillSha256": "8e0a028672244ce54010b81d3fdd6c8bd08eede93954f6d27a8b629d226fb379" },
+    { "name": "ai-backend-change", "canonicalSkillPath": "skills/ai-backend-change/SKILL.md", "canonicalSkillSha256": "acffcdb98ea7341dc6d74bc63e8ed7e91e14a1dcacefa9533c3d064e42457fe2" },
+    { "name": "concurrent-agent-runtimes", "canonicalSkillPath": "skills/concurrent-agent-runtimes/SKILL.md", "canonicalSkillSha256": "bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158" },
+    { "name": "dependency-change", "canonicalSkillPath": "skills/dependency-change/SKILL.md", "canonicalSkillSha256": "d116dace49983c8baa46f5d0ebcbd26d0f935cd8814ade8c0fdc64c43b7321ae" },
+    { "name": "developer-tool-change", "canonicalSkillPath": "skills/developer-tool-change/SKILL.md", "canonicalSkillSha256": "ec297f228885038b88cf4877afce6d9d5d51267c0d0a4c1dad471448766ced4e" },
+    { "name": "field-failure-backpressure", "canonicalSkillPath": "skills/field-failure-backpressure/SKILL.md", "canonicalSkillSha256": "42c69bfda8da84f5c0d5f7d546808dd4eba2cbcd4b13dd8f4b837bb22c7c1bc7" },
+    { "name": "inclusive-content-design", "canonicalSkillPath": "skills/inclusive-content-design/SKILL.md", "canonicalSkillSha256": "6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b" },
+    { "name": "inclusive-product-foundation", "canonicalSkillPath": "skills/inclusive-product-foundation/SKILL.md", "canonicalSkillSha256": "3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590" },
+    { "name": "internationalization-first", "canonicalSkillPath": "skills/internationalization-first/SKILL.md", "canonicalSkillSha256": "8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f" },
+    { "name": "performance-sensitive-change", "canonicalSkillPath": "skills/performance-sensitive-change/SKILL.md", "canonicalSkillSha256": "7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a" },
+    { "name": "privacy-by-design", "canonicalSkillPath": "skills/privacy-by-design/SKILL.md", "canonicalSkillSha256": "86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493" },
+    { "name": "repeatable-agent-execution", "canonicalSkillPath": "skills/repeatable-agent-execution/SKILL.md", "canonicalSkillSha256": "cb94cf5a877a32703f20da73dd08ab5a38b6e8c5fe29b4bc626be4161b84abb1" },
+    { "name": "reviewable-agent-workspaces", "canonicalSkillPath": "skills/reviewable-agent-workspaces/SKILL.md", "canonicalSkillSha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb" },
+    { "name": "secure-by-design", "canonicalSkillPath": "skills/secure-by-design/SKILL.md", "canonicalSkillSha256": "031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe" },
+    { "name": "shift-to-authority", "canonicalSkillPath": "skills/shift-to-authority/SKILL.md", "canonicalSkillSha256": "4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8" },
+    { "name": "verification-selection", "canonicalSkillPath": "skills/verification-selection/SKILL.md", "canonicalSkillSha256": "04f06cd97b173a7ab0e5df6c52c77e92f40a1f42ca3da901b89d8a386a9bc0b0" }
+  ],
+  "physicalRoutes": [
+    {
+      "id": "agents-md",
+      "canonicalPaths": ["AGENTS.md"],
+      "routingMechanism": "instruction-pointer",
+      "ownership": "consumer-owned-route-only",
+      "distribution": "consumer-reconciliation",
+      "routedSkills": ["reviewable-agent-workspaces", "concurrent-agent-runtimes", "repeatable-agent-execution"],
+      "exactValidation": "compass-simulated-consumer-instruction-discovery"
+    },
+    {
+      "id": "agents-skills",
+      "canonicalPaths": [
+        ".agents/skills/accessible-product-development/SKILL.md",
+        ".agents/skills/ai-backend-change/SKILL.md",
+        ".agents/skills/concurrent-agent-runtimes/SKILL.md",
+        ".agents/skills/dependency-change/SKILL.md",
+        ".agents/skills/developer-tool-change/SKILL.md",
+        ".agents/skills/field-failure-backpressure/SKILL.md",
+        ".agents/skills/inclusive-content-design/SKILL.md",
+        ".agents/skills/inclusive-product-foundation/SKILL.md",
+        ".agents/skills/internationalization-first/SKILL.md",
+        ".agents/skills/performance-sensitive-change/SKILL.md",
+        ".agents/skills/privacy-by-design/SKILL.md",
+        ".agents/skills/repeatable-agent-execution/SKILL.md",
+        ".agents/skills/reviewable-agent-workspaces/SKILL.md",
+        ".agents/skills/secure-by-design/SKILL.md",
+        ".agents/skills/shift-to-authority/SKILL.md",
+        ".agents/skills/verification-selection/SKILL.md"
+      ],
+      "routingMechanism": "skill-directory-adapter",
+      "ownership": "compass-projected-route-only",
+      "distribution": "projected",
+      "routedSkills": ["accessible-product-development", "ai-backend-change", "concurrent-agent-runtimes", "dependency-change", "developer-tool-change", "field-failure-backpressure", "inclusive-content-design", "inclusive-product-foundation", "internationalization-first", "performance-sensitive-change", "privacy-by-design", "repeatable-agent-execution", "reviewable-agent-workspaces", "secure-by-design", "shift-to-authority", "verification-selection"],
+      "exactValidation": "receipt-bound-executable-discovery"
+    },
+    {
+      "id": "claude-skills",
+      "canonicalPaths": [
+        ".claude/skills/accessible-product-development/SKILL.md",
+        ".claude/skills/ai-backend-change/SKILL.md",
+        ".claude/skills/concurrent-agent-runtimes/SKILL.md",
+        ".claude/skills/dependency-change/SKILL.md",
+        ".claude/skills/developer-tool-change/SKILL.md",
+        ".claude/skills/field-failure-backpressure/SKILL.md",
+        ".claude/skills/inclusive-content-design/SKILL.md",
+        ".claude/skills/inclusive-product-foundation/SKILL.md",
+        ".claude/skills/internationalization-first/SKILL.md",
+        ".claude/skills/performance-sensitive-change/SKILL.md",
+        ".claude/skills/privacy-by-design/SKILL.md",
+        ".claude/skills/repeatable-agent-execution/SKILL.md",
+        ".claude/skills/reviewable-agent-workspaces/SKILL.md",
+        ".claude/skills/secure-by-design/SKILL.md",
+        ".claude/skills/shift-to-authority/SKILL.md",
+        ".claude/skills/verification-selection/SKILL.md"
+      ],
+      "routingMechanism": "skill-directory-adapter",
+      "ownership": "compass-projected-route-only",
+      "distribution": "projected",
+      "routedSkills": ["accessible-product-development", "ai-backend-change", "concurrent-agent-runtimes", "dependency-change", "developer-tool-change", "field-failure-backpressure", "inclusive-content-design", "inclusive-product-foundation", "internationalization-first", "performance-sensitive-change", "privacy-by-design", "repeatable-agent-execution", "reviewable-agent-workspaces", "secure-by-design", "shift-to-authority", "verification-selection"],
+      "exactValidation": "receipt-bound-executable-discovery"
+    }
+  ],
+  "ecosystems": [
+    {
+      "id": "claude",
+      "toolOrEcosystem": "Claude project skills",
+      "physicalRouteIds": ["claude-skills"],
+      "support": "supported",
+      "exactValidation": "compass-simulated-discover-each-canonical-skill-once",
+      "evidence": { "kind": "declared-tool-contract", "locator": ".claude/skills", "limitation": "Compass simulates the declared filesystem discovery contract; it does not invoke the tool." }
+    },
+    {
+      "id": "codex",
+      "toolOrEcosystem": "Codex project skills",
+      "physicalRouteIds": ["agents-skills"],
+      "support": "supported",
+      "exactValidation": "compass-simulated-discover-each-canonical-skill-once",
+      "evidence": {
+        "kind": "official-documentation",
+        "locator": "https://developers.openai.com/codex/build-skills",
+        "limitation": "Compass simulates the documented .agents/skills discovery contract; each adopting environment retains an exact tool-native smoke."
+      }
+    },
+    {
+      "id": "cursor",
+      "toolOrEcosystem": "Cursor project instructions",
+      "physicalRouteIds": ["agents-md"],
+      "support": "supported-consumer-reconciliation-required",
+      "exactValidation": "compass-simulated-load-each-consumer-pointer-once",
+      "evidence": { "kind": "official-documentation", "locator": "https://docs.cursor.com/context/rules-for-ai", "limitation": "The consumer checker validates the root AGENTS pointer; Compass does not invoke Cursor." }
+    },
+    {
+      "id": "github-copilot",
+      "toolOrEcosystem": "GitHub Copilot project skills",
+      "physicalRouteIds": ["agents-skills", "claude-skills"],
+      "duplicateSkillPolicy": "byte-identical-routes-collapse-to-one-logical-skill-for-compass-preflight-only",
+      "support": "supported-consumer-native-smoke-required",
+      "exactValidation": "compass-simulated-discovery-plus-consumer-native-smoke",
+      "evidence": { "kind": "official-documentation", "locator": "https://docs.github.com/en/copilot/concepts/agents/about-agent-skills", "limitation": "Compass simulates both documented filesystem roots and rejects divergent duplicate routes; official documentation does not establish native same-name deduplication, so each adopter must run an exact consumer-native smoke." }
+    },
+    {
+      "id": "opencode",
+      "toolOrEcosystem": "OpenCode project skills",
+      "physicalRouteIds": ["agents-skills", "claude-skills"],
+      "duplicateSkillPolicy": "byte-identical-routes-collapse-to-one-logical-skill-for-compass-preflight-only",
+      "support": "supported-consumer-native-smoke-required",
+      "exactValidation": "compass-simulated-discovery-plus-consumer-native-smoke",
+      "evidence": { "kind": "official-documentation", "locator": "https://opencode.ai/docs/skills/", "limitation": "Compass simulates both documented filesystem roots and rejects divergent duplicate routes; official documentation does not establish native same-name deduplication, so each adopter must run an exact consumer-native smoke." }
+    }
+  ],
+  "recognizedUnmaterializedRoots": [
+    {
+      "path": ".codex/skills",
+      "recognizedBy": ["codex"],
+      "disposition": "retired-unproven-compatibility",
+      "reason": "Current official Codex repository discovery uses .agents/skills; the earlier .codex compatibility route lacked controlled fresh-session proof."
+    },
+    {
+      "path": ".github/skills",
+      "recognizedBy": ["github-copilot"],
+      "disposition": "intentionally-unmaterialized",
+      "reason": "GitHub Copilot uses the shared .claude/skills route for these canonical skills."
+    },
+    {
+      "path": ".opencode/skills",
+      "recognizedBy": ["opencode"],
+      "disposition": "intentionally-unmaterialized",
+      "reason": "OpenCode uses the shared .claude/skills route for these canonical skills."
+    },
+    {
+      "path": ".cursor/rules",
+      "recognizedBy": ["cursor"],
+      "disposition": "intentionally-unmaterialized",
+      "reason": "Cursor uses the repository root AGENTS.md pointer for these canonical skills."
+    }
+  ]
+}
