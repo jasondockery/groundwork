@@ -1,0 +1,71 @@
+{
+  "schema": "compass.proof-evidence-policy",
+  "schemaVersion": 1,
+  "authority": "verification-selection",
+  "identityDimensions": [
+    {
+      "name": "contentIdentity",
+      "meaning": "The repository tree and every non-platform input that can change the command result: toolchain, command contract, relevant environment, and declared input set.",
+      "requiredFields": ["repository", "sourceTree", "toolchainSha256", "commandContractSha256", "environmentSha256", "inputSetSha256"]
+    },
+    {
+      "name": "provenanceIdentity",
+      "meaning": "The immutable commit and its separately observed branch, tag, or commit reference resolution for the same tree.",
+      "requiredFields": ["repository", "sourceCommit", "sourceTree", "reference"]
+    },
+    {
+      "name": "platformIdentity",
+      "meaning": "The operating-system, architecture, and exact platform inputs relevant to the claim.",
+      "requiredFields": ["os", "architecture", "platformInputsSha256"]
+    },
+    {
+      "name": "artifactIdentity",
+      "meaning": "The generated artifact bytes and build contract bound to their release commit and tree.",
+      "requiredFields": ["sha256", "bytes", "sourceCommit", "sourceTree", "buildContractSha256"]
+    },
+    {
+      "name": "deploymentIdentity",
+      "meaning": "The immutable deployment and environment bound to the exact source tree and artifact digest it serves.",
+      "requiredFields": ["environment", "deploymentId", "sourceCommit", "sourceTree", "artifactSha256"]
+    }
+  ],
+  "claimContracts": [
+    {
+      "claim": "tree-verification",
+      "requiredIdentities": ["contentIdentity", "platformIdentity"],
+      "acceptedEvidenceKinds": ["local-full", "hosted-full"],
+      "reuseRule": "exact-required-identities",
+      "note": "Local and hosted Full are alternatives when they prove this same claim with identical required identities."
+    },
+    {
+      "claim": "provenance-verification",
+      "requiredIdentities": ["provenanceIdentity"],
+      "acceptedEvidenceKinds": ["provenance-check"],
+      "reuseRule": "exact-required-identities",
+      "note": "Commit, branch, or tag provenance is checked independently from tree-addressed behavior evidence."
+    },
+    {
+      "claim": "platform-release",
+      "requiredIdentities": ["contentIdentity", "provenanceIdentity", "platformIdentity"],
+      "acceptedEvidenceKinds": ["hosted-full"],
+      "reuseRule": "exact-required-identities",
+      "note": "Hosted Full must bind the landed commit and tree for each claimed platform."
+    },
+    {
+      "claim": "artifact-generation",
+      "requiredIdentities": ["contentIdentity", "provenanceIdentity", "platformIdentity", "artifactIdentity"],
+      "acceptedEvidenceKinds": ["artifact-build"],
+      "reuseRule": "exact-required-identities",
+      "note": "Artifact proof binds release provenance and bytes without requiring another Full when tree verification remains reusable."
+    },
+    {
+      "claim": "deployment-acceptance",
+      "requiredIdentities": ["provenanceIdentity", "platformIdentity", "artifactIdentity", "deploymentIdentity"],
+      "acceptedEvidenceKinds": ["deployment-check"],
+      "reuseRule": "exact-required-identities",
+      "note": "Deployment evidence proves the served artifact and environment, not source behavior that it did not execute."
+    }
+  ],
+  "heavyProofReportFields": ["claim", "evidenceIdentity", "reusableEvidence", "missingEvidence", "whyCheaperCheckInsufficient"],
+  "invalidationRule": "A changed actual input invalidates only evidence whose policy-required identity includes that changed dimension."
+}

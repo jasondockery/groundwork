@@ -12,6 +12,10 @@ description: Design or review work that may affect user latency, startup, build,
 3. Remove unnecessary work first: duplicated computation, redundant proof,
    avoidable data movement, unused dependencies, repeated builds, and oversized
    artifacts.
+   Apply `verification-selection` and its projected proof-evidence policy before
+   repeating Full, platform, artifact, or deployment work. Reuse passed evidence
+   only across identical claim-required identities; check changed provenance
+   cheaply, and rerun only the evidence affected by a changed actual input.
 4. Run work at the cheapest correct boundary. Keep filtering, sorting,
    aggregation, projection, and pagination with the owner of remote or
    potentially unbounded data; render bounded results at the client.

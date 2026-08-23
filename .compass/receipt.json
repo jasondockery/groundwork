@@ -3,28 +3,253 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0",
-    "tree": "42cd8d33e7e0d1a21acf642c98dd146b54f896f8",
-    "fingerprintSha256": "116bdd9d0e7515339a2eaa0b9a561f0aadd6301e9422226b0a77d06c721fe8ee",
+    "commit": "aaab0491035f35e952e2c40aa4f9e0f2e4195481",
+    "tree": "a5a3e523eaba23f97920b4cb5c8fd21f55aabb1d",
+    "fingerprintSha256": "ba5806a819407e00377ea24066c99b56ab560ba5ac0c2cff3e67659462b617ad",
     "dirty": false
   },
-  "artifactSha256": "636a96690a5e13c3d69cf98be78fa4c6c2b6f944b96e62438a055c54fc82744a",
-  "artifactBytes": 101807,
+  "artifactSha256": "a1282df3dec13ab146ffbaa7e3a45e119d7dd546e5eb32407a87d35cfff1e440",
+  "artifactBytes": 602751,
   "includedFiles": [
     {
+      "path": ".agents/skills/accessible-product-development/SKILL.md",
+      "sha256": "2619407fc76f611b743c7d07330e016fbf83490c488cf60aac14f07a9ee2be98",
+      "bytes": 539
+    },
+    {
+      "path": ".agents/skills/ai-backend-change/SKILL.md",
+      "sha256": "332627e06bf0d3e985d42ac371bea1f367827360ff8b3850e0e7089e87e9e271",
+      "bytes": 519
+    },
+    {
+      "path": ".agents/skills/concurrent-agent-runtimes/SKILL.md",
+      "sha256": "566cc98e261439d38f43b6d8cc658802b7c014cc77b6291ec28f520d79b187ef",
+      "bytes": 614
+    },
+    {
+      "path": ".agents/skills/dependency-change/SKILL.md",
+      "sha256": "0673f51fbdc64b013914692c444a3fd2c708acecbf30d6f7798c9beb008914da",
+      "bytes": 518
+    },
+    {
+      "path": ".agents/skills/developer-tool-change/SKILL.md",
+      "sha256": "606cacb0f1fda5f92db5ae02194f99529a1376e787f0a373d78ae707687d79a0",
+      "bytes": 580
+    },
+    {
+      "path": ".agents/skills/field-failure-backpressure/SKILL.md",
+      "sha256": "0ff1cffb680af3ba73f493118f80b41e62d39ccb16a15ff2ed2e7d3c003647ae",
+      "bytes": 509
+    },
+    {
+      "path": ".agents/skills/inclusive-content-design/SKILL.md",
+      "sha256": "c569d7b6b4cf5bdc5e65896088abeb7424d9138ca03413f2ec110cbc54e3111b",
+      "bytes": 508
+    },
+    {
+      "path": ".agents/skills/inclusive-product-foundation/SKILL.md",
+      "sha256": "03263ebe2e8059e4ba24e3962777ad06f77955cb465a55a4e0795d88988ba659",
+      "bytes": 573
+    },
+    {
+      "path": ".agents/skills/internationalization-first/SKILL.md",
+      "sha256": "253e37f730734f12cfa78523b7449841e997fc269958fffbacfd29ef56b6506b",
+      "bytes": 534
+    },
+    {
+      "path": ".agents/skills/performance-sensitive-change/SKILL.md",
+      "sha256": "f4cf8d411fed23b286a12777a8ee443acd0f4180e912a05382d8b498368bc5a6",
+      "bytes": 517
+    },
+    {
+      "path": ".agents/skills/privacy-by-design/SKILL.md",
+      "sha256": "8435848ee474cbca36e5608ee63f68efcd308e81fcfb18502bf68d3451a61c6b",
+      "bytes": 483
+    },
+    {
+      "path": ".agents/skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "38751ee323cb45252c93d11d4dea2f8c0848d14a1f44e2089e70d0366478e26a",
+      "bytes": 676
+    },
+    {
+      "path": ".agents/skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "02dc95c668c4bcd1ea314dae48adeeba3bbe48a226d8db7969426f08bbe774c9",
+      "bytes": 772
+    },
+    {
+      "path": ".agents/skills/secure-by-design/SKILL.md",
+      "sha256": "d765d41792b4e702a100ba09420465be3fff4c948367ce00dc665b46b0dacad2",
+      "bytes": 479
+    },
+    {
+      "path": ".agents/skills/shift-to-authority/SKILL.md",
+      "sha256": "f3435cd32816532bd2db47a509c15d4537b5066e53c000465ece73ac6a9aa419",
+      "bytes": 457
+    },
+    {
+      "path": ".agents/skills/verification-selection/SKILL.md",
+      "sha256": "572e20c9e4ccfcba464bc515e94af1b5ca311fd7097d4a80456c92b4e7d0d147",
+      "bytes": 508
+    },
+    {
+      "path": ".claude/skills/accessible-product-development/SKILL.md",
+      "sha256": "2619407fc76f611b743c7d07330e016fbf83490c488cf60aac14f07a9ee2be98",
+      "bytes": 539
+    },
+    {
+      "path": ".claude/skills/ai-backend-change/SKILL.md",
+      "sha256": "332627e06bf0d3e985d42ac371bea1f367827360ff8b3850e0e7089e87e9e271",
+      "bytes": 519
+    },
+    {
+      "path": ".claude/skills/concurrent-agent-runtimes/SKILL.md",
+      "sha256": "566cc98e261439d38f43b6d8cc658802b7c014cc77b6291ec28f520d79b187ef",
+      "bytes": 614
+    },
+    {
+      "path": ".claude/skills/dependency-change/SKILL.md",
+      "sha256": "0673f51fbdc64b013914692c444a3fd2c708acecbf30d6f7798c9beb008914da",
+      "bytes": 518
+    },
+    {
+      "path": ".claude/skills/developer-tool-change/SKILL.md",
+      "sha256": "606cacb0f1fda5f92db5ae02194f99529a1376e787f0a373d78ae707687d79a0",
+      "bytes": 580
+    },
+    {
+      "path": ".claude/skills/field-failure-backpressure/SKILL.md",
+      "sha256": "0ff1cffb680af3ba73f493118f80b41e62d39ccb16a15ff2ed2e7d3c003647ae",
+      "bytes": 509
+    },
+    {
+      "path": ".claude/skills/inclusive-content-design/SKILL.md",
+      "sha256": "c569d7b6b4cf5bdc5e65896088abeb7424d9138ca03413f2ec110cbc54e3111b",
+      "bytes": 508
+    },
+    {
+      "path": ".claude/skills/inclusive-product-foundation/SKILL.md",
+      "sha256": "03263ebe2e8059e4ba24e3962777ad06f77955cb465a55a4e0795d88988ba659",
+      "bytes": 573
+    },
+    {
+      "path": ".claude/skills/internationalization-first/SKILL.md",
+      "sha256": "253e37f730734f12cfa78523b7449841e997fc269958fffbacfd29ef56b6506b",
+      "bytes": 534
+    },
+    {
+      "path": ".claude/skills/performance-sensitive-change/SKILL.md",
+      "sha256": "f4cf8d411fed23b286a12777a8ee443acd0f4180e912a05382d8b498368bc5a6",
+      "bytes": 517
+    },
+    {
+      "path": ".claude/skills/privacy-by-design/SKILL.md",
+      "sha256": "8435848ee474cbca36e5608ee63f68efcd308e81fcfb18502bf68d3451a61c6b",
+      "bytes": 483
+    },
+    {
+      "path": ".claude/skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "38751ee323cb45252c93d11d4dea2f8c0848d14a1f44e2089e70d0366478e26a",
+      "bytes": 676
+    },
+    {
+      "path": ".claude/skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "02dc95c668c4bcd1ea314dae48adeeba3bbe48a226d8db7969426f08bbe774c9",
+      "bytes": 772
+    },
+    {
+      "path": ".claude/skills/secure-by-design/SKILL.md",
+      "sha256": "d765d41792b4e702a100ba09420465be3fff4c948367ce00dc665b46b0dacad2",
+      "bytes": 479
+    },
+    {
+      "path": ".claude/skills/shift-to-authority/SKILL.md",
+      "sha256": "f3435cd32816532bd2db47a509c15d4537b5066e53c000465ece73ac6a9aa419",
+      "bytes": 457
+    },
+    {
+      "path": ".claude/skills/verification-selection/SKILL.md",
+      "sha256": "572e20c9e4ccfcba464bc515e94af1b5ca311fd7097d4a80456c92b4e7d0d147",
+      "bytes": 508
+    },
+    {
       "path": "COMPASS.md",
-      "sha256": "e238152f1ea20aac394468897010620cd8ac16f0d55119ce289f47fec7aaa3e2",
-      "bytes": 14283
+      "sha256": "f71a9ba1c80cc2e37d391f0c1152e67df4f340a9ffc27abd201a7242f8d00da0",
+      "bytes": 42900
     },
     {
       "path": "TERMINOLOGY.md",
-      "sha256": "b6ea836ffe403b9310f2192b401eb09540231bc5ed3f51e653a52bd19579ae40",
-      "bytes": 7733
+      "sha256": "69e01ccb840ac1c8d64b2c7cd941c635c8f265661b7e427ce72f357fb13b6839",
+      "bytes": 15723
+    },
+    {
+      "path": "agent-routing-surfaces.json",
+      "sha256": "ab8768a51a9871ca828db3249d27d1c358c12cc6385760a626d55ee11e2536a1",
+      "bytes": 11808
+    },
+    {
+      "path": "ai-workload-policy.json",
+      "sha256": "ecba8cdf7782dcb57914f4bb03a9cacbe7c7ea3f0b10fe11341243f3cb27c9fc",
+      "bytes": 5159
+    },
+    {
+      "path": "authority-policy.json",
+      "sha256": "34c576135ca056e98bd4e8bb8c8dd18a535235869378842517abdbb6603ae68e",
+      "bytes": 3420
+    },
+    {
+      "path": "authority-registry.json",
+      "sha256": "52868beb9790965221d7ed426c5d7ecdc0695a4f65bb26aa2ae2d9bd881ed491",
+      "bytes": 43284
+    },
+    {
+      "path": "authority-registry.schema.json",
+      "sha256": "f945ee3bf4e277db62fc709d3aef638577d05ef552fb4484df3a8f009caafcfd",
+      "bytes": 10416
+    },
+    {
+      "path": "consumer-hosted-adoption-receipt.schema.json",
+      "sha256": "eb0d58ee7fa8fd939c33b36bc4fc89accb95842e9883bfe9ec26ecde7c245cb5",
+      "bytes": 2285
+    },
+    {
+      "path": "consumer-reconciliation.schema.json",
+      "sha256": "3843fb87043c59feadda79bbf757ec9b935b4826c4a88d832b7bc3d29c33b75e",
+      "bytes": 9824
+    },
+    {
+      "path": "managed-retirements.json",
+      "sha256": "98292a47c6125aeb95dc400d38b3094f2242c4f4640a4e907e11cdf54130384a",
+      "bytes": 5779
+    },
+    {
+      "path": "proof-evidence-policy.json",
+      "sha256": "45c6565c51a04aee64602a780d0d583d98cfb8e55c55203e334f88a599533e99",
+      "bytes": 3602
+    },
+    {
+      "path": "proof-selection.schema.json",
+      "sha256": "09950e988beabf1d6954e3e7a6384120f2d0d39367861317ba085481c487fcf6",
+      "bytes": 12364
+    },
+    {
+      "path": "reviewable-workspace-handoff.schema.json",
+      "sha256": "45cf4991844d8644ce3b6fd428519e92d8508459f11b02f5ff2792f7ce94deda",
+      "bytes": 7732
+    },
+    {
+      "path": "scripts/check-authority-record.mjs",
+      "sha256": "3428864548a8e965e352df30706617a44d0e3927d24f9a095fd90e71395abe51",
+      "bytes": 80835
     },
     {
       "path": "scripts/check-projection.mjs",
-      "sha256": "093a9b8a6bd6857f8a7c74d0566ec65a550999177fe573fa6afcba3578f22918",
-      "bytes": 15011
+      "sha256": "53d05740e00d131850fe205e6e4ca791d1d3f62d429ce4daaa7344316be5cf3e",
+      "bytes": 81048
+    },
+    {
+      "path": "scripts/validate-json-schema.mjs",
+      "sha256": "379d201af435ea60030ef8a01559494522bbe330d29c31d29980e9a8cc522b83",
+      "bytes": 9591
     },
     {
       "path": "skills/accessible-product-development/SKILL.md",
@@ -37,6 +262,26 @@
       "bytes": 255
     },
     {
+      "path": "skills/ai-backend-change/SKILL.md",
+      "sha256": "acffcdb98ea7341dc6d74bc63e8ed7e91e14a1dcacefa9533c3d064e42457fe2",
+      "bytes": 3384
+    },
+    {
+      "path": "skills/ai-backend-change/agents/openai.yaml",
+      "sha256": "8e19a70c570e729c57ab5caaff2a18816ae07fe9c9ccc403b7230dbd41317876",
+      "bytes": 231
+    },
+    {
+      "path": "skills/concurrent-agent-runtimes/SKILL.md",
+      "sha256": "bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158",
+      "bytes": 4155
+    },
+    {
+      "path": "skills/concurrent-agent-runtimes/agents/openai.yaml",
+      "sha256": "d606c32a463bcfc647cc7e8b23f8961ab5b76228b9a03873d73fd21a728acad4",
+      "bytes": 301
+    },
+    {
       "path": "skills/dependency-change/SKILL.md",
       "sha256": "d116dace49983c8baa46f5d0ebcbd26d0f935cd8814ade8c0fdc64c43b7321ae",
       "bytes": 3505
@@ -45,6 +290,16 @@
       "path": "skills/dependency-change/agents/openai.yaml",
       "sha256": "cc3d6c19528616c3d78293fd4f756d957a276b252c76b04ded243c4e66c95196",
       "bytes": 206
+    },
+    {
+      "path": "skills/developer-tool-change/SKILL.md",
+      "sha256": "ec297f228885038b88cf4877afce6d9d5d51267c0d0a4c1dad471448766ced4e",
+      "bytes": 3147
+    },
+    {
+      "path": "skills/developer-tool-change/agents/openai.yaml",
+      "sha256": "86b857ab82114f67ed526230e65ea7ba23bfc4d98a1531fdf271ab0b324906ed",
+      "bytes": 284
     },
     {
       "path": "skills/field-failure-backpressure/SKILL.md",
@@ -68,8 +323,8 @@
     },
     {
       "path": "skills/inclusive-product-foundation/SKILL.md",
-      "sha256": "f345d3ec32f584d8e2540278d1f1cb5bf033cc17a3007a234ead9a463b983bb9",
-      "bytes": 2091
+      "sha256": "3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590",
+      "bytes": 2193
     },
     {
       "path": "skills/inclusive-product-foundation/agents/openai.yaml",
@@ -88,8 +343,8 @@
     },
     {
       "path": "skills/performance-sensitive-change/SKILL.md",
-      "sha256": "955ecb5dc73c8798e59763d4bd43eaa3170169b3cb9659b9550fabce1c25b07c",
-      "bytes": 5855
+      "sha256": "7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a",
+      "bytes": 6170
     },
     {
       "path": "skills/performance-sensitive-change/agents/openai.yaml",
@@ -107,6 +362,26 @@
       "bytes": 204
     },
     {
+      "path": "skills/repeatable-agent-execution/SKILL.md",
+      "sha256": "cb94cf5a877a32703f20da73dd08ab5a38b6e8c5fe29b4bc626be4161b84abb1",
+      "bytes": 9203
+    },
+    {
+      "path": "skills/repeatable-agent-execution/agents/openai.yaml",
+      "sha256": "7ddc0a27e88281e10536c34764b209341c5a2680a8f93922300b3d191248a2ed",
+      "bytes": 360
+    },
+    {
+      "path": "skills/reviewable-agent-workspaces/SKILL.md",
+      "sha256": "cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb",
+      "bytes": 7182
+    },
+    {
+      "path": "skills/reviewable-agent-workspaces/agents/openai.yaml",
+      "sha256": "e440dba5b838261940424c59db0b25f35cf72ae6b60e7f683fd2c9f6ab23fbc1",
+      "bytes": 338
+    },
+    {
       "path": "skills/secure-by-design/SKILL.md",
       "sha256": "031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe",
       "bytes": 2316
@@ -117,9 +392,19 @@
       "bytes": 227
     },
     {
+      "path": "skills/shift-to-authority/SKILL.md",
+      "sha256": "4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8",
+      "bytes": 9488
+    },
+    {
+      "path": "skills/shift-to-authority/agents/openai.yaml",
+      "sha256": "a15fb345cf0a3d27d9d229855b33baff4905c5e74d23125057652ed89b8d90f2",
+      "bytes": 245
+    },
+    {
       "path": "skills/verification-selection/SKILL.md",
-      "sha256": "195ac5a851ab36b68ad24ada899d4fc53093c18e317351043957362da0637ff0",
-      "bytes": 4084
+      "sha256": "04f06cd97b173a7ab0e5df6c52c77e92f40a1f42ca3da901b89d8a386a9bc0b0",
+      "bytes": 5982
     },
     {
       "path": "skills/verification-selection/agents/openai.yaml",
@@ -129,7 +414,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "fc77bd55c55bf050defa635cb8bb1957bb5aa9174ad27d324cfe7dd62a34bd10",
+    "receiptSha256": "ac47b69e8691c95de911c4750409b8c2f15fbf7fc14641703f7ade5e15334dd7",
     "command": "scripts/validate-compass"
   }
 }
