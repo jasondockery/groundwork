@@ -8,11 +8,18 @@ import {
   checkCompassProjection,
   COMPASS_SKILL_NAMES,
 } from '../.compass/check-projection.mjs'
+import { generatedLocalSkillAdapters } from './generate-skill-adapters.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sharedSkills = [...COMPASS_SKILL_NAMES]
-const discoveryAdapters = ['.claude/skills', '.agents/skills', '.codex/skills']
 
+// Materialized .agents/skills and .claude/skills content for Compass-managed
+// skills is already fully validated (exact receipt-bound bytes and shape) by
+// checkCompassProjection below. Groundwork-local skills get the same adapter
+// treatment via generate-skill-adapters.mjs; verify those bytes here, since
+// nothing else does. .codex/skills is a retired route (Compass's current
+// artifact routes Codex discovery through .agents/skills instead) — its
+// absence is itself the expected, checked state, not an omission.
 function inspectGroundworkAdoption() {
   const problems = []
   const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
@@ -24,36 +31,27 @@ function inspectGroundworkAdoption() {
     problems.push(`AGENTS.md does not route user-facing changes through ${inclusionDispatcher}`)
   }
 
-  const skillNames = fs.readdirSync(path.join(root, 'skills'), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(root, 'skills', entry.name, 'SKILL.md')))
+  const skillNames = fs
+    .readdirSync(path.join(root, 'skills'), { withFileTypes: true })
+    .filter(
+      (entry) => entry.isDirectory() && fs.existsSync(path.join(root, 'skills', entry.name, 'SKILL.md'))
+    )
     .map((entry) => entry.name)
     .sort()
   const localSkills = skillNames.filter((name) => !sharedSkills.includes(name))
   if (localSkills.length === 0) problems.push('Groundwork-local skills are missing')
 
-  for (const adapter of discoveryAdapters) {
-    const adapterPath = path.join(root, adapter)
-    let stat
-    try {
-      stat = fs.lstatSync(adapterPath)
-    } catch {
-      problems.push(`Groundwork skill discovery adapter is missing: ${adapter}`)
-      continue
-    }
-    if (!stat.isSymbolicLink() || fs.readlinkSync(adapterPath) !== '../skills') {
-      problems.push(`Groundwork skill discovery adapter must point to ../skills: ${adapter}`)
-      continue
-    }
-    for (const skill of skillNames) {
-      const canonical = fs.realpathSync.native(path.join(root, 'skills', skill, 'SKILL.md'))
-      const discoveredPath = path.join(root, adapter, skill, 'SKILL.md')
-      try {
-        if (fs.realpathSync.native(discoveredPath) !== canonical) {
-          problems.push(`${adapter} does not discover canonical skill ${skill}`)
-        }
-      } catch {
-        problems.push(`${adapter} does not discover skill ${skill}`)
-      }
+  if (fs.existsSync(path.join(root, '.codex', 'skills'))) {
+    problems.push('.codex/skills is a retired discovery route and must not exist')
+  }
+
+  for (const adapter of generatedLocalSkillAdapters()) {
+    const target = path.join(root, ...adapter.relativePath.split('/'))
+    const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : undefined
+    if (current !== adapter.contents) {
+      problems.push(
+        `${adapter.relativePath} is missing or stale; run node scripts/generate-skill-adapters.mjs`
+      )
     }
   }
   return problems

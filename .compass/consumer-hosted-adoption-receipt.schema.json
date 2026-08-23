@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/schemas/consumer-hosted-adoption-receipt.schema.json",
+  "title": "Compass authenticated consumer hosted-adoption receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "consumer", "hostedRun", "artifact", "result"],
+  "properties": {
+    "schema": { "const": "compass.consumer-hosted-adoption-receipt" },
+    "schemaVersion": { "const": 1 },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "tree", "reconciliationPath"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/repository" },
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "reconciliationPath": { "$ref": "#/$defs/safeRelativePath" }
+      }
+    },
+    "hostedRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repository", "workflow", "requiredGate", "conclusion", "runId", "attempt", "headSha"],
+      "properties": {
+        "provider": { "const": "github-actions" },
+        "repository": { "$ref": "#/$defs/repository" },
+        "workflow": { "$ref": "#/$defs/nonEmptyString" },
+        "requiredGate": { "$ref": "#/$defs/nonEmptyString" },
+        "conclusion": { "const": "success" },
+        "runId": { "type": "integer", "minimum": 1 },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "headSha": { "$ref": "#/$defs/commit" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "path": { "$ref": "#/$defs/safeRelativePath" }
+      }
+    },
+    "result": { "const": "passed" }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "repository": { "type": "string", "pattern": "^(?!\\.\\.?/)(?![^/]+/\\.\\.?$)[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "safeRelativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*//)(?!\\.\\.?$)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._/-]+$" }
+  }
+}

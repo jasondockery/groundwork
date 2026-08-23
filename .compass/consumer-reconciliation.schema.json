@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/schemas/consumer-reconciliation.schema.json",
+  "title": "Compass consumer-owned Shift to Authority reconciliation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "consumer", "records"],
+  "properties": {
+    "schema": { "const": "compass.consumer-reconciliation" },
+    "schemaVersion": { "const": 3 },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "repository", "reconciliationPath", "adoptionContract"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "repository": { "$ref": "#/$defs/repository" },
+        "reconciliationPath": { "$ref": "#/$defs/safeRelativePath" },
+        "adoptionContract": { "$ref": "#/$defs/adoptionContract" }
+      }
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/reconciliation" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "repository": { "type": "string", "pattern": "^(?!\\.\\.?/)(?![^/]+/\\.\\.?$)[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "candidateId": { "type": "string", "pattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "safeRelativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*//)(?!\\.\\.?$)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._/-]+$" },
+    "artifactNameTemplate": { "type": "string", "minLength": 1, "pattern": "^(?=.*\\{runId\\})(?=.*\\{attempt\\})[A-Za-z0-9._-]*(?:\\{(?:runId|attempt)\\}[A-Za-z0-9._-]*)*$" },
+    "exactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceCommit", "sourceTree", "sourceFingerprintSha256", "artifactSha256", "artifactBytes", "validationReceiptSha256", "artifactReceiptSha256"],
+      "properties": {
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "artifactBytes": { "type": "integer", "minimum": 1 },
+        "validationReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "artifactReceiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "viaAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "identity"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "identity": { "$ref": "#/$defs/exactIdentity" }
+      }
+    },
+    "evidenceContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "nameTemplate", "path"],
+      "properties": {
+        "kind": { "const": "artifact" },
+        "nameTemplate": { "$ref": "#/$defs/artifactNameTemplate" },
+        "path": { "$ref": "#/$defs/safeRelativePath" }
+      }
+    },
+    "adoptionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repository", "workflow", "requiredGate", "evidence"],
+      "properties": {
+        "provider": { "const": "github-actions" },
+        "repository": { "$ref": "#/$defs/repository" },
+        "workflow": { "$ref": "#/$defs/nonEmptyString" },
+        "requiredGate": { "$ref": "#/$defs/nonEmptyString" },
+        "evidence": { "$ref": "#/$defs/evidenceContract" }
+      }
+    },
+    "hostedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "artifactId", "name", "path", "artifactSha256", "receiptSha256"],
+      "properties": {
+        "kind": { "const": "artifact" },
+        "artifactId": { "type": "integer", "minimum": 1 },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "path": { "$ref": "#/$defs/safeRelativePath" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "receiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "adoptionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "tree", "hostedRun"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/nonEmptyString" },
+        "commit": { "$ref": "#/$defs/commit" },
+        "tree": { "$ref": "#/$defs/commit" },
+        "hostedRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "repository", "workflow", "requiredGate", "requiredJobId", "requiredCheckId", "conclusion", "runId", "attempt", "headSha", "evidence"],
+          "properties": {
+            "provider": { "const": "github-actions" },
+            "repository": { "$ref": "#/$defs/nonEmptyString" },
+            "workflow": { "$ref": "#/$defs/nonEmptyString" },
+            "requiredGate": { "$ref": "#/$defs/nonEmptyString" },
+            "requiredJobId": { "type": "integer", "minimum": 1 },
+            "requiredCheckId": { "type": "integer", "minimum": 1 },
+            "conclusion": { "const": "success" },
+            "runId": { "type": "integer", "minimum": 1 },
+            "attempt": { "type": "integer", "minimum": 1 },
+            "headSha": { "$ref": "#/$defs/commit" },
+            "evidence": { "$ref": "#/$defs/hostedEvidence" }
+          }
+        }
+      }
+    },
+    "consumerTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "state"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "state": { "enum": ["awaiting-issue", "pending-adoption", "adopted", "deferred", "not-applicable"] }
+      }
+    },
+    "deferredDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "approvingOwner", "exactScope", "reviewOrExpirationDate", "conformanceClaim"],
+      "properties": {
+        "reason": { "$ref": "#/$defs/nonEmptyString" },
+        "approvingOwner": { "$ref": "#/$defs/nonEmptyString" },
+        "exactScope": { "$ref": "#/$defs/nonEmptyString" },
+        "reviewOrExpirationDate": { "$ref": "#/$defs/nonEmptyString" },
+        "conformanceClaim": { "const": false }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId", "relationship", "consumerState", "localReconciliation", "transitionHistory"],
+      "properties": {
+        "candidateId": { "$ref": "#/$defs/candidateId" },
+        "relationship": { "enum": ["direct", "via-authority", "not-applicable"] },
+        "consumerState": { "enum": ["awaiting-issue", "pending-adoption", "adopted", "deferred", "not-applicable"] },
+        "localReconciliation": { "enum": ["pending", "complete", "not-required"] },
+        "transitionHistory": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/consumerTransition" } },
+        "authorityIdentity": { "$ref": "#/$defs/exactIdentity" },
+        "authorityEpoch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sequence", "identity"],
+          "properties": {
+            "sequence": { "type": "integer", "minimum": 1 },
+            "identity": { "$ref": "#/$defs/exactIdentity" }
+          }
+        },
+        "viaAuthority": { "$ref": "#/$defs/viaAuthority" },
+        "adoptionContract": { "$ref": "#/$defs/adoptionContract" },
+        "adoptionEvidence": { "$ref": "#/$defs/adoptionEvidence" },
+        "deferredDisposition": { "$ref": "#/$defs/deferredDisposition" },
+        "notApplicableReason": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "relationship": { "const": "direct" } }, "required": ["relationship"] },
+          "then": { "required": ["authorityIdentity"], "not": { "anyOf": [{ "required": ["viaAuthority"] }, { "required": ["notApplicableReason"] }] } }
+        },
+        {
+          "if": { "properties": { "relationship": { "const": "via-authority" } }, "required": ["relationship"] },
+          "then": { "required": ["viaAuthority"], "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["notApplicableReason"] }] } }
+        },
+        {
+          "if": { "properties": { "relationship": { "const": "not-applicable" } }, "required": ["relationship"] },
+          "then": {
+            "required": ["notApplicableReason"],
+            "properties": { "consumerState": { "const": "not-applicable" }, "localReconciliation": { "const": "not-required" } },
+            "not": { "anyOf": [{ "required": ["authorityIdentity"] }, { "required": ["authorityEpoch"] }, { "required": ["viaAuthority"] }, { "required": ["adoptionContract"] }, { "required": ["adoptionEvidence"] }, { "required": ["deferredDisposition"] }] }
+          }
+        },
+        {
+          "if": { "properties": { "consumerState": { "enum": ["pending-adoption", "adopted", "deferred"] } }, "required": ["consumerState"] },
+          "then": { "required": ["adoptionContract"] },
+          "else": { "not": { "required": ["adoptionContract"] } }
+        },
+        {
+          "if": { "properties": { "consumerState": { "const": "adopted" } }, "required": ["consumerState"] },
+          "then": { "required": ["adoptionEvidence"], "properties": { "localReconciliation": { "const": "complete" } } },
+          "else": { "not": { "required": ["adoptionEvidence"] } }
+        },
+        {
+          "if": { "properties": { "consumerState": { "const": "deferred" } }, "required": ["consumerState"] },
+          "then": { "required": ["deferredDisposition"] },
+          "else": { "not": { "required": ["deferredDisposition"] } }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/schemas/authority-registry.schema.json",
+  "title": "Compass Shift to Authority registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "authority", "candidates", "heldAuthoritySources", "heldAuthorityIdentities"],
+  "properties": {
+    "schema": { "const": "compass.shift-to-authority-registry" },
+    "schemaVersion": { "const": 5 },
+    "authority": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/candidate" }
+    },
+    "heldAuthoritySources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "disposition", "reason", "observedExactIdentities"],
+        "properties": {
+          "source": { "$ref": "#/$defs/authoritySource" },
+          "disposition": { "const": "historical-not-adoptable" },
+          "reason": { "$ref": "#/$defs/nonEmptyString" },
+          "observedExactIdentities": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/exactIdentity" }
+          }
+        }
+      }
+    },
+    "heldAuthorityIdentities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "scope", "disposition", "reason"],
+        "properties": {
+          "identity": { "$ref": "#/$defs/exactIdentity" },
+          "scope": { "const": "artifact-receipt" },
+          "disposition": { "const": "historical-not-adoptable" },
+          "reason": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "repository": { "type": "string", "pattern": "^(?!\\.\\.?/)(?![^/]+/\\.\\.?$)[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "candidateId": { "type": "string", "pattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "exactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceCommit", "sourceTree", "sourceFingerprintSha256", "artifactSha256", "artifactBytes", "validationReceiptSha256", "artifactReceiptSha256"],
+      "properties": {
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" },
+        "artifactBytes": { "type": "integer", "minimum": 1 },
+        "validationReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "artifactReceiptSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "authoritySource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "sourceCommit", "sourceTree", "sourceFingerprintSha256"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/repository" },
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "repository", "commit"],
+      "properties": {
+        "kind": { "const": "source" },
+        "repository": { "$ref": "#/$defs/nonEmptyString" },
+        "commit": { "$ref": "#/$defs/commit" }
+      }
+    },
+    "receiptBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "schema", "repository"],
+      "properties": {
+        "kind": { "const": "containing-projection-receipt" },
+        "path": { "const": ".compass/receipt.json" },
+        "schema": { "const": "compass.artifact-receipt" },
+        "repository": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "issuedEpochIdentity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repository", "sourceCommit", "sourceTree", "sourceFingerprintSha256", "artifactSha256", "artifactBytes", "validationReceiptSha256", "artifactReceiptSha256"],
+          "properties": {
+            "kind": { "const": "exact-artifact-receipt" },
+            "repository": { "$ref": "#/$defs/repository" },
+            "sourceCommit": { "$ref": "#/$defs/commit" },
+            "sourceTree": { "$ref": "#/$defs/commit" },
+            "sourceFingerprintSha256": { "$ref": "#/$defs/sha256" },
+            "artifactSha256": { "$ref": "#/$defs/sha256" },
+            "artifactBytes": { "type": "integer", "minimum": 1 },
+            "validationReceiptSha256": { "$ref": "#/$defs/sha256" },
+            "artifactReceiptSha256": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        { "$ref": "#/$defs/receiptBinding" }
+      ]
+    },
+    "authorityEpoch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "state", "invariant", "canonicalSkillPath", "canonicalSkillSha256", "authorityIdentity", "supersedesSequence"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "state": { "enum": ["issued", "pending-containing-receipt"] },
+        "invariant": { "$ref": "#/$defs/nonEmptyString" },
+        "canonicalSkillPath": { "type": "string", "pattern": "^skills/[a-z0-9]+(?:-[a-z0-9]+)*/SKILL\\.md$" },
+        "canonicalSkillSha256": { "$ref": "#/$defs/sha256" },
+        "authorityIdentity": { "$ref": "#/$defs/issuedEpochIdentity" },
+        "supersedesSequence": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 1 }
+          ]
+        }
+      }
+    },
+    "transitionIdentity": {
+      "oneOf": [
+        { "$ref": "#/$defs/sourceIdentity" },
+        { "$ref": "#/$defs/receiptBinding" }
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "invariant", "origin", "evidence", "affectedScope", "localRepairStatus",
+        "authorityReconciliation", "incorporationStatus", "proposedAuthority", "ownershipReason",
+        "consumerOwnedRemainder", "candidateState", "authorityIdentity", "supersedes", "transitionHistory"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/candidateId" },
+        "invariant": { "$ref": "#/$defs/nonEmptyString" },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "identity"],
+          "properties": {
+            "repository": { "$ref": "#/$defs/nonEmptyString" },
+            "identity": { "$ref": "#/$defs/sourceIdentity" }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "type", "repository", "sourceCommit", "summary"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+              "type": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+              "repository": { "$ref": "#/$defs/nonEmptyString" },
+              "sourceCommit": { "$ref": "#/$defs/commit" },
+              "summary": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "affectedScope": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "localRepairStatus": { "enum": ["pending", "complete", "not-required"] },
+        "authorityReconciliation": { "enum": ["pending", "complete", "not-required"] },
+        "incorporationStatus": { "enum": ["planned", "in-progress", "complete", "not-required"] },
+        "proposedAuthority": { "enum": ["compass", "roost", "groundwork", "renovate-config", "hatch"] },
+        "ownershipReason": { "$ref": "#/$defs/nonEmptyString" },
+        "consumerOwnedRemainder": { "$ref": "#/$defs/nonEmptyString" },
+        "candidateState": { "enum": ["local", "nominated", "accepted", "issued", "rejected"] },
+        "authorityIdentity": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/issuedEpochIdentity" }
+          ]
+        },
+        "supersedes": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/candidateId" }
+          ]
+        },
+        "transitionHistory": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sequence", "state", "identity"],
+            "properties": {
+              "sequence": { "type": "integer", "minimum": 1 },
+              "state": { "enum": ["local", "nominated", "accepted", "issued", "rejected"] },
+              "identity": { "$ref": "#/$defs/transitionIdentity" }
+            }
+          }
+        },
+        "authorityEpochs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/authorityEpoch" }
+        },
+        "authorityEpochState": { "enum": ["issued", "pending-containing-receipt"] },
+        "epochSelection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["activeIssuedSequence", "pendingSequence", "topLevelSequence"],
+          "properties": {
+            "activeIssuedSequence": { "type": "integer", "minimum": 1 },
+            "pendingSequence": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "integer", "minimum": 1 }
+              ]
+            },
+            "topLevelSequence": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "candidateState": { "const": "issued" } }, "required": ["candidateState"] },
+          "then": {
+            "properties": {
+              "authorityIdentity": { "$ref": "#/$defs/issuedEpochIdentity" },
+              "authorityReconciliation": { "const": "complete" },
+              "incorporationStatus": { "const": "complete" }
+            }
+          },
+          "else": { "properties": { "authorityIdentity": { "type": "null" } } }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Concurrent agent runtimes"
+  short_description: "Isolate run-owned processes and resources"
+  default_prompt: "Use $concurrent-agent-runtimes to keep concurrent repositories, worktrees, tools, and agents correct through explicit runtime identities and isolated resources."

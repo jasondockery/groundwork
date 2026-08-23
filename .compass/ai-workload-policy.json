@@ -1,0 +1,85 @@
+{
+  "schema": "compass.ai-workload-policy",
+  "schemaVersion": 1,
+  "authority": "AI workload selection",
+  "terms": {
+    "workload": "a stable named product job with an explicit capability contract",
+    "backend": "the inference location, runtime, or service",
+    "model": "an exact model identifier and immutable revision where available",
+    "adapter": "an optional connector between a workload contract and a backend or model",
+    "selection": "the backend and model assigned to a workload, environment, and hardware class"
+  },
+  "selectionLifecycle": ["discovered", "candidate", "accepted", "default", "retired"],
+  "requiredCapabilityClasses": [
+    "text-and-streaming", "structured-output", "tool-calling", "embeddings",
+    "modalities", "context-limits", "cancellation-and-timeouts",
+    "offline-or-local-status", "health"
+  ],
+  "selectionRules": {
+    "productBoundary": "Product code targets named workload and capability contracts, not vendor or model SDK identity and not a universal lowest-common-denominator client.",
+    "explicitScope": "Selections are explicit per workload, environment, and hardware class where needed.",
+    "immutableIdentity": "Mutable aliases are not accepted selection identity.",
+    "fallbackDefault": "none",
+    "fallbackBoundary": "Any fallback requires explicit product policy, applicable privacy review, observable effective selection, and fail-closed boundaries; local-to-hosted transfer is never silent.",
+    "unsupportedCapability": "An unsupported required capability fails planning or startup and never silently degrades.",
+    "unselectedFootprint": "Unselected adapters, backends, and models contribute zero dependency, configuration, credential, workflow, download, runtime, persistent, or network footprint.",
+    "downloadBoundary": "Large model weights are never downloaded automatically; explicit selection discloses disk, RAM, VRAM, and network estimates plus removal behavior.",
+    "discoveryBoundary": "Discovery automation may nominate a candidate but never promotes or changes the accepted default.",
+    "promotionBoundary": "Acceptance and default promotion are per workload and require owner review of representative workload and platform evidence.",
+    "heterogeneousSelections": "Different workloads may retain different models and backends.",
+    "compatibilityBoundary": "Provider or protocol compatibility is not capability conformance."
+  },
+  "downloadableIdentityFields": [
+    "model-identifier", "model-revision", "artifact-or-weights-digest", "quantization",
+    "license", "model-card", "provenance", "runtime-identity", "adapter-identity",
+    "platform", "architecture", "evaluation-receipt"
+  ],
+  "hostedIdentityFields": [
+    "provider", "model", "api-or-deployment-identity",
+    "strongest-available-immutable-revision", "mutability-disclosure"
+  ],
+  "promotionEvidence": [
+    "quality-or-task-success", "tool-reliability", "structured-output", "streaming",
+    "cancellation", "errors", "latency-p50-and-p95", "memory-cpu-and-gpu", "cost",
+    "privacy-data-transfer-and-retention", "license-advisories-and-provenance",
+    "offline-behavior", "rollback", "complete-removal"
+  ],
+  "observableSelectionFields": [
+    "workload", "model", "backend", "locality-or-data-boundary", "status", "fallback-policy"
+  ],
+  "privacyAndSecuritySubjects": [
+    "credentials", "personal-or-product-data", "prompts", "outputs", "tool-arguments",
+    "logs", "retention", "processors", "telemetry"
+  ],
+  "supportingSources": [
+    {
+      "scope": "provider registry and explicit provider-and-model identifiers",
+      "url": "https://ai-sdk.dev/docs/reference/ai-sdk-core/provider-registry"
+    },
+    {
+      "scope": "provider and model capability differences",
+      "url": "https://ai-sdk.dev/providers/ai-sdk-providers"
+    },
+    {
+      "scope": "provider packages implementing a common model interface",
+      "url": "https://docs.langchain.com/oss/javascript/concepts/providers-and-models"
+    },
+    {
+      "scope": "model selection factors including modalities, function calling, speed, and cost",
+      "url": "https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/"
+    }
+  ],
+  "verifiedDiscoveryExamples": [
+    {
+      "name": "Muse Glimmer 30B",
+      "disposition": "candidate",
+      "discoveredAt": "2026-08-10",
+      "announcedFacts": "Meta describes a 30-billion-parameter open-weight agentic model under Apache-2.0 with text and image input, tool-use claims, and quantized language-model weights under 20 GB. Meta names local or serving targets including llama.cpp, MLX, ExecuTorch, Ollama, and vLLM, while stating that several optimized integrations will arrive in the coming days.",
+      "sourceUrls": [
+        "https://research.meta.ai/blog/introducing-muse-glimmer-open-agentic-model",
+        "https://huggingface.co/meta-models/Muse-Glimmer-30B"
+      ],
+      "acceptanceBoundary": "Discovery and vendor claims do not establish acceptance or a default. Exact model-card, artifact, backend, platform, workload, privacy, license, performance, rollback, and removal evidence remains required."
+    }
+  ]
+}

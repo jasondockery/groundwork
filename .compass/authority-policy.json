@@ -1,0 +1,117 @@
+{
+  "schema": "compass.shift-to-authority-policy",
+  "schemaVersion": 2,
+  "term": "Shift to Authority",
+  "skillIdentifier": "shift-to-authority",
+  "reviewField": "Shift to Authority candidates",
+  "requiredReviewClasses": [
+    "substantial-engineering-code-review",
+    "field-failure-review",
+    "cross-repository-coordination",
+    "release-handoff",
+    "projection-handoff",
+    "adoption-handoff"
+  ],
+  "lifecycle": [
+    "local",
+    "nominated",
+    "accepted",
+    "issued",
+    "adopted"
+  ],
+  "candidateStates": [
+    "local",
+    "nominated",
+    "accepted",
+    "issued",
+    "rejected"
+  ],
+  "localRepairStates": [
+    "pending",
+    "complete",
+    "not-required"
+  ],
+  "authorityReconciliationStates": [
+    "pending",
+    "complete",
+    "not-required"
+  ],
+  "incorporationStates": [
+    "planned",
+    "in-progress",
+    "complete",
+    "not-required"
+  ],
+  "consumerStates": [
+    "awaiting-issue",
+    "pending-adoption",
+    "adopted",
+    "deferred",
+    "not-applicable"
+  ],
+  "relationships": [
+    "direct",
+    "via-authority",
+    "not-applicable"
+  ],
+  "candidateIdPattern": "^sta-[a-z0-9]+(?:-[a-z0-9]+)*$",
+  "authorities": {
+    "compass": {
+      "repository": "jasondockery/compass",
+      "scope": "generic doctrine, terminology, behavior, runtime isolation, and proof requirements",
+      "requiresProductFrameworkProviderDeploymentIndependence": true
+    },
+    "roost": {
+      "repository": "jasondockery/roost",
+      "scope": "reusable or generated implementation, components, templates, and conformance checks",
+      "requiresProductFrameworkProviderDeploymentIndependence": false
+    },
+    "groundwork": {
+      "repository": "jasondockery/groundwork",
+      "scope": "developer-environment provisioning, configuration, and acceptance on supported platforms, currently macOS and Linux",
+      "requiresProductFrameworkProviderDeploymentIndependence": false
+    },
+    "renovate-config": {
+      "repository": "jasondockery/renovate-config",
+      "scope": "dependency automation, scheduling, configuration, and runner policy",
+      "requiresProductFrameworkProviderDeploymentIndependence": false
+    },
+    "hatch": {
+      "repository": "jasondockery/hatch",
+      "scope": "product-specific, visual, authentication, deployed, and manual accessibility acceptance",
+      "requiresProductFrameworkProviderDeploymentIndependence": false
+    }
+  },
+  "newAuthorityPrerequisites": [
+    "cohesive-domain",
+    "independent-maintenance-and-release-lifecycle",
+    "named-owner",
+    "one-real-consumer-and-credible-additional-use",
+    "distribution-and-adoption-contract",
+    "no-existing-authority-fits",
+    "removal-or-consolidation-path",
+    "explicit-owner-decision"
+  ],
+  "contracts": {
+    "authorityRegistry": "authority-registry.json",
+    "authorityRegistrySchema": "authority-registry.schema.json",
+    "consumerReconciliationSchema": "consumer-reconciliation.schema.json",
+    "consumerHostedAdoptionReceiptSchema": "consumer-hosted-adoption-receipt.schema.json",
+    "validator": "scripts/check-authority-record.mjs"
+  },
+  "reviewTemplateFields": [
+    "id",
+    "invariant",
+    "origin and evidence",
+    "affected scope",
+    "local repair",
+    "local reconciliation",
+    "proposed authority",
+    "ownership reason",
+    "consumer-owned remainder",
+    "candidate state",
+    "authority identity",
+    "consumer state",
+    "supersedes"
+  ]
+}

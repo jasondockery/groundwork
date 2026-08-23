@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/proof-selection.schema.json",
+  "title": "Compass heavy proof selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "claim", "evidenceIdentity", "selectedEvidence", "reusableEvidence", "missingEvidence", "whyCheaperCheckInsufficient"],
+  "properties": {
+    "schema": { "const": "compass.proof-selection" },
+    "schemaVersion": { "const": 1 },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "statement"],
+      "properties": {
+        "kind": { "enum": ["tree-verification", "provenance-verification", "platform-release", "artifact-generation", "deployment-acceptance"] },
+        "statement": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "evidenceIdentity": { "$ref": "#/$defs/evidenceIdentity" },
+    "selectedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "command", "result"],
+      "properties": {
+        "kind": { "enum": ["local-full", "hosted-full", "provenance-check", "artifact-build", "deployment-check"] },
+        "command": { "$ref": "#/$defs/nonEmptyString" },
+        "result": { "enum": ["planned", "passed", "failed"] }
+      }
+    },
+    "reusableEvidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidenceId", "claim", "kind", "result", "evidenceIdentity"],
+        "properties": {
+          "evidenceId": { "$ref": "#/$defs/nonEmptyString" },
+          "claim": { "enum": ["tree-verification", "provenance-verification", "platform-release", "artifact-generation", "deployment-acceptance"] },
+          "kind": { "enum": ["local-full", "hosted-full", "provenance-check", "artifact-build", "deployment-check"] },
+          "result": { "const": "passed" },
+          "evidenceIdentity": { "$ref": "#/$defs/evidenceIdentity" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "claim": { "const": "tree-verification" } } },
+            "then": { "properties": { "kind": { "enum": ["local-full", "hosted-full"] }, "evidenceIdentity": { "$ref": "#/$defs/treeVerificationIdentity" } } }
+          },
+          {
+            "if": { "properties": { "claim": { "const": "provenance-verification" } } },
+            "then": { "properties": { "kind": { "const": "provenance-check" }, "evidenceIdentity": { "$ref": "#/$defs/provenanceVerificationIdentity" } } }
+          },
+          {
+            "if": { "properties": { "claim": { "const": "platform-release" } } },
+            "then": { "properties": { "kind": { "const": "hosted-full" }, "evidenceIdentity": { "$ref": "#/$defs/platformReleaseIdentity" } } }
+          },
+          {
+            "if": { "properties": { "claim": { "const": "artifact-generation" } } },
+            "then": { "properties": { "kind": { "const": "artifact-build" }, "evidenceIdentity": { "$ref": "#/$defs/artifactGenerationIdentity" } } }
+          },
+          {
+            "if": { "properties": { "claim": { "const": "deployment-acceptance" } } },
+            "then": { "properties": { "kind": { "const": "deployment-check" }, "evidenceIdentity": { "$ref": "#/$defs/deploymentAcceptanceIdentity" } } }
+          }
+        ]
+      }
+    },
+    "missingEvidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "identity", "reason"],
+        "properties": {
+          "claim": { "enum": ["tree-verification", "provenance-verification", "platform-release", "artifact-generation", "deployment-acceptance"] },
+          "identity": { "enum": ["contentIdentity", "provenanceIdentity", "platformIdentity", "artifactIdentity", "deploymentIdentity"] },
+          "reason": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "whyCheaperCheckInsufficient": { "$ref": "#/$defs/nonEmptyString" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "claim": { "properties": { "kind": { "const": "tree-verification" } } }, "selectedEvidence": { "properties": { "result": { "not": { "const": "planned" } } } } } },
+      "then": {
+        "properties": {
+          "evidenceIdentity": { "$ref": "#/$defs/treeVerificationIdentity" },
+          "selectedEvidence": { "properties": { "kind": { "enum": ["local-full", "hosted-full"] } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "claim": { "properties": { "kind": { "const": "provenance-verification" } } }, "selectedEvidence": { "properties": { "result": { "not": { "const": "planned" } } } } } },
+      "then": {
+        "properties": {
+          "evidenceIdentity": { "$ref": "#/$defs/provenanceVerificationIdentity" },
+          "selectedEvidence": { "properties": { "kind": { "const": "provenance-check" } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "claim": { "properties": { "kind": { "const": "platform-release" } } }, "selectedEvidence": { "properties": { "result": { "not": { "const": "planned" } } } } } },
+      "then": {
+        "properties": {
+          "evidenceIdentity": { "$ref": "#/$defs/platformReleaseIdentity" },
+          "selectedEvidence": { "properties": { "kind": { "const": "hosted-full" } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "claim": { "properties": { "kind": { "const": "artifact-generation" } } }, "selectedEvidence": { "properties": { "result": { "not": { "const": "planned" } } } } } },
+      "then": {
+        "properties": {
+          "evidenceIdentity": { "$ref": "#/$defs/artifactGenerationIdentity" },
+          "selectedEvidence": { "properties": { "kind": { "const": "artifact-build" } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "claim": { "properties": { "kind": { "const": "deployment-acceptance" } } }, "selectedEvidence": { "properties": { "result": { "not": { "const": "planned" } } } } } },
+      "then": {
+        "properties": {
+          "evidenceIdentity": { "$ref": "#/$defs/deploymentAcceptanceIdentity" },
+          "selectedEvidence": { "properties": { "kind": { "const": "deployment-check" } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "contentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "sourceTree", "toolchainSha256", "commandContractSha256", "environmentSha256", "inputSetSha256"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/repository" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "toolchainSha256": { "$ref": "#/$defs/sha256" },
+        "commandContractSha256": { "$ref": "#/$defs/sha256" },
+        "environmentSha256": { "$ref": "#/$defs/sha256" },
+        "inputSetSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "provenanceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "sourceCommit", "sourceTree", "reference"],
+      "properties": {
+        "repository": { "$ref": "#/$defs/repository" },
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name", "resolvedCommit"],
+          "properties": {
+            "kind": { "enum": ["commit", "branch", "tag"] },
+            "name": { "$ref": "#/$defs/nonEmptyString" },
+            "resolvedCommit": { "$ref": "#/$defs/commit" }
+          }
+        }
+      }
+    },
+    "platformIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "platformInputsSha256"],
+      "properties": {
+        "os": { "$ref": "#/$defs/nonEmptyString" },
+        "architecture": { "$ref": "#/$defs/nonEmptyString" },
+        "platformInputsSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "artifactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "sourceCommit", "sourceTree", "buildContractSha256"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "buildContractSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "deploymentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "deploymentId", "sourceCommit", "sourceTree", "artifactSha256"],
+      "properties": {
+        "environment": { "$ref": "#/$defs/nonEmptyString" },
+        "deploymentId": { "$ref": "#/$defs/nonEmptyString" },
+        "sourceCommit": { "$ref": "#/$defs/commit" },
+        "sourceTree": { "$ref": "#/$defs/commit" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "evidenceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentIdentity", "provenanceIdentity", "platformIdentity", "artifactIdentity", "deploymentIdentity"],
+      "properties": {
+        "contentIdentity": { "oneOf": [{ "$ref": "#/$defs/contentIdentity" }, { "type": "null" }] },
+        "provenanceIdentity": { "oneOf": [{ "$ref": "#/$defs/provenanceIdentity" }, { "type": "null" }] },
+        "platformIdentity": { "oneOf": [{ "$ref": "#/$defs/platformIdentity" }, { "type": "null" }] },
+        "artifactIdentity": { "oneOf": [{ "$ref": "#/$defs/artifactIdentity" }, { "type": "null" }] },
+        "deploymentIdentity": { "oneOf": [{ "$ref": "#/$defs/deploymentIdentity" }, { "type": "null" }] }
+      }
+    },
+    "treeVerificationIdentity": {
+      "$ref": "#/$defs/evidenceIdentity",
+      "properties": {
+        "contentIdentity": { "$ref": "#/$defs/contentIdentity" },
+        "provenanceIdentity": { "type": "null" },
+        "platformIdentity": { "$ref": "#/$defs/platformIdentity" },
+        "artifactIdentity": { "type": "null" },
+        "deploymentIdentity": { "type": "null" }
+      }
+    },
+    "provenanceVerificationIdentity": {
+      "$ref": "#/$defs/evidenceIdentity",
+      "properties": {
+        "contentIdentity": { "type": "null" },
+        "provenanceIdentity": { "$ref": "#/$defs/provenanceIdentity" },
+        "platformIdentity": { "type": "null" },
+        "artifactIdentity": { "type": "null" },
+        "deploymentIdentity": { "type": "null" }
+      }
+    },
+    "platformReleaseIdentity": {
+      "$ref": "#/$defs/evidenceIdentity",
+      "properties": {
+        "contentIdentity": { "$ref": "#/$defs/contentIdentity" },
+        "provenanceIdentity": {
+          "$ref": "#/$defs/provenanceIdentity",
+          "properties": {
+            "reference": {
+              "$ref": "#/$defs/provenanceIdentity/properties/reference",
+              "properties": { "kind": { "const": "branch" } }
+            }
+          }
+        },
+        "platformIdentity": { "$ref": "#/$defs/platformIdentity" },
+        "artifactIdentity": { "type": "null" },
+        "deploymentIdentity": { "type": "null" }
+      }
+    },
+    "artifactGenerationIdentity": {
+      "$ref": "#/$defs/evidenceIdentity",
+      "properties": {
+        "contentIdentity": { "$ref": "#/$defs/contentIdentity" },
+        "provenanceIdentity": { "$ref": "#/$defs/provenanceIdentity" },
+        "platformIdentity": { "$ref": "#/$defs/platformIdentity" },
+        "artifactIdentity": { "$ref": "#/$defs/artifactIdentity" },
+        "deploymentIdentity": { "type": "null" }
+      }
+    },
+    "deploymentAcceptanceIdentity": {
+      "$ref": "#/$defs/evidenceIdentity",
+      "properties": {
+        "contentIdentity": { "type": "null" },
+        "provenanceIdentity": { "$ref": "#/$defs/provenanceIdentity" },
+        "platformIdentity": { "$ref": "#/$defs/platformIdentity" },
+        "artifactIdentity": { "$ref": "#/$defs/artifactIdentity" },
+        "deploymentIdentity": { "$ref": "#/$defs/deploymentIdentity" }
+      }
+    }
+  }
+}
