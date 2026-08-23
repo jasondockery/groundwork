@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reviewable agent workspaces"
+  short_description: "Keep agent implementation visible and reviewable"
+  default_prompt: "Use $reviewable-agent-workspaces to declare one active writable ownership principal and its process tree, preserve a complete review surface, and hand off work without losing unique bytes."

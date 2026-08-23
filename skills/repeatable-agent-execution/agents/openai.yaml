@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repeatable agent execution"
+  short_description: "Ready once, mutate coherently, prove once per identity"
+  default_prompt: "Use $repeatable-agent-execution to establish bootstrap readiness once, keep task-produced outputs inside the mutation phase, and prove each claim once while every identity that claim requires is unchanged."

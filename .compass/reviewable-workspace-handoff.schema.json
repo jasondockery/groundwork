@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://compass.invalid/schemas/reviewable-workspace-handoff.schema.json",
+  "title": "Compass reviewable workspace handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "x-compass-pathContainment": { "paths": "changedPaths", "scopes": "writableScope" },
+  "x-compass-equalFields": [["branch.commit", "commit"], ["remoteCheckpoint.currentCommit", "commit"]],
+  "required": ["schema", "schemaVersion", "platform", "repository", "mode", "baseSha", "branch", "worktreeUri", "owner", "reviewSurface", "commit", "tree", "verification", "worktreeCleanliness", "consumerEvidence"],
+  "properties": {
+    "schema": { "const": "compass.reviewable-workspace-handoff" },
+    "schemaVersion": { "const": 4 },
+    "platform": { "const": "posix" },
+    "repository": { "$ref": "#/$defs/nonEmptyString" },
+    "mode": { "enum": ["read-only", "implementation", "proof", "integration"] },
+    "baseSha": { "$ref": "#/$defs/commit" },
+    "branch": { "$ref": "#/$defs/branchState" },
+    "worktreeUri": { "$ref": "#/$defs/worktreeUri" },
+    "writableScope": { "$ref": "#/$defs/nonEmptyPathList" },
+    "reviewSurface": { "$ref": "#/$defs/reviewSurface" },
+    "runtimeNamespace": { "$ref": "#/$defs/runtimeNamespace" },
+    "owner": { "$ref": "#/$defs/nonEmptyString" },
+    "integrationOwner": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/nonEmptyString" }] },
+    "commit": { "$ref": "#/$defs/commit" },
+    "tree": { "$ref": "#/$defs/commit" },
+    "changedPaths": { "$ref": "#/$defs/nonEmptyPathList" },
+    "verification": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/nonEmptyString" } },
+    "remoteCheckpoint": { "$ref": "#/$defs/remoteCheckpoint" },
+    "worktreeCleanliness": { "$ref": "#/$defs/worktreeCleanliness" },
+    "ownedResourceClosure": { "$ref": "#/$defs/ownedResourceClosure" },
+    "cleanupOwner": { "$ref": "#/$defs/nonEmptyString" },
+    "consumerEvidence": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/consumerEvidence" }] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "read-only" } }, "required": ["mode"] },
+      "then": {
+        "properties": { "worktreeCleanliness": { "$ref": "#/$defs/readOnlyCleanliness" } },
+        "not": { "anyOf": [{ "required": ["writableScope"] }, { "required": ["runtimeNamespace"] }, { "required": ["integrationOwner"] }, { "required": ["changedPaths"] }, { "required": ["remoteCheckpoint"] }, { "required": ["ownedResourceClosure"] }, { "required": ["cleanupOwner"] }] }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "proof" } }, "required": ["mode"] },
+      "then": {
+        "required": ["runtimeNamespace", "ownedResourceClosure", "cleanupOwner"],
+        "properties": { "branch": { "$ref": "#/$defs/detachedBranch" }, "worktreeCleanliness": { "$ref": "#/$defs/proofCleanliness" } },
+        "not": { "anyOf": [{ "required": ["writableScope"] }, { "required": ["integrationOwner"] }, { "required": ["changedPaths"] }, { "required": ["remoteCheckpoint"] }] }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "enum": ["implementation", "integration"] } }, "required": ["mode"] },
+      "then": {
+        "required": ["writableScope", "runtimeNamespace", "integrationOwner", "changedPaths", "remoteCheckpoint", "ownedResourceClosure", "cleanupOwner"],
+        "properties": {
+          "branch": { "$ref": "#/$defs/attachedBranch" },
+          "worktreeUri": { "allOf": [{ "$ref": "#/$defs/worktreeUri" }, { "not": { "pattern": "^file:///(?:private/)?tmp(?:/|$)" } }] },
+          "worktreeCleanliness": { "$ref": "#/$defs/writableCleanliness" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "integration" } }, "required": ["mode"] },
+      "then": { "properties": { "integrationOwner": { "$ref": "#/$defs/nonEmptyString" } } }
+    }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "worktreeUri": { "type": "string", "pattern": "^file:///", "x-compass-normalizedFileUri": true },
+    "safeRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*//)(?!\\.{1,2}$)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[A-Za-z0-9._/-]+$" },
+    "nonEmptyPathList": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeRelativePath" } },
+    "attachedBranch": { "type": "object", "additionalProperties": false, "required": ["state", "name"], "properties": { "state": { "const": "attached" }, "name": { "$ref": "#/$defs/nonEmptyString" } } },
+    "detachedBranch": { "type": "object", "additionalProperties": false, "required": ["state", "commit"], "properties": { "state": { "const": "detached" }, "commit": { "$ref": "#/$defs/commit" } } },
+    "branchState": { "oneOf": [{ "$ref": "#/$defs/attachedBranch" }, { "$ref": "#/$defs/detachedBranch" }] },
+    "reviewSurface": { "type": "object", "additionalProperties": false, "required": ["kind", "locator"], "properties": { "kind": { "enum": ["visible-workspace-diff", "native-session-diff", "branch", "draft-pr"] }, "locator": { "$ref": "#/$defs/nonEmptyString" } } },
+    "notApplicable": { "type": "object", "additionalProperties": false, "required": ["state", "reason"], "properties": { "state": { "const": "not-applicable" }, "reason": { "$ref": "#/$defs/nonEmptyString" } } },
+    "runtimeNamespace": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["state", "value"], "properties": { "state": { "const": "declared" }, "value": { "$ref": "#/$defs/nonEmptyString" } } }, { "$ref": "#/$defs/notApplicable" }] },
+    "ownedResourceClosure": { "oneOf": [{ "type": "object", "additionalProperties": false, "required": ["state", "evidence"], "properties": { "state": { "const": "complete" }, "evidence": { "$ref": "#/$defs/nonEmptyString" } } }, { "$ref": "#/$defs/notApplicable" }] },
+    "remoteCheckpoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "kind", "locator", "remoteRef", "earlyCheckpointCommit", "currentCommit"],
+      "properties": {
+        "state": { "const": "current-reachable" }, "kind": { "enum": ["remote-ref", "draft-pr"] },
+        "locator": { "$ref": "#/$defs/nonEmptyString" },
+        "remoteRef": { "type": "string", "pattern": "^refs/remotes/[A-Za-z0-9._/-]+$" },
+        "earlyCheckpointCommit": { "$ref": "#/$defs/commit" }, "currentCommit": { "$ref": "#/$defs/commit" }
+      }
+    },
+    "worktreeCleanliness": { "type": "object", "additionalProperties": false, "required": ["state", "sourceReadOnly"], "properties": { "state": { "enum": ["clean", "dirty"] }, "sourceReadOnly": { "type": "boolean" } } },
+    "proofCleanliness": { "type": "object", "additionalProperties": false, "required": ["state", "sourceReadOnly"], "properties": { "state": { "const": "clean" }, "sourceReadOnly": { "const": true } } },
+    "readOnlyCleanliness": { "type": "object", "additionalProperties": false, "required": ["state", "sourceReadOnly"], "properties": { "state": { "enum": ["clean", "dirty"] }, "sourceReadOnly": { "const": true } } },
+    "writableCleanliness": { "type": "object", "additionalProperties": false, "required": ["state", "sourceReadOnly"], "properties": { "state": { "const": "clean" }, "sourceReadOnly": { "const": false } } },
+    "consumerEvidence": { "type": "object", "additionalProperties": false, "required": ["namespace", "schemaVersion", "evidence"], "properties": { "namespace": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" }, "schemaVersion": { "type": "integer", "minimum": 1 }, "evidence": { "type": "object", "additionalProperties": true } } }
+  }
+}

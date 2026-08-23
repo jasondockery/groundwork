@@ -26,6 +26,14 @@ platform, commands, budgets, and procedures. Read `.compass/COMPASS.md` for the
 deeper shared contract and `.compass/TERMINOLOGY.md` for canonical outcome and
 proof terms.
 
+Load `skills/reviewable-agent-workspaces/SKILL.md` for workspace ownership and
+review routing, and `skills/concurrent-agent-runtimes/SKILL.md` before starting
+or inspecting concurrent processes and resources — these are Compass-owned
+pointers to what "Concurrency: single-writer by default" below already states
+in Groundwork's own terms. Load `skills/repeatable-agent-execution/SKILL.md`
+before the first edit in a checkout or worktree, before final proof, and
+whenever setup, a check suite, or a skip control is costing repeated rework.
+
 - Start simple; complexity must be earned by evidence.
 - Treat user, developer, CI, compute, network, and storage time as resources.
 - Bound finite work and fail explicitly.
@@ -45,8 +53,11 @@ Groundwork configures the developer; each repo configures itself.
   teammates and CI agents get them too.
 - One discovery tree under `skills/`: Compass-managed shared skill packages are
   projected regular files, Groundwork-local skills remain repository-owned, and
-  `.claude/skills`, `.agents/skills`, and `.codex/skills` are repository-owned
-  symlink adapters so each tool discovers both sets natively.
+  `.claude/skills` and `.agents/skills` are generated thin adapters (Compass
+  projects the shared ones; `scripts/generate-skill-adapters.mjs` projects the
+  local ones) so each tool discovers both sets natively without a second copy
+  of the workflow to drift. `.codex/skills` is retired — current Codex
+  discovery uses `.agents/skills` instead.
 - Quick test: required for the work to be correct goes in the repo; a personal
   preference across all your work goes in Groundwork; specific to what
   Groundwork, Roost, or renovate-config need goes in those repos.

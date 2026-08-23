@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shift to Authority"
+  short_description: "Shift recurring rules to canonical owners"
+  default_prompt: "Use $shift-to-authority to classify and report recurring cross-repository requirements for canonical ownership."

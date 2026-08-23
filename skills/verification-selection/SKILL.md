@@ -33,10 +33,43 @@ description: Select and report the cheapest reliable proof matching a change's b
    facts relevant to the claim, reruns, duplicate proof, invalidated proof, and
    remaining owner gates.
 
+## Reuse evidence by claim
+
+Load the projected `proof-evidence-policy.json` before selecting or reusing a
+heavy proof. Keep five identities separate: content, provenance, platform,
+artifact, and deployment. Validate a machine record with the projected
+`validateProofSelection` export and `proof-selection.schema.json`.
+
+Before starting any heavy proof, record the claim, complete evidence identity,
+reusable evidence, missing evidence, and why a cheaper check is insufficient.
+Reuse prior evidence only when every identity required by that claim is exactly
+equal. Content identity includes the complete tree, toolchain, command
+contract, relevant environment, and declared inputs. A changed actual input
+invalidates only claims that require its identity dimension.
+
+Check a new commit, branch, or tag provenance separately when its tree is
+unchanged. Treat local and hosted Full as alternatives for the same claim;
+stack them only when hosted execution proves an additional platform or landed-
+source claim. Exact-head hosted Full on each claimed release platform binds the
+landed commit and tree. For a Linux-and-macOS release claim, exact default-
+branch hosted Full on both satisfies the platform claim without another local
+Full. Generate the artifact against the release commit and bind its digest
+without repeating an unchanged content Full. Keep deployed acceptance separate
+and bind it to the exact artifact and environment.
+
+For a substantial engineering code review, field-failure review,
+cross-repository coordination, or release, projection, or adoption handoff, use
+`shift-to-authority` and emit its one required `Shift to Authority candidates`
+field. Small reviews and ordinary status messages do not require that field.
+
 Staged versus unstaged state does not define task ownership or approval. Inspect
 the complete task diff independently of the index, stage only attributable
 changes when authorized, and stop if owner and agent changes cannot be safely
 separated.
+
+For proof that starts or inspects concurrent processes or ambient resources,
+load `concurrent-agent-runtimes` and preserve its strict isolated-runtime
+boundary.
 
 ## Inclusive-product and web-performance ladder
 

@@ -121,25 +121,26 @@ Owner action (a human enables this when ready, not code work):
       ownership prose and dispositions, and bind each evidence claim to behavior
       the referenced command actually exercises. Do not fold the unfinished
       inventory into the urgent Yazi repair.
-- [ ] Adopt only a future valid Compass authority-model and operable-tools
+- [x] Adopt only a future valid Compass authority-model and operable-tools
       successor in their own projection commit and proof boundary. Superseded
       `043568a`, `681c872`, and `f3e135d` identities remain historical evidence;
       they do not block independent Groundwork commits or releases.
-      **State as of 2026-08-22:** `.compass/receipt.json` still pins `c0a45d8`
-      (2026-08-11). Compass's `authority-registry.json` — the whole Shift to
-      Authority mechanism — did not exist yet at that commit, so all six
-      currently issued candidates postdate this pin and are unreconciled here:
-      `shift-to-authority`, `replaceable-ai-workloads`,
-      `operable-developer-tools`, `reviewable-agent-workspaces`,
-      `concurrent-agent-runtimes`, and the newest, `repeatable-agent-execution`
-      (bootstrap readiness, actual-launcher identity, fail-closed Git-identity
-      binding, named-invariant proof targeting, staged-index attribution —
-      `.compass/COMPASS.md` → "Repeatable agent execution" once projected).
-      Roost reconciled to the current identity in PR #50; that reconciliation
+      **State as of 2026-08-23:** reconciled to `aaab049`
       (`node scripts/build-artifact.mjs` + `scripts/project-artifact.mjs
-      --replace` from a clean Compass `main`, then updating
-      `scripts/check-compass-adoption.mjs`'s consumer reconciliation record)
-      is the template to repeat here. Not started.
+      --replace` from clean Compass `main`), bringing in all six issued
+      candidates: `shift-to-authority`, `replaceable-ai-workloads`,
+      `operable-developer-tools`, `reviewable-agent-workspaces`,
+      `concurrent-agent-runtimes`, and `repeatable-agent-execution`.
+      Compass's projector detected Groundwork's old
+      `.agents/skills`/`.claude/skills`/`.codex/skills -> ../skills` symlink
+      pattern and migrated it through its own already-built, tested
+      route-transition mechanism to materialized per-skill adapters, retiring
+      `.codex/skills`. That migration covers only Compass-managed skills, so
+      `scripts/generate-skill-adapters.mjs` (new) renders the same thin-adapter
+      shape for Groundwork's own local skills, closing the discoverability gap
+      the old blanket symlink used to cover for free; its output is verified
+      by `scripts/check-compass-adoption.mjs`. `AGENTS.md` now routes to the
+      three newly-arrived shared skills.
 
 ## Review-derived product backlog (2026-07-31)
 

@@ -17,6 +17,7 @@ description: Classify the quality specialists required by a new application, sig
    | Trust boundary, input, authorization, credential, workflow, or agent authority | `secure-by-design` |
    | Personal data collected, stored, logged, analyzed, or transferred | `privacy-by-design` |
    | Words, examples, errors, documentation, imagery, audio, or video | `inclusive-content-design` |
+   | AI model, backend, adapter, fallback, artifact, or generated integration | `ai-backend-change` |
 
 3. Let an inapplicable specialist disqualify itself. A CLI-only repository does
    not acquire browser tooling; a dependency-free library does not acquire an

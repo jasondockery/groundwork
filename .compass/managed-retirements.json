@@ -1,0 +1,127 @@
+{
+  "schema": "compass.managed-retirements",
+  "schemaVersion": 3,
+  "migrationPaths": [
+    {
+      "predecessor": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "8ccfcff351dfb8c652f8eba75b77980b602bf4c8",
+        "sourceTree": "d813b73cd6326a8d89d186a1cac85deac6cb6f77",
+        "sourceFingerprintSha256": "e38e516d7107dd676b87ec877f56fb1572b7ccb03f44041ad0753eb2ca06b4fa",
+        "artifactSha256": "9d698caaf6f579f42381d45b7fc2cf421ee6436d81eb84680bbbd53ba3a121ba",
+        "artifactBytes": 336889,
+        "validationReceiptSha256": "ba01f6bee5dc23af1be5f47a4b0529cdc270143b9d83a5d0d94a3edee80d260a",
+        "artifactReceiptSha256": "df4f1bc09d4ae697b00f5dbf2685076f6006ea35dede5f4c1eb2386ea1f38647"
+      },
+      "retirements": [
+        {
+          "sourcePath": ".codex/skills/reviewable-agent-workspaces/SKILL.md",
+          "projectedPath": ".codex/skills/reviewable-agent-workspaces/SKILL.md",
+          "priorSha256": "3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1",
+          "priorBytes": 331,
+          "disposition": "remove-on-exact-replace"
+        }
+      ],
+      "routeTransitions": []
+    },
+    {
+      "predecessor": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "bb087147c0ab60095b12b6f64da5862d583476ad",
+        "sourceTree": "811e78cd4dcc9a6a48ad24cc976e1e8e70b2918e",
+        "sourceFingerprintSha256": "bc956e0a9755b62acf9fabfed715c6e71a40173f8902547767579a670c771232",
+        "artifactSha256": "b8c1642aaf540ea03012b6a6fdccd8f1d0bb96ad97c5d1d521522e361e48486c",
+        "artifactBytes": 371290,
+        "validationReceiptSha256": "25c3566578ced3c148456db7b8369b2724e4502fb2dcffe7ccf945b8f64eaaff",
+        "artifactReceiptSha256": "8a578029ad119c8ac756ee49b718a3438cf09dd96ed9bbe79ff4adca73556b49"
+      },
+      "retirements": [
+        {
+          "sourcePath": ".codex/skills/concurrent-agent-runtimes/SKILL.md",
+          "projectedPath": ".codex/skills/concurrent-agent-runtimes/SKILL.md",
+          "priorSha256": "dfd9f2100e333b069db3df9d66785872caac37049bd035b1c8359b57484733e9",
+          "priorBytes": 330,
+          "disposition": "remove-on-exact-replace"
+        },
+        {
+          "sourcePath": ".codex/skills/reviewable-agent-workspaces/SKILL.md",
+          "projectedPath": ".codex/skills/reviewable-agent-workspaces/SKILL.md",
+          "priorSha256": "3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1",
+          "priorBytes": 331,
+          "disposition": "remove-on-exact-replace"
+        }
+      ],
+      "routeTransitions": []
+    },
+    {
+      "predecessor": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "0b6911dbf66240fe7dfeee2808e1d51663dcdfaa",
+        "sourceTree": "f6a218049ee60667101ca4f5b56767002dc6acf3",
+        "sourceFingerprintSha256": "d0ef4a00ff39bd0b3829527a788fd1c640799cd78505fc9ff08c73741a5c114d",
+        "artifactSha256": "63fa100f36c5392d6a8536363cc31bbb9c6cd8c74eb159ba80ecd8fc7d706541",
+        "artifactBytes": 314639,
+        "validationReceiptSha256": "3501e8944be9ecba1133fdfd0a56e036fdd3b5d0613f322dec10e73f391c28bb",
+        "artifactReceiptSha256": "bf2be1851c006a2a7276ccb521ffa5862f97e5b51be5f08c27352fa32105c5d5"
+      },
+      "retirements": [],
+      "routeTransitions": [
+        {
+          "projectedPath": ".agents/skills",
+          "priorEntryType": "symbolic-link",
+          "priorLinkTarget": "../skills",
+          "priorTargetSha256": "c1aefaccb300698f4b7ae764e1fa857f93c0609ba47b078e4806d926f289c23b",
+          "priorTargetBytes": 9,
+          "disposition": "replace-exact-route-on-exact-replace"
+        },
+        {
+          "projectedPath": ".claude/skills",
+          "priorEntryType": "symbolic-link",
+          "priorLinkTarget": "../skills",
+          "priorTargetSha256": "c1aefaccb300698f4b7ae764e1fa857f93c0609ba47b078e4806d926f289c23b",
+          "priorTargetBytes": 9,
+          "disposition": "replace-exact-route-on-exact-replace"
+        }
+      ]
+    },
+    {
+      "predecessor": {
+        "repository": "jasondockery/compass",
+        "sourceCommit": "c0a45d8a9c8db0e4dcaa5e2d543c48ac208289a0",
+        "sourceTree": "42cd8d33e7e0d1a21acf642c98dd146b54f896f8",
+        "sourceFingerprintSha256": "116bdd9d0e7515339a2eaa0b9a561f0aadd6301e9422226b0a77d06c721fe8ee",
+        "artifactSha256": "636a96690a5e13c3d69cf98be78fa4c6c2b6f944b96e62438a055c54fc82744a",
+        "artifactBytes": 101807,
+        "validationReceiptSha256": "fc77bd55c55bf050defa635cb8bb1957bb5aa9174ad27d324cfe7dd62a34bd10",
+        "artifactReceiptSha256": "3fed0ea564079a4c676d37f18b3266d8263537260057c69da3cec4f23bf4c005"
+      },
+      "retirements": [],
+      "routeTransitions": [
+        {
+          "projectedPath": ".agents/skills",
+          "priorEntryType": "symbolic-link",
+          "priorLinkTarget": "../skills",
+          "priorTargetSha256": "c1aefaccb300698f4b7ae764e1fa857f93c0609ba47b078e4806d926f289c23b",
+          "priorTargetBytes": 9,
+          "disposition": "replace-exact-route-on-exact-replace"
+        },
+        {
+          "projectedPath": ".claude/skills",
+          "priorEntryType": "symbolic-link",
+          "priorLinkTarget": "../skills",
+          "priorTargetSha256": "c1aefaccb300698f4b7ae764e1fa857f93c0609ba47b078e4806d926f289c23b",
+          "priorTargetBytes": 9,
+          "disposition": "replace-exact-route-on-exact-replace"
+        },
+        {
+          "projectedPath": ".codex/skills",
+          "priorEntryType": "symbolic-link",
+          "priorLinkTarget": "../skills",
+          "priorTargetSha256": "c1aefaccb300698f4b7ae764e1fa857f93c0609ba47b078e4806d926f289c23b",
+          "priorTargetBytes": 9,
+          "disposition": "remove-exact-unmaterialized-route-on-exact-replace"
+        }
+      ]
+    }
+  ]
+}
