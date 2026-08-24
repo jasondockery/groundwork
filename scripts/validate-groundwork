@@ -16662,11 +16662,12 @@ LAUNCHER_BAD
     rg -n 'COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version' home/run_after_15-pnpm-corepack.sh
   grep -qF 'command -v pnpm' home/run_after_15-pnpm-corepack.sh \
     || fail "the pnpm/Corepack script must prove PATH resolution with command -v"
-  pnpm_corepack_node="$(mise which node 2>/dev/null || true)"
+  pnpm_corepack_node="$(mise which node 2>/dev/null || command -v node 2>/dev/null || true)"
   pnpm_corepack_corepack_bin=""
   [ -z "$pnpm_corepack_node" ] || pnpm_corepack_corepack_bin="$(dirname "$pnpm_corepack_node")/corepack"
   if [ -z "$pnpm_corepack_node" ] || [ ! -x "$pnpm_corepack_node" ] \
-    || [ -z "$pnpm_corepack_corepack_bin" ] || [ ! -x "$pnpm_corepack_corepack_bin" ]; then
+    || [ -z "$pnpm_corepack_corepack_bin" ] \
+    || ! "$pnpm_corepack_corepack_bin" --version >/dev/null 2>&1; then
     if [[ "${GROUNDWORK_REQUIRE_NODE_TOOLCHAIN:-0}" == "1" ]]; then
       fail "the required Node/Corepack fixture for the pnpm/Corepack convergence proof is unavailable"
     fi
