@@ -125,13 +125,24 @@ fi
 # The regression was PATH re-resolution, so the proof has to be a bare command on
 # the PATH the user will actually have — not "$node_dir/pnpm", which only proves
 # a file at a known path runs.
+#
+# The proof is PATH resolution ONLY: which file bare `pnpm` finds, never
+# whether that file successfully executes. This script's own working directory
+# is chezmoi's destination directory ($HOME), which normally has no
+# package.json -- so actually running the shim here resolves no project pin
+# and falls back to Corepack's OWN bundled default pnpm version, which this
+# script has no reason to require ready-to-run. On a machine with no route to
+# the npm registry (a locked-down network is not rare), fetching that unrelated
+# default version to satisfy a PATH-order check fails every single run, forever,
+# since this script runs on every apply by design. `command -v` never executes
+# its target, so it proves PATH order with no network dependency at all.
 prospective_path="$(
   printf '%s' "$PATH" | tr ':' '\n' \
     | awk '!/\/mise\/installs\/pnpm\// && length' \
     | paste -sd: -
 )"
 prospective_path="$node_dir:$prospective_path"
-if ! PATH="$prospective_path" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1; then
+if [ "$(PATH="$prospective_path" command -v pnpm 2>/dev/null || true)" != "$node_dir/pnpm" ]; then
   warn "bare 'pnpm' does not resolve to the Corepack shim on the prospective PATH."
   warn "Nothing was removed. Diagnose with: groundwork-doctor --node-toolchain"
   exit 1
@@ -149,8 +160,10 @@ if [ -n "${mise_pnpm_installed// /}" ]; then
   fi
 fi
 
-# ── 5. Re-prove with a bare command; recover honestly if it broke ─────────────
-if [ "$removed" -eq 1 ] && ! COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1; then
+# ── 5. Re-prove PATH resolution; recover honestly if it broke ─────────────────
+# Same reasoning as step 3: a PATH-order check, not an executed proof.
+if [ "$removed" -eq 1 ] \
+  && [ "$(command -v pnpm 2>/dev/null || true)" != "$node_dir/pnpm" ]; then
   warn "bare 'pnpm' stopped resolving after removing the mise install — restoring it."
   restored=""
   for version in $mise_pnpm_installed; do

@@ -16646,6 +16646,108 @@ LAUNCHER_BAD
       || fail "after the shadowing case the Corepack path must still resolve $launcher_pnpm_version (got '${launcher_recheck:-none}')"
   fi
 
+  check "pnpm/Corepack convergence proof never needs network"
+  # Field regression: this script runs with CWD = $HOME on every apply. $HOME
+  # normally has no package.json, so actually EXECUTING the Corepack shim to
+  # prove PATH resolution falls back to Corepack's own bundled default pnpm
+  # version and, on first use, downloads it -- on a machine with no route to
+  # the npm registry (a locked-down corporate network), that turns a routine,
+  # unconditional-every-apply convergence step into a permanent failure, since
+  # retrying never fixes a real network policy. The fix: prove PATH order with
+  # `command -v`, which never executes its target, so this step needs no
+  # network at all. Guard both statically (the executed shape must not come
+  # back) and dynamically (the real script must converge with the registry
+  # genuinely unreachable).
+  assert_no_matches "the pnpm/Corepack PATH proof must never execute pnpm (command -v only)" \
+    rg -n 'COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version' home/run_after_15-pnpm-corepack.sh
+  grep -qF 'command -v pnpm' home/run_after_15-pnpm-corepack.sh \
+    || fail "the pnpm/Corepack script must prove PATH resolution with command -v"
+  pnpm_corepack_node="$(mise which node 2>/dev/null || true)"
+  pnpm_corepack_corepack_bin=""
+  [ -z "$pnpm_corepack_node" ] || pnpm_corepack_corepack_bin="$(dirname "$pnpm_corepack_node")/corepack"
+  if [ -z "$pnpm_corepack_node" ] || [ ! -x "$pnpm_corepack_node" ] \
+    || [ -z "$pnpm_corepack_corepack_bin" ] || [ ! -x "$pnpm_corepack_corepack_bin" ]; then
+    if [[ "${GROUNDWORK_REQUIRE_NODE_TOOLCHAIN:-0}" == "1" ]]; then
+      fail "the required Node/Corepack fixture for the pnpm/Corepack convergence proof is unavailable"
+    fi
+    skip_current_check requires-node-toolchain \
+      "no mise-managed Node with Corepack available for the convergence-proof fixture"
+  else
+    pnpm_corepack_fixture="$out_dir/pnpm-corepack-fixture"
+    mkdir -p "$pnpm_corepack_fixture"
+    # Canonicalize: macOS's $TMPDIR carries a trailing slash, so a raw
+    # "$out_dir/..." concatenation can end up with a literal double slash. The
+    # script under test always canonicalizes node_dir via `pwd`, so an
+    # uncanonicalized fixture path put directly into $PATH would make `command
+    # -v pnpm` return a different STRING for the same file depending on PATH
+    # order -- a fixture-construction bug, not a defect in the script itself.
+    pnpm_corepack_fixture="$(cd "$pnpm_corepack_fixture" && pwd)"
+    pnpm_corepack_home="$pnpm_corepack_fixture/home"
+    pnpm_corepack_bin="$pnpm_corepack_fixture/bin"
+    mkdir -p "$pnpm_corepack_home/.local/share/groundwork" "$pnpm_corepack_bin"
+    cp home/dot_local/share/groundwork/node-toolchain.env \
+      "$pnpm_corepack_home/.local/share/groundwork/node-toolchain.env"
+    pnpm_corepack_node_dir="$(cd "$(dirname "$pnpm_corepack_node")" && pwd)"
+    pnpm_corepack_shim_dir="$pnpm_corepack_fixture/shim-node"
+    mkdir -p "$pnpm_corepack_shim_dir"
+    # A real Corepack shim, installed into a SCRATCH directory this test owns
+    # (never the machine's real Node bin) so removing it afterward is exact.
+    for pnpm_corepack_linked in node npm corepack; do
+      [ -e "$pnpm_corepack_node_dir/$pnpm_corepack_linked" ] \
+        && ln -sf "$pnpm_corepack_node_dir/$pnpm_corepack_linked" \
+          "$pnpm_corepack_shim_dir/$pnpm_corepack_linked"
+    done
+    pnpm_corepack_log="$pnpm_corepack_fixture/mise-commands.log"
+    : >"$pnpm_corepack_log"
+    cat >"$pnpm_corepack_bin/mise" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$pnpm_corepack_log"
+case "\$1 \$2" in
+  "which node") printf '%s\n' "$pnpm_corepack_shim_dir/node" ;;
+  "ls --installed") printf 'pnpm 8.15.0\n' ;;
+  "uninstall --all") exit 0 ;;
+  "reshim ") exit 0 ;;
+  *) exit 0 ;;
+esac
+SH
+    chmod +x "$pnpm_corepack_bin/mise"
+    # A scratch, never-fetched-into Corepack cache: any attempt to EXECUTE the
+    # shim to satisfy Corepack's own bundled default version must hit the
+    # network, which is exactly what proves this fixture is not silently
+    # passing because a version happened to already be cached.
+    pnpm_corepack_registry_home="$pnpm_corepack_fixture/corepack-home"
+    mkdir -p "$pnpm_corepack_registry_home"
+    pnpm_corepack_status=0
+    HOME="$pnpm_corepack_home" \
+      PATH="$pnpm_corepack_bin:$pnpm_corepack_shim_dir:$PATH" \
+      COREPACK_HOME="$pnpm_corepack_registry_home" \
+      COREPACK_ENABLE_NETWORK=0 \
+      /bin/bash "$repo/home/run_after_15-pnpm-corepack.sh" \
+      >"$out_dir/pnpm-corepack-run" 2>&1 || pnpm_corepack_status=$?
+    [ "$pnpm_corepack_status" -eq 0 ] \
+      || {
+        sed -n '1,80p' "$out_dir/pnpm-corepack-run" >&2
+        fail "the pnpm/Corepack convergence script must succeed with the npm registry unreachable (exit $pnpm_corepack_status)"
+      }
+    grep -qF 'uninstall --all pnpm' "$pnpm_corepack_log" \
+      || fail "the convergence script did not reach the mise-pnpm removal step; the PATH-only proof did not take effect"
+    # Confirms the fixture is real, not vacuous: actually EXECUTING the shim in
+    # this exact environment must fail on the unreachable registry, so the
+    # script's success above is attributable to the fix, not an accident.
+    pnpm_corepack_exec_status=0
+    HOME="$pnpm_corepack_home" \
+      PATH="$pnpm_corepack_shim_dir:$PATH" \
+      COREPACK_HOME="$pnpm_corepack_registry_home" \
+      COREPACK_ENABLE_NETWORK=0 \
+      COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+      "$pnpm_corepack_shim_dir/pnpm" --version \
+      >"$out_dir/pnpm-corepack-executed" 2>&1 || pnpm_corepack_exec_status=$?
+    [ "$pnpm_corepack_exec_status" -ne 0 ] \
+      || fail "the fixture's Corepack shim executed successfully with no cache and the registry disabled; it cannot demonstrate the network dependency this fix removes"
+    grep -qF 'Network access disabled' "$out_dir/pnpm-corepack-executed" \
+      || fail "the fixture must reproduce Corepack's own network-disabled error to prove the old executed-proof shape would have failed here"
+  fi
+
   check "line endings stay LF"
   grep -q '^\* text=auto eol=lf$' .gitattributes
   assert_no_matches "CRLF line endings found in tracked files" git grep -Il $'\r' -- .
