@@ -1,7 +1,8 @@
 # Browser extension catalog managed by Groundwork.
 # Groundwork's managed browser uses the Chrome Web Store URL.
-# Verified 2026-08-04.
+# Verified 2026-08-04; the vimium row below verified 2026-08-19.
 # tier	scope	name	chromium_url	notes
+core	vimium	Vimium	https://chromewebstore.google.com/detail/vimium/dbepggeogbaibhgnhhndojpepiihcmeb	Optional Vim-style keyboard navigation; standard mappings only, no Groundwork keymap. Enable with: groundwork-configure. Chrome still asks you to confirm the install.
 core	1password	1Password Password Manager	https://chromewebstore.google.com/detail/1password-password-manage/aeblfdkhhhdcdjpifhhbdiojplfjncoa	Install only when this machine uses 1Password.
 core	bitwarden	Bitwarden Password Manager	https://chromewebstore.google.com/detail/bitwarden-password-manager/nngceckbapebfimnlniiiahkandclblb	Install only when this machine uses Bitwarden.
 core	all	uBlock Origin Lite	https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh	Manifest V3 content blocker for Chrome.

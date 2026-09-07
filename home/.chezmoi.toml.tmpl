@@ -175,6 +175,17 @@ bootstrap. Preserve an existing answer; a fresh install stays stable. */ -}}
 {{- if hasKey . "beta" -}}
 {{- $beta = .beta -}}
 {{- end -}}
+{{- /* Browser keyboard navigation (optional Vimium layer) is the same kind of
+mutable preference as Xcode beta: never asked at bootstrap, so it cannot be
+inferred from any other answer (selecting Vim as editor must not enable it --
+Groundwork has no editor choice today, and this field stays independent of one
+if it ever gains one), and only ever set through groundwork-configure. A fresh
+install and an unmodified existing config both stay on ordinary browser
+behavior. */ -}}
+{{- $browserNavigation := "standard" -}}
+{{- if and (hasKey . "browser_navigation") (has (toString .browser_navigation) (list "standard" "vimium")) -}}
+{{- $browserNavigation = toString .browser_navigation -}}
+{{- end -}}
 
 sourceDir = {{ .chezmoi.workingTree | quote }}
 
@@ -198,6 +209,7 @@ sourceDir = {{ .chezmoi.workingTree | quote }}
     game_dev = {{ $gameDev }}
     xcode = {{ $xcode }}
     beta = {{ $beta }}
+    browser_navigation = {{ $browserNavigation | quote }}
 
 [edit]
     command = "nvim"

@@ -3,6 +3,14 @@ set -euo pipefail
 
 catalog="${GROUNDWORK_BROWSER_EXTENSIONS_CATALOG:-$HOME/.local/share/groundwork/browser-extensions.tsv}"
 password_manager="{{ .password_manager }}"
+{{/* Not every chezmoi data source that renders this template goes through
+home/.chezmoi.toml.tmpl's regeneration -- docker/chezmoi.headless.toml is a
+separate, hand-maintained [data] block for the container image build, and a
+bare `.browser_navigation` map access fails template execution outright when
+the key is genuinely absent there. Same guarded-default form release_posture
+already uses in executable_groundwork-profile.tmpl. */}}
+browser_navigation="{{ if hasKey . "browser_navigation" }}{{ .browser_navigation }}{{ else }}standard{{ end }}"
+release_posture="{{ if hasKey . "release_posture" }}{{ .release_posture }}{{ else }}current{{ end }}"
 browser="chrome"
 tier="recommended"
 open_links="false"
@@ -14,7 +22,9 @@ Usage: browser-extensions [options]
 List or open the Groundwork-recommended browser extensions.
 
 Options:
-  --browser chrome               Browser links to show/open (default: chrome)
+  --browser chrome               Browser links to show/open (default: chrome).
+                                  Under preview release posture, chrome also
+                                  covers Chrome Beta automatically.
   --tier recommended|core|dev|privacy|optional|all
   --open                         Open matching store links
   -h, --help                     Show this help
@@ -95,6 +105,9 @@ should_show() {
     1password|bitwarden)
       [[ "$password_manager" == "$row_scope" || "$tier" == "all" ]] || return 1
       ;;
+    vimium)
+      [[ "$browser_navigation" == "vimium" || "$tier" == "all" ]] || return 1
+      ;;
     *)
       return 1
       ;;
@@ -116,6 +129,24 @@ should_show() {
 app_for_browser() {
   case "$1" in
     chrome) printf '%s\n' "Google Chrome" ;;
+    chrome-beta) printf '%s\n' "Google Chrome Beta" ;;
+  esac
+}
+
+# The channel(s) a Chrome extension link applies to. One catalog row covers
+# every channel: the Chrome Web Store URL is identical regardless of which
+# Chrome channel installs it, so preview adds Chrome Beta here rather than a
+# second catalog row or a second scope to maintain. A future Chromium channel
+# only needs one more case here, not a change anywhere the catalog is read.
+targets_for_browser() {
+  case "$1" in
+    chrome)
+      if [[ "$release_posture" == "preview" ]]; then
+        printf '%s\n%s\n' chrome chrome-beta
+      else
+        printf '%s\n' chrome
+      fi
+      ;;
   esac
 }
 
@@ -128,7 +159,10 @@ while IFS=$'\t' read -r row_tier row_scope name chromium_url notes; do
   [[ -z "${row_tier:-}" || "$row_tier" == \#* ]] && continue
   should_show "$row_tier" "$row_scope" || continue
 
-  targets=(chrome)
+  targets=()
+  while IFS= read -r target_line; do
+    [[ -n "$target_line" ]] && targets+=("$target_line")
+  done < <(targets_for_browser "$browser")
 
   for target in "${targets[@]}"; do
     url="$(url_for_browser "$target" "$chromium_url")"
