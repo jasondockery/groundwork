@@ -12144,7 +12144,7 @@ EOF
     || fail "groundwork-doctor --path crashed on a clean fixture"
   grep -qF 'No Groundwork-managed CLI is shadowed on PATH' "$out_dir/doctor-path-clean" \
     || fail "doctor did not report a clean PATH"
-  assert_not_contains 'is shadowed' "$out_dir/doctor-path-clean" \
+  assert_not_contains 'is shadowed:' "$out_dir/doctor-path-clean" \
     "doctor reported shadowing on a clean machine"
   assert_not_contains 'managed-file drift' "$out_dir/doctor-path-clean" \
     "doctor reported managed-file drift when the live file matched chezmoi"
