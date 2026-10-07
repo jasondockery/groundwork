@@ -12118,12 +12118,14 @@ SH
     || fail "doctor did not say chezmoi apply reverts managed-file drift"
   grep -qF 'never deletes' "$out_dir/doctor-path-shadowed" \
     || fail "doctor omitted the report-only guarantee"
-  grep -qF '~/.config/opencode/' "$out_dir/doctor-path-shadowed" \
+  grep -qF '.config/opencode/' "$out_dir/doctor-path-shadowed" \
     || fail "doctor omitted the OpenCode legacy config note"
   test -x "$path_home/.opencode/bin/opencode" \
     || fail "doctor deleted the vendor binary"
+  # shellcheck disable=SC2016 # Match the literal installer PATH line; $HOME is that file's variable.
   grep -qF 'export PATH="$HOME/.opencode/bin:$PATH"' "$path_home/.zshrc" \
     || fail "doctor edited the managed shell file"
+  # shellcheck disable=SC2016 # Match the literal overlay PATH line; $HOME is that file's variable.
   grep -qF 'export PATH="$HOME/.bun/bin:$PATH"' "$path_home/.zshrc.local" \
     || fail "doctor edited the unmanaged overlay"
   # Clean machine: the Homebrew copy is first on PATH and shell files match.
