@@ -29,6 +29,8 @@ chezmoi apply or any update or maintenance operation. On macOS, a successful
 transaction may offer a temporary, restored start of the selected Docker
 backend for scratch maintenance, then ends with the same consent-gated
 Karabiner health postflight. Without a terminal, neither service is restarted.
+A vendor PATH entry that still wins after the refresh is named with a pointer
+to groundwork-doctor --path; the extra binary is never deleted.
 The final receipt classifies no-change, maintenance, review, warning, failure,
 and pending-repair outcomes; raw Homebrew streams remain in Groundwork state.
 Homebrew's normal quit-and-replace behavior applies by default, the same as
@@ -2451,6 +2453,33 @@ if [[ "$brew_warning_count" -gt 0 ]]; then
 fi
 printf '\nResult\n  SUCCESS%s\n' "$result_suffix"
 echo "  The shell reminder will stay quiet until the next stale window."
+
+# Report-only: a vendor PATH entry that still wins after this refresh is the
+# same class of silent drift as a leftover pnpm. Missing probe stays quiet so
+# a fixture or partial apply cannot turn a successful update into a false
+# health failure.
+path_shadow_lib="${GROUNDWORK_PATH_SHADOW_LIB:-$HOME/.local/share/groundwork/lib/path-shadow.sh}"
+if [[ -r "$path_shadow_lib" ]]; then
+  # shellcheck source=/dev/null
+  . "$path_shadow_lib"
+  path_shadow_rows="$(gw_path_shadow_scan || true)"
+  if [[ -n "$path_shadow_rows" ]]; then
+    path_shadow_names="$(
+      printf '%s\n' "$path_shadow_rows" \
+        | awk -F '\t' '$1 == "shadowed" || $1 == "missing" { print $2 }' \
+        | sort -u \
+        | paste -sd ', ' -
+    )"
+    printf '\nPATH shadowing\n'
+    if [[ -n "$path_shadow_names" ]]; then
+      printf '  Shadowed or missing managed CLI(s): %s\n' "$path_shadow_names"
+    else
+      echo "  A vendor PATH line is present in a shell file."
+    fi
+    echo "  This refresh did not delete any extra binary or edit a shell file."
+    echo "  Details and a suggested fix: groundwork-doctor --path"
+  fi
+fi
 if [[ "$brew_lane_status" != "skipped" ]]; then
   echo "  Homebrew details: ~/.local/state/groundwork/logs/homebrew-upgrade-latest.log"
 fi
