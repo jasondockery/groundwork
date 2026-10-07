@@ -15590,6 +15590,10 @@ EOF
   grep -q 'actions/upload-pages-artifact@' .github/workflows/pages.yml
   grep -q 'actions/deploy-pages@' .github/workflows/pages.yml
   assert_no_matches "GitHub Actions must be pinned to full commit SHAs, with the version tag left as a comment" rg -n 'uses:[[:space:]]+[^#]+@v[0-9]' .github/workflows
+  # A moving major comment (# v5) fails zizmor's online audit as soon as a
+  # newer v5.x exists; the comment must name the exact tag for the pin.
+  assert_no_matches "GitHub Actions version comments must be exact tags (vX.Y.Z), not a moving major" \
+    rg -n 'uses:[[:space:]].*@[0-9a-f]{40}[[:space:]]+#[[:space:]]*v[0-9]+[[:space:]]*$' .github/workflows
   grep -q 'path: docs' .github/workflows/pages.yml
   assert_no_matches "Pages workflow must deploy on every main push; do not add paths filters" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/pages.yml
   assert_no_matches "required CI must always produce the stable ci-gate context; do not path-filter the workflow" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/ci.yml
