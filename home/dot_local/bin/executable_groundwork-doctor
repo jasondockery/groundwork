@@ -12,6 +12,7 @@ Options:
   --shell       run only the shell runtime section
   --runtimes    run only the runtime release-age section
   --node-toolchain  run only the Node/pnpm ownership section
+  --path        run only the PATH-shadowing section
   --browser     run only the managed-browser section
   --karabiner   run only the Karabiner compatibility and process section
   --always-on-apps  run only the always-on-app relaunch section
@@ -34,6 +35,11 @@ Sections (all run by default):
                 whether mise owns Node, Corepack owns repository-pinned pnpm,
                 and a pnpm global-tool directory is bypassing Groundwork's
                 project-local or mise-managed CLI lanes.
+  PATH          whether a vendor or extra directory wins over a Homebrew- or
+                mise-managed CLI, even when the two versions match today.
+                Managed-file drift (installer edits to ~/.zshrc / ~/.zprofile)
+                is listed separately from PATH lines in unmanaged overlays.
+                It reports; it never deletes a binary or edits a shell file.
   Browser       selected Chrome channel versus the installed official Homebrew
                 casks. Preview requires Chrome Beta and keeps stable Chrome as
                 a compatibility fallback; device policy remains authoritative.
@@ -166,6 +172,85 @@ karabiner_section() {
   note "Official support source: https://karabiner-elements.pqrs.org/"
   note "Long-run sleep/wake memory growth has been reported upstream; a matching snapshot is evidence to investigate, not proof of that defect: https://github.com/pqrs-org/Karabiner-Elements/issues/4432"
   note "Logs: /var/log/karabiner/core_service.log, /var/log/karabiner/virtual_hid_device_service.log, and ~/.local/share/karabiner/log/"
+}
+
+path_section() {
+  heading "PATH shadowing"
+
+  local lib="${GROUNDWORK_PATH_SHADOW_LIB:-$HOME/.local/share/groundwork/lib/path-shadow.sh}"
+  if [[ ! -r "$lib" ]]; then
+    warn "Groundwork's PATH-shadowing probe is missing: $lib"
+    note "Restore it (this runs no install hooks): chezmoi apply --exclude=scripts ~/.local/share/groundwork"
+    return 0
+  fi
+  # shellcheck source=/dev/null
+  . "$lib"
+
+  local rows kind name winning managed win_ver managed_ver owner file line src_kind
+  local shadowed=0 drift=0 unmanaged=0 missing=0
+  rows="$(gw_path_shadow_scan || true)"
+
+  if [[ -z "$rows" ]]; then
+    ok "No Groundwork-managed CLI is shadowed on PATH"
+    return 0
+  fi
+
+  while IFS=$'\t' read -r kind name winning managed win_ver managed_ver owner file line src_kind; do
+    [[ -n "$kind" ]] || continue
+    case "$kind" in
+      shadowed)
+        shadowed=1
+        warn "$name is shadowed: $winning wins over Groundwork's $managed ($owner)"
+        note "  winning version:  ${win_ver:-unavailable}"
+        note "  managed version:  ${managed_ver:-unavailable}"
+        if [[ -n "$file" && -n "$line" ]]; then
+          if [[ "$src_kind" == "managed-drift" ]]; then
+            note "  responsible line: $file:$line (managed-file drift; chezmoi apply will revert it)"
+          else
+            note "  responsible line: $file:$line ($src_kind)"
+          fi
+        else
+          note "  responsible line: not found in checked shell files; this session's PATH may come from a parent process"
+        fi
+        note "  Suggested fix (report only; Groundwork never deletes the extra binary or its config):"
+        if [[ -n "$file" && -n "$line" ]]; then
+          note "    1. Remove the PATH line at $file:$line"
+        else
+          note "    1. Remove the vendor directory from PATH in the file that added it"
+        fi
+        note "    2. Open a new shell (or run: hash -r)"
+        note "    3. Verify: command -v $name   and   $name --version"
+        note "    4. Optionally remove the redundant binary at $winning after you confirm you do not need it"
+        local legacy
+        legacy="$(gw_path_shadow_legacy_config_note "$name" || true)"
+        if [[ -n "$legacy" ]]; then
+          note "  $legacy"
+        fi
+        ;;
+      managed-drift)
+        drift=1
+        warn "managed-file drift: $name:$winning adds a vendor directory to PATH"
+        note "  $managed"
+        note "  chezmoi apply will revert this line. If a vendor installer re-adds it, stop re-running that installer or move the PATH line into ~/.zshrc.local only after you accept the shadow."
+        ;;
+      unmanaged-path)
+        unmanaged=1
+        warn "unmanaged PATH line: $name:$winning adds a vendor directory to PATH"
+        note "  $managed"
+        note "  Groundwork does not edit unmanaged overlays. Remove the line yourself if you want the Homebrew or mise copy to win."
+        ;;
+      missing)
+        missing=1
+        warn "$name is installed at $winning ($managed) but is not on PATH"
+        note "  Open a new shell, or check that Homebrew's prefix and ~/.local/bin are still on PATH."
+        ;;
+    esac
+  done <<<"$rows"
+
+  if ((shadowed + drift + unmanaged + missing > 0)); then
+    note "Preferred install routes: Homebrew formulae/casks in the Brewfile, and mise for runtimes. Vendor curl|bash installers conflict because they prepend their own bin directory after Groundwork's brew shellenv / ~/.local/bin setup."
+    note "This section never deletes binaries, config, or session data."
+  fi
 }
 
 always_on_apps_section() {
@@ -1281,6 +1366,7 @@ while (($#)); do
     --shell) section="shell" ;;
     --runtimes) section="runtimes" ;;
     --node-toolchain) section="node-toolchain" ;;
+    --path) section="path" ;;
     --karabiner) section="karabiner" ;;
     --always-on-apps) section="always-on-apps" ;;
     --storage) section="storage" ;;
@@ -1307,6 +1393,7 @@ case "$section" in
     shell_section
     runtimes_section
     node_toolchain_section
+    path_section
     browser_section
     karabiner_section
     always_on_apps_section
@@ -1316,6 +1403,7 @@ case "$section" in
   shell) shell_section ;;
   runtimes) runtimes_section ;;
   node-toolchain) node_toolchain_section ;;
+  path) path_section ;;
   browser) browser_section ;;
   karabiner) karabiner_section ;;
   always-on-apps) always_on_apps_section ;;

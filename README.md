@@ -212,7 +212,7 @@ groundwork-help                     # show Groundwork commands, aliases, keys, a
 groundwork-help update              # filter the command catalog
 groundwork-docs                     # open the docs from the active Groundwork source checkout
 largest ~                           # find large files/folders, then show cleanup guidance
-groundwork-doctor                   # read-only health report, including Karabiner process memory and legacy Docker proof tags
+groundwork-doctor                   # read-only health report, including PATH shadowing, Karabiner process memory, and legacy Docker proof tags
 groundwork-karabiner-restart        # supported restart request; succeeds only after the root Core Service PID changes
 groundwork-docker-tidy              # dry-run tidy of ephemeral-labeled Docker scratch images, by enumeration (--yes to act)
 groundwork-docker-cache-tidy        # DAEMON-WIDE Docker cleanup preview (all projects; owner-run only, --yes to act)

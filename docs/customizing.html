@@ -143,7 +143,7 @@
       <h2><span class="hash" aria-hidden="true">#</span>Tier 1: local override files</h2>
       <p>Use this for the normal case: a few aliases, a different Git preference, or one tmux binding. These files are not managed by Groundwork, and they load after the shared defaults, so your local choices win.</p>
       <table class="keytable">
-        <tr><td><code>~/.zshrc.local</code></td><td>Shell aliases, functions, exports, PATH additions, and prompt-adjacent tweaks.</td></tr>
+        <tr><td><code>~/.zshrc.local</code></td><td>Shell aliases, functions, exports, PATH additions, and prompt-adjacent tweaks. Do not paste a vendor installer&apos;s <code>export PATH=&quot;$HOME/.opencode/bin:$PATH&quot;</code> (or Bun, Claude local, nvm, npm-global) here if Groundwork already manages that CLI; the extra directory wins on <code>PATH</code> and <code>update-all</code> will upgrade a copy you are not running. Check with <code>groundwork-doctor --path</code>.</td></tr>
         <tr><td><code>~/.gitconfig.local</code></td><td>Personal Git preferences, conditional includes, aliases, and per-directory identities.</td></tr>
         <tr><td><code>~/.config/tmux/tmux.local.conf</code></td><td>Personal tmux options, bindings, status tweaks, and plugin settings.</td></tr>
       </table>
