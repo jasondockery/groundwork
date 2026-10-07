@@ -12028,6 +12028,135 @@ SH
   grep -qF -- '--always-on-apps' < <(/bin/bash home/dot_local/bin/executable_groundwork-doctor --help) \
     || fail "doctor --help omitted --always-on-apps"
 
+  check "doctor: PATH shadowing reports vendor wins without deleting"
+  path_doctor="$out_dir/path-shadow-doctor"
+  path_home="$path_doctor/home"
+  path_prefix="$path_doctor/brew"
+  path_stubs="$path_doctor/stubs"
+  path_lib="$PWD/home/dot_local/share/groundwork/lib/path-shadow.sh"
+  mkdir -p "$path_home/.config/homebrew" \
+    "$path_home/.opencode/bin" \
+    "$path_home/.bun/bin" \
+    "$path_home/.local/share/groundwork/lib" \
+    "$path_prefix/bin" \
+    "$path_prefix/Cellar/opencode/2.0.23/bin" \
+    "$path_stubs"
+  cp "$path_lib" "$path_home/.local/share/groundwork/lib/path-shadow.sh"
+  printf '%s\n' 'brew "opencode"' >"$path_home/.config/homebrew/Brewfile"
+  cat >"$path_prefix/Cellar/opencode/2.0.23/bin/opencode" <<'SH'
+#!/bin/sh
+echo "opencode 2.0.23 (homebrew)"
+SH
+  chmod +x "$path_prefix/Cellar/opencode/2.0.23/bin/opencode"
+  ln -s "$path_prefix/Cellar/opencode/2.0.23/bin/opencode" "$path_prefix/bin/opencode"
+  cat >"$path_home/.opencode/bin/opencode" <<'SH'
+#!/bin/sh
+echo "opencode 2.0.23 (vendor)"
+SH
+  chmod +x "$path_home/.opencode/bin/opencode"
+  cat >"$path_home/.zshrc" <<EOF
+export PATH="\$HOME/.local/bin:\$PATH"
+# OpenCode V2 official installer (preserves Homebrew rollback)
+export PATH="\$HOME/.opencode/bin:\$PATH"
+EOF
+  cat >"$path_home/.zshrc.local" <<'EOF'
+export PATH="$HOME/.bun/bin:$PATH"
+EOF
+  cat >"$path_stubs/chezmoi" <<'SH'
+#!/bin/sh
+if [ "$1" = "cat" ] && [ "$2" = "--" ]; then
+  dest="$3"
+  if [ "$dest" = "$HOME/.zshrc" ]; then
+    printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"'
+    exit 0
+  fi
+  if [ "$dest" = "$HOME/.zprofile" ]; then
+    printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"'
+    exit 0
+  fi
+  exit 0
+fi
+exit 2
+SH
+  chmod +x "$path_stubs/chezmoi"
+  grep -qF -- '--path' < <(/bin/bash home/dot_local/bin/executable_groundwork-doctor --help) \
+    || fail "doctor --help omitted --path"
+  path_doctor_env=(
+    HOME="$path_home"
+    PATH="$path_home/.opencode/bin:$path_prefix/bin:$path_stubs:/usr/bin:/bin"
+    GROUNDWORK_BREW_PREFIX="$path_prefix"
+    GROUNDWORK_BREWFILE="$path_home/.config/homebrew/Brewfile"
+    GROUNDWORK_CHEZMOI="$path_stubs/chezmoi"
+    GROUNDWORK_PATH_SHADOW_LIB="$path_lib"
+  )
+  env "${path_doctor_env[@]}" /bin/bash home/dot_local/bin/executable_groundwork-doctor --path \
+    >"$out_dir/doctor-path-shadowed" 2>&1 \
+    || fail "groundwork-doctor --path crashed on a shadowed fixture"
+  grep -qF 'opencode is shadowed' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not name the shadowed CLI"
+  grep -qF "$path_home/.opencode/bin/opencode wins over" "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not name the winning vendor path"
+  grep -qF "$path_prefix/bin/opencode" "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not name the managed Homebrew path"
+  grep -qF 'winning version:' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor omitted the winning version"
+  grep -qF 'managed version:' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor omitted the managed version"
+  grep -qF 'opencode 2.0.23 (vendor)' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not print the vendor version while both copies matched 2.0.23"
+  grep -qF 'opencode 2.0.23 (homebrew)' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not print the managed version while both copies matched 2.0.23"
+  grep -qF "$path_home/.zshrc:3" "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not name the managed-file PATH line"
+  grep -qF 'managed-file drift' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not label installer edits to ~/.zshrc as managed-file drift"
+  grep -qF 'unmanaged PATH line' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not label ~/.zshrc.local separately from managed-file drift"
+  grep -qF "$path_home/.zshrc.local:1" "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not name the unmanaged PATH line"
+  grep -qF 'chezmoi apply will revert' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor did not say chezmoi apply reverts managed-file drift"
+  grep -qF 'never deletes' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor omitted the report-only guarantee"
+  grep -qF '.config/opencode/' "$out_dir/doctor-path-shadowed" \
+    || fail "doctor omitted the OpenCode legacy config note"
+  test -x "$path_home/.opencode/bin/opencode" \
+    || fail "doctor deleted the vendor binary"
+  # shellcheck disable=SC2016 # Match the literal installer PATH line; $HOME is that file's variable.
+  grep -qF 'export PATH="$HOME/.opencode/bin:$PATH"' "$path_home/.zshrc" \
+    || fail "doctor edited the managed shell file"
+  # shellcheck disable=SC2016 # Match the literal overlay PATH line; $HOME is that file's variable.
+  grep -qF 'export PATH="$HOME/.bun/bin:$PATH"' "$path_home/.zshrc.local" \
+    || fail "doctor edited the unmanaged overlay"
+  # Clean machine: the Homebrew copy is first on PATH and shell files match.
+  rm -f "$path_home/.zshrc.local"
+  cat >"$path_home/.zshrc" <<'EOF'
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+  env HOME="$path_home" \
+    PATH="$path_prefix/bin:$path_stubs:/usr/bin:/bin" \
+    GROUNDWORK_BREW_PREFIX="$path_prefix" \
+    GROUNDWORK_BREWFILE="$path_home/.config/homebrew/Brewfile" \
+    GROUNDWORK_CHEZMOI="$path_stubs/chezmoi" \
+    GROUNDWORK_PATH_SHADOW_LIB="$path_lib" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --path \
+    >"$out_dir/doctor-path-clean" 2>&1 \
+    || fail "groundwork-doctor --path crashed on a clean fixture"
+  grep -qF 'No Groundwork-managed CLI is shadowed on PATH' "$out_dir/doctor-path-clean" \
+    || fail "doctor did not report a clean PATH"
+  assert_not_contains 'is shadowed:' "$out_dir/doctor-path-clean" \
+    "doctor reported shadowing on a clean machine"
+  assert_not_contains 'managed-file drift' "$out_dir/doctor-path-clean" \
+    "doctor reported managed-file drift when the live file matched chezmoi"
+  # Missing probe is reported, not a crash that hides other doctor sections.
+  env HOME="$path_doctor/missing-lib-home" PATH="/usr/bin:/bin" \
+    GROUNDWORK_PATH_SHADOW_LIB="$path_doctor/no-such-lib.sh" \
+    /bin/bash home/dot_local/bin/executable_groundwork-doctor --path \
+    >"$out_dir/doctor-path-missing-lib" 2>&1 \
+    || fail "groundwork-doctor --path crashed when its probe was missing"
+  grep -qF 'PATH-shadowing probe is missing' "$out_dir/doctor-path-missing-lib" \
+    || fail "doctor did not report a missing PATH-shadowing probe"
+
   check "largest helper"
   test -x home/dot_local/bin/executable_largest
   largest_fixture="$out_dir/largest-fixture"
@@ -15068,6 +15197,11 @@ open(sys.argv[2], "w").write(json.dumps(config, indent=4, sort_keys=True) + "\n"
   test -f home/dot_local/bin/executable_groundwork-apps-start
   test -x home/dot_local/bin/executable_groundwork-apps-start
   test -f home/dot_local/share/groundwork/lib/always-on-apps.sh
+  test -f home/dot_local/share/groundwork/lib/path-shadow.sh
+  grep -qF 'lib/path-shadow.sh' home/dot_local/bin/executable_groundwork-doctor \
+    || fail "groundwork-doctor must source the shared PATH-shadowing probe"
+  grep -qF 'lib/path-shadow.sh' home/dot_local/bin/executable_groundwork-update-run.tmpl \
+    || fail "update-all must source the shared PATH-shadowing probe"
   # Homebrew quits a running always-on app while replacing its cask and never
   # relaunches it. Both the bundle-install hook and update-run call the real
   # launcher directly -- deliberately, so keybindings and Gatekeeper approval
@@ -15456,6 +15590,10 @@ EOF
   grep -q 'actions/upload-pages-artifact@' .github/workflows/pages.yml
   grep -q 'actions/deploy-pages@' .github/workflows/pages.yml
   assert_no_matches "GitHub Actions must be pinned to full commit SHAs, with the version tag left as a comment" rg -n 'uses:[[:space:]]+[^#]+@v[0-9]' .github/workflows
+  # A moving major comment (# v5) fails zizmor's online audit as soon as a
+  # newer v5.x exists; the comment must name the exact tag for the pin.
+  assert_no_matches "GitHub Actions version comments must be exact tags (vX.Y.Z), not a moving major" \
+    rg -n 'uses:[[:space:]].*@[0-9a-f]{40}[[:space:]]+#[[:space:]]*v[0-9]+[[:space:]]*$' .github/workflows
   grep -q 'path: docs' .github/workflows/pages.yml
   assert_no_matches "Pages workflow must deploy on every main push; do not add paths filters" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/pages.yml
   assert_no_matches "required CI must always produce the stable ci-gate context; do not path-filter the workflow" rg -n '^[[:space:]]+paths(-ignore)?:' .github/workflows/ci.yml
@@ -15747,7 +15885,36 @@ PY
     exit 1
   fi
   grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
-  assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
+  # The vendor installer URL is never an accepted install route.
+  assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" \
+    rg -n 'opencode\.ai/install' home README.md docs docker Dockerfile
+  # Naming ~/.opencode/bin is the PATH-shadow conflict groundwork-doctor --path
+  # detects. That path may appear only in the diagnostic probe and in docs that
+  # mark it as a conflict. An install-destination mention without that framing
+  # still fails the same policy.
+  opencode_vendor_probe='home/dot_local/share/groundwork/lib/path-shadow.sh'
+  opencode_vendor_conflict='shadow|wins|Do not|do not|don&apos;t|don'\''t|not the |never |conflict|prepended|silently'
+  if printf '%s\n' 'Install the CLI to ~/.opencode/bin' | grep -Eq -- "$opencode_vendor_conflict"; then
+    fail "OpenCode vendor-bin conflict framing matched an install-destination sentence"
+  fi
+  opencode_vendor_hits="$(rg -n '\.opencode/bin' home README.md docs docker Dockerfile)" || {
+    status=$?
+    if [[ "$status" -gt 1 ]]; then
+      fail "failed while checking OpenCode vendor-bin mentions"
+    fi
+  }
+  while IFS= read -r hit; do
+    [[ -n "$hit" ]] || continue
+    file="${hit%%:*}"
+    [[ "$file" == "$opencode_vendor_probe" ]] && continue
+    content="${hit#*:}"
+    content="${content#*:}"
+    if echo "$content" | grep -Eq -- "$opencode_vendor_conflict"; then
+      continue
+    fi
+    echo "$hit" >&2
+    fail "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer"
+  done <<<"$opencode_vendor_hits"
 
   check "Compass projection and Groundwork skill discovery"
   node scripts/check-compass-adoption.mjs

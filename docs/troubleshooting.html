@@ -291,6 +291,15 @@
       <h3>"command not found" right after install</h3>
       <p>Your current shell started before the tool existed. Reload it — <code>exec zsh</code> — or open a new terminal tab. Still missing? Confirm Homebrew actually installed it with <code>brew list &lt;name&gt;</code>, and that Homebrew is on your path with <code>which brew</code> (should be <code>/opt/homebrew/bin/brew</code>).</p>
 
+      <h3>The wrong copy of a tool is running</h3>
+      <p>A vendor installer (OpenCode, Claude's local CLI, Bun, rustup, Deno, <code>npm i -g</code>, nvm) often prepends its own directory to <code>PATH</code>. That copy wins over the Homebrew or mise binary Groundwork manages, even when both versions match today. They drift on the next update of either side, and the error looks like a Groundwork bug.</p>
+      <p>Diagnose without changing anything:</p>
+      <div class="terminal small"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">path-shadow</span></div><pre><code><span class="prompt">$ </span>groundwork-doctor --path
+<span class="prompt">$ </span>command -v opencode
+<span class="prompt">$ </span>opencode --version</code></pre></div>
+      <p>The doctor names the winning path, the managed path, both versions when it can read them, and the shell file and line that added the vendor directory. Installer edits to managed <code>~/.zshrc</code> or <code>~/.zprofile</code> are drift: <code>chezmoi apply</code> reverts them, and re-running the vendor installer puts them back. Lines in <code>~/.zshrc.local</code> or other unmanaged files stay until you remove them. After you remove the PATH line, open a new shell (or run <code>hash -r</code>) and check <code>command -v</code> again. Deleting the extra binary is optional and always your decision; Groundwork never deletes vendor binaries or their config.</p>
+      <p>Preferred install routes: the Brewfile formula or cask for that tool, mise for Node and Python, and mise's <code>npm:</code> backend for a personal cross-project Node CLI. See <a href="platforms.html">Platforms</a> for the PATH-shadowing check.</p>
+
       <h3>Restore the pre-Groundwork snapshot</h3>
       <p>Use this when the setup applied successfully but the person decides they do not like the opinionated defaults. The helper runs the latest first-run backup&apos;s restore script and asks for confirmation.</p>
       <div class="terminal">
