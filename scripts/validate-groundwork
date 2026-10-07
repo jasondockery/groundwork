@@ -15881,7 +15881,36 @@ PY
     exit 1
   fi
   grep -qF 'brew "opencode"' home/dot_config/homebrew/Brewfile.tmpl
-  assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" rg -n 'opencode\.ai/install|\.opencode/bin' home README.md docs docker Dockerfile
+  # The vendor installer URL is never an accepted install route.
+  assert_no_matches "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer" \
+    rg -n 'opencode\.ai/install' home README.md docs docker Dockerfile
+  # Naming ~/.opencode/bin is the PATH-shadow conflict groundwork-doctor --path
+  # detects. That path may appear only in the diagnostic probe and in docs that
+  # mark it as a conflict. An install-destination mention without that framing
+  # still fails the same policy.
+  opencode_vendor_probe='home/dot_local/share/groundwork/lib/path-shadow.sh'
+  opencode_vendor_conflict='shadow|wins|Do not|do not|don&apos;t|don'\''t|not the |never |conflict|prepended|silently'
+  if printf '%s\n' 'Install the CLI to ~/.opencode/bin' | grep -Eq -- "$opencode_vendor_conflict"; then
+    fail "OpenCode vendor-bin conflict framing matched an install-destination sentence"
+  fi
+  opencode_vendor_hits="$(rg -n '\.opencode/bin' home README.md docs docker Dockerfile)" || {
+    status=$?
+    if [[ "$status" -gt 1 ]]; then
+      fail "failed while checking OpenCode vendor-bin mentions"
+    fi
+  }
+  while IFS= read -r hit; do
+    [[ -n "$hit" ]] || continue
+    file="${hit%%:*}"
+    [[ "$file" == "$opencode_vendor_probe" ]] && continue
+    content="${hit#*:}"
+    content="${content#*:}"
+    if echo "$content" | grep -Eq -- "$opencode_vendor_conflict"; then
+      continue
+    fi
+    echo "$hit" >&2
+    fail "OpenCode CLI must be managed by Homebrew, not a curl-to-shell installer"
+  done <<<"$opencode_vendor_hits"
 
   check "Compass projection and Groundwork skill discovery"
   node scripts/check-compass-adoption.mjs
