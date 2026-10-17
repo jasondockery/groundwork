@@ -803,21 +803,23 @@ Groundwork had done nothing wrong — it installed alongside and never touched t
 user's config — but nothing told the user two binaries were competing, so the
 error looked like a Groundwork bug.
 
-`groundwork-doctor` cannot currently see this: every probe uses `command -v`,
-which returns only the first match.
+`groundwork-doctor --path` now walks PATH for each Brewfile and mise CLI, so
+the first hit is compared to the managed path even when versions match.
+Managed-file drift and unmanaged vendor PATH lines are reported separately.
+The check never deletes the extra binary or its config.
 
-- [ ] Report duplicate installs of Groundwork-managed tools: run `command -v -a`
-      (or `which -a`) per managed command, and when more than one exists, name
-      every path, say which one wins, and say which one Groundwork installed.
-- [ ] Never auto-remove the other install. A pre-Groundwork binary may be
+- [x] Report duplicate installs of Groundwork-managed tools: walk PATH per
+      managed command, name the winning path and the Groundwork-managed path,
+      and print both versions when `--version` answers in time.
+- [x] Never auto-remove the other install. A pre-Groundwork binary may be
       deliberate, and deleting it can orphan a configuration the user still
       wants. Report, explain, and let the owner decide — the same rule as
       unmanaged Homebrew packages.
-- [ ] Where a shadowed tool has a known legacy config path, name it so the user
+- [x] Where a shadowed tool has a known legacy config path, name it so the user
       can see their old settings were preserved rather than lost. The old
       opencode used `~/.opencode.json`; the current one uses
       `~/.config/opencode/`, so the two never collide.
-- [ ] Cover the reverse case too: a Groundwork-managed command that is missing
+- [x] Cover the reverse case too: a Groundwork-managed command that is missing
       from PATH entirely because another installer removed or shadowed it.
 - [ ] **pnpm/Node ownership — the first instance of this class. Repository work
       landed 2026-07-27; NOT yet migrated on a live machine, so this stays open

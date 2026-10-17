@@ -31,7 +31,9 @@ without a terminal never starts it. On macOS, the final
 health check offers a verified Karabiner restart when the Core Service has an
 unusually large footprint or its version changed during the update. The prompt
 defaults to no; without a terminal it prints the manual command and never
-restarts. It never removes project caches, whole pnpm store generations,
+restarts. A vendor PATH entry that still wins after the refresh is named
+with a pointer to groundwork-doctor --path; the extra binary is never
+deleted. It never removes project caches, whole pnpm store generations,
 unlabeled or legacy tagged Docker images, daemon-wide Docker cache, volumes,
 Xcode data, or application/user data.
 
