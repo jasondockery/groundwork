@@ -13,7 +13,13 @@ It installs the tools a developer may want, but the tools are not the point. Edi
 
 macOS is the primary desktop target. Linux, WSL, and headless containers share the same terminal layer so the workflow remains usable in local shells, CI, servers, and disposable agent environments. Native Windows is not a separate target; use WSL2 for the Unix development environment.
 
-This repo is the complete, version-controlled source for the setup, docs, validation, and project scaffolds.
+Maintained work now lives in three private repositories on this account:
+
+- [groundwork-core](https://github.com/jasondockery/groundwork-core) holds the shared curriculum. It does not install a machine.
+- [groundwork-mac](https://github.com/jasondockery/groundwork-mac) is the Mac, Linux, WSL, and headless setup. It replaces this repository for new installs.
+- [groundwork-omarchy-mac-arm64](https://github.com/jasondockery/groundwork-omarchy-mac-arm64) holds personal Omarchy settings for Apple Silicon. It keeps Omarchy's own keybindings.
+
+This public repository is the last published snapshot. Anonymous readers can still clone and run it. It does not receive the family updates above.
 
 ## Start Here
 
