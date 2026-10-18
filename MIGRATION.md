@@ -13,7 +13,9 @@ The original `groundwork` is deprecated for machine setup. Its learning curricul
 
 [groundwork-core](https://github.com/jasondockery/groundwork-core) supplies shared guidance and configuration; do not install it directly. Linux and WSL2 use their own entry points, which prepare a separate `groundwork-mac` checkout as the shared chezmoi engine.
 
-The replacement repositories are currently private. Use an authorized GitHub account; a 404 does not mean you should substitute the obsolete bootstrap. Public availability will be a separate step.
+The replacement repositories are public. Follow the destination's HTTPS clone instructions; a GitHub account or SSH key is not required to read them. Private forks still require their owner's access setup.
+
+If you cloned a private `groundwork-*` repository before its public launch on October 18, 2026, clone the public repository into a new directory. The public repositories start with clean histories, so do not force-pull or merge the previous history into them. Keep your old checkout, local edits, and saved answers until acceptance passes, then use the source-selection steps below. For Omarchy, inspect any differences and follow its repository's installer instructions instead of the chezmoi steps.
 
 ## Migrate an existing macOS, Linux, or WSL2 installation
 

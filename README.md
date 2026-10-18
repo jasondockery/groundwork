@@ -27,7 +27,7 @@ Maintained machine setup now lives in the following repositories:
 
 [groundwork-core](https://github.com/jasondockery/groundwork-core) owns shared operational guidance and reusable configuration. It is not a machine installer. The learning curriculum remains in this original repository for now.
 
-The replacement repositories are currently private while publication is prepared; a GitHub 404 can mean your account does not have access. This public repository remains available as a historical installation snapshot and learning resource. It does not receive the family's platform updates. Do not run its old bootstrap to migrate an existing machine.
+The replacement repositories are public and can be cloned over HTTPS without a GitHub account. This original repository remains available as a historical installation snapshot and learning resource. It does not receive the family's platform updates. Do not run its old bootstrap to migrate an existing machine.
 
 ## Start Here
 
