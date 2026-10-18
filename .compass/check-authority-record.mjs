@@ -121,6 +121,14 @@ function validateTransitionIdentity(identity, label, problems) {
   problems.push(`${label} kind is invalid`)
 }
 
+function validateHistoricalRedaction(record, label, problems, evidence = false) {
+  const keys = ['kind', 'reason', 'summary']
+  if (evidence) keys.push('id', 'type')
+  if (!exactKeys(record, keys, label, problems)) return
+  if (record.kind !== 'historical-provenance-redacted' || record.reason !== 'owner-requested-publication-redaction' || !nonEmpty(record.summary)) problems.push(`${label} historical redaction is invalid`)
+  if (evidence && (!NAME.test(record.id) || record.type !== 'historical-review')) problems.push(`${label} historical evidence is invalid`)
+}
+
 export function validateAuthorityPolicy(policy) {
   const problems = []
   const keys = [
@@ -157,7 +165,7 @@ export function validateAuthorityPolicy(policy) {
 export function validateAuthorityRegistry(registry, policy) {
   const problems = [...validateAuthorityPolicy(policy)]
   if (!exactKeys(registry, ['schema', 'schemaVersion', 'authority', 'candidates', 'heldAuthoritySources', 'heldAuthorityIdentities'], 'authority registry', problems)) return problems
-  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 5 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
+  if (registry.schema !== 'compass.shift-to-authority-registry' || registry.schemaVersion !== 6 || !NAME.test(registry.authority ?? '') || !Object.hasOwn(policy.authorities ?? {}, registry.authority)) {
     problems.push('authority registry identity is invalid')
   }
   const authorityRepository = policy.authorities?.[registry.authority]?.repository
@@ -177,12 +185,20 @@ export function validateAuthorityRegistry(registry, policy) {
     ids.add(candidate.id)
     for (const key of ['invariant', 'ownershipReason', 'consumerOwnedRemainder']) if (!nonEmpty(candidate[key])) problems.push(`${label} ${key} is empty`)
     if (!Array.isArray(candidate.affectedScope) || candidate.affectedScope.length < 1 || candidate.affectedScope.some((value) => !nonEmpty(value))) problems.push(`${label} affectedScope is invalid`)
-    if (!exactKeys(candidate.origin, ['repository', 'identity'], `${label} origin`, problems)) continue
-    if (!nonEmpty(candidate.origin.repository)) problems.push(`${label} origin repository is invalid`)
-    validateTransitionIdentity(candidate.origin.identity, `${label} origin identity`, problems)
+    if (candidate.origin?.kind === 'historical-provenance-redacted') {
+      validateHistoricalRedaction(candidate.origin, `${label} origin`, problems)
+    } else {
+      if (!exactKeys(candidate.origin, ['repository', 'identity'], `${label} origin`, problems)) continue
+      if (!nonEmpty(candidate.origin.repository)) problems.push(`${label} origin repository is invalid`)
+      validateTransitionIdentity(candidate.origin.identity, `${label} origin identity`, problems)
+    }
     if (!Array.isArray(candidate.evidence) || candidate.evidence.length < 1) problems.push(`${label} evidence is missing`)
     for (const [index, evidence] of (candidate.evidence ?? []).entries()) {
       const evidenceLabel = `${label} evidence ${index + 1}`
+      if (evidence?.kind === 'historical-provenance-redacted') {
+        validateHistoricalRedaction(evidence, evidenceLabel, problems, true)
+        continue
+      }
       if (!exactKeys(evidence, ['id', 'type', 'repository', 'sourceCommit', 'summary'], evidenceLabel, problems)) continue
       if (!NAME.test(evidence.id) || !NAME.test(evidence.type) || !nonEmpty(evidence.repository) || !COMMIT.test(evidence.sourceCommit) || !nonEmpty(evidence.summary)) problems.push(`${evidenceLabel} is invalid`)
     }
@@ -202,7 +218,8 @@ export function validateAuthorityRegistry(registry, policy) {
       if (!exactKeys(transition, ['sequence', 'state', 'identity'], transitionLabel, problems)) continue
       if (transition.sequence !== index + 1) problems.push(`${transitionLabel} sequence is invalid`)
       oneOf(transition.state, policy.candidateStates ?? [], `${transitionLabel} state`, problems)
-      validateTransitionIdentity(transition.identity, `${transitionLabel} identity`, problems)
+      if (index === 0 && transition.state === 'local' && transition.identity?.kind === 'historical-provenance-redacted') validateHistoricalRedaction(transition.identity, `${transitionLabel} identity`, problems)
+      else validateTransitionIdentity(transition.identity, `${transitionLabel} identity`, problems)
       if (previous && !legal.has(`${previous}:${transition.state}`)) problems.push(`${transitionLabel} is an illegal ${previous} to ${transition.state} transition`)
       previous = transition.state
     }
