@@ -197,7 +197,7 @@
         <tr><td><code>claude</code></td><td><strong>Claude Code</strong> — Anthropic's terminal agent and the primary one here. Reads project instructions, with <code>CLAUDE.md</code> acting as a thin adapter to <code>AGENTS.md</code> in this setup.</td></tr>
         <tr><td><code>codex</code></td><td><a href="codex.html"><strong>Codex</strong></a> &mdash; OpenAI&apos;s coding agent across CLI, app, IDE, and cloud workflows. Use it for repo-aware changes, reviews, and verified diffs.</td></tr>
         <tr><td><code>grok</code></td><td><strong>Grok Build</strong> — SpaceXAI's terminal agent, with a plan-first mode. Free trial, then a SuperGrok / X&nbsp;Premium+ plan or API credits; see <a href="grok.html">Grok &amp; Grok Build</a>.</td></tr>
-        <tr><td><code>opencode</code></td><td><strong>OpenCode</strong> — open-source and model-agnostic; works with whichever model you point it at. Has a desktop app too.</td></tr>
+        <tr><td><code>opencode</code></td><td><strong>OpenCode</strong> — open-source and model-agnostic; works with whichever model you point it at. Has a desktop app too. Install through Homebrew (<code>opencode</code> in the Brewfile), not the vendor curl installer; a <code>~/.opencode/bin</code> copy silently wins on <code>PATH</code>.</td></tr>
         <tr><td><code>aider</code></td><td><strong>aider</strong> — a lightweight, git-aware AI pair programmer that commits as it goes.</td></tr>
       </table>
       <p>To start any of them, change into a project folder and run its command:</p>
