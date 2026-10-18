@@ -7,7 +7,7 @@
   "required": ["schema", "schemaVersion", "authority", "candidates", "heldAuthoritySources", "heldAuthorityIdentities"],
   "properties": {
     "schema": { "const": "compass.shift-to-authority-registry" },
-    "schemaVersion": { "const": 5 },
+    "schemaVersion": { "const": 6 },
     "authority": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "candidates": {
       "type": "array",
@@ -87,6 +87,28 @@
         "commit": { "$ref": "#/$defs/commit" }
       }
     },
+    "historicalRedaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reason", "summary"],
+      "properties": {
+        "kind": { "const": "historical-provenance-redacted" },
+        "reason": { "const": "owner-requested-publication-redaction" },
+        "summary": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "redactedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "kind", "reason", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "type": { "const": "historical-review" },
+        "kind": { "const": "historical-provenance-redacted" },
+        "reason": { "const": "owner-requested-publication-redaction" },
+        "summary": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
     "receiptBinding": {
       "type": "object",
       "additionalProperties": false,
@@ -156,6 +178,7 @@
         "id": { "$ref": "#/$defs/candidateId" },
         "invariant": { "$ref": "#/$defs/nonEmptyString" },
         "origin": {
+          "oneOf": [{ "$ref": "#/$defs/historicalRedaction" }, {
           "type": "object",
           "additionalProperties": false,
           "required": ["repository", "identity"],
@@ -163,11 +186,13 @@
             "repository": { "$ref": "#/$defs/nonEmptyString" },
             "identity": { "$ref": "#/$defs/sourceIdentity" }
           }
+          }]
         },
         "evidence": {
           "type": "array",
           "minItems": 1,
           "items": {
+            "oneOf": [{ "$ref": "#/$defs/redactedEvidence" }, {
             "type": "object",
             "additionalProperties": false,
             "required": ["id", "type", "repository", "sourceCommit", "summary"],
@@ -178,6 +203,7 @@
               "sourceCommit": { "$ref": "#/$defs/commit" },
               "summary": { "$ref": "#/$defs/nonEmptyString" }
             }
+            }]
           }
         },
         "affectedScope": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
@@ -204,6 +230,7 @@
           "type": "array",
           "minItems": 1,
           "items": {
+            "oneOf": [{
             "type": "object",
             "additionalProperties": false,
             "required": ["sequence", "state", "identity"],
@@ -212,6 +239,16 @@
               "state": { "enum": ["local", "nominated", "accepted", "issued", "rejected"] },
               "identity": { "$ref": "#/$defs/transitionIdentity" }
             }
+            }, {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["sequence", "state", "identity"],
+              "properties": {
+                "sequence": { "const": 1 },
+                "state": { "const": "local" },
+                "identity": { "$ref": "#/$defs/historicalRedaction" }
+              }
+            }]
           }
         },
         "authorityEpochs": {

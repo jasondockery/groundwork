@@ -3,13 +3,13 @@
   "schemaVersion": 1,
   "source": {
     "repository": "jasondockery/compass",
-    "commit": "aaab0491035f35e952e2c40aa4f9e0f2e4195481",
-    "tree": "a5a3e523eaba23f97920b4cb5c8fd21f55aabb1d",
-    "fingerprintSha256": "ba5806a819407e00377ea24066c99b56ab560ba5ac0c2cff3e67659462b617ad",
+    "commit": "daea368a7ef64502193afb102ffe17b0aac01ffb",
+    "tree": "98eb834be6e22dbd233168432e46166e5fdeecf7",
+    "fingerprintSha256": "680ef0fd2cb1302b0f23fe7b30c5bb587d09eecca2d8c42c20e365360f437cf0",
     "dirty": false
   },
-  "artifactSha256": "a1282df3dec13ab146ffbaa7e3a45e119d7dd546e5eb32407a87d35cfff1e440",
-  "artifactBytes": 602751,
+  "artifactSha256": "1ad041e53c459777676ccedb541575d33f9c0d5595008513ee3b9bd7faf6f696",
+  "artifactBytes": 605783,
   "includedFiles": [
     {
       "path": ".agents/skills/accessible-product-development/SKILL.md",
@@ -198,13 +198,13 @@
     },
     {
       "path": "authority-registry.json",
-      "sha256": "52868beb9790965221d7ed426c5d7ecdc0695a4f65bb26aa2ae2d9bd881ed491",
-      "bytes": 43284
+      "sha256": "71b95dd75e3e6a2d2fd4878872092e76e977c5a55ee09d303e8895ac7f54b792",
+      "bytes": 42994
     },
     {
       "path": "authority-registry.schema.json",
-      "sha256": "f945ee3bf4e277db62fc709d3aef638577d05ef552fb4484df3a8f009caafcfd",
-      "bytes": 10416
+      "sha256": "a070cd2f65c40d85d33c79ca1d982f3a11762c92e5a936704db2d83ed5af936e",
+      "bytes": 11846
     },
     {
       "path": "consumer-hosted-adoption-receipt.schema.json",
@@ -238,8 +238,8 @@
     },
     {
       "path": "scripts/check-authority-record.mjs",
-      "sha256": "3428864548a8e965e352df30706617a44d0e3927d24f9a095fd90e71395abe51",
-      "bytes": 80835
+      "sha256": "9480b058487af812a50f172537b86b8c524388555a4bce6c93c01ac7cac68028",
+      "bytes": 81964
     },
     {
       "path": "scripts/check-projection.mjs",
@@ -414,7 +414,7 @@
   ],
   "validation": {
     "result": "passed",
-    "receiptSha256": "ac47b69e8691c95de911c4750409b8c2f15fbf7fc14641703f7ade5e15334dd7",
+    "receiptSha256": "a3af4bc2c1ad0ea971673911637f59e4eaa91725ae853e9ff157803dece666c9",
     "command": "scripts/validate-compass"
   }
 }

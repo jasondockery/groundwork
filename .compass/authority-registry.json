@@ -1,6 +1,6 @@
 {
   "schema": "compass.shift-to-authority-registry",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "authority": "compass",
   "candidates": [
     {
@@ -502,27 +502,24 @@
       "id": "sta-compass-repeatable-agent-execution",
       "invariant": "A repository establishes bootstrap readiness once through one entrypoint that does not require the tooling it establishes, binds the executable chain that actually performs the work and every version-control setting able to redirect repository identity, keeps task-produced outputs inside the mutation phase, exposes every verification invariant under a stable name, proves at most once per frozen content identity while reusing evidence whose required identities are unchanged, and never weakens an invariant or accepts a non-owner skip control to make a check pass.",
       "origin": {
-        "repository": "redacted-repository",
-        "identity": {
-          "kind": "source",
-          "repository": "redacted-repository",
-          "commit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c"
-        }
+        "kind": "historical-provenance-redacted",
+        "reason": "owner-requested-publication-redaction",
+        "summary": "Historical motivation omitted before public distribution; current authority remains independently bound."
       },
       "evidence": [
         {
-          "id": "redacted-repository-execution-tax-0a06d70",
-          "type": "consumer-field-review",
-          "repository": "redacted-repository",
-          "sourceCommit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c",
-          "summary": "Agent transcripts showed repeated manual executable-path repair, a package manager resolving through an ambient interpreter despite an explicit version-manager selection, a validation prerequisite discovered during final proof, formatting applied after semantic proof, and whole-suite reruns while a few named invariants were under repair."
+          "id": "historical-execution-review",
+          "type": "historical-review",
+          "kind": "historical-provenance-redacted",
+          "reason": "owner-requested-publication-redaction",
+          "summary": "Historical motivation omitted before public distribution; current authority remains independently bound."
         },
         {
-          "id": "redacted-repository-break-glass-review-0a06d70",
-          "type": "field-failure-review",
-          "repository": "redacted-repository",
-          "sourceCommit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c",
-          "summary": "A deployment workflow retained a runtime skip input for its diff safety gate. The fail-closed local repair kept that control reachable without owner-only semantics or an audit receipt, which showed a missing shared rule rather than a single product defect."
+          "id": "historical-owner-control-review",
+          "type": "historical-review",
+          "kind": "historical-provenance-redacted",
+          "reason": "owner-requested-publication-redaction",
+          "summary": "Historical motivation omitted before public distribution; current authority remains independently bound."
         },
         {
           "id": "owner-repeatable-execution-acceptance-9d95a65",
@@ -568,9 +565,9 @@
           "sequence": 1,
           "state": "local",
           "identity": {
-            "kind": "source",
-            "repository": "redacted-repository",
-            "commit": "0a06d70d4cc97c9947c6c94c8a6fa389ffa8498c"
+            "kind": "historical-provenance-redacted",
+            "reason": "owner-requested-publication-redaction",
+            "summary": "Historical motivation omitted before public distribution; current authority remains independently bound."
           }
         },
         {
@@ -870,6 +867,5 @@
       ]
     }
   ],
-  "heldAuthorityIdentities": [
-  ]
+  "heldAuthorityIdentities": []
 }
