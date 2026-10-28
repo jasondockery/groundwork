@@ -7,21 +7,13 @@ after the work is verified, never aspirationally.
 
 ## Current continuity
 
-Reconciled 2026-08-16 against `origin/main` at
-`c6b2ba38957b1c995f7efc890cdec31ae3cc5dcd` (tree
-`625bc1880900c1208bfe295de91a192d14b6654a`). `v1.17.0` remains the current
-published release at `5b74bd221473cabf5be130984ac6704e5ec5820d`; main is
-the accepted unreleased successor. This section is the durable handoff record;
-detailed acceptance criteria remain in the specs.
-
-| Boundary | Current evidence and disposition |
-| --- | --- |
-| Accepted release | `v1.17.0` is immutable at `5b74bd221473cabf5be130984ac6704e5ec5820d`. It does not contain PR #19 or this proof-economy successor. |
-| Accepted but unreleased main | PR #19 is merged at the exact main identity above. Exact-main CI, CodeQL, Pages, and hosted Linux/macOS Full passed. The proposed `v1.18.0` publication stopped after the one permitted local Full retry reached the unchanged 300s deadline; no tag or release exists. |
-| Field evidence still open | The sanitized fixture preserves the observed shape of a silent Homebrew exit 1 and the MAS authentication/hang sequence. The retained work-laptop `homebrew-upgrade-latest.log` is unavailable on this personal laptop, so the original Homebrew sub-lane/root cause remains unknown and must not be described as repaired. |
-| Upstream handoffs | Compass `8713d212` and the earlier Groundwork Compass scaffold `b62fbaa` are superseded diagnostic evidence and are not adoptable here. Compass adoption and container/resource lifecycle work remain separate successor tranches pending their own formal accepted handoffs. |
-| Next step | Finish `codex/release-proof-economy`: make exact-main hosted Linux/macOS Full the release platform gate, preserve fail-closed identical-tree PR-head reuse, and remove redundant rendered-profile ShellCheck startup without weakening profile coverage. |
-| Owner gates | This successor may be committed, pushed, and opened as a draft checkpoint; merge remains owner-only. The held `v1.18.0` lane requires a new exact publication decision after this separate successor is accepted. Live laptop adoption, removal, or update mutation also requires a separate owner decision on the named machine. |
+Reconciled 2026-10-28. This repository is deprecated for new installations;
+machine setup moved to the platform `groundwork-*` repositories (see
+`README.md` and `MIGRATION.md`). The latest published release is `v1.21.0`
+(2026-08-22) at `635de27f0e5f8645afd8227b7de9af0ce7d62c83`. The 2026-08-16
+handoff that called `v1.17.0` current and `v1.18.0` unreleased is superseded:
+`v1.18.0` through `v1.21.0` were published afterward. Remaining roadmap items
+below are historical unless a platform repository adopts them.
 
 The future container/resource-lifecycle tranche may add read-only inventory and
 exact-object cleanup only after its formal Compass authority handoff. It is not
