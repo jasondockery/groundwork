@@ -206,7 +206,7 @@ Load the skill before the first edit in its area.
 - **`skills/validate-groundwork`** — validation or proof selection, failed CI
   or workflow diagnosis, historical failure closure, exact-SHA receipts, or
   changes to validation behavior.
-- **`skills/toolchain-authority`** — `.node-version`, `.nvmrc`, repository `mise.toml`, `packageManager`, engines, Corepack ownership, Node setup in CI, Renovate toolchain behavior, or Node/pnpm version prose and fixtures.
+- **`skills/groundwork-toolchain-authority`** — `.node-version`, `.nvmrc`, repository `mise.toml`, `packageManager`, engines, Corepack ownership, Node setup in CI, Renovate toolchain behavior, or Node/pnpm version prose and fixtures. Compass's `skills/toolchain-authority` covers the shared pin procedure.
 - **`skills/docker-lifecycle`** — any Dockerfile change, local image build, or
   Docker helper. Proof-only builds use
   `groundwork-docker-build-scratch <purpose> <context> --rm-after`, or
