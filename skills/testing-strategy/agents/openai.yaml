@@ -1,0 +1,4 @@
+interface:
+  display_name: "Testing strategy"
+  short_description: "Choose the owning test layer and keep tests honest"
+  default_prompt: "Use $testing-strategy to choose the owning layer for this test and keep its detection intact."

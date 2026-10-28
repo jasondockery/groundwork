@@ -226,6 +226,22 @@ domain-specific states.
   resources considered, the resources removed or preserved, and the terminal
   cleanup outcome without claiming authority over unowned resources.
 
+- **Maker** — the agent or person who authors a candidate and repairs its
+  review findings; a maker never clears its own candidate.
+- **Independent reviewer** — a separate read-only context that authored none
+  of the candidate it reviews and never edits it.
+- **Coordinator** — the session that supervises several writable lanes, briefs
+  makers, and checks review findings; it never edits code and is never the
+  reviewer.
+- **Frozen candidate** — the exact base, head, tree, and working-tree layers
+  submitted for one review round; a change during review invalidates the round.
+- **Review convergence** — a round that raises no new Medium-or-higher finding
+  while every prior Medium-or-higher finding is fixed or rebutted with
+  evidence.
+- **Verifier** — the person, or the person accountable for named automated
+  evidence, who records acceptance of a work item at an exact revision; preparing steps or merging is
+  not acceptance.
+
 - **Field failure** — a defect first observed outside the normal local proof
   boundary, such as hosted CI, another platform, a generated consumer, a
   release, or deployment.
@@ -238,6 +254,9 @@ domain-specific states.
 - **Compass contribution** — a repository-owned shared-engineering principle or
   reusable procedure proposed for canonical adoption into Compass rather than
   silently redefining it locally.
+- **Opt-in stack skill** — a projected skill holding reusable practice for one
+  named technology stack, whose description limits it to repositories that use
+  that stack and which routes to universal doctrine instead of restating it.
 
 `Workspace Contract contribution` and the machine field
 `contractContributions` are reserved for Roost's separate generated-workspace

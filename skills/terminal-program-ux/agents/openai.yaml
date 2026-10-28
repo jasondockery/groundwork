@@ -1,0 +1,4 @@
+interface:
+  display_name: "Terminal program UX"
+  short_description: "Prompts, privilege, TTY handoff, no-input runs"
+  default_prompt: "Use $terminal-program-ux to review this command's prompts and non-interactive behavior."

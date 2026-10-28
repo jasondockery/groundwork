@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill authoring"
+  short_description: "Write a skill every agent tool can load"
+  default_prompt: "Use $skill-authoring to draft a new skill for this repeated workflow and its trigger evals."
