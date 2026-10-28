@@ -10,7 +10,7 @@ after the work is verified, never aspirationally.
 Reconciled 2026-10-28. This repository is deprecated for new installations;
 machine setup moved to the platform `groundwork-*` repositories (see
 `README.md` and `MIGRATION.md`). The latest published release is `v1.21.0`
-(2026-08-22) at `635de27f0e5f8645afd8227b7de9af0ce7d62c83`. The 2026-08-16
+(2026-08-22) at `4a4771cdd8a57c5e435f8eaf3ea1c6cd2d09b0bf`. The 2026-08-16
 handoff that called `v1.17.0` current and `v1.18.0` unreleased is superseded:
 `v1.18.0` through `v1.21.0` were published afterward. Remaining roadmap items
 below are historical unless a platform repository adopts them.
