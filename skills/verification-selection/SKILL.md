@@ -33,6 +33,27 @@ description: Select and report the cheapest reliable proof matching a change's b
    facts relevant to the claim, reruns, duplicate proof, invalidated proof, and
    remaining owner gates.
 
+## Keep proof honest
+
+Proof validates the implemented change; it is not a new discovery phase. When
+focused proof exposes a new blocker, classify and fix it. Restart broad
+analysis only when prior evidence is missing, stale, or contradicted, or the
+decision is irreversible or high-risk.
+
+- Select the unchanged consumers a shared change affects, not only the changed
+  files.
+- A changed user flow with no owning journey test is a finding to record, not
+  a reason to skip proof.
+- A filtered or selected command that matches nothing is not passing evidence.
+  Use selection that fails on an empty match.
+- Do not commit, push, merge, or rebase in a worktree while its proof is
+  running; moving its head voids the run.
+- When visual inspection is the only remaining proof for a user-facing change,
+  report **human visual check still required** and claim no readiness level
+  from screenshots alone.
+- Report local, hosted, and deployed evidence separately, each with its exact
+  head or tree and its scope, focused or full.
+
 ## Reuse evidence by claim
 
 Load the projected `proof-evidence-policy.json` before selecting or reusing a

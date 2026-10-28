@@ -18,7 +18,9 @@ description: Design or review work that may affect user latency, startup, build,
    cheaply, and rerun only the evidence affected by a changed actual input.
 4. Run work at the cheapest correct boundary. Keep filtering, sorting,
    aggregation, projection, and pagination with the owner of remote or
-   potentially unbounded data; render bounded results at the client.
+   potentially unbounded data; render bounded results at the client. Load
+   `sql-query-performance` for relational queries and `ci-workflow-change` for
+   hosted CI and deploy duration.
 5. Bound time, retries, concurrency, processes, memory, disk, requests, records,
    and output where applicable. Separate hard deadlines, stall observation,
    performance budgets, and outer safety envelopes.

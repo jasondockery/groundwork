@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shell script change"
+  short_description: "Portable, safe, testable shell and helpers"
+  default_prompt: "Use $shell-script-change to review this script for portability, quoting, and idempotency."

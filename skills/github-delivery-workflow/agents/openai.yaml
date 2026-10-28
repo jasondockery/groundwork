@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub delivery workflow"
+  short_description: "Issue to branch to PR to merge to release"
+  default_prompt: "Use $github-delivery-workflow to shape this issue and plan its branch and pull request."

@@ -18,7 +18,7 @@
 #   reusable-workflow call job    exempt — the CALLED workflow owns its setup
 #
 # `.node-version` is the single Node authority (AGENTS.md → mandatory skill
-# triggers, skills/toolchain-authority); a literal `node-version:` here would be
+# triggers, skills/groundwork-toolchain-authority); a literal `node-version:` here would be
 # a second owner, so it is rejected rather than accepted as equivalent.
 #
 # Usage: check-workflow-toolchain [workflow-directory]

@@ -182,6 +182,9 @@ workflow: `docs/worktrees.html`; branch model: `specs/branch-lifecycle.md`.
   YAML anchors and aliases are forbidden until the checker can resolve them
   structurally without hiding external configuration.
 
+## Selected Compass skills
+Compass skills selected in `compass.skills.json` are projected under `skills/`. Load one when a task touches its area; those without a trigger below: `acceptance-evidence`, `accessible-product-development`, `agent-orchestration`, `ai-backend-change`, `ci-workflow-change`, `developer-tool-change`, `github-delivery-workflow`, `inclusive-content-design`, `independent-code-review`, `internationalization-first`, `privacy-by-design`, `repo-contribution-etiquette`, `secure-by-design`, `shell-script-change`, `codebase-modularity`, `skill-authoring`, `terminal-program-ux`, `testing-strategy`. GitHub writes follow `repo-contribution-etiquette` (act as the account that owns the repository).
+
 ## Mandatory skill triggers
 Load the skill before the first edit in its area.
 - **`skills/inclusive-product-foundation`** — any new or materially changed
@@ -203,7 +206,7 @@ Load the skill before the first edit in its area.
 - **`skills/validate-groundwork`** — validation or proof selection, failed CI
   or workflow diagnosis, historical failure closure, exact-SHA receipts, or
   changes to validation behavior.
-- **`skills/toolchain-authority`** — `.node-version`, `.nvmrc`, repository `mise.toml`, `packageManager`, engines, Corepack ownership, Node setup in CI, Renovate toolchain behavior, or Node/pnpm version prose and fixtures.
+- **`skills/groundwork-toolchain-authority`** — `.node-version`, `.nvmrc`, repository `mise.toml`, `packageManager`, engines, Corepack ownership, Node setup in CI, Renovate toolchain behavior, or Node/pnpm version prose and fixtures. Compass's `skills/toolchain-authority` covers the shared pin procedure.
 - **`skills/docker-lifecycle`** — any Dockerfile change, local image build, or
   Docker helper. Proof-only builds use
   `groundwork-docker-build-scratch <purpose> <context> --rm-after`, or

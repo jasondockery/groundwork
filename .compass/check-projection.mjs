@@ -23,22 +23,48 @@ export const COMPASS_PROOF_CLAIM_CONTRACTS = Object.freeze([
 ])
 export const COMPASS_HEAVY_PROOF_REPORT_FIELDS = Object.freeze(['claim', 'evidenceIdentity', 'reusableEvidence', 'missingEvidence', 'whyCheaperCheckInsufficient'])
 export const COMPASS_SKILL_NAMES = Object.freeze([
+  'acceptance-evidence',
   'accessible-product-development',
+  'agent-orchestration',
   'ai-backend-change',
+  'api-contract-change',
+  'aws-sst-deploy',
+  'ci-workflow-change',
+  'codebase-modularity',
   'concurrent-agent-runtimes',
+  'database-migration-change',
   'dependency-change',
   'developer-tool-change',
+  'feature-flags',
   'field-failure-backpressure',
+  'form-layout',
+  'github-delivery-workflow',
   'inclusive-content-design',
   'inclusive-product-foundation',
+  'independent-code-review',
   'internationalization-first',
+  'monorepo-change',
+  'multi-step-workflows',
+  'nextjs-app',
   'performance-sensitive-change',
   'privacy-by-design',
   'repeatable-agent-execution',
+  'repo-contribution-etiquette',
   'reviewable-agent-workspaces',
   'secure-by-design',
+  'shell-script-change',
   'shift-to-authority',
+  'skill-authoring',
+  'sql-query-performance',
+  'structured-logging',
+  'terminal-program-ux',
+  'testing-strategy',
+  'toolchain-authority',
+  'ui-ux',
+  'url-state-navigation',
   'verification-selection',
+  'web-performance-triage',
+  'x-posting',
 ])
 // A nominated Shift to Authority candidate is reviewable in source but is not
 // projected, routed, or discoverable by a consumer. Consumer movement begins
@@ -50,23 +76,68 @@ export const COMPASS_AGENT_ROUTING_AUTHORITIES = Object.freeze([
   Object.freeze({ candidateId: 'sta-compass-concurrent-agent-runtimes', canonicalSkillPath: 'skills/concurrent-agent-runtimes/SKILL.md', canonicalSkillSha256: 'bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158', versionBinding: 'canonical-skill-sha256-and-receipt-source-identity' }),
 ])
 export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
-  Object.freeze({ name: 'accessible-product-development', canonicalSkillPath: 'skills/accessible-product-development/SKILL.md', canonicalSkillSha256: '8e0a028672244ce54010b81d3fdd6c8bd08eede93954f6d27a8b629d226fb379' }),
-  Object.freeze({ name: 'ai-backend-change', canonicalSkillPath: 'skills/ai-backend-change/SKILL.md', canonicalSkillSha256: 'acffcdb98ea7341dc6d74bc63e8ed7e91e14a1dcacefa9533c3d064e42457fe2' }),
-  Object.freeze({ name: 'concurrent-agent-runtimes', canonicalSkillPath: 'skills/concurrent-agent-runtimes/SKILL.md', canonicalSkillSha256: 'bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158' }),
-  Object.freeze({ name: 'dependency-change', canonicalSkillPath: 'skills/dependency-change/SKILL.md', canonicalSkillSha256: 'd116dace49983c8baa46f5d0ebcbd26d0f935cd8814ade8c0fdc64c43b7321ae' }),
-  Object.freeze({ name: 'developer-tool-change', canonicalSkillPath: 'skills/developer-tool-change/SKILL.md', canonicalSkillSha256: 'ec297f228885038b88cf4877afce6d9d5d51267c0d0a4c1dad471448766ced4e' }),
-  Object.freeze({ name: 'field-failure-backpressure', canonicalSkillPath: 'skills/field-failure-backpressure/SKILL.md', canonicalSkillSha256: '42c69bfda8da84f5c0d5f7d546808dd4eba2cbcd4b13dd8f4b837bb22c7c1bc7' }),
-  Object.freeze({ name: 'inclusive-content-design', canonicalSkillPath: 'skills/inclusive-content-design/SKILL.md', canonicalSkillSha256: '6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b' }),
-  Object.freeze({ name: 'inclusive-product-foundation', canonicalSkillPath: 'skills/inclusive-product-foundation/SKILL.md', canonicalSkillSha256: '3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590' }),
-  Object.freeze({ name: 'internationalization-first', canonicalSkillPath: 'skills/internationalization-first/SKILL.md', canonicalSkillSha256: '8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f' }),
-  Object.freeze({ name: 'performance-sensitive-change', canonicalSkillPath: 'skills/performance-sensitive-change/SKILL.md', canonicalSkillSha256: '7ba39bdba1a07077e367d81e167de7db1ad4cc5e74226c43e70345e7f349802a' }),
-  Object.freeze({ name: 'privacy-by-design', canonicalSkillPath: 'skills/privacy-by-design/SKILL.md', canonicalSkillSha256: '86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493' }),
-  Object.freeze({ name: 'repeatable-agent-execution', canonicalSkillPath: 'skills/repeatable-agent-execution/SKILL.md', canonicalSkillSha256: 'cb94cf5a877a32703f20da73dd08ab5a38b6e8c5fe29b4bc626be4161b84abb1' }),
-  Object.freeze({ name: 'reviewable-agent-workspaces', canonicalSkillPath: 'skills/reviewable-agent-workspaces/SKILL.md', canonicalSkillSha256: 'cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb' }),
-  Object.freeze({ name: 'secure-by-design', canonicalSkillPath: 'skills/secure-by-design/SKILL.md', canonicalSkillSha256: '031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe' }),
-  Object.freeze({ name: 'shift-to-authority', canonicalSkillPath: 'skills/shift-to-authority/SKILL.md', canonicalSkillSha256: '4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8' }),
-  Object.freeze({ name: 'verification-selection', canonicalSkillPath: 'skills/verification-selection/SKILL.md', canonicalSkillSha256: '04f06cd97b173a7ab0e5df6c52c77e92f40a1f42ca3da901b89d8a386a9bc0b0' }),
+  Object.freeze({ name: 'acceptance-evidence', canonicalSkillPath: 'skills/acceptance-evidence/SKILL.md', canonicalSkillSha256: '8ee2cd364e1f5ff86a79a7830a10f2f6f846ccf650b9043d72f94a626f1eb4e2', requires: Object.freeze(['verification-selection']) }),
+  Object.freeze({ name: 'accessible-product-development', canonicalSkillPath: 'skills/accessible-product-development/SKILL.md', canonicalSkillSha256: '8e0a028672244ce54010b81d3fdd6c8bd08eede93954f6d27a8b629d226fb379', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'agent-orchestration', canonicalSkillPath: 'skills/agent-orchestration/SKILL.md', canonicalSkillSha256: '6c38758522bbc60a65dded83b4601c4eb79196fe9d3fd90ebb698295a01912a6', requires: Object.freeze(['concurrent-agent-runtimes', 'independent-code-review', 'repeatable-agent-execution', 'repo-contribution-etiquette', 'reviewable-agent-workspaces']) }),
+  Object.freeze({ name: 'ai-backend-change', canonicalSkillPath: 'skills/ai-backend-change/SKILL.md', canonicalSkillSha256: 'acffcdb98ea7341dc6d74bc63e8ed7e91e14a1dcacefa9533c3d064e42457fe2', requires: Object.freeze(['dependency-change', 'performance-sensitive-change', 'privacy-by-design', 'secure-by-design', 'shift-to-authority', 'verification-selection']) }),
+  Object.freeze({ name: 'api-contract-change', canonicalSkillPath: 'skills/api-contract-change/SKILL.md', canonicalSkillSha256: 'b35218e9e162924d66a38d7fd2aaaa18864ca807a4058c52c473d96c962ecc4d', requires: Object.freeze(['testing-strategy']) }),
+  Object.freeze({ name: 'aws-sst-deploy', canonicalSkillPath: 'skills/aws-sst-deploy/SKILL.md', canonicalSkillSha256: 'bd8a185ea4a8122ea76f946ddbed7c1a4274e46fecfcc7be75871f8a77c70ee5', requires: Object.freeze(['concurrent-agent-runtimes', 'repo-contribution-etiquette', 'secure-by-design', 'verification-selection']) }),
+  Object.freeze({ name: 'ci-workflow-change', canonicalSkillPath: 'skills/ci-workflow-change/SKILL.md', canonicalSkillSha256: '92da1042e65377e0a50f4b655b6ee58ba32b77c2a30210d9fcc6273c5eb4f5a5', requires: Object.freeze(['secure-by-design', 'verification-selection']) }),
+  Object.freeze({ name: 'codebase-modularity', canonicalSkillPath: 'skills/codebase-modularity/SKILL.md', canonicalSkillSha256: '6474afae66b2b1d9daaa0aeca684d43af15f8680b7603434fd1c8e2059e79781', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'concurrent-agent-runtimes', canonicalSkillPath: 'skills/concurrent-agent-runtimes/SKILL.md', canonicalSkillSha256: 'bd48f511a5c6a6e7af64d7613113c018be68206aba5ff23d2198cea32a818158', requires: Object.freeze(['reviewable-agent-workspaces', 'verification-selection']) }),
+  Object.freeze({ name: 'database-migration-change', canonicalSkillPath: 'skills/database-migration-change/SKILL.md', canonicalSkillSha256: '779bb5a60f49faab85b6fb17dcbd39037715056ea992e2120efcb733afa29735', requires: Object.freeze(['testing-strategy']) }),
+  Object.freeze({ name: 'dependency-change', canonicalSkillPath: 'skills/dependency-change/SKILL.md', canonicalSkillSha256: '016d153b77968adafd4f1634b4cc5fde1ca6df820eac83fc7fdc2f6ce06090ed', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'developer-tool-change', canonicalSkillPath: 'skills/developer-tool-change/SKILL.md', canonicalSkillSha256: 'ec297f228885038b88cf4877afce6d9d5d51267c0d0a4c1dad471448766ced4e', requires: Object.freeze(['dependency-change', 'shift-to-authority', 'verification-selection']) }),
+  Object.freeze({ name: 'feature-flags', canonicalSkillPath: 'skills/feature-flags/SKILL.md', canonicalSkillSha256: '7c9eff7e0ccaf69032259345aa992c492a11963316b92aa9e79b0b6c570c6a9a', requires: Object.freeze(['testing-strategy']) }),
+  Object.freeze({ name: 'field-failure-backpressure', canonicalSkillPath: 'skills/field-failure-backpressure/SKILL.md', canonicalSkillSha256: '42c69bfda8da84f5c0d5f7d546808dd4eba2cbcd4b13dd8f4b837bb22c7c1bc7', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'form-layout', canonicalSkillPath: 'skills/form-layout/SKILL.md', canonicalSkillSha256: 'e6aae5fbf2e850727556c101e10476ff150f5c94a10158f8f5f2d29ee6cc1834', requires: Object.freeze(['accessible-product-development', 'inclusive-content-design', 'ui-ux']) }),
+  Object.freeze({ name: 'github-delivery-workflow', canonicalSkillPath: 'skills/github-delivery-workflow/SKILL.md', canonicalSkillSha256: '8203695bc96fabe2559a9c99392ddfb38cba7fe481989d1b5fcc265da64bd467', requires: Object.freeze(['acceptance-evidence', 'independent-code-review', 'repo-contribution-etiquette', 'reviewable-agent-workspaces', 'verification-selection']) }),
+  Object.freeze({ name: 'inclusive-content-design', canonicalSkillPath: 'skills/inclusive-content-design/SKILL.md', canonicalSkillSha256: '6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'inclusive-product-foundation', canonicalSkillPath: 'skills/inclusive-product-foundation/SKILL.md', canonicalSkillSha256: '3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'independent-code-review', canonicalSkillPath: 'skills/independent-code-review/SKILL.md', canonicalSkillSha256: '0772cc94449dd78cb5b044fb08953ba2921cb58bff31bc34668209a35f359bb5', requires: Object.freeze(['repo-contribution-etiquette', 'reviewable-agent-workspaces', 'shift-to-authority', 'verification-selection']) }),
+  Object.freeze({ name: 'internationalization-first', canonicalSkillPath: 'skills/internationalization-first/SKILL.md', canonicalSkillSha256: '8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'monorepo-change', canonicalSkillPath: 'skills/monorepo-change/SKILL.md', canonicalSkillSha256: '87ea2841b10e849a197a698c53e570039948ee641fb65cc55bc307a00bf81678', requires: Object.freeze(['verification-selection']) }),
+  Object.freeze({ name: 'multi-step-workflows', canonicalSkillPath: 'skills/multi-step-workflows/SKILL.md', canonicalSkillSha256: '62ccdbd2debfc48d69756c4060776bf2d9dfe6d3614736f3ae5bbc7025f3d4ce', requires: Object.freeze(['accessible-product-development', 'form-layout', 'url-state-navigation']) }),
+  Object.freeze({ name: 'nextjs-app', canonicalSkillPath: 'skills/nextjs-app/SKILL.md', canonicalSkillSha256: 'a0c4d292033babca80b13a6f193e7d4e0fa0951c13fbf4e0a2fcdb49b57b4591', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'performance-sensitive-change', canonicalSkillPath: 'skills/performance-sensitive-change/SKILL.md', canonicalSkillSha256: 'b7bb0a667c58afc8be4c0894760f3cca53f05bc6c30ca38b2ecce11165e76b2b', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'privacy-by-design', canonicalSkillPath: 'skills/privacy-by-design/SKILL.md', canonicalSkillSha256: '86939dc78d5410c163cd540e514534ca2240558fc0736ab20a47f5c05d73f493', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'repeatable-agent-execution', canonicalSkillPath: 'skills/repeatable-agent-execution/SKILL.md', canonicalSkillSha256: '29276bec2648b3f4fab6e9f74d4899cb691f5cae8c9a9b83f06e3c74f2dc18b2', requires: Object.freeze(['reviewable-agent-workspaces', 'verification-selection']) }),
+  Object.freeze({ name: 'repo-contribution-etiquette', canonicalSkillPath: 'skills/repo-contribution-etiquette/SKILL.md', canonicalSkillSha256: 'def80717c8bbeeff3e4be6c85f3039ff224315d13a152ad70f29ff98278fd31e', requires: Object.freeze(['reviewable-agent-workspaces']) }),
+  Object.freeze({ name: 'reviewable-agent-workspaces', canonicalSkillPath: 'skills/reviewable-agent-workspaces/SKILL.md', canonicalSkillSha256: 'cc663ed8100e3049a4f1d4f7261dcb429ece04bf22ec4224a2341f9a7d757edb', requires: Object.freeze(['shift-to-authority', 'verification-selection']) }),
+  Object.freeze({ name: 'secure-by-design', canonicalSkillPath: 'skills/secure-by-design/SKILL.md', canonicalSkillSha256: '031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'shell-script-change', canonicalSkillPath: 'skills/shell-script-change/SKILL.md', canonicalSkillSha256: '3e6deb20a0e7f35ee0f80f556ca268a1ea42469a2dac77fa8de7a4fcbe29ce63', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'shift-to-authority', canonicalSkillPath: 'skills/shift-to-authority/SKILL.md', canonicalSkillSha256: '4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'skill-authoring', canonicalSkillPath: 'skills/skill-authoring/SKILL.md', canonicalSkillSha256: '609d721161ae4d19758ccb060e32e54cf86e265b64b3a39a3c3ea91c2e7a941e', requires: Object.freeze(['independent-code-review']) }),
+  Object.freeze({ name: 'sql-query-performance', canonicalSkillPath: 'skills/sql-query-performance/SKILL.md', canonicalSkillSha256: '89ba74a8b5820b24b81870c6f5d9de3e53311b210aec6401320014b6866e3a9b', requires: Object.freeze(['performance-sensitive-change']) }),
+  Object.freeze({ name: 'structured-logging', canonicalSkillPath: 'skills/structured-logging/SKILL.md', canonicalSkillSha256: 'c8b61244336c8a55836846c02f95590b15d5798ddd728889d28b00365b573b33', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'terminal-program-ux', canonicalSkillPath: 'skills/terminal-program-ux/SKILL.md', canonicalSkillSha256: '25744409e6338b589a30eb8373b311fdaa2976a04c34a104f218eff536ed30bc', requires: Object.freeze(['inclusive-product-foundation']) }),
+  Object.freeze({ name: 'testing-strategy', canonicalSkillPath: 'skills/testing-strategy/SKILL.md', canonicalSkillSha256: 'f3de305542dbabea3834a9f50cc9122b0146b368e114065282d7b10ac231cdaa', requires: Object.freeze(['verification-selection']) }),
+  Object.freeze({ name: 'toolchain-authority', canonicalSkillPath: 'skills/toolchain-authority/SKILL.md', canonicalSkillSha256: 'becc129b99a8f650a88f493340d690b13af546c2cc361c173f079b4d4e1c0d57', requires: Object.freeze(['dependency-change']) }),
+  Object.freeze({ name: 'ui-ux', canonicalSkillPath: 'skills/ui-ux/SKILL.md', canonicalSkillSha256: '26d0139170a6dca149d7bb57939c19505020844ef1a4f216b072ef0d1740db0e', requires: Object.freeze(['accessible-product-development', 'inclusive-content-design']) }),
+  Object.freeze({ name: 'url-state-navigation', canonicalSkillPath: 'skills/url-state-navigation/SKILL.md', canonicalSkillSha256: 'b9270b51a16eaca4121fb656adb68b2cc4477c63d1938e1e3444d5a4526193c9', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'verification-selection', canonicalSkillPath: 'skills/verification-selection/SKILL.md', canonicalSkillSha256: 'ea56e3074fa07868bde9db79e431a9c8d4c652e3aaf0825fecd07667a8547be0', requires: Object.freeze([]) }),
+  Object.freeze({ name: 'web-performance-triage', canonicalSkillPath: 'skills/web-performance-triage/SKILL.md', canonicalSkillSha256: 'e6ab55230f93e8c6171683c4dbe11c9e36ad431e1b9591151f195bbcef5a6e44', requires: Object.freeze(['performance-sensitive-change']) }),
+  Object.freeze({ name: 'x-posting', canonicalSkillPath: 'skills/x-posting/SKILL.md', canonicalSkillSha256: 'a94b1ef1d16547951ce26759bad3c55e12207e3a793ec3cc99df01be1b71c725', requires: Object.freeze([]) }),
 ])
+// Required skills are always projected: the authority-bound skills, the
+// AGENTS.md instruction-pointer skills, and the closure of their unconditional
+// `requires` lists. Source and projection validation recompute the closure.
+export const COMPASS_REQUIRED_SKILL_NAMES = Object.freeze([
+  'concurrent-agent-runtimes',
+  'repeatable-agent-execution',
+  'reviewable-agent-workspaces',
+  'shift-to-authority',
+  'verification-selection',
+])
+export const COMPASS_OPTIONAL_SKILL_NAMES = Object.freeze(COMPASS_SKILL_NAMES.filter((name) => !COMPASS_REQUIRED_SKILL_NAMES.includes(name)))
+export const COMPASS_SKILL_SELECTION_PATH = 'compass.skills.json'
+export const COMPASS_SKILL_SELECTION_RECEIPT_PATH = '.compass/skill-selection-receipt.json'
+export const MAX_SKILL_SELECTION_BYTES = 64 * 1024
+// The artifact files of unselected skills, kept as base64 JSON outside every
+// discovery root so the checker can always rebuild the exact artifact. Agents
+// never load this bundle.
+export const COMPASS_UNSELECTED_SKILL_BUNDLE_PATH = '.compass/unselected-skills.json'
+export const MAX_UNSELECTED_SKILL_BUNDLE_BYTES = 16 * 1024 * 1024
 export const COMPASS_AGENT_ROUTING_AUTHORITY = COMPASS_AGENT_ROUTING_AUTHORITIES[1]
 export const COMPASS_AGENT_ROUTED_SKILLS = COMPASS_SKILL_NAMES
 const COMPASS_AGENT_INSTRUCTION_SKILLS = Object.freeze(['reviewable-agent-workspaces', 'concurrent-agent-runtimes', 'repeatable-agent-execution'])
@@ -83,7 +154,7 @@ export const COMPASS_AGENT_ROUTING_PHYSICAL_ROUTES = Object.freeze([
 export const COMPASS_AGENT_ROUTING_ECOSYSTEMS = Object.freeze([
   Object.freeze({ id: 'claude', toolOrEcosystem: 'Claude project skills', physicalRouteIds: Object.freeze(['claude-skills']), support: 'supported', exactValidation: 'compass-simulated-discover-each-canonical-skill-once', evidence: Object.freeze({ kind: 'declared-tool-contract', locator: '.claude/skills', limitation: 'Compass simulates the declared filesystem discovery contract; it does not invoke the tool.' }) }),
   Object.freeze({ id: 'codex', toolOrEcosystem: 'Codex project skills', physicalRouteIds: Object.freeze(['agents-skills']), support: 'supported', exactValidation: 'compass-simulated-discover-each-canonical-skill-once', evidence: Object.freeze({ kind: 'official-documentation', locator: 'https://developers.openai.com/codex/build-skills', limitation: 'Compass simulates the documented .agents/skills discovery contract; each adopting environment retains an exact tool-native smoke.' }) }),
-  Object.freeze({ id: 'cursor', toolOrEcosystem: 'Cursor project instructions', physicalRouteIds: Object.freeze(['agents-md']), support: 'supported-consumer-reconciliation-required', exactValidation: 'compass-simulated-load-each-consumer-pointer-once', evidence: Object.freeze({ kind: 'official-documentation', locator: 'https://docs.cursor.com/context/rules-for-ai', limitation: 'The consumer checker validates the root AGENTS pointer; Compass does not invoke Cursor.' }) }),
+  Object.freeze({ id: 'cursor', toolOrEcosystem: 'Cursor project instructions', physicalRouteIds: Object.freeze(['agents-md']), support: 'supported-consumer-reconciliation-required', exactValidation: 'compass-simulated-load-each-consumer-pointer-once', evidence: Object.freeze({ kind: 'official-documentation', locator: 'https://docs.cursor.com/context/rules-for-ai', limitation: 'The consumer checker validates the root AGENTS pointer; Compass does not invoke Cursor. Compass simulates only the consumer-reconciled AGENTS.md pointer; Cursor also loads .agents/skills and .claude/skills, tracked in #10.' }) }),
   Object.freeze({ id: 'github-copilot', toolOrEcosystem: 'GitHub Copilot project skills', physicalRouteIds: Object.freeze(['agents-skills', 'claude-skills']), duplicateSkillPolicy: 'byte-identical-routes-collapse-to-one-logical-skill-for-compass-preflight-only', support: 'supported-consumer-native-smoke-required', exactValidation: 'compass-simulated-discovery-plus-consumer-native-smoke', evidence: Object.freeze({ kind: 'official-documentation', locator: 'https://docs.github.com/en/copilot/concepts/agents/about-agent-skills', limitation: 'Compass simulates both documented filesystem roots and rejects divergent duplicate routes; official documentation does not establish native same-name deduplication, so each adopter must run an exact consumer-native smoke.' }) }),
   Object.freeze({ id: 'opencode', toolOrEcosystem: 'OpenCode project skills', physicalRouteIds: Object.freeze(['agents-skills', 'claude-skills']), duplicateSkillPolicy: 'byte-identical-routes-collapse-to-one-logical-skill-for-compass-preflight-only', support: 'supported-consumer-native-smoke-required', exactValidation: 'compass-simulated-discovery-plus-consumer-native-smoke', evidence: Object.freeze({ kind: 'official-documentation', locator: 'https://opencode.ai/docs/skills/', limitation: 'Compass simulates both documented filesystem roots and rejects divergent duplicate routes; official documentation does not establish native same-name deduplication, so each adopter must run an exact consumer-native smoke.' }) }),
 ])
@@ -317,15 +388,15 @@ export function validateProofSelection(record, policy, problems = []) {
 
 export function validateAgentRoutingInventory(inventory, problems = []) {
   const initialProblemCount = problems.length
-  const topLevelKeys = ['authorities', 'ecosystems', 'physicalRoutes', 'recognizedUnmaterializedRoots', 'schema', 'schemaVersion', 'skills']
+  const topLevelKeys = ['authorities', 'ecosystems', 'physicalRoutes', 'recognizedUnmaterializedRoots', 'requiredSkills', 'schema', 'schemaVersion', 'skills']
   const authorityKeys = ['candidateId', 'canonicalSkillPath', 'canonicalSkillSha256', 'versionBinding']
-  const skillKeys = ['canonicalSkillPath', 'canonicalSkillSha256', 'name']
+  const skillKeys = ['canonicalSkillPath', 'canonicalSkillSha256', 'name', 'requires']
   const routeKeys = ['canonicalPaths', 'distribution', 'exactValidation', 'id', 'ownership', 'routedSkills', 'routingMechanism']
   const ecosystemKeys = ['evidence', 'exactValidation', 'id', 'physicalRouteIds', 'support', 'toolOrEcosystem']
   const unmaterializedKeys = ['disposition', 'path', 'reason', 'recognizedBy']
   if (!hasExactKeys(inventory, topLevelKeys) ||
       inventory.schema !== 'compass.agent-routing-surfaces' ||
-      inventory.schemaVersion !== 3 ||
+      inventory.schemaVersion !== 4 ||
       !Array.isArray(inventory.authorities) ||
       inventory.authorities.length !== COMPASS_AGENT_ROUTING_AUTHORITIES.length ||
       !Array.isArray(inventory.skills) ||
@@ -355,6 +426,7 @@ export function validateAgentRoutingInventory(inventory, problems = []) {
     const expected = COMPASS_AGENT_ROUTING_SKILLS[index]
     if (!hasExactKeys(actual, skillKeys) || JSON.stringify(actual) !== JSON.stringify(expected)) problems.push(`agent routing canonical skill inventory is invalid, incomplete, duplicated, stale, or orphaned at index ${index}`)
   }
+  if (JSON.stringify(inventory.requiredSkills) !== JSON.stringify(COMPASS_REQUIRED_SKILL_NAMES)) problems.push('agent routing required skill inventory is invalid, incomplete, duplicated, stale, or orphaned')
   for (let index = 0; index < COMPASS_AGENT_ROUTING_PHYSICAL_ROUTES.length; index += 1) {
     const actual = inventory.physicalRoutes[index]
     const expected = COMPASS_AGENT_ROUTING_PHYSICAL_ROUTES[index]
@@ -386,6 +458,213 @@ export function validateAgentRoutingInventory(inventory, problems = []) {
     }
   }
   return problems.length === initialProblemCount
+}
+
+// A skill "says to load" another skill when a body sentence outside fenced code
+// contains the word "load" and names that skill in backticks anywhere in the
+// sentence, including an antecedent of "load it". The inventory's `requires`
+// list is the explicit, unconditional subset of those loads; every other load
+// is a conditional route. A load looks unconditional when its clause is bare
+// ("Load `a`, `b`, and `c`.") or begins with "before any", or when the
+// sentence says "load it before any" after naming the skill. A bare item in a
+// list inherits the qualifier of the item that follows it.
+export function skillLoadDirectives(canonicalSkillBytes, skillNames, self = null) {
+  const names = new Set(skillNames)
+  const body = canonicalSkillBytes.toString('utf8').replace(/^---\n[\s\S]*?\n---(?:\n|$)/u, '').replace(/```[\s\S]*?```/gu, '')
+  const directives = new Map()
+  for (const sentence of body.split(/(?<=[.!?])\s+|\n\s*\n/u)) {
+    const flat = sentence.replace(/\s+/gu, ' ')
+    if (!/\bload\b/iu.test(flat)) continue
+    const mentions = [...flat.matchAll(/`([a-z0-9-]+)`/gu)].filter((match) => names.has(match[1]))
+    const classified = []
+    for (let index = mentions.length - 1; index >= 0; index -= 1) {
+      const match = mentions[index]
+      const end = index + 1 < mentions.length ? mentions[index + 1].index : flat.length
+      const clause = flat.slice(match.index + match[0].length, end)
+      let unconditional
+      if (/^[\s,;]*(?:and\s*)?\.?\s*$/u.test(clause)) unconditional = index + 1 < mentions.length ? classified[0].unconditional : true
+      else unconditional = /^[\s,;]*before any\b/iu.test(clause) || /\bload (?:it|them) before any\b/iu.test(clause)
+      classified.unshift({ name: match[1], unconditional })
+    }
+    for (const { name, unconditional } of classified) {
+      if (name === self) continue
+      directives.set(name, (directives.get(name) ?? false) || unconditional)
+    }
+  }
+  return [...directives].sort(([left], [right]) => left.localeCompare(right)).map(([name, unconditional]) => ({ name, unconditional }))
+}
+
+export function skillLoadReferences(canonicalSkillBytes, skillNames, self = null) {
+  return skillLoadDirectives(canonicalSkillBytes, skillNames, self).map(({ name }) => name)
+}
+
+export function requiredSkillSeeds(inventory) {
+  const seeds = new Set()
+  for (const authority of inventory?.authorities ?? []) {
+    const match = /^skills\/([a-z0-9-]+)\/SKILL\.md$/u.exec(authority?.canonicalSkillPath ?? '')
+    if (match) seeds.add(match[1])
+  }
+  for (const route of inventory?.physicalRoutes ?? []) {
+    if (route?.routingMechanism === 'instruction-pointer') for (const name of route.routedSkills ?? []) seeds.add(name)
+  }
+  return [...seeds].sort()
+}
+
+export function requiredSkillClosure(inventory) {
+  const requires = new Map((inventory?.skills ?? []).map((skill) => [skill?.name, Array.isArray(skill?.requires) ? skill.requires : []]))
+  const closure = new Set(requiredSkillSeeds(inventory))
+  const queue = [...closure]
+  while (queue.length > 0) {
+    for (const name of requires.get(queue.shift()) ?? []) {
+      if (!closure.has(name)) {
+        closure.add(name)
+        queue.push(name)
+      }
+    }
+  }
+  return [...closure].sort()
+}
+
+// Validates each projected skill's `requires` list against its canonical text and
+// the declared required set against the computed closure. `readSkillBytes`
+// returns null for a skill that is not available, such as an unselected skill
+// in a consumer projection.
+export function validateSkillRequirements(inventory, readSkillBytes, problems = []) {
+  const initialProblemCount = problems.length
+  const names = (inventory?.skills ?? []).map(({ name }) => name)
+  const known = new Set(names)
+  for (const skill of inventory?.skills ?? []) {
+    const requires = skill?.requires
+    if (!Array.isArray(requires) || requires.some((name) => typeof name !== 'string' || !known.has(name) || name === skill.name) ||
+        new Set(requires).size !== requires.length || JSON.stringify(requires) !== JSON.stringify([...requires].sort())) {
+      problems.push(`skill requires list must be sorted unique canonical names other than the skill itself: ${skill?.name}`)
+      continue
+    }
+    const bytes = readSkillBytes(skill.name)
+    if (!bytes) continue
+    const directives = skillLoadDirectives(bytes, names, skill.name)
+    const loads = new Set(directives.map(({ name }) => name))
+    const unsupported = requires.filter((name) => !loads.has(name))
+    if (unsupported.length > 0) problems.push(`skill requires names that its canonical text does not say to load: ${skill.name} -> ${unsupported.join(', ')}`)
+    const omitted = directives.filter(({ name, unconditional }) => unconditional && !requires.includes(name)).map(({ name }) => name)
+    if (omitted.length > 0) problems.push(`skill text loads skills unconditionally that its requires list omits: ${skill.name} -> ${omitted.join(', ')}`)
+  }
+  const closure = requiredSkillClosure(inventory)
+  if (JSON.stringify(closure) !== JSON.stringify(inventory?.requiredSkills)) {
+    problems.push(`required skills must equal the computed closure of authority, AGENTS.md, and required skills: ${closure.join(', ')}`)
+  }
+  return problems.length === initialProblemCount
+}
+
+// Returns, for each projected skill, the required names it lacks.
+export function unsatisfiedSkillRequirements(inventory, projectedNames) {
+  const projected = new Set(projectedNames)
+  const missing = []
+  for (const skill of inventory?.skills ?? []) {
+    if (!projected.has(skill.name)) continue
+    const absent = (skill.requires ?? []).filter((name) => !projected.has(name))
+    if (absent.length > 0) missing.push({ skill: skill.name, missing: absent })
+  }
+  return missing
+}
+
+export function compassSkillNameOfPath(sourcePath) {
+  const match = /^(?:skills|\.agents\/skills|\.claude\/skills)\/([^/]+)\//u.exec(sourcePath)
+  return match ? match[1] : null
+}
+
+export function compassSkillDirectories(name) {
+  return [`skills/${name}`, `.agents/skills/${name}`, `.claude/skills/${name}`]
+}
+
+export function validSkillSelectionPath(value) {
+  return safeRelativePath(value) && !['.compass', 'skills', '.agents', '.claude'].some((root) => value === root || value.startsWith(`${root}/`))
+}
+
+// Parses a consumer-owned compass.skills.json and returns the selected names in
+// canonical inventory order, or the exact problems that reject it.
+export function validateSkillSelectionDocument(bytes, inventory) {
+  const problems = []
+  let document
+  try {
+    document = JSON.parse(bytes.toString('utf8'))
+  } catch (error) {
+    return { selectedSkills: null, problems: [`skill selection is not valid JSON: ${error instanceof Error ? error.message : String(error)}`] }
+  }
+  if (!hasExactKeys(document, ['schema', 'schemaVersion', 'skills']) || document.schema !== 'compass.skill-selection' || document.schemaVersion !== 1 || !Array.isArray(document.skills)) {
+    return { selectedSkills: null, problems: ['skill selection must be exactly {"schema": "compass.skill-selection", "schemaVersion": 1, "skills": [...]}'] }
+  }
+  if (document.skills.some((name) => typeof name !== 'string')) {
+    return { selectedSkills: null, problems: ['skill selection entries must be skill-name strings'] }
+  }
+  const canonical = (inventory?.skills ?? []).map(({ name }) => name)
+  const required = new Set(inventory?.requiredSkills ?? [])
+  const unknown = [...new Set(document.skills.filter((name) => !canonical.includes(name)))]
+  const duplicates = [...new Set(document.skills.filter((name, index) => document.skills.indexOf(name) !== index))]
+  const requiredNames = [...new Set(document.skills.filter((name) => required.has(name)))]
+  if (unknown.length > 0) problems.push(`skill selection names unknown skills: ${unknown.join(', ')}`)
+  if (duplicates.length > 0) problems.push(`skill selection repeats skills: ${duplicates.join(', ')}`)
+  if (requiredNames.length > 0) problems.push(`skill selection names required skills, which are always projected: ${requiredNames.join(', ')}`)
+  const selected = new Set(document.skills)
+  const selectedSkills = canonical.filter((name) => selected.has(name) && !required.has(name))
+  for (const { skill, missing } of unsatisfiedSkillRequirements(inventory, [...required, ...selectedSkills])) {
+    if (selected.has(skill)) problems.push(`selected skill ${skill} requires unselected optional skills: ${missing.join(', ')}`)
+  }
+  return { selectedSkills: problems.length === 0 ? selectedSkills : null, problems }
+}
+
+export function validateSkillSelectionReceiptShape(record, problems = []) {
+  const initialProblemCount = problems.length
+  const uniqueNames = (value) => Array.isArray(value) && value.every((name) => typeof name === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(name)) && new Set(value).size === value.length
+  if (!hasExactKeys(record, ['artifactReceiptSha256', 'requiredSkills', 'schema', 'schemaVersion', 'selectedSkills', 'selection']) ||
+      record.schema !== 'compass.skill-selection-receipt' || record.schemaVersion !== 1 ||
+      !SHA256.test(record.artifactReceiptSha256 ?? '') ||
+      !uniqueNames(record.requiredSkills) || !uniqueNames(record.selectedSkills) ||
+      (record.selection !== null && (!hasExactKeys(record.selection, ['path', 'sha256']) || !validSkillSelectionPath(record.selection.path) || !SHA256.test(record.selection.sha256 ?? '')))) {
+    problems.push('Compass skill selection receipt has an invalid shape')
+  }
+  return problems.length === initialProblemCount
+}
+
+export function unselectedSkillBundleBytes(files) {
+  return Buffer.from(`${JSON.stringify({
+    schema: 'compass.unselected-skill-bundle',
+    schemaVersion: 1,
+    files: files.map(({ path: sourcePath, sha256: digest, bytes, contentBase64 }) => ({ path: sourcePath, sha256: digest, bytes, contentBase64 })),
+  }, null, 2)}\n`)
+}
+
+function readUnselectedSkillBundle(root, problems) {
+  const bytes = readRegularFile(root, COMPASS_UNSELECTED_SKILL_BUNDLE_PATH, problems, { maximumBytes: MAX_UNSELECTED_SKILL_BUNDLE_BYTES })
+  if (!bytes) return null
+  let bundle
+  try {
+    bundle = JSON.parse(bytes.toString('utf8'))
+  } catch {
+    problems.push('Compass unselected skill bundle is malformed JSON')
+    return null
+  }
+  if (!hasExactKeys(bundle, ['files', 'schema', 'schemaVersion']) || bundle.schema !== 'compass.unselected-skill-bundle' || bundle.schemaVersion !== 1 || !Array.isArray(bundle.files) ||
+      bundle.files.some((entry) => !hasExactKeys(entry, ['bytes', 'contentBase64', 'path', 'sha256']) || !safeRelativePath(entry.path) || typeof entry.contentBase64 !== 'string')) {
+    problems.push('Compass unselected skill bundle has an invalid shape')
+    return null
+  }
+  if (!bytes.equals(unselectedSkillBundleBytes(bundle.files))) {
+    problems.push('Compass unselected skill bundle is not in canonical form')
+    return null
+  }
+  return bundle.files
+}
+
+export function skillSelectionReceiptBytes({ artifactReceiptSha256, selection, requiredSkills, selectedSkills }) {
+  return Buffer.from(`${JSON.stringify({
+    schema: 'compass.skill-selection-receipt',
+    schemaVersion: 1,
+    artifactReceiptSha256,
+    selection,
+    requiredSkills,
+    selectedSkills,
+  }, null, 2)}\n`)
 }
 
 const reviewableWorkspaceRetirement = Object.freeze({ sourcePath: '.codex/skills/reviewable-agent-workspaces/SKILL.md', projectedPath: '.codex/skills/reviewable-agent-workspaces/SKILL.md', priorSha256: '3ead92f66c1be8e4fe8f12e9597a69a5454f15e7cb9ee30ae5ff7dfdc5e499c1', priorBytes: 331, disposition: 'remove-on-exact-replace' })
@@ -721,13 +1000,15 @@ export function agentRoutingAdapterBytes(canonicalSkillBytes) {
   return Buffer.from(`---\nname: ${identity.name}\ndescription: ${identity.description}\n---\n\n# ${identity.name} adapter\n\nLoad \`../../../skills/${identity.name}/SKILL.md\` as the canonical procedure.\nThis adapter contains no independent policy.\n`)
 }
 
-export function inspectAgentRoutingDiscovery(root, inventory, { includeSourceOnly = true } = {}) {
+export function inspectAgentRoutingDiscovery(root, inventory, { includeSourceOnly = true, projectedSkills = null } = {}) {
   const discoveryRoot = path.resolve(root)
   const problems = []
   if (!validateAgentRoutingInventory(inventory, problems)) return problems
   const routes = new Map(inventory.physicalRoutes.map((route) => [route.id, route]))
   const canonical = new Map()
+  const isProjected = (name) => projectedSkills === null || projectedSkills.has(name)
   for (const skill of inventory.skills) {
+    if (!isProjected(skill.name)) continue
     const bytes = readRegularFile(discoveryRoot, skill.canonicalSkillPath, problems)
     if (!bytes) continue
     if (sha256(bytes) !== skill.canonicalSkillSha256) problems.push(`agent discovery canonical skill hash differs: ${skill.name}`)
@@ -743,6 +1024,14 @@ export function inspectAgentRoutingDiscovery(root, inventory, { includeSourceOnl
     if (!includeSourceOnly && ecosystemRoutes.every(({ distribution }) => distribution !== 'projected')) continue
     const routedSkillNames = [...new Set(ecosystemRoutes.flatMap(({ routedSkills }) => routedSkills))]
     for (const skillName of routedSkillNames) {
+      if (!isProjected(skillName)) {
+        const discoverable = [
+          ...ecosystemRoutes.filter(({ routingMechanism }) => routingMechanism !== 'instruction-pointer').flatMap(({ canonicalPaths }) => canonicalPaths.filter((candidatePath) => candidatePath.endsWith(`/skills/${skillName}/SKILL.md`))),
+          ...inventory.recognizedUnmaterializedRoots.filter(({ recognizedBy }) => recognizedBy.includes(ecosystem.id)).map(({ path: rootPath }) => `${rootPath}/${skillName}/SKILL.md`),
+        ].filter((candidatePath) => fs.existsSync(path.join(discoveryRoot, candidatePath)))
+        if (discoverable.length > 0) problems.push(`agent discovery resolves an unselected skill: ${ecosystem.id}/${skillName}`)
+        continue
+      }
       const expectedIdentity = canonical.get(skillName)
       if (!expectedIdentity) continue
       const discovered = []
@@ -787,7 +1076,8 @@ export function inspectAgentRoutingDiscovery(root, inventory, { includeSourceOnl
   return problems
 }
 
-function validateProjectedAgentRouting(filesBySourcePath, problems) {
+function validateProjectedAgentRouting(filesBySourcePath, problems, projectedSkills = null) {
+  const isProjected = (name) => projectedSkills === null || projectedSkills.has(name)
   const inventoryBytes = filesBySourcePath.get('agent-routing-surfaces.json')
   if (!inventoryBytes) {
     problems.push('receipt-bound agent routing surface inventory is missing')
@@ -801,7 +1091,9 @@ function validateProjectedAgentRouting(filesBySourcePath, problems) {
     return
   }
   if (!validateAgentRoutingInventory(inventory, problems)) return
+  validateSkillRequirements(inventory, (name) => (isProjected(name) ? filesBySourcePath.get(`skills/${name}/SKILL.md`) ?? null : null), problems)
   for (const skill of inventory.skills) {
+    if (!isProjected(skill.name)) continue
     const canonicalSkillBytes = filesBySourcePath.get(skill.canonicalSkillPath)
     if (!canonicalSkillBytes) {
       problems.push(`receipt-bound canonical routed skill version is missing: ${skill.name}`)
@@ -817,6 +1109,7 @@ function validateProjectedAgentRouting(filesBySourcePath, problems) {
   }
   for (const adapterPath of declaredProjectedPaths) {
     const skillName = adapterPath.split('/').at(-2)
+    if (!isProjected(skillName)) continue
     const canonicalSkillBytes = filesBySourcePath.get(`skills/${skillName}/SKILL.md`)
     const expectedAdapter = canonicalSkillBytes ? agentRoutingAdapterBytes(canonicalSkillBytes) : null
     const bytes = filesBySourcePath.get(adapterPath)
@@ -974,23 +1267,117 @@ function readRegularFile(root, relative, problems, {
   }
 }
 
-function validateManagedNamespaces(root, problems) {
-  if (!inspectExactDirectory(
-    root,
-    '.compass',
-    ['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'proof-evidence-policy.json', 'proof-selection.schema.json', 'receipt.json', 'reviewable-workspace-handoff.schema.json', 'validate-json-schema.mjs'],
-    problems
-  )) return false
+function validateManagedNamespaces(root, problems, projectedSkills = null) {
+  const compassEntries = ['COMPASS.md', 'TERMINOLOGY.md', 'agent-routing-surfaces.json', 'ai-workload-policy.json', 'authority-policy.json', 'authority-registry.json', 'authority-registry.schema.json', 'check-authority-record.mjs', 'check-projection.mjs', 'consumer-hosted-adoption-receipt.schema.json', 'consumer-reconciliation.schema.json', 'managed-retirements.json', 'proof-evidence-policy.json', 'proof-selection.schema.json', 'receipt.json', 'reviewable-workspace-handoff.schema.json', 'validate-json-schema.mjs']
+  if (projectedSkills !== null) compassEntries.push(path.posix.basename(COMPASS_SKILL_SELECTION_RECEIPT_PATH), path.posix.basename(COMPASS_UNSELECTED_SKILL_BUNDLE_PATH))
+  if (!inspectExactDirectory(root, '.compass', compassEntries.sort(), problems)) return false
 
+  const isProjected = (name) => projectedSkills === null || projectedSkills.has(name)
+  let unselectedPresent = false
   for (const name of COMPASS_SKILL_NAMES) {
+    if (isProjected(name)) continue
+    for (const relativeDirectory of compassSkillDirectories(name)) {
+      try {
+        fs.lstatSync(path.join(root, relativeDirectory))
+        problems.push(`unselected Compass skill is present; select it in the skill selection or re-project with --replace: ${relativeDirectory}`)
+        unselectedPresent = true
+      } catch (error) {
+        if (error?.code !== 'ENOENT') {
+          problems.push(`Compass managed directory is unreadable: ${relativeDirectory}: ${error instanceof Error ? error.message : String(error)}`)
+          unselectedPresent = true
+        }
+      }
+    }
+  }
+  if (unselectedPresent) return false
+  for (const name of COMPASS_SKILL_NAMES.filter(isProjected)) {
     const relativeDirectory = `skills/${name}`
     if (!inspectExactDirectory(root, relativeDirectory, ['SKILL.md', 'agents'], problems)) return false
     if (!inspectExactDirectory(root, `${relativeDirectory}/agents`, ['openai.yaml'], problems)) return false
   }
   for (const adapterPath of COMPASS_DISCOVERY_ADAPTER_PATHS) {
+    if (!isProjected(adapterPath.split('/').at(-2))) continue
     if (!inspectExactDirectory(root, path.posix.dirname(adapterPath), ['SKILL.md'], problems)) return false
   }
   return true
+}
+
+// Returns null for a projection written before skill selection (a full
+// projection), the validated selection receipt, or undefined after a problem.
+function readSkillSelectionReceipt(root, problems) {
+  try {
+    const parent = fs.lstatSync(path.join(root, path.posix.dirname(COMPASS_SKILL_SELECTION_RECEIPT_PATH)))
+    // Namespace and receipt inspection report an unsafe or missing .compass.
+    if (parent.isSymbolicLink() || !parent.isDirectory()) return null
+  } catch {
+    return null
+  }
+  try {
+    fs.lstatSync(path.join(root, COMPASS_SKILL_SELECTION_RECEIPT_PATH))
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null
+    problems.push(`Compass skill selection receipt is unreadable: ${error instanceof Error ? error.message : String(error)}`)
+    return undefined
+  }
+  const bytes = readRegularFile(root, COMPASS_SKILL_SELECTION_RECEIPT_PATH, problems, { maximumBytes: MAX_SKILL_SELECTION_BYTES })
+  if (!bytes) return undefined
+  let record
+  try {
+    record = JSON.parse(bytes.toString('utf8'))
+  } catch (error) {
+    problems.push(`Compass skill selection receipt is malformed JSON: ${error instanceof Error ? error.message : String(error)}`)
+    return undefined
+  }
+  if (!validateSkillSelectionReceiptShape(record, problems)) return undefined
+  return record
+}
+
+function pathIsAbsent(root, relative) {
+  try {
+    fs.lstatSync(path.join(root, relative))
+    return false
+  } catch (error) {
+    if (error?.code === 'ENOENT') return true
+    throw error
+  }
+}
+
+function validateSkillSelectionBinding(root, record, receiptBytes, inventory, problems) {
+  if (record.artifactReceiptSha256 !== sha256(receiptBytes)) problems.push('Compass skill selection receipt does not bind the projected artifact receipt')
+  if (JSON.stringify(record.requiredSkills) !== JSON.stringify(inventory.requiredSkills)) problems.push('Compass skill selection receipt required skills differ from the receipt-bound routing inventory')
+  const canonical = inventory.skills.map(({ name }) => name)
+  const expectedOrder = canonical.filter((name) => record.selectedSkills.includes(name))
+  if (record.selectedSkills.some((name) => !canonical.includes(name) || inventory.requiredSkills.includes(name)) || JSON.stringify(expectedOrder) !== JSON.stringify(record.selectedSkills)) {
+    problems.push('Compass skill selection receipt selected skills must be canonical optional skills in inventory order')
+  }
+  for (const { skill, missing } of unsatisfiedSkillRequirements(inventory, [...record.requiredSkills, ...record.selectedSkills])) {
+    problems.push(`projected skill ${skill} requires unprojected skills: ${missing.join(', ')}`)
+  }
+  try {
+    if (record.selection === null) {
+      if (!pathIsAbsent(root, COMPASS_SKILL_SELECTION_PATH)) problems.push(`skill selection file ${COMPASS_SKILL_SELECTION_PATH} was added after projection; re-project with --replace`)
+      return
+    }
+    if (pathIsAbsent(root, record.selection.path)) {
+      problems.push(`skill selection file recorded at projection is missing; restore it or re-project with --replace: ${record.selection.path}`)
+      return
+    }
+    if (record.selection.path !== COMPASS_SKILL_SELECTION_PATH && !pathIsAbsent(root, COMPASS_SKILL_SELECTION_PATH)) {
+      problems.push(`skill selection is ambiguous: ${COMPASS_SKILL_SELECTION_PATH} exists beside the recorded ${record.selection.path}`)
+    }
+  } catch (error) {
+    problems.push(`skill selection file is unreadable: ${error instanceof Error ? error.message : String(error)}`)
+    return
+  }
+  const bytes = readRegularFile(root, record.selection.path, problems, { maximumBytes: MAX_SKILL_SELECTION_BYTES })
+  if (!bytes) return
+  if (sha256(bytes) !== record.selection.sha256) {
+    problems.push(`skill selection file changed after projection; re-project with --replace: ${record.selection.path}`)
+    return
+  }
+  const parsed = validateSkillSelectionDocument(bytes, inventory)
+  if (parsed.problems.length > 0) problems.push(...parsed.problems.map((problem) => `${record.selection.path}: ${problem}`))
+  else if (JSON.stringify(parsed.selectedSkills) !== JSON.stringify(record.selectedSkills)) problems.push('Compass skill selection receipt selected skills differ from the recorded selection file')
 }
 
 function validateReceiptShape(receipt, problems, expectedPaths, expectedRepository) {
@@ -1093,7 +1480,10 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
 } = {}) {
   const consumerRoot = path.resolve(root)
   const problems = []
-  if (checkManagedNamespaces && !validateManagedNamespaces(consumerRoot, problems)) {
+  const selection = readSkillSelectionReceipt(consumerRoot, problems)
+  if (selection === undefined) return { root: consumerRoot, receipt: null, problems }
+  const projectedSkills = selection === null ? null : new Set([...selection.requiredSkills, ...selection.selectedSkills])
+  if (checkManagedNamespaces && !validateManagedNamespaces(consumerRoot, problems, projectedSkills)) {
     return { root: consumerRoot, receipt: null, problems }
   }
   const receiptBytes = readRegularFile(
@@ -1118,10 +1508,37 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
   const shareablePaths = expectedPaths ?? receipt.includedFiles.map(({ path: sourcePath }) => sourcePath)
   const artifactFiles = []
   const filesBySourcePath = new Map()
+  const isOmitted = (sourcePath) => {
+    const skillName = compassSkillNameOfPath(sourcePath)
+    return projectedSkills !== null && skillName !== null && !projectedSkills.has(skillName)
+  }
+  const bundleFiles = selection === null ? [] : readUnselectedSkillBundle(consumerRoot, problems)
+  let bundleComplete = bundleFiles !== null
+  if (bundleFiles !== null) {
+    const omittedPaths = shareablePaths.filter(isOmitted)
+    if (JSON.stringify(bundleFiles.map(({ path: sourcePath }) => sourcePath)) !== JSON.stringify(omittedPaths)) {
+      problems.push('Compass unselected skill bundle must hold exactly the unselected skills\' artifact files in receipt order')
+      bundleComplete = false
+    }
+  }
+  const bundled = new Map((bundleFiles ?? []).map((file) => [file.path, file]))
   for (let index = 0; index < shareablePaths.length; index += 1) {
     const sourcePath = shareablePaths[index]
     const entry = receipt.includedFiles[index]
     if (!entry || entry.path !== sourcePath || !safeRelativePath(entry.path)) continue
+    if (isOmitted(sourcePath)) {
+      const file = bundled.get(sourcePath)
+      if (!file) continue
+      const bytes = Buffer.from(file.contentBase64, 'base64')
+      if (bytes.toString('base64') !== file.contentBase64 || bytes.length !== file.bytes || sha256(bytes) !== file.sha256 || file.bytes !== entry.bytes || file.sha256 !== entry.sha256) {
+        problems.push(`Compass unselected skill bundle digest differs: ${sourcePath}`)
+        bundleComplete = false
+        continue
+      }
+      artifactFiles.push({ path: sourcePath, sha256: file.sha256, bytes: file.bytes, contentBase64: file.contentBase64 })
+      filesBySourcePath.set(sourcePath, bytes)
+      continue
+    }
     const projectedPath = compassProjectionPath(sourcePath)
     const bytes = readRegularFile(
       consumerRoot,
@@ -1141,8 +1558,18 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
   }
 
   if (shareablePaths.includes('agent-routing-surfaces.json')) {
-    const routingInventory = validateProjectedAgentRouting(filesBySourcePath, problems)
-    if (routingInventory) problems.push(...inspectAgentRoutingDiscovery(consumerRoot, routingInventory))
+    const routingInventory = validateProjectedAgentRouting(filesBySourcePath, problems, bundleComplete ? null : projectedSkills)
+    if (routingInventory) problems.push(...inspectAgentRoutingDiscovery(consumerRoot, routingInventory, { projectedSkills }))
+    if (routingInventory && selection !== null) validateSkillSelectionBinding(consumerRoot, selection, receiptBytes, routingInventory, problems)
+  } else if (selection !== null) {
+    problems.push('Compass skill selection receipt requires a receipt-bound agent routing inventory')
+  }
+  if (selection === null) {
+    try {
+      if (!pathIsAbsent(consumerRoot, COMPASS_SKILL_SELECTION_PATH)) problems.push(`skill selection file ${COMPASS_SKILL_SELECTION_PATH} exists but the projection has no skill selection receipt; re-project with --replace`)
+    } catch (error) {
+      problems.push(`skill selection file is unreadable: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
   if (shareablePaths.includes('managed-retirements.json')) {
     const retirementBytes = filesBySourcePath.get('managed-retirements.json')
@@ -1159,6 +1586,8 @@ export function inspectCompassProjection(root = defaultConsumerRoot, {
     }
   }
 
+  // Projected files plus the unselected skill bundle always rebuild the exact
+  // receipt-bound artifact, whether or not the projection is selective.
   if (artifactFiles.length === shareablePaths.length) {
     const canonicalSource = {
       repository: receipt.source.repository,

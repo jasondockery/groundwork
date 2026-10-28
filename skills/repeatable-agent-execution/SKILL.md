@@ -154,6 +154,33 @@ A break-glass control is owner-only, named as break-glass, fails closed toward
 the unsafe interpretation, and binds an audit receipt to each use. A control
 that can make a destructive plan appear safe is a defect regardless of intent.
 
+## Resume from durable state
+
+Context compaction, a long background wait, or a resumed session does not
+preserve what was about to happen. The durable record is the owning issue or
+pull request and the instruction files, never the conversation. Compact or
+switch sessions only at a boundary such as a merge, verdict, or lane close,
+never mid-review or mid-proof.
+
+After resuming:
+
+1. Reread the owning issue's maintained brief and the latest instruction
+   before acting.
+2. Re-derive the current head and state from the worktree and the forge, not
+   from memory. A merged pull request finishes the lane only when the worktree
+   is clean and holds no commits beyond the merged head; otherwise later
+   commits or uncommitted files may be unpublished work to inspect.
+3. Check the complete existing inventory before reposting a question, ready
+   report, or ledger that may already exist.
+4. Treat a message naming work you did not do as a status note for its owner,
+   not an instruction.
+5. Keep the brief current: head, what is proven, what is pending, and what the
+   owner must do.
+
+Report once what was reread and what changed, then continue. Set the working
+directory explicitly on every non-interactive command; a separate shell call
+may not inherit an earlier directory change.
+
 ## Measure the waste
 
 Record environment repair attempts, manual runtime or path correction,

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase modularity"
+  short_description: "Split along seams instead of raising size limits"
+  default_prompt: "Use $codebase-modularity to keep this change inside the size budget by extracting along module seams."

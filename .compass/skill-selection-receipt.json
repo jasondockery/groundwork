@@ -1,0 +1,41 @@
+{
+  "schema": "compass.skill-selection-receipt",
+  "schemaVersion": 1,
+  "artifactReceiptSha256": "913d2973a2af7e021781f6566f6a4cc08a351220d4bd3b0a6d79e2d48a9b478d",
+  "selection": {
+    "path": "compass.skills.json",
+    "sha256": "739cbee4793154c0c8b784933ab248ed84aa414beab22d3467062aa89bcd440e"
+  },
+  "requiredSkills": [
+    "concurrent-agent-runtimes",
+    "repeatable-agent-execution",
+    "reviewable-agent-workspaces",
+    "shift-to-authority",
+    "verification-selection"
+  ],
+  "selectedSkills": [
+    "acceptance-evidence",
+    "accessible-product-development",
+    "agent-orchestration",
+    "ai-backend-change",
+    "ci-workflow-change",
+    "codebase-modularity",
+    "dependency-change",
+    "developer-tool-change",
+    "field-failure-backpressure",
+    "github-delivery-workflow",
+    "inclusive-content-design",
+    "inclusive-product-foundation",
+    "independent-code-review",
+    "internationalization-first",
+    "performance-sensitive-change",
+    "privacy-by-design",
+    "repo-contribution-etiquette",
+    "secure-by-design",
+    "shell-script-change",
+    "skill-authoring",
+    "terminal-program-ux",
+    "testing-strategy",
+    "toolchain-authority"
+  ]
+}

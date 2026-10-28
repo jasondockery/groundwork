@@ -1,0 +1,4 @@
+interface:
+  display_name: "Acceptance evidence"
+  short_description: "Acceptance steps and evidence a verifier can run"
+  default_prompt: "Use $acceptance-evidence to write acceptance steps for this change from the final diff."

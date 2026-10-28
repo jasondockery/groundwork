@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent orchestration"
+  short_description: "Coordinate lanes, makers, and a shared reviewer"
+  default_prompt: "Use $agent-orchestration to split this work into lanes and write a maker brief for each."

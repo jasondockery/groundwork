@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI workflow change"
+  short_description: "Change and triage hosted CI/CD workflows safely"
+  default_prompt: "Use $ci-workflow-change to change or triage this CI workflow with stable required checks and gated deploys."

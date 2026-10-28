@@ -1,0 +1,4 @@
+interface:
+  display_name: "Independent code review"
+  short_description: "Maker/checker review loop to convergence"
+  default_prompt: "Use $independent-code-review to review this frozen candidate and report findings by severity."
