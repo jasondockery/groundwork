@@ -16040,9 +16040,9 @@ EOF
 
   check "continuity record: deprecation, latest release, and superseded handoff"
   grep -qF 'This repository is deprecated for new installations' ROADMAP.md
-  grep -qF 'The latest published release is `v1.21.0`' ROADMAP.md
+  grep -qF "The latest published release is \`v1.21.0\`" ROADMAP.md
   grep -qF '4a4771cdd8a57c5e435f8eaf3ea1c6cd2d09b0bf' ROADMAP.md
-  grep -qF 'handoff that called `v1.17.0` current and `v1.18.0` unreleased is superseded' ROADMAP.md
+  grep -qF "handoff that called \`v1.17.0\` current and \`v1.18.0\` unreleased is superseded" ROADMAP.md
   if grep -qF 'remains the current' ROADMAP.md; then fail "ROADMAP continuity must not call an old release current"; fi
 
   check "workflow timeout checker behaves as specified"
