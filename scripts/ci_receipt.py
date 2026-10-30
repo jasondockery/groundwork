@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 from typing import Any, Iterable
 
 
@@ -435,19 +436,84 @@ def tree_snapshot(
     }
 
 
+# A recorded repository is only ever `owner/repo` (or the `local/<dir>`
+# fallback). Remote URLs can carry credentials as userinfo
+# (`https://x-access-token:<token>@github.com/owner/repo`), so the remote is
+# parsed and reduced to its path; anything that still looks like a credential
+# is refused rather than recorded. Errors never echo the raw value.
+REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_SCP_REMOTE_RE = re.compile(r"^(?:[^@/:\s]+@)?[A-Za-z0-9.-]+:(?!//)(?P<path>[^\s]+)$")
+_REMOTE_URL_SCHEMES = {"https", "http", "ssh", "git", "git+ssh", "ssh+git"}
+_CREDENTIAL_MARKERS = (
+    re.compile(r"[@:\s]"),
+    re.compile(r"x-access-token", re.IGNORECASE),
+    re.compile(r"(?:^|[^A-Za-z0-9])gh[opsur]_[A-Za-z0-9]{16,}"),
+    re.compile(r"github_pat_[A-Za-z0-9_]{16,}"),
+    re.compile(r"glpat-[A-Za-z0-9_-]{16,}"),
+)
+
+
+def looks_credential_like(value: str) -> bool:
+    return any(marker.search(value) for marker in _CREDENTIAL_MARKERS)
+
+
+def _plain_repository(value: str) -> str | None:
+    if not REPOSITORY_RE.fullmatch(value) or looks_credential_like(value):
+        return None
+    if any(segment in {".", ".."} for segment in value.split("/")):
+        return None
+    return value
+
+
+def repository_from_remote(remote: str) -> str | None:
+    """Reduce a Git remote URL to `owner/repo`, or None when that is not safe.
+
+    Userinfo (`user[:password]@`), host, port, query, and fragment are never
+    part of the result.
+    """
+    remote = remote.strip()
+    if not remote:
+        return None
+    if "://" in remote:
+        try:
+            parsed = urllib.parse.urlsplit(remote)
+            parsed.port  # noqa: B018 - raises ValueError for a malformed port
+        except ValueError:
+            return None
+        if parsed.scheme.lower() not in _REMOTE_URL_SCHEMES or not parsed.hostname:
+            return None
+        if parsed.query or parsed.fragment:
+            return None
+        path = parsed.path
+    else:
+        match = _SCP_REMOTE_RE.fullmatch(remote)
+        if match is None:
+            return None
+        path = match.group("path")
+    path = path.strip("/").removesuffix(".git").rstrip("/")
+    return _plain_repository(path)
+
+
 def repository_name(repo: pathlib.Path) -> str:
     configured = os.environ.get("GITHUB_REPOSITORY", "")
     if configured:
-        return validate_text(configured, "repository")
+        if _plain_repository(configured) is None:
+            raise ReceiptError("GITHUB_REPOSITORY must be a plain owner/repo value")
+        return configured
     try:
         remote = _git(repo, "config", "--get", "remote.origin.url").decode().strip()
-    except (OSError, subprocess.CalledProcessError, UnicodeDecodeError):
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        UnicodeDecodeError,
+    ):
         remote = ""
-    remote = remote.removesuffix(".git")
-    for prefix in ("git@github.com:", "https://github.com/"):
-        if remote.startswith(prefix):
-            remote = remote[len(prefix) :]
-    return remote if "/" in remote else f"local/{repo.name}"
+    recorded = repository_from_remote(remote)
+    if recorded is not None:
+        return recorded
+    fallback = f"local/{repo.name}"
+    return fallback if _plain_repository(fallback) is not None else "local/unknown"
 
 
 def _optional_environment_integer(name: str) -> int | None:
@@ -603,6 +669,8 @@ def validate_receipt(payload: Any, *, expected_kind: str | None = None) -> dict[
         raise ReceiptError(f"unexpected receipt kind: {kind!r}")
     for label in ("repository", "workflow", "job"):
         validate_text(receipt.get(label), label)
+    if _plain_repository(receipt["repository"]) is None:
+        raise ReceiptError("repository must be a plain owner/repo value")
     for label in ("runId", "runAttempt"):
         value = receipt.get(label)
         if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value <= 0):
