@@ -509,6 +509,111 @@ raise SystemExit(1)
             assert job["source"]["treeFingerprintAfter"] is not None
 
 
+def assert_origin_credentials_never_recorded(temporary: pathlib.Path) -> None:
+    """A credentialed origin URL must reduce to owner/repo or be refused."""
+    # Fake secrets are assembled at runtime so no token-shaped literal lives in
+    # the repository; each must never reach the receipt, summary, or output.
+    token = "gh" + "p_" + "Fx7" * 12
+    password = "hunter2-" + "pw" * 6
+    user = "receipt-user-" + "u" * 4
+    cases = [
+        ("https-token", f"https://x-access-token:{token}@github.com/owner/repo.git", None, "owner/repo"),
+        ("https-user-pass", f"https://{user}:{password}@github.com/owner/repo", None, "owner/repo"),
+        ("http-userinfo", f"http://{user}:{password}@example.com:8080/owner/repo.git", None, "owner/repo"),
+        ("ssh-scp", "git@github.com:owner/repo.git", None, "owner/repo"),
+        ("ssh-url", "ssh://git@github.com:22/owner/repo.git", None, "owner/repo"),
+        ("https-plain", "https://github.com/owner/repo", None, "owner/repo"),
+        ("env-precedence", f"https://x-access-token:{token}@github.com/other/name", "owner/repo", "owner/repo"),
+        ("malformed", f"https://{user}:{password}@github.com:notaport/owner/repo", None, "local/malformed"),
+        ("token-in-path", f"https://github.com/{token}/repo", None, "local/token-in-path"),
+        ("token-in-query", f"https://github.com/owner/repo?access_token={token}", None, "local/token-in-query"),
+        ("nested-path", f"https://{user}:{password}@gitlab.example/group/sub/repo", None, "local/nested-path"),
+    ]
+    secrets = (token, password, user, "x-access-token")
+    base_environment = {
+        key: value for key, value in os.environ.items() if key != "GITHUB_REPOSITORY"
+    }
+    for name, remote, configured, expected in cases:
+        workspace = temporary / name
+        workspace.mkdir()
+        initialize_repo(workspace)
+        subprocess.run(
+            ["git", "-C", str(workspace), "remote", "add", "origin", remote],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if configured is None:
+            parsed = ci_receipt.repository_from_remote(remote)
+            assert parsed == (None if expected.startswith("local/") else expected), name
+        output = temporary / f"{name}-receipt.json"
+        summary = temporary / f"{name}-summary.md"
+        phase = temporary / f"{name}-phases.tsv"
+        facts = temporary / f"{name}-facts.tsv"
+        phase.write_text("build\t1\tpassed\t\n", encoding="utf-8")
+        facts.write_text("Cache\thit\n", encoding="utf-8")
+        environment = {**base_environment, "GITHUB_WORKSPACE": str(workspace)}
+        if configured is not None:
+            environment["GITHUB_REPOSITORY"] = configured
+        completed = subprocess.run(
+            [str(WRITER), *base_arguments(output, phase, facts), "--summary", str(summary)],
+            cwd=REPO,
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert completed.returncode == 0, f"{name}: writer failed"
+        receipt_text = output.read_text(encoding="utf-8")
+        receipt = validate_receipt(json.loads(receipt_text), expected_kind="ci-job")
+        assert receipt["repository"] == expected, f"{name}: unexpected repository"
+        observed = "\n".join(
+            (receipt_text, summary.read_text(encoding="utf-8"), completed.stdout, completed.stderr)
+        )
+        for secret in secrets:
+            assert secret not in observed, f"{name}: a credential reached the receipt or output"
+
+    # Direct parser contract, independent of the writer.
+    assert ci_receipt.repository_from_remote(f"https://x-access-token:{token}@github.com/o/r.git") == "o/r"
+    assert ci_receipt.repository_from_remote("git@github-personal:o/r.git") == "o/r"
+    assert ci_receipt.repository_from_remote("ssh://git@host/o/r") == "o/r"
+    assert ci_receipt.repository_from_remote("file:///srv/o/r.git") is None
+    assert ci_receipt.repository_from_remote("/srv/o/r.git") is None
+    assert ci_receipt.repository_from_remote("") is None
+    assert ci_receipt.repository_from_remote("https://[::1/o/r") is None
+
+    # An explicit GITHUB_REPOSITORY that is not plain owner/repo fails closed
+    # without echoing the value.
+    workspace = temporary / "https-plain"
+    output = temporary / "env-credential-receipt.json"
+    phase = temporary / "https-plain-phases.tsv"
+    facts = temporary / "https-plain-facts.tsv"
+    for configured in (f"x-access-token:{token}@github.com/o/r", f"{user}:{password}", f"o/{token}"):
+        completed = subprocess.run(
+            [str(WRITER), *base_arguments(output, phase, facts)],
+            cwd=REPO,
+            env={**base_environment, "GITHUB_WORKSPACE": str(workspace), "GITHUB_REPOSITORY": configured},
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        assert completed.returncode != 0, "a credential-like GITHUB_REPOSITORY was accepted"
+        assert not output.exists(), "a credential-like GITHUB_REPOSITORY wrote a receipt"
+        assert "plain owner/repo" in completed.stderr
+        for secret in secrets:
+            assert secret not in completed.stdout + completed.stderr, "an error echoed a credential"
+
+    # A forged receipt carrying a credentialed repository is rejected.
+    forged = json.loads((temporary / "https-plain-receipt.json").read_text(encoding="utf-8"))
+    forged["repository"] = f"https://x-access-token:{token}@github.com/o/r"
+    try:
+        validate_receipt(forged, expected_kind="ci-job")
+    except ReceiptError as error:
+        assert token not in str(error)
+    else:
+        raise AssertionError("a receipt with a credentialed repository was accepted")
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="groundwork-receipt-test.") as temporary_name:
         temporary = pathlib.Path(temporary_name)
@@ -901,6 +1006,7 @@ esac
         assert_validator_detail_mismatches_fail_closed(temporary)
         assert_validation_source_transactions(temporary)
         assert_full_child_failure_is_named(temporary)
+        assert_origin_credentials_never_recorded(temporary)
 
     print("test-ci-receipts: passed")
     return 0

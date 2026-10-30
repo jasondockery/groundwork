@@ -76,6 +76,13 @@ schema-versioned receipt. It records the exact content fingerprint of staged,
 unstaged, and untracked inputs before and after the run; platform; suite budget;
 pass, skip, and fail counters; typed skip codes and reasons; and every check
 timing.
+Outside hosted CI the receipt's `repository` comes from the `origin` remote and
+records only `owner/repo`; a remote that does not reduce to a plain
+`owner/repo` is recorded as `local/<checkout>`. Clone with a plain URL such as
+`https://github.com/owner/repo` or `git@github.com:owner/repo.git`, and supply
+credentials through a Git credential helper (`gh auth setup-git`) or an
+`http.extraHeader`, never as `user:token@` in the remote URL, where Git itself
+stores and shows them.
 `full` launches each public focused suite in a fresh subprocess and imports
 their receipts, so shell globals and fixtures cannot make the composition a
 different test. It is the boundary proof for validator, shared-runner,
