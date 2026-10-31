@@ -263,7 +263,22 @@ the default branch that shares no files with the candidate needs no new round.
 ## 7. Automated-reviewer feedback
 
 Automated or hosted review is optional input unless the repository requires
-it. When its feedback exists, reconcile it through this same loop:
+it. A repository or its owner may declare hosted review **not used**, recorded
+in the consumer-owned `AGENTS.md` beside the round budget. Where it is declared
+not used, hosted output is not a review input, not coverage, and not a merge
+gate; nobody waits for it; and no disposition or round budget applies to it.
+The coordinator may pass a specific hosted finding that looks like a real
+defect to the local reviewer as an ordinary input, handled like any other
+finding. The local review defined here is the gate either way.
+
+Owner record, 2026-10-30: for repositories whose GitHub owner is the Compass
+owner's account, hosted or automated review is not used by default, so those
+repositories need no line of their own; a repository's `AGENTS.md` may opt back
+in. This record sets no default for any other owner's repositories; each owner
+decides its own.
+
+Where hosted review is used or required, and its feedback exists, reconcile it
+through this same loop:
 
 1. The checker or maker, not the reviewer, retrieves the complete inventory and
    gives it to the reviewer as a frozen input: review bodies, inline comments,
@@ -308,5 +323,6 @@ class escapes repeatedly, sharpen the checklist or add a guard through
 - No Medium-or-higher finding is unfixed, unrebutted, or only ticketed, unless
   the owner directed that disposition at the ceiling. Where the standing
   contribution workflow applies, no finding of any severity is.
-- Automated-reviewer findings, when present, all have dispositions.
+- Automated-reviewer findings, when hosted review is used and they are
+  present, all have dispositions.
 - The record lists what was not proved.

@@ -586,6 +586,13 @@ size thresholds, project fields, acceptance routes, release models, and
 effective model tables. `agent-orchestration` carries only dated,
 non-normative model examples that the client's own model list overrides.
 
+The one exception is a dated owner record: a shared skill may carry a record
+that sets a default, for the consumer-owned settings above (review tools, round
+budgets, release models, effective model tables), only for repositories whose
+GitHub owner is the Compass owner's account. Such a record states its date, states that it sets nothing for
+any other owner's repositories, and is overridable by the consumer's
+`AGENTS.md`.
+
 ## Reviewable agent workspaces
 
 Implementation work begins by declaring its mode—read-only, implementation,
