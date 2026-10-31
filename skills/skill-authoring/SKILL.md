@@ -39,6 +39,9 @@ read 2026-10-26.
 - Frontmatter requires `name` and `description`. `name` equals the directory:
   1 to 64 lowercase letters, digits, and hyphens, with no leading, trailing,
   or consecutive hyphens.
+- A skill a repository keeps for itself takes a repository-prefixed name
+  (`<repo>-<topic>`) and never a name a shared distribution uses, so a
+  projection of shared skills never meets a same-named local skill.
 - `description` is at most 1,024 characters and is the trigger: what the skill
   does, when to use it, and what nearby work belongs elsewhere.
 - Keep the body procedural, under 500 lines and roughly 5,000 tokens.
@@ -105,6 +108,10 @@ not change the outcome is not earning its load cost.
 
 ## Register it
 
+Before adding a new shared skill name, check every known consumer of the
+distribution for a skill that already uses it, and resolve each collision
+before the name ships.
+
 Register the skill everywhere the distributing repository requires in the same
 change: canonical file, interface manifest, discovery adapters, routing
 inventory and hashes, inventory tests, and instruction routing. Run that
@@ -115,7 +122,8 @@ repository's validator and report its result.
 - The overlap check found no existing skill that already does this job, or
   the split is stated in both descriptions.
 - `name` matches the directory, and the description names triggers and
-  near misses.
+  near misses. A local skill's name is repository-prefixed, and a new shared
+  name collides with no known consumer's skill.
 - The body is procedural, vendor-neutral, and within the distribution
   contract's allowed files.
 - Trigger evals are recorded in the pull request.

@@ -125,7 +125,8 @@ filesystem path from a forge comment.
 ## 5. Review, acceptance, merge
 
 1. Resolve review feedback through `independent-code-review`, including
-   automated-reviewer findings.
+   automated-reviewer findings where the repository uses hosted review. Where
+   it is declared not used, hosted output is neither awaited nor a merge gate.
 2. Finalize acceptance steps from the final implementation with
    `acceptance-evidence`. Review and acceptance can overlap.
 3. A merge needs, for one exact head: the repository's required proof,

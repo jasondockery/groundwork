@@ -1,7 +1,7 @@
 {
   "schema": "compass.skill-selection-receipt",
   "schemaVersion": 1,
-  "artifactReceiptSha256": "913d2973a2af7e021781f6566f6a4cc08a351220d4bd3b0a6d79e2d48a9b478d",
+  "artifactReceiptSha256": "371305904f9ebb6382a9b6d9e665d9f7f4b481b8a3f1b8673cf04ed3355f063b",
   "selection": {
     "path": "compass.skills.json",
     "sha256": "739cbee4793154c0c8b784933ab248ed84aa414beab22d3467062aa89bcd440e"

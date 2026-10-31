@@ -91,10 +91,10 @@ export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
   Object.freeze({ name: 'feature-flags', canonicalSkillPath: 'skills/feature-flags/SKILL.md', canonicalSkillSha256: '7c9eff7e0ccaf69032259345aa992c492a11963316b92aa9e79b0b6c570c6a9a', requires: Object.freeze(['testing-strategy']) }),
   Object.freeze({ name: 'field-failure-backpressure', canonicalSkillPath: 'skills/field-failure-backpressure/SKILL.md', canonicalSkillSha256: '42c69bfda8da84f5c0d5f7d546808dd4eba2cbcd4b13dd8f4b837bb22c7c1bc7', requires: Object.freeze([]) }),
   Object.freeze({ name: 'form-layout', canonicalSkillPath: 'skills/form-layout/SKILL.md', canonicalSkillSha256: 'e6aae5fbf2e850727556c101e10476ff150f5c94a10158f8f5f2d29ee6cc1834', requires: Object.freeze(['accessible-product-development', 'inclusive-content-design', 'ui-ux']) }),
-  Object.freeze({ name: 'github-delivery-workflow', canonicalSkillPath: 'skills/github-delivery-workflow/SKILL.md', canonicalSkillSha256: '8203695bc96fabe2559a9c99392ddfb38cba7fe481989d1b5fcc265da64bd467', requires: Object.freeze(['acceptance-evidence', 'independent-code-review', 'repo-contribution-etiquette', 'reviewable-agent-workspaces', 'verification-selection']) }),
+  Object.freeze({ name: 'github-delivery-workflow', canonicalSkillPath: 'skills/github-delivery-workflow/SKILL.md', canonicalSkillSha256: '90ff49ac048f67c3aecf5e161eedd25ca8b3d6ae05c101276054bc26bfb63fcf', requires: Object.freeze(['acceptance-evidence', 'independent-code-review', 'repo-contribution-etiquette', 'reviewable-agent-workspaces', 'verification-selection']) }),
   Object.freeze({ name: 'inclusive-content-design', canonicalSkillPath: 'skills/inclusive-content-design/SKILL.md', canonicalSkillSha256: '6dee58a6e49c45cbbf3eebdde1b794d38b6d1c62f0922a8e878ad1f62a059e0b', requires: Object.freeze([]) }),
   Object.freeze({ name: 'inclusive-product-foundation', canonicalSkillPath: 'skills/inclusive-product-foundation/SKILL.md', canonicalSkillSha256: '3bc3f64694a6f2dcca1723c88e337ebaa91ac92f5df3e96aaa5b1436a40c8590', requires: Object.freeze([]) }),
-  Object.freeze({ name: 'independent-code-review', canonicalSkillPath: 'skills/independent-code-review/SKILL.md', canonicalSkillSha256: '0772cc94449dd78cb5b044fb08953ba2921cb58bff31bc34668209a35f359bb5', requires: Object.freeze(['repo-contribution-etiquette', 'reviewable-agent-workspaces', 'shift-to-authority', 'verification-selection']) }),
+  Object.freeze({ name: 'independent-code-review', canonicalSkillPath: 'skills/independent-code-review/SKILL.md', canonicalSkillSha256: 'db11964fe5274dc2171531372e1bdb3bd6b299ba20156d2cb8ad3c1e46e8241c', requires: Object.freeze(['repo-contribution-etiquette', 'reviewable-agent-workspaces', 'shift-to-authority', 'verification-selection']) }),
   Object.freeze({ name: 'internationalization-first', canonicalSkillPath: 'skills/internationalization-first/SKILL.md', canonicalSkillSha256: '8d3916165311db1afd23fe01567decd4c14da5e8bded0de66d5889c67017c99f', requires: Object.freeze([]) }),
   Object.freeze({ name: 'monorepo-change', canonicalSkillPath: 'skills/monorepo-change/SKILL.md', canonicalSkillSha256: '87ea2841b10e849a197a698c53e570039948ee641fb65cc55bc307a00bf81678', requires: Object.freeze(['verification-selection']) }),
   Object.freeze({ name: 'multi-step-workflows', canonicalSkillPath: 'skills/multi-step-workflows/SKILL.md', canonicalSkillSha256: '62ccdbd2debfc48d69756c4060776bf2d9dfe6d3614736f3ae5bbc7025f3d4ce', requires: Object.freeze(['accessible-product-development', 'form-layout', 'url-state-navigation']) }),
@@ -107,7 +107,7 @@ export const COMPASS_AGENT_ROUTING_SKILLS = Object.freeze([
   Object.freeze({ name: 'secure-by-design', canonicalSkillPath: 'skills/secure-by-design/SKILL.md', canonicalSkillSha256: '031c59c6fbcd6209d6d07fa5ae46e800b14ad6540c3af6e3ab750bc6df57d8fe', requires: Object.freeze([]) }),
   Object.freeze({ name: 'shell-script-change', canonicalSkillPath: 'skills/shell-script-change/SKILL.md', canonicalSkillSha256: '3e6deb20a0e7f35ee0f80f556ca268a1ea42469a2dac77fa8de7a4fcbe29ce63', requires: Object.freeze([]) }),
   Object.freeze({ name: 'shift-to-authority', canonicalSkillPath: 'skills/shift-to-authority/SKILL.md', canonicalSkillSha256: '4a28d226a46510671f2692e2e66e7c25499bfc8d36f5f41c2282fc13d5413af8', requires: Object.freeze([]) }),
-  Object.freeze({ name: 'skill-authoring', canonicalSkillPath: 'skills/skill-authoring/SKILL.md', canonicalSkillSha256: '609d721161ae4d19758ccb060e32e54cf86e265b64b3a39a3c3ea91c2e7a941e', requires: Object.freeze(['independent-code-review']) }),
+  Object.freeze({ name: 'skill-authoring', canonicalSkillPath: 'skills/skill-authoring/SKILL.md', canonicalSkillSha256: 'cf1ed5a0474b0a79ba779f46ffd047edf06163c43eaa77e2b3882e6e95c186a2', requires: Object.freeze(['independent-code-review']) }),
   Object.freeze({ name: 'sql-query-performance', canonicalSkillPath: 'skills/sql-query-performance/SKILL.md', canonicalSkillSha256: '89ba74a8b5820b24b81870c6f5d9de3e53311b210aec6401320014b6866e3a9b', requires: Object.freeze(['performance-sensitive-change']) }),
   Object.freeze({ name: 'structured-logging', canonicalSkillPath: 'skills/structured-logging/SKILL.md', canonicalSkillSha256: 'c8b61244336c8a55836846c02f95590b15d5798ddd728889d28b00365b573b33', requires: Object.freeze([]) }),
   Object.freeze({ name: 'terminal-program-ux', canonicalSkillPath: 'skills/terminal-program-ux/SKILL.md', canonicalSkillSha256: '25744409e6338b589a30eb8373b311fdaa2976a04c34a104f218eff536ed30bc', requires: Object.freeze(['inclusive-product-foundation']) }),
@@ -870,9 +870,16 @@ function locatorCoordinates(value) {
   } catch { return null }
 }
 
+// Repository-selecting variables (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE, ...) inherited from a hook or
+// agent environment would redirect these reads away from the governed root; user config stays honored.
+const GIT_REPOSITORY_SELECTORS = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_COMMON_DIR', 'GIT_NAMESPACE', 'GIT_PREFIX', 'GIT_CEILING_DIRECTORIES', 'GIT_DISCOVERY_ACROSS_FILESYSTEM']
+
 function gitResult(root, arguments_) {
+  const env = { ...process.env }
+  for (const key of GIT_REPOSITORY_SELECTORS) delete env[key]
   return spawnSync('git', arguments_, {
     cwd: root,
+    env,
     encoding: 'utf8',
     timeout: 10_000,
     maxBuffer: 8 * 1024 * 1024,
@@ -920,7 +927,12 @@ export function validateReviewableWorkspaceHandoffRepository(record, repositoryR
   }
   const top = gitText(root, ['rev-parse', '--show-toplevel'], 'repository root', problems)
   if (!top || fs.realpathSync.native(top) !== root) problems.push('reviewable workspace handoff repository root is not the Git top level')
-  const remote = gitText(root, ['remote', 'get-url', remoteName], 'repository remote', problems)
+  // Raw configured URL for identity (url.*.insteadOf rewrites apply only to transport). Fetch and ls-remote use the
+  // first of several URLs while `config --get` returns the last, so refuse unless exactly one value is configured.
+  const remoteValues = gitText(root, ['config', '--get-all', `remote.${remoteName}.url`], 'repository remote', problems)
+  const remoteLines = remoteValues === null ? [] : remoteValues.split('\n').filter(Boolean)
+  if (remoteValues !== null && remoteLines.length !== 1) problems.push('reviewable workspace handoff repository remote must have exactly one configured url')
+  const remote = remoteLines.length === 1 ? remoteLines[0] : ''
   const configuredRemote = remoteCoordinates(remote)
   if (!configuredRemote || repositoryFromRemote(remote) !== record.repository || configuredRemote.repository !== record.repository) problems.push('reviewable workspace handoff repository does not match its configured Git remote')
   const head = gitText(root, ['rev-parse', 'HEAD'], 'HEAD', problems)
